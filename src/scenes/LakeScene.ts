@@ -57,14 +57,16 @@ const Z = {
 
 /** Dock posts standing in the water: [centre x, base y]. */
 const POST_BASES: [number, number][] = [
-  [113, 384],
-  [113, 414],
-  [250, 384],
-  [250, 414],
+  [113, 376],
+  [113, 404],
+  [113, 432],
+  [250, 376],
+  [250, 404],
+  [250, 432],
 ];
 
-const ANGLER_POS = { x: 164, y: 368 };
-const ROD_HAND = { x: ANGLER_POS.x + 27, y: ANGLER_POS.y + 29 };
+const ANGLER_POS = { x: 164, y: DOCK.y + 6 };
+const ROD_HAND = { x: ANGLER_POS.x + 29, y: ANGLER_POS.y + 26 };
 const GLINT_N = 130;
 
 /** Multiplies two 0xRRGGBB colours (what setTint does on the GPU). */
@@ -155,6 +157,10 @@ export class LakeScene extends Phaser.Scene {
     }
 
     createTextures(this);
+    // Dev-only: ?debug=waiting forces the waiting state at 10 m (screenshots).
+    if (new URLSearchParams(location.search).get('debug') === 'waiting') {
+      this.state = { kind: 'waiting', distanceM: 10, zone: 'shallow', untilMs: 1e9, nibblesLeft: 0, hadNibble: false };
+    }
     this.buildScenery();
     this.buildUi();
 
@@ -278,16 +284,18 @@ export class LakeScene extends Phaser.Scene {
       [TEX.lilyA, 292, 300],
       [TEX.lilyB, 322, 330],
       [TEX.lilyA, 296, 376],
-      [TEX.lilyB, 30, 388],
+      [TEX.lilyB, 30, 400],
       [TEX.lilyA, 326, 262],
       [TEX.lilyB, 52, 250],
-      [TEX.reed, 4, 434],
-      [TEX.reed, 22, 438],
-      [TEX.reed, 322, 436],
-      [TEX.reed, 340, 432],
+      [TEX.lilyA, 70, 428],
+      [TEX.lilyB, 290, 424],
+      [TEX.reed, 4, 456],
+      [TEX.reed, 22, 460],
+      [TEX.reed, 322, 458],
+      [TEX.reed, 340, 454],
       [TEX.reed, 340, 252],
       [TEX.reed, 8, 262],
-    ];    for (const [key, x, y] of decor) {
+    ];   for (const [key, x, y] of decor) {
       const i = this.add.image(x, y, key).setOrigin(0, key === TEX.reed ? 1 : 0).setDepth(Z.waterDecor);
       this.worldImgs.push(i);
     }
@@ -329,7 +337,7 @@ export class LakeScene extends Phaser.Scene {
     for (let i = 0; i < 16; i++) {
       this.flies.push({
         x: rnd() * W,
-        y: 446 + rnd() * 170,
+        y: 468 + rnd() * 150,
         ax: 8 + rnd() * 16,
         ay: 5 + rnd() * 10,
         sx: 0.3 + rnd() * 0.5,
@@ -606,7 +614,8 @@ export class LakeScene extends Phaser.Scene {
     let dx = 0;
     let dy = 0;
     let bend = 3;
-    const towardBobber = BOBBER_X - ROD_TIP.x;
+    const bobberY = 'distanceM' in s ? distanceToY(s.distanceM) : ROD_TIP.y;
+    const tow = Math.sign(bobberY - ROD_TIP.y) || 1;
     switch (s.kind) {
       case 'idle':
       case 'waiting':
@@ -616,8 +625,8 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'charging': {
         const p = chargePower(s.heldMs);
-        dx = -8 * p;
-        dy = 48 * p;
+        dx = -16 * p;
+        dy = 52 * p;
         bend = 3 + 8 * p;
         break;
       }
@@ -628,13 +637,13 @@ export class LakeScene extends Phaser.Scene {
         break;
       }
       case 'bite':
-        dx = towardBobber * 0.2 + Math.sin(t * 40);
-        dy = -4;
+        dx = 4 + Math.sin(t * 40);
+        dy = tow * 5;
         bend = 9;
         break;
       case 'hooked':
-        dx = towardBobber * 0.3 + Math.sin(t * 22) * 1.5;
-        dy = -8 + Math.sin(t * 31) * 2;
+        dx = 3 + Math.sin(t * 22) * 1.5;
+        dy = tow * 9 + Math.sin(t * 31) * 2;
         bend = 15 + Math.sin(t * 25) * 2;
         break;
       case 'retrieving':
@@ -645,30 +654,60 @@ export class LakeScene extends Phaser.Scene {
     return { x: Math.round(ROD_TIP.x + dx), y: Math.round(ROD_TIP.y + dy), bend };
   }
 
-  /** The rod: a long tapered pole from the hands to the animated tip, drawn as pixels. */
+  /**
+   * The rod, held out to the upper right: cork grip, small reel, a 2 px blank tapering to 1 px,
+   * line guides and a red tip. Drawn as pixels with a dark rim so it reads on water and planks.
+   */
   private drawRod(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number; bend: number }): void {
-    const p0 = ROD_HAND;
-    const dxv = tip.x - p0.x;
-    const dyv = tip.y - p0.y;
+    const hand = ROD_HAND;
+    const dxv = tip.x - hand.x;
+    const dyv = tip.y - hand.y;
     const len = Math.hypot(dxv, dyv) || 1;
-    // Bend toward the right of the rod direction.
-    const ctrl = { x: (p0.x + tip.x) / 2 + (-dyv / len) * tip.bend, y: (p0.y + tip.y) / 2 + (dxv / len) * tip.bend };
-    const dark = multiply(PAL.woodDeep, look.worldTint);
-    const light = multiply(PAL.woodHi, look.worldTint);
-    const mid = multiply(PAL.woodLight, look.worldTint);
-    const n = Math.ceil(len * 1.4);
+    const ux = dxv / len;
+    const uy = dyv / len;
+    // The butt pokes out behind the hand.
+    const p0 = { x: hand.x - ux * 6, y: hand.y - uy * 6 };
+    const total = len + 6;
+    // Bend toward the right of the rod direction (the tip droops under load).
+    const ctrl = { x: (p0.x + tip.x) / 2 - uy * tip.bend, y: (p0.y + tip.y) / 2 + ux * tip.bend };
+    const tint = (c: number) => multiply(c, look.worldTint);
+    const rim = PAL.outline;
+    const n = Math.ceil(total * 1.5);
+    const pts: { x: number; y: number; t: number; th: number }[] = [];
+    let lx = NaN;
+    let ly = NaN;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       const u = 1 - t;
       const x = Math.round(u * u * p0.x + 2 * u * t * ctrl.x + t * t * tip.x);
       const y = Math.round(u * u * p0.y + 2 * u * t * ctrl.y + t * t * tip.y);
-      const th = t < 0.25 ? 3 : t < 0.6 ? 2 : 1;
-      g.fillStyle(dark).fillRect(x + 1, y + 1, th, th);
-      g.fillStyle(t < 0.25 ? mid : light).fillRect(x, y, th, th);
+      if (x === lx && y === ly) continue;
+      lx = x;
+      ly = y;
+      const dist = t * total;
+      pts.push({ x, y, t, th: dist < 12 ? 3 : t < 0.62 ? 2 : 1 });
     }
-    // Reel at the hands.
-    g.fillStyle(multiply(PAL.stoneLight, look.worldTint)).fillRect(p0.x - 4, p0.y + 1, 3, 3);
-    g.fillStyle(PAL.redLight).fillRect(tip.x, tip.y, 1, 1);
+    for (const p of pts) g.fillStyle(rim, 0.9).fillRect(p.x - 1, p.y - 1, p.th + 2, p.th + 2);
+    for (const p of pts) {
+      const grip = p.t * total < 12;
+      const c = grip ? (p.x + p.y) % 3 === 0 ? PAL.sandDark : PAL.sand : p.t < 0.62 ? PAL.woodHi : PAL.strawLight;
+      g.fillStyle(tint(c)).fillRect(p.x, p.y, p.th, p.th);
+      if (!grip && p.th >= 2) g.fillStyle(tint(PAL.woodLight)).fillRect(p.x + 1, p.y + 1, 1, 1);
+    }
+    // Line guides.
+    for (const gt of [0.36, 0.55, 0.72, 0.88]) {
+      const p = pts[Math.min(pts.length - 1, Math.floor(gt * pts.length))];
+      g.fillStyle(tint(PAL.white)).fillRect(p.x + 1, p.y - 1, 1, 1);
+    }
+    // Reel under the grip.
+    const rx = Math.round(hand.x - ux * 1) - 1;
+    const ry = Math.round(hand.y - uy * 1) + 2;
+    g.fillStyle(rim).fillRect(rx - 1, ry - 1, 6, 6);
+    g.fillStyle(tint(PAL.stone)).fillRect(rx, ry, 4, 4);
+    g.fillStyle(tint(PAL.stoneLight)).fillRect(rx, ry, 2, 2);
+    g.fillStyle(tint(PAL.gold)).fillRect(rx + 3, ry + 3, 1, 1);
+    // Red tip.
+    g.fillStyle(PAL.redLight).fillRect(tip.x, tip.y, 2, 2);
   }
 
   private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number): void {
