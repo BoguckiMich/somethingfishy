@@ -3,6 +3,7 @@ import { BAR_BORDER, BAR_INNER, STRIP_INNER } from '../art/catchBarArt';
 import { lerpColor } from '../art/dayCycle';
 import { W } from '../art/layout';
 import { PAL } from '../art/palette';
+import { fishIconKey } from '../art/fishArt';
 import { TEX } from '../art/textures';
 import type { CatchBarState } from '../core/catchBar';
 import type { BarGear } from '../core/gear';
@@ -41,7 +42,7 @@ export class CatchBarView {
     this.dyn = scene.add.graphics().setDepth(DEPTH);
     this.frame = scene.add.image(BAR_FRAME.x, BAR_FRAME.y, TEX.barFrame).setOrigin(0, 0).setDepth(DEPTH + 0.2);
     this.strip = scene.add.image(STRIP_FRAME.x, STRIP_FRAME.y, TEX.stripFrame).setOrigin(0, 0).setDepth(DEPTH + 0.2);
-    this.fishIcon = scene.add.image(0, 0, TEX.placeholderFish).setDepth(DEPTH + 0.1);
+    this.fishIcon = scene.add.image(0, 0, fishIconKey('perch')).setDepth(DEPTH + 0.1);
     this.hide();
   }
 
@@ -54,7 +55,7 @@ export class CatchBarView {
   }
 
   /** `tint` dims everything a little at night (a gentler version of the world tint). */
-  update(bar: CatchBarState, gear: BarGear, tint: number): void {
+  update(bar: CatchBarState, gear: BarGear, tint: number, speciesId: string): void {
     const t = (c: number) => multiplyColor(c, tint);
     const { bg, dyn } = this;
     bg.clear();
@@ -82,6 +83,7 @@ export class CatchBarView {
     // The fish, a little shaken when it is moving fast.
     const shake = Math.abs(bar.fishVel) > 0.5 ? Math.round(Math.sin(bar.elapsedMs / 35)) : 0;
     this.fishIcon
+      .setTexture(fishIconKey(speciesId))
       .setVisible(true)
       .setTint(tint)
       .setPosition(Math.round(win.x + win.w / 2) + shake, Math.round(toY(bar.fish)));

@@ -4,7 +4,9 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, PLACEHOLDER_FISH_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffSprite, placeholderFishSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { SPECIES } from '../core/data/fish';
+import { FISH_SIZE_CLASSES, fishIconSprite, fishSizeClass, fishSprite } from './fishArt';
 import { BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
 
 describe('palette', () => {
@@ -67,14 +69,47 @@ describe('sprites', () => {
       expect(a.pixels[ALEX_FEET_Y * a.width + x], `feet column ${x}`).toBe(standing.pixels[ALEX_FEET_Y * standing.width + x]);
     }
     // The fish is a separate sprite, anchored between her raised hands, inside the sprite.
-    const fish = placeholderFishSprite();
-    expect([fish.width, fish.height]).toEqual([PLACEHOLDER_FISH_SIZE.w, PLACEHOLDER_FISH_SIZE.h]);
-    const left = SHOW_OFF_FISH_ANCHOR.x - fish.width / 2;
-    expect(left).toBeGreaterThan(0);
-    expect(left + fish.width).toBeLessThan(a.width);
+    expect(SHOW_OFF_FISH_ANCHOR.x - 16).toBe(0);
     expect(SHOW_OFF_FISH_ANCHOR.y).toBeLessThan(a.height / 2);
     // The tee logo from the front is in the pose.
     expect(Array.from(a.pixels)).toContain(PAL.white);
+  });
+
+  it('every species has fish frames in every size class, narrow enough for the show-off pose', () => {
+    const seen = new Set<string>();
+    for (const sp of SPECIES) {
+      let prevW = 0;
+      for (const cls of FISH_SIZE_CLASSES) {
+        const f = fishSprite(sp.id, cls);
+        expect(f.width, `${sp.id} ${cls}`).toBeLessThanOrEqual(34);
+        expect(f.width, `${sp.id} grows with size`).toBeGreaterThan(prevW);
+        prevW = f.width;
+        expect(f.pixels.some((c) => c !== TRANSPARENT)).toBe(true);
+        seen.add(Array.from(f.pixels).join(','));
+      }
+      const icon = fishIconSprite(sp.id);
+      expect(icon.width).toBeLessThanOrEqual(17);
+      expect(icon.height).toBeLessThanOrEqual(11);
+    }
+    expect(seen.size).toBe(SPECIES.length * FISH_SIZE_CLASSES.length); // all different
+  });
+
+  it('big fish look bigger than small ones: catfish and eel dwarf the bleak', () => {
+    const area = (id: string, cls: 0 | 1 | 2) => {
+      const f = fishSprite(id, cls);
+      return f.pixels.filter((c) => c !== TRANSPARENT).length;
+    };
+    expect(area('catfish', 2)).toBeGreaterThan(area('bleak', 2) * 3);
+    expect(area('eel', 1)).toBeGreaterThan(area('bleak', 2) * 1.5);
+    expect(fishSprite('eel', 1).height).toBeLessThan(fishSprite('bream', 1).height); // long and thin
+  });
+
+  it('maps a length to a size class by where it sits in the species range', () => {
+    expect(fishSizeClass('perch', 10)).toBe(0);
+    expect(fishSizeClass('perch', 23)).toBe(1);
+    expect(fishSizeClass('perch', 35)).toBe(2);
+    expect(fishSizeClass('catfish', 61)).toBe(0);
+    expect(fishSizeClass('unknown', 10)).toBe(0);
   });
 
   it('has a distinct dog sprite for every frame key', () => {

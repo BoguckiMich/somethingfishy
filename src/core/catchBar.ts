@@ -1,5 +1,4 @@
 import type { BarGear } from './gear';
-import type { ZoneId } from './location';
 import type { Rng } from './random';
 import { randRange } from './random';
 
@@ -12,7 +11,7 @@ import { randRange } from './random';
 export type FishPattern = 'smooth' | 'darting' | 'sinker' | 'floater' | 'erratic';
 export const FISH_PATTERNS: readonly FishPattern[] = ['smooth', 'darting', 'sinker', 'floater', 'erratic'];
 
-/** What the bar needs to know about the fish. Placeholder until species arrive in slice 6. */
+/** What the bar needs to know about the fish: built from the species by `fightProfile`. */
 export interface FishProfile {
   pattern: FishPattern;
   /** 0 (docile) .. 1 (legendary). */
@@ -61,7 +60,7 @@ export const CATCH_BAR_TUNING = {
   /** Progress per second while the fish is inside the zone. */
   fillPerSec: 0.16,
   /** Progress per second lost while it is outside (times the line's drain). */
-  drainPerSec: 0.09,
+  drainPerSec: 0.13,
   /** Zone acceleration (bar units/s²) while holding, and the pull of gravity while released. */
   lift: 2.4,
   gravity: 2.0,
@@ -75,18 +74,18 @@ export const CATCH_BAR_TUNING = {
   /** Fraction by which full bait calm shrinks fish speed and reach (and stretches the pauses). */
   calmEffect: 0.5,
   patterns: {
-    smooth: { speed: [0.12, 0.9], interval: [2.4, 0.5], reach: [0.18, 0.8], response: 4 },
-    darting: { speed: [0.5, 2.6], interval: [1.7, 0.35], reach: [0.2, 0.9], response: 16 },
-    sinker: { speed: [0.12, 0.85], interval: [2.4, 0.6], reach: [0.2, 0.8], response: 4 },
-    floater: { speed: [0.12, 0.85], interval: [2.4, 0.6], reach: [0.2, 0.8], response: 4 },
-    erratic: { speed: [0.25, 1.5], interval: [0.75, 0.15], reach: [0.2, 0.9], response: 9 },
+    smooth: { speed: [0.12, 2.0], interval: [2.4, 0.35], reach: [0.18, 0.9], response: 4 },
+    darting: { speed: [0.5, 2.4], interval: [2.2, 1.5], reach: [0.25, 0.6], response: 14 },
+    sinker: { speed: [0.12, 2.1], interval: [1.9, 0.28], reach: [0.2, 0.9], response: 4 },
+    floater: { speed: [0.12, 1.2], interval: [2.4, 0.5], reach: [0.2, 0.85], response: 4 },
+    erratic: { speed: [0.25, 1.15], interval: [0.7, 0.18], reach: [0.2, 0.75], response: 9 },
   } satisfies Record<FishPattern, PatternTuning>,
   /** Difficulty is raised to this power before it scales speed and reach: gentle fish stay gentle, legends bite. */
-  difficultyCurve: 1,
+  difficultyCurve: 0.75,
   /** The line drains faster for the hardest fish: x(1 + this * difficulty^6), so legends punish slips. */
-  drainDifficultyBoost: 2,
+  drainDifficultyBoost: 1.2,
   /** Chance that a sinker/floater picks a target anywhere on the bar instead of its favourite half. */
-  strayChance: 0.12,
+  strayChance: 0.28,
   /** Fish stay this far from the very ends. */
   fishMargin: 0.03,
 };
@@ -214,15 +213,4 @@ export function tickCatchBar(
     }
   }
   return s;
-}
-
-/** Placeholder fish chosen by zone until real species exist (slice 6). */
-export function placeholderFish(zone: ZoneId, rng: Rng): FishProfile {
-  if (zone === 'shallow') {
-    const roll = rng();
-    const pattern: FishPattern = roll < 0.4 ? 'smooth' : roll < 0.7 ? 'floater' : 'sinker';
-    return { pattern, difficulty: randRange(rng, 0.05, 0.3) };
-  }
-  const pattern = FISH_PATTERNS[Math.min(FISH_PATTERNS.length - 1, Math.floor(rng() * FISH_PATTERNS.length))];
-  return { pattern, difficulty: randRange(rng, 0.45, 0.8) };
 }
