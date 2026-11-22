@@ -178,36 +178,36 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
   const p = new Pix(40, 44);
   // Broad black tee.
   for (let y = 24; y <= 41; y++) {
-    let x0 = 4;
-    let x1 = 35;
-    if (y === 24) [x0, x1] = [10, 29];
-    else if (y === 25) [x0, x1] = [7, 32];
-    else if (y >= 40) [x0, x1] = [6, 33];
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 10 ? PAL.teeLight : x >= 29 ? PAL.teeDark : PAL.tee);
+    let x0 = 8;
+    let x1 = 31;
+    if (y === 24) [x0, x1] = [12, 27];
+    else if (y === 25) [x0, x1] = [9, 30];
+    else if (y >= 40) [x0, x1] = [9, 30];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.teeLight : x >= 27 ? PAL.teeDark : PAL.tee);
   }
   // Left arm hanging, right arm holding the thermos (or raised).
-  p.rect(2, 26, 4, 5, PAL.tee);
-  p.rect(2, 31, 4, 5, PAL.skin);
-  p.rect(5, 31, 1, 5, PAL.skinShade);
+  p.rect(5, 26, 4, 5, PAL.tee);
+  p.rect(5, 31, 4, 5, PAL.skin);
+  p.rect(8, 31, 1, 5, PAL.skinShade);
   if (pose === 'sip') {
-    p.rect(33, 26, 4, 5, PAL.tee);
-    p.rect(31, 21, 4, 6, PAL.skin);
+    p.rect(30, 26, 4, 5, PAL.tee);
+    p.rect(30, 21, 4, 6, PAL.skin);
     p.rect(30, 14, 4, 7, PAL.mug);
     p.rect(30, 14, 1, 7, PAL.mugDark);
     p.rect(30, 12, 4, 2, PAL.stoneLight);
   } else if (pose === 'cheer') {
-    p.rect(33, 26, 4, 4, PAL.tee);
-    p.rect(34, 12, 3, 14, PAL.skin);
-    p.rect(36, 12, 1, 14, PAL.skinShade);
-    p.rect(33, 5, 5, 7, PAL.mug);
-    p.rect(33, 5, 1, 7, PAL.mugDark);
-    p.rect(33, 3, 5, 2, PAL.stoneLight);
+    p.rect(30, 26, 4, 4, PAL.tee);
+    p.rect(31, 12, 3, 14, PAL.skin);
+    p.rect(33, 12, 1, 14, PAL.skinShade);
+    p.rect(30, 5, 5, 7, PAL.mug);
+    p.rect(30, 5, 1, 7, PAL.mugDark);
+    p.rect(30, 3, 5, 2, PAL.stoneLight);
   } else {
-    p.rect(33, 26, 4, 5, PAL.tee);
-    p.rect(32, 31, 4, 5, PAL.skin);
-    p.rect(34, 30, 4, 8, PAL.mug);
-    p.rect(34, 30, 1, 8, PAL.mugDark);
-    p.rect(34, 28, 4, 2, PAL.stoneLight);
+    p.rect(30, 26, 4, 5, PAL.tee);
+    p.rect(30, 31, 4, 5, PAL.skin);
+    p.rect(31, 30, 4, 8, PAL.mug);
+    p.rect(31, 30, 1, 8, PAL.mugDark);
+    p.rect(31, 28, 4, 2, PAL.stoneLight);
   }
   const dy = breath;
   // Messy shoulder-length dirty-blond hair (head + back), with flyaway strands.

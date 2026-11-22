@@ -328,7 +328,7 @@ export class LakeScene extends Phaser.Scene {
     saveProfile(this.safeStorage(), p);
     if (welcome) {
       this.showTag(0, p.player, ALEX_POS.x + 16, ALEX_POS.y - 4);
-      this.showTag(1, p.companion, 144, 358);
+      this.showTag(1, p.companion, 150, 358);
       this.showTag(2, p.dog, 178, 402);
     }
   }

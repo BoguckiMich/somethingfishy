@@ -13,7 +13,7 @@ export interface Point {
 }
 
 /** Where they sit on the dock (feet positions). */
-export const PAJ_SPOT: Point = { x: 144, y: 406 };
+export const PAJ_SPOT: Point = { x: 150, y: 406 };
 export const DOG_SPOT: Point = { x: 178, y: 430 };
 /** Waypoints down the dock to the grass (kept clear of the bobber and the hint text). */
 const PAJ_PATH_DOWN: Point[] = [{ x: 148, y: 440 }, { x: 148, y: 484 }];
