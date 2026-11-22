@@ -14,14 +14,14 @@ _Last updated: 2026-11-22._
 | 2 | Game clock, day/night, bites (nibbles, 1 s hook window), GameEvents | merged |
 | 3 | Art pass: hand-authored pixel art, day/night palettes, rod animations | merged |
 | 4 | Characters: Alex + Pajkel + Bestia (dog), AFK play, petting, name entry | merged |
-| 4b | Standing Alex: slimmer, clearer hair, glances around (GAME_DESIGN §2b) | next |
-| 5 | Catch bar fight + show-off pose (all details decided, GAME_DESIGN §3) | after 4b |
+| 4b | Standing Alex: slimmer, clearer hair, glances around (GAME_DESIGN §2b) | merged |
+| 5 | Catch bar fight + show-off pose (all details decided, GAME_DESIGN §3) | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
 
 ### Known weak spots (candidates for polish, not blockers)
-- Alex's hair is close in tone to the dock planks; reads as a plain dome (fix in slice 4b).
+- Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
 - AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
 - Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
 - Name tags age per frame (~16 ms), not by real delta.
