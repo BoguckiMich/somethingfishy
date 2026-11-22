@@ -16,7 +16,8 @@ _Last updated: 2026-11-22._
 | 4 | Characters: Alex + Pajkel + Bestia (dog), AFK play, petting, name entry | merged |
 | 4b | Standing Alex: slimmer, clearer hair, glances around (GAME_DESIGN §2b) | merged |
 | 5 | Catch bar fight + show-off pose (GAME_DESIGN §3); user: "ok for now, perfect later" | merged |
-| 6 | Fish data, spawn rules, sizes, catch result | next |
+| 6 | Fish data (12 species), spawn rules, sizes, catch result | merged |
+| 7 | Bag, shop, coins, rod upgrades (needs a grilling round) | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -27,6 +28,10 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   difficulty^6 drain boost were added beyond spec to make tuning work (`CATCH_BAR_TUNING`);
   a passive player beats ~38% of mid fish (sinkers reach the resting zone, Stardew-like, accepted).
   Rod bend/bobber jerk were not seen in motion by the reviewer.
+- Fish (slice 6): show-off fish is small at her chin (bleak = a few px); tuning margins thin
+  (bream/tench ~8.3 s vs 8 s floor, pike 13.7 s vs 15 s ceiling); shallow is still ~100% for a
+  sloppy bot despite drain 0.13/s, user may want shallow actually losable. Per-species fish art
+  is procedural placeholder (`src/art/fishArt.ts`) until slice 10.
 - Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
 - AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
 - Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
