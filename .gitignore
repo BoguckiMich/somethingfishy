@@ -3,3 +3,8 @@ dist/
 *.log
 .DS_Store
 .claude/settings.local.json
+
+# Private reference photos: never commit
+/me.png
+/wife.png
+/reference/
