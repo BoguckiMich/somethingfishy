@@ -3,6 +3,10 @@ export interface Rod {
   name: string;
   /** Cast distance at full power, in meters. */
   maxCastM: number;
+  /** Coins in the shop (the starter rod is free). */
+  price: number;
+  /** What this rod does to the catch bar. */
+  barGear: BarGear;
 }
 
 /** What the player's gear does to the catch bar (GAME_DESIGN §3). 1 = the starter value. */

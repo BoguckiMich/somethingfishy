@@ -40,8 +40,10 @@ export type FishingInput =
 export interface SessionContext {
   location: Location;
   rod: Rod;
-  /** What the gear does to the catch bar. */
+  /** What the equipped rod does to the catch bar. */
   barGear: BarGear;
+  /** Asked before a cast starts charging (out of worms: no). Absent means always. */
+  canCast?: () => boolean;
   rng: Rng;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
   timeOfDay: () => TimeOfDay;
@@ -83,7 +85,8 @@ const same = (state: FishingState): StepResult => ({ state, events: [] });
 export function step(state: FishingState, input: FishingInput, ctx: SessionContext): StepResult {
   switch (state.kind) {
     case 'idle':
-      return input.type === 'press' ? same({ kind: 'charging', heldMs: 0 }) : same(state);
+      if (input.type !== 'press' || (ctx.canCast && !ctx.canCast())) return same(state);
+      return same({ kind: 'charging', heldMs: 0 });
 
     case 'charging':
       if (input.type === 'tick') return same({ kind: 'charging', heldMs: state.heldMs + input.dtMs });

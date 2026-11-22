@@ -286,3 +286,15 @@ describe('zoneAt', () => {
     expect(zoneAt(QUIET_LAKE, 999).id).toBe('deep');
   });
 });
+
+describe('casting needs a worm', () => {
+  it('a press in idle does not start charging when canCast says no', () => {
+    const ctx = { ...ctxWith(), canCast: () => false };
+    const r = step(INITIAL_STATE, { type: 'press' }, ctx);
+    expect(r.state).toBe(INITIAL_STATE);
+  });
+  it('charges as usual when canCast says yes (or is not given)', () => {
+    expect(step(INITIAL_STATE, { type: 'press' }, { ...ctxWith(), canCast: () => true }).state.kind).toBe('charging');
+    expect(step(INITIAL_STATE, { type: 'press' }, ctxWith()).state.kind).toBe('charging');
+  });
+});
