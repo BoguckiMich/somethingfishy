@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
-import { ALEX_HEADS, HEART, STICK, alexKey, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { ALEX_HEADS, HEART, STICK, alexKey, alexShowOffKey, alexShowOffSprite, alexSprite, placeholderFishSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
 import { FAR_SHORE_Y, W } from './layout';
 import { Raster } from './raster';
 import {
@@ -40,6 +41,9 @@ export const TEX = {
   lilyB: 'lilyB',
   reed: 'reed',
   post: 'post',
+  placeholderFish: 'placeholderFish',
+  barFrame: 'barFrame',
+  stripFrame: 'stripFrame',
 } as const;
 
 /** Uploads a pure Raster as a Phaser canvas texture (once). */
@@ -72,6 +76,8 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));
   addRaster(scene, TEX.reed, Raster.fromSprite(REED));
   addRaster(scene, TEX.post, Raster.fromSprite(POST));
+  addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
+  addRaster(scene, TEX.stripFrame, Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
   if (!scene.textures.exists(TEX.sky)) {
     const sky = new Raster(W, FAR_SHORE_Y);
     paintSky(sky, 0x3f92e0, 0xaadef6);
@@ -97,6 +103,8 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   for (const head of ALEX_HEADS) {
     for (const b of [0, 1] as const) addRaster(scene, alexKey(head, b), Raster.fromSprite(alexSprite(head, b)));
   }
+  for (const b of [0, 1] as const) addRaster(scene, alexShowOffKey(b), Raster.fromSprite(alexShowOffSprite(b)));
+  addRaster(scene, TEX.placeholderFish, Raster.fromSprite(placeholderFishSprite()));
   for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
   }

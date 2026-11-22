@@ -4,7 +4,7 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ALEX_HEADS, ALEX_SIZE, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, PLACEHOLDER_FISH_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffSprite, placeholderFishSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
 import { BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
 
 describe('palette', () => {
@@ -54,6 +54,27 @@ describe('sprites', () => {
         }
       }
     }
+  });
+
+  it('the show-off pose matches the standing size and feet, breathes, and holds the fish at its anchor', () => {
+    const a = alexShowOffSprite(0);
+    const b = alexShowOffSprite(1);
+    expect([a.width, a.height, b.width, b.height]).toEqual([ALEX_SIZE.w, ALEX_SIZE.h, ALEX_SIZE.w, ALEX_SIZE.h]);
+    expect(Array.from(b.pixels)).not.toEqual(Array.from(a.pixels));
+    // Same feet anchor as the standing sprite: shoes touch the bottom row, in the same columns.
+    const standing = alexSprite('forward', 0);
+    for (const x of [11, 12, 13, 14, 17, 18, 19, 20]) {
+      expect(a.pixels[ALEX_FEET_Y * a.width + x], `feet column ${x}`).toBe(standing.pixels[ALEX_FEET_Y * standing.width + x]);
+    }
+    // The fish is a separate sprite, anchored between her raised hands, inside the sprite.
+    const fish = placeholderFishSprite();
+    expect([fish.width, fish.height]).toEqual([PLACEHOLDER_FISH_SIZE.w, PLACEHOLDER_FISH_SIZE.h]);
+    const left = SHOW_OFF_FISH_ANCHOR.x - fish.width / 2;
+    expect(left).toBeGreaterThan(0);
+    expect(left + fish.width).toBeLessThan(a.width);
+    expect(SHOW_OFF_FISH_ANCHOR.y).toBeLessThan(a.height / 2);
+    // The tee logo from the front is in the pose.
+    expect(Array.from(a.pixels)).toContain(PAL.white);
   });
 
   it('has a distinct dog sprite for every frame key', () => {
