@@ -163,11 +163,14 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
   p.rect(14, 17 + dy, 3, 5 - dy, PAL.skinShade);
 
   // Shoulder-length light-brown hair. Strands run down the head; the ends are ragged.
-  const hairColor = (x: number, y: number) => {
+  // Breathing moves the whole head and hair block rigidly by `dy`: colours are sampled in
+  // head-local rows (y - dy), so the strand pattern travels with the silhouette.
+  const hairColor = (x: number, yy: number) => {
+    const y = yy - dy;
     const col = noise(x, 3.7);
     const n = noise(x, y);
     // Highlight band sweeping across the crown (light from the upper left).
-    const sheen = Math.abs(x + y * 0.8 - 18) < 1.3 && y < 11 + dy;
+    const sheen = Math.abs(x + y * 0.8 - 18) < 1.3 && y < 11;
     if (sheen) return n > 0.4 ? PAL.alexHairHi : PAL.alexHairLight;
     if (y > 17 && (x < 10 || x > 21)) return PAL.alexHairDark;
     if (col > 0.62) return y > 12 && n < 0.3 ? PAL.alexHair : PAL.alexHairLight;
@@ -177,7 +180,7 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
   // Hair hanging to the shoulders, with uneven ends.
   for (let x = 9; x <= 22; x++) {
     const end = 20 + Math.floor(noise(x, 9.1) * 4) - (x === 9 || x === 22 ? 2 : 0);
-    for (let y = 14; y <= end; y++) p.set(x, y, hairColor(x, y));
+    for (let y = 14 + dy; y <= end + dy; y++) p.set(x, y, hairColor(x, y));
   }
   // The head itself.
   p.ell(15.5, 8.5 + dy, 7.6, 8.3, hairColor);

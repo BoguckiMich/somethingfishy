@@ -41,6 +41,21 @@ describe('sprites', () => {
     expect(pajkelWalkSprite('walk1').width).toBeGreaterThan(0);
   });
 
+  it("Alex's hair moves as one block when she breathes", () => {
+    // Every hair pixel of frame 0 sits exactly one row lower in frame 1 (no torn or static parts).
+    const hair = new Set<number>([PAL.alexHair, PAL.alexHairLight, PAL.alexHairHi, PAL.alexHairDark]);
+    for (const head of ALEX_HEADS) {
+      const a = alexSprite(head, 0);
+      const b = alexSprite(head, 1);
+      const at = (s: typeof a, x: number, y: number) => s.pixels[y * s.width + x];
+      for (let y = 0; y < a.height - 1; y++) {
+        for (let x = 0; x < a.width; x++) {
+          if (hair.has(at(a, x, y))) expect(at(b, x, y + 1), `${head} ${x},${y}`).toBe(at(a, x, y));
+        }
+      }
+    }
+  });
+
   it('has a distinct dog sprite for every frame key', () => {
     const frames = allDogFrames();
     expect(new Set(frames.map(dogKey)).size).toBe(frames.length);
