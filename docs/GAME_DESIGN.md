@@ -49,6 +49,7 @@ rendering, the portrait lake screen becomes one scene of a bigger world instead 
 
 1. **Cast** — hold to charge a power meter, release to cast. Distance decides the zone:
    *shallow* (near shore) or *deep* (far). The starter rod only reaches shallow water.
+   *Future:* dragging the thumb left/right while charging aims the cast (see Ideas below).
 2. **Wait / bite** — the bobber gives a few small *nibbles* (fake-outs), then a big dip with
    a "!" and a ~1 s window to tap. Tapping on a nibble scares the fish away. Shy species nibble more.
 3. **Fight** — Stardew-style vertical catch bar:
@@ -104,6 +105,14 @@ be tweaked without touching logic.
 - **v2d Feeder / bottom fishing** — heavy cast, bite alarm, patient; maybe 2 rods. Carp, bream, catfish.
 - **Later** — more locations (river, pond, sea, ice fishing), fly fishing, weather & seasons,
   walkable Stardew-like world (landscape), music, personal touches (her own legendary fish), cloud sync.
+
+### Ideas (not scheduled)
+- **Aimed casting** — while holding to charge, sliding the thumb left/right changes the cast
+  direction (the landing marker follows). It only matters once the lake has *features* worth
+  aiming at: reeds, lily pads, a sunken log, a drop-off, each holding different fish or better
+  bite rates. Build the two together, otherwise aiming is cosmetic.
+  Core impact: cast result becomes distance + angle (a 2D point), and "zone" lookup becomes a
+  point-in-area check; keep that in mind when extending `Location`.
 
 ### Parked on purpose
 Personal touches · weather & seasons · cloud sync · landscape/walkable world · music · treasure chests.
