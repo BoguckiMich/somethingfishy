@@ -58,7 +58,7 @@ The game stars the two of them and their dog. Reference photos live untracked in
   later: black hoodie with a blue dinosaur patch (cosmetic unlock).
 - **Pajkel** (default name) — companion. Messy dirty-blonde hair, long full brown beard, dark
   sunglasses, black t-shirt, broad build. Sits next to Alex on the dock, reacts to her catches.
-- **The dog** — small, ginger, short-haired, folded ears, yellow harness. Lies on the dock; ears
+- **Bestia** (default name), the dog — small, ginger, short-haired, folded ears, yellow harness. Lies on the dock; ears
   perk on a nibble, jumps up on a bite, happy spin when hooked, sleeps at night. Tap to pet (heart).
 - **Idle / AFK** — after a while without input, Pajkel and the dog get up and play on the grass
   (fetch, running around); they come back when she starts fishing again.

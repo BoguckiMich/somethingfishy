@@ -4,7 +4,8 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ANGLER, ANGLER_B, BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
+import { ALEX_SIZE, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
 
 describe('palette', () => {
   it('has 32-60 unique colours', () => {
@@ -17,17 +18,26 @@ describe('palette', () => {
 
 describe('sprites', () => {
   it('have the intended sizes', () => {
-    expect([ANGLER.width, ANGLER.height]).toEqual([32, ANGLER.height]);
-    expect([ANGLER_B.width, ANGLER_B.height]).toEqual([32, ANGLER.height]);
     expect([BOBBER.width, BOBBER.height]).toEqual([5, 9]);
     expect(PINE_A.width).toBe(15);
-    expect(ANGLER.height).toBeGreaterThanOrEqual(40);
     expect(PINE_TALL.height).toBeGreaterThan(PINE_A.height * 1.8);
     expect(REED.width).toBe(11);
   });
 
-  it('breathing frame differs from the first', () => {
-    expect(Array.from(ANGLER_B.pixels)).not.toEqual(Array.from(ANGLER.pixels));
+  it('characters have the intended sizes and breathing frames', () => {
+    const a0 = alexSprite(0);
+    expect([a0.width, a0.height]).toEqual([ALEX_SIZE.w, ALEX_SIZE.h]);
+    expect(Array.from(alexSprite(1).pixels)).not.toEqual(Array.from(a0.pixels));
+    const p = pajkelSittingSprite('sit', 0);
+    expect([p.width, p.height]).toEqual([PAJ_SIZE.w, PAJ_SIZE.h]);
+    expect(Array.from(pajkelSittingSprite('sip', 0).pixels)).not.toEqual(Array.from(p.pixels));
+    expect(pajkelWalkSprite('walk1').width).toBeGreaterThan(0);
+  });
+
+  it('has a distinct dog sprite for every frame key', () => {
+    const frames = allDogFrames();
+    expect(new Set(frames.map(dogKey)).size).toBe(frames.length);
+    for (const f of frames) expect([dogSprite(f).width, dogSprite(f).height]).toEqual([DOG_SIZE.w, DOG_SIZE.h]);
   });
 });
 

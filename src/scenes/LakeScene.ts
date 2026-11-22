@@ -14,13 +14,18 @@ import {
 } from '../art/layout';
 import { PAL } from '../art/palette';
 import { mulberry32 } from '../art/raster';
+import { ALEX_HAND } from '../art/characters';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
-import { advanceClock, formatClock, NEW_GAME_CLOCK, type GameClock } from '../core/clock';
+import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
 import type { GameEvent } from '../core/events';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
+import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
+import { showNameOverlay } from '../ui/nameOverlay';
+import { companionEvent, companionPress, startPlayNow, tickCompanions } from './companions/behaviour';
+import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
 
 const NIBBLE_ANIM_MS = 260;
@@ -60,13 +65,14 @@ const POST_BASES: [number, number][] = [
   [113, 376],
   [113, 404],
   [113, 432],
-  [250, 376],
-  [250, 404],
-  [250, 432],
+  [252, 376],
+  [252, 404],
+  [252, 432],
 ];
 
-const ANGLER_POS = { x: 164, y: DOCK.y + 6 };
-const ROD_HAND = { x: ANGLER_POS.x + 29, y: ANGLER_POS.y + 26 };
+const ALEX_POS = { x: 192, y: DOCK.y + 6 };
+const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
+const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
 const GLINT_N = 130;
 
 /** Multiplies two 0xRRGGBB colours (what setTint does on the GPU). */
@@ -109,7 +115,11 @@ export class LakeScene extends Phaser.Scene {
   private waterImg!: Phaser.GameObjects.Image;
   private reflectionImg!: Phaser.GameObjects.Image;
   private worldImgs: Phaser.GameObjects.Image[] = [];
-  private anglerImg!: Phaser.GameObjects.Image;
+  private alexImg!: Phaser.GameObjects.Image;
+  private companions!: CompanionView;
+  private profile: Profile = DEFAULT_PROFILE;
+  private tags: { text: Phaser.GameObjects.Text; age: number }[] = [];
+  private swallowUp = false;
   private bobberImg!: Phaser.GameObjects.Image;
 
   // Per-frame graphics layers.
@@ -151,21 +161,46 @@ export class LakeScene extends Phaser.Scene {
 
   create(): void {
     // Dev helper: ?time=22 starts the clock at 22:00, to check night/dawn without waiting.
-    const startHour = Number(new URLSearchParams(location.search).get('time'));
+    const params = new URLSearchParams(location.search);
+    const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && location.search.includes('time=')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
     }
 
     createTextures(this);
     // Dev-only: ?debug=waiting forces the waiting state at 10 m (screenshots).
-    if (new URLSearchParams(location.search).get('debug') === 'waiting') {
+    if (params.get('debug') === 'waiting') {
       this.state = { kind: 'waiting', distanceM: 10, zone: 'shallow', untilMs: 1e9, nibblesLeft: 0, hadNibble: false };
     }
     this.buildScenery();
     this.buildUi();
 
-    this.input.on('pointerdown', () => this.send({ type: 'press' }));
-    this.input.on('pointerup', () => this.send({ type: 'release' }));
+    this.setupProfile(params);
+    // Let the companions settle in (at night the dog is already dozing when the game opens).
+    for (let t = 0; t < 2000; t += 50) {
+      tickCompanions(this.companions.state, 50, { fishing: 'idle', night: timeOfDay(this.clock.minute) === 'night' });
+    }
+    if (params.get('debug') === 'afk') {
+      // Dev-only: jump into the grass play and fast-forward to a fetch in progress.
+      startPlayNow(this.companions.state);
+      for (let t = 0; t < 1500; t += 50) tickCompanions(this.companions.state, 50, { fishing: 'idle', night: false });
+    }
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.handleTap(pointer.x, pointer.y)) {
+        this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
+        return;
+      }
+      companionPress(this.companions.state);
+      this.send({ type: 'press' });
+    });
+    this.input.on('pointerup', () => {
+      if (this.swallowUp) {
+        this.swallowUp = false;
+        return;
+      }
+      this.send({ type: 'release' });
+    });
     this.input.on('gameout', () => this.send({ type: 'release' }));
 
     this.render();
@@ -195,6 +230,12 @@ export class LakeScene extends Phaser.Scene {
     this.nibbleAge += deltaMs;
     this.toastAge += deltaMs;
 
+    this.companions.update(
+      deltaMs,
+      { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
+      this.elapsed,
+      dayLook(this.clock.minute).worldTint,
+    );
     this.render(deltaMs);
   }
 
@@ -211,6 +252,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** Feedback for things the core reports: ripples, haptics, messages. */
   private onEvent(e: GameEvent): void {
+    companionEvent(this.companions.state, e.type);
     const s = this.state;
     const distanceM = 'distanceM' in s ? s.distanceM : 0;
     switch (e.type) {
@@ -224,7 +266,7 @@ export class LakeScene extends Phaser.Scene {
         vibrate(HAPTICS.bite);
         break;
       case 'hooked':
-        this.showToast('Hooked!');
+        this.showToast(`Hooked! ${this.profile.companion} cheers!`);
         vibrate(HAPTICS.hooked);
         break;
       case 'fishEscaped':
@@ -238,6 +280,65 @@ export class LakeScene extends Phaser.Scene {
 
   private addRipple(distanceM: number, big: boolean): void {
     this.ripples.push({ x: BOBBER_X, y: distanceToY(distanceM), age: 0, big });
+  }
+
+  /** Shows who someone is for a moment. */
+  private showTag(index: number, name: string, x: number, y: number): void {
+    const t = this.tags[index];
+    t.text.setText(name).setPosition(Math.round(Phaser.Math.Clamp(x, 40, W - 40)), Math.round(y));
+    t.age = 0;
+  }
+
+  /** Taps on the dog, Pajkel or the pencil button are handled here. Returns true when consumed. */
+  private handleTap(x: number, y: number): boolean {
+    if (PENCIL.contains(x, y)) {
+      showNameOverlay(this.profile, false, (p) => this.applyProfile(p));
+      return true;
+    }
+    const dog = this.companions.dogRect();
+    if (dog.contains(x, y)) {
+      this.companions.pet();
+      this.showTag(2, this.profile.dog, dog.centerX, dog.y - 14);
+      this.showToast(`${this.profile.dog} wags happily`);
+      return true;
+    }
+    const paj = this.companions.pajRect();
+    if (paj.contains(x, y)) {
+      this.showTag(1, this.profile.companion, paj.centerX, paj.y - 2);
+      return true;
+    }
+    return false;
+  }
+
+  /** First launch: ask for names; otherwise use the stored ones. ?reset=profile clears them. */
+  private setupProfile(params: URLSearchParams): void {
+    const store = this.safeStorage();
+    if (params.get('reset') === 'profile') clearProfile(store);
+    const stored = loadProfile(store);
+    if (stored) this.profile = stored;
+    // Dev-only: ?skipnames (or any ?debug=) skips the first-launch card.
+    const skip = params.has('skipnames') || params.has('debug');
+    if (!stored && !skip) {
+      showNameOverlay(DEFAULT_PROFILE, true, (p) => this.applyProfile(p, true));
+    }
+  }
+
+  private applyProfile(p: Profile, welcome = false): void {
+    this.profile = p;
+    saveProfile(this.safeStorage(), p);
+    if (welcome) {
+      this.showTag(0, p.player, ALEX_POS.x + 16, ALEX_POS.y - 4);
+      this.showTag(1, p.companion, 144, 358);
+      this.showTag(2, p.dog, 178, 402);
+    }
+  }
+
+  private safeStorage(): Storage | undefined {
+    try {
+      return window.localStorage;
+    } catch {
+      return undefined;
+    }
   }
 
   private showToast(text: string): void {
@@ -310,8 +411,9 @@ export class LakeScene extends Phaser.Scene {
     }
     this.postFx = this.add.graphics().setDepth(Z.postFx);
 
-    this.anglerImg = this.add.image(ANGLER_POS.x, ANGLER_POS.y, TEX.angler[0]).setOrigin(0, 0).setDepth(Z.angler);
-    this.worldImgs.push(this.anglerImg);
+    this.alexImg = this.add.image(ALEX_POS.x, ALEX_POS.y, TEX.alex[0]).setOrigin(0, 0).setDepth(Z.angler);
+    this.worldImgs.push(this.alexImg);
+    this.companions = new CompanionView(this);
 
     this.action = this.add.graphics().setDepth(Z.action);
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
@@ -369,6 +471,14 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.alert)
       .setVisible(false);
     this.hint = this.add.text(W / 2, H - 24, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
+    for (let i = 0; i < 3; i++) {
+      const text = this.add
+        .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: TEXT, padding: { x: 6, y: 3 } })
+        .setOrigin(0.5, 1)
+        .setDepth(Z.uiText)
+        .setVisible(false);
+      this.tags.push({ text, age: Infinity });
+    }
   }
 
   // ---- Rendering ---------------------------------------------------------------------------
@@ -381,7 +491,7 @@ export class LakeScene extends Phaser.Scene {
     this.drawFireflies(look);
 
     // Angler idle: 2-frame breathing.
-    this.anglerImg.setTexture(TEX.angler[Math.floor(this.elapsed / 900) % 2]);
+    this.alexImg.setTexture(TEX.alex[Math.floor(this.elapsed / 900) % 2]);
 
     const g = this.action;
     g.clear();
@@ -684,18 +794,17 @@ export class LakeScene extends Phaser.Scene {
       if (x === lx && y === ly) continue;
       lx = x;
       ly = y;
-      const dist = t * total;
-      pts.push({ x, y, t, th: dist < 12 ? 3 : t < 0.62 ? 2 : 1 });
+      pts.push({ x, y, t, th: t * total < 9 ? 2 : 1 });
     }
-    for (const p of pts) g.fillStyle(rim, 0.9).fillRect(p.x - 1, p.y - 1, p.th + 2, p.th + 2);
+    // Subtle rim: a translucent shadow pixel under and beside the rod.
+    for (const p of pts) g.fillStyle(rim, p.th > 1 ? 0.7 : 0.4).fillRect(p.x + 1, p.y + 1, p.th, p.th).fillRect(p.x - 1, p.y, 1, 1);
     for (const p of pts) {
-      const grip = p.t * total < 12;
-      const c = grip ? (p.x + p.y) % 3 === 0 ? PAL.sandDark : PAL.sand : p.t < 0.62 ? PAL.woodHi : PAL.strawLight;
+      const grip = p.t * total < 9;
+      const c = grip ? ((p.x + p.y) % 3 === 0 ? PAL.sandDark : PAL.sand) : p.t < 0.7 ? PAL.woodHi : PAL.strawLight;
       g.fillStyle(tint(c)).fillRect(p.x, p.y, p.th, p.th);
-      if (!grip && p.th >= 2) g.fillStyle(tint(PAL.woodLight)).fillRect(p.x + 1, p.y + 1, 1, 1);
     }
     // Line guides.
-    for (const gt of [0.36, 0.55, 0.72, 0.88]) {
+    for (const gt of [0.45, 0.68, 0.88]) {
       const p = pts[Math.min(pts.length - 1, Math.floor(gt * pts.length))];
       g.fillStyle(tint(PAL.white)).fillRect(p.x + 1, p.y - 1, 1, 1);
     }
@@ -707,7 +816,7 @@ export class LakeScene extends Phaser.Scene {
     g.fillStyle(tint(PAL.stoneLight)).fillRect(rx, ry, 2, 2);
     g.fillStyle(tint(PAL.gold)).fillRect(rx + 3, ry + 3, 1, 1);
     // Red tip.
-    g.fillStyle(PAL.redLight).fillRect(tip.x, tip.y, 2, 2);
+    g.fillStyle(PAL.redLight).fillRect(tip.x, tip.y, 2, 1);
   }
 
   private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number): void {
@@ -795,6 +904,18 @@ export class LakeScene extends Phaser.Scene {
     panel(this.zoneLabel);
     panel(this.toast);
     panel(this.hint);
+    for (const t of this.tags) {
+      t.age += 16;
+      t.text.setVisible(t.age < 2400);
+      panel(t.text);
+    }
+    // Pencil button (rename), top right.
+    g.fillStyle(PAL.outline).fillRect(PENCIL.x - 1, PENCIL.y, PENCIL.width + 2, PENCIL.height).fillRect(PENCIL.x, PENCIL.y - 1, PENCIL.width, PENCIL.height + 2);
+    g.fillStyle(PAL.woodLight).fillRect(PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height);
+    g.fillStyle(PAL.woodDeep, 0.9).fillRect(PENCIL.x + 1, PENCIL.y + 1, PENCIL.width - 2, PENCIL.height - 2);
+    for (let i = 0; i < 9; i++) {
+      g.fillStyle(i < 2 ? PAL.pink : i < 7 ? PAL.gold : PAL.cream).fillRect(PENCIL.x + 8 + i * 1.5, PENCIL.y + 18 - i * 1.5, 3, 3);
+    }
   }
 }
 
