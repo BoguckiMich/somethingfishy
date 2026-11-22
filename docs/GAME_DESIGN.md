@@ -253,8 +253,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
 3. Art pass: hand-authored pixel-art sprites, day/night palettes ✅
 4. Characters: Alex + Pajkel (¾ back view), the dog, idle play, petting, name entry (§2b) ✅
 4b. Standing Alex: slimmer, clearer hair, facing the lake with occasional glances (§2b) ✅
-5. Catch bar fight + front-facing "show off the catch" pose (details in §3) ← *current*
-6. Fish data, spawn rules, sizes, catch result
+5. Catch bar fight + front-facing "show off the catch" pose (details in §3) ✅
+6. Fish data, spawn rules, sizes, catch result ← *current*
 7. Bag, shop, coins, rod upgrades
 8. Fish log + personal bests
 9. Saving (local + export code)

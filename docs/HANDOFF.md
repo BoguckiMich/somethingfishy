@@ -15,12 +15,18 @@ _Last updated: 2026-11-22._
 | 3 | Art pass: hand-authored pixel art, day/night palettes, rod animations | merged |
 | 4 | Characters: Alex + Pajkel + Bestia (dog), AFK play, petting, name entry | merged |
 | 4b | Standing Alex: slimmer, clearer hair, glances around (GAME_DESIGN §2b) | merged |
-| 5 | Catch bar fight + show-off pose (all details decided, GAME_DESIGN §3) | next |
+| 5 | Catch bar fight + show-off pose (GAME_DESIGN §3); user: "ok for now, perfect later" | merged |
+| 6 | Fish data, spawn rules, sizes, catch result | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
 
 ### Known weak spots (candidates for polish, not blockers)
+- Catch bar (slice 5) — user wants to perfect it later: show-off fish is tiny and sits under her chin;
+  bar frame reads thin/dark; shallow fights are at the short end (~4.4 s median); zone drag and a
+  difficulty^6 drain boost were added beyond spec to make tuning work (`CATCH_BAR_TUNING`);
+  a passive player beats ~38% of mid fish (sinkers reach the resting zone, Stardew-like, accepted).
+  Rod bend/bobber jerk were not seen in motion by the reviewer.
 - Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
 - AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
 - Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
