@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import {
+  DOG_SPOT,
+  IDLE_BEFORE_PLAY_MS,
+  companionEvent,
+  companionPress,
+  createCompanions,
+  dogView,
+  petDog,
+  startPlayNow,
+  tickCompanions,
+  type Companions,
+  type CompanionContext,
+} from './behaviour';
+
+const rng = () => 0.5;
+const idle: CompanionContext = { fishing: 'idle', night: false };
+
+function run(s: Companions, ms: number, ctx: CompanionContext = idle): void {
+  for (let t = 0; t < ms; t += 50) tickCompanions(s, 50, ctx, rng);
+}
+
+describe('dog reactions on the dock', () => {
+  it('lies down by default', () => {
+    const s = createCompanions(rng);
+    run(s, 500);
+    expect(dogView(s).shape).toBe('lie');
+  });
+
+  it('perks its ears on a nibble, then relaxes', () => {
+    const s = createCompanions(rng);
+    companionEvent(s, 'nibble');
+    run(s, 100);
+    expect(dogView(s).perked).toBe(true);
+    run(s, 2000);
+    expect(dogView(s).perked).toBe(false);
+  });
+
+  it('stands on a bite and spins (hops) when hooked, then sits after the fish escapes', () => {
+    const s = createCompanions(rng);
+    companionEvent(s, 'bite');
+    run(s, 100);
+    expect(dogView(s).shape).toBe('stand');
+    expect(s.paj.shape).toBe('look');
+    companionEvent(s, 'hooked');
+    run(s, 300);
+    expect(dogView(s).shape).toBe('stand');
+    expect(s.dog.hop).toBeGreaterThan(0);
+    expect(s.paj.shape).toBe('cheer');
+    companionEvent(s, 'fishEscaped');
+    run(s, 100);
+    expect(dogView(s).shape).toBe('sit');
+    run(s, 4500);
+    expect(dogView(s).shape).toBe('lie');
+  });
+
+  it('sleeps at night and wakes on a nibble', () => {
+    const s = createCompanions(rng);
+    run(s, 3000, { fishing: 'waiting', night: true });
+    expect(dogView(s).shape).toBe('sleep');
+    companionEvent(s, 'nibble');
+    run(s, 100, { fishing: 'waiting', night: true });
+    expect(dogView(s).shape).toBe('lie');
+  });
+
+  it('wags its tail now and then', () => {
+    const s = createCompanions(rng);
+    const tails = new Set<number>();
+    for (let t = 0; t < 12000; t += 50) {
+      tickCompanions(s, 50, { fishing: 'charging', night: false }, rng);
+      tails.add(dogView(s).tail);
+    }
+    expect(tails.size).toBeGreaterThan(1);
+  });
+});
+
+describe('Pajkel', () => {
+  it('sips from the thermos from time to time', () => {
+    const s = createCompanions(rng);
+    const shapes = new Set<string>();
+    for (let t = 0; t < 20000; t += 50) {
+      tickCompanions(s, 50, { fishing: 'charging', night: false }, rng);
+      shapes.add(s.paj.shape);
+    }
+    expect(shapes.has('sip')).toBe(true);
+  });
+});
+
+describe('idle play on the grass', () => {
+  it('only starts after about 25 s of idle or waiting', () => {
+    const s = createCompanions(rng);
+    run(s, IDLE_BEFORE_PLAY_MS - 1000);
+    expect(s.mode).toBe('dock');
+    run(s, 1500);
+    expect(s.mode).toBe('leaving');
+  });
+
+  it('does not count time while the player is casting or fighting', () => {
+    const s = createCompanions(rng);
+    run(s, 40000, { fishing: 'hooked', night: false });
+    expect(s.mode).toBe('dock');
+  });
+
+  it('walks to the grass and plays fetch', () => {
+    const s = createCompanions(rng);
+    run(s, IDLE_BEFORE_PLAY_MS + 1000);
+    run(s, 15000);
+    expect(s.mode).toBe('play');
+    expect(s.paj.y).toBeGreaterThan(480);
+    const phases = new Set<string>();
+    const sticks = new Set<string>();
+    for (let t = 0; t < 40000; t += 50) {
+      tickCompanions(s, 50, idle, rng);
+      phases.add(s.play.phase);
+      sticks.add(s.stick.state);
+    }
+    expect(phases.has('chase') || phases.has('bring')).toBe(true);
+    expect(phases.has('zoomies')).toBe(true);
+    expect(sticks.has('flying')).toBe(true);
+    expect(sticks.has('carried')).toBe(true);
+  });
+
+  it('heads back to the dock on a press and sits down', () => {
+    const s = createCompanions(rng);
+    startPlayNow(s);
+    run(s, 2000);
+    companionPress(s);
+    expect(s.mode).toBe('returning');
+    run(s, 15000, { fishing: 'charging', night: false });
+    expect(s.mode).toBe('dock');
+    expect(s.paj.shape).toBe('sit');
+    expect(s.dog.x).toBeCloseTo(DOG_SPOT.x);
+  });
+
+  it('heads back on a bite too', () => {
+    const s = createCompanions(rng);
+    startPlayNow(s);
+    companionEvent(s, 'bite');
+    expect(s.mode).toBe('returning');
+  });
+});
+
+describe('petting', () => {
+  it('wags and wakes the dog', () => {
+    const s = createCompanions(rng);
+    run(s, 3000, { fishing: 'waiting', night: true });
+    expect(dogView(s).shape).toBe('sleep');
+    expect(petDog(s)).toBe(true);
+    run(s, 100, { fishing: 'waiting', night: true });
+    expect(dogView(s).shape).toBe('lie');
+    expect(s.dog.wagMs).toBeGreaterThan(0);
+  });
+});

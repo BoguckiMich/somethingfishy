@@ -1,9 +1,8 @@
 import type Phaser from 'phaser';
+import { HEART, STICK, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { FAR_SHORE_Y, W } from './layout';
 import { Raster } from './raster';
 import {
-  ANGLER,
-  ANGLER_B,
   BOBBER,
   BOBBER_UNDER,
   LILY_A,
@@ -35,7 +34,9 @@ export const TEX = {
   moon: 'moon',
   bobber: 'bobber',
   bobberUnder: 'bobberUnder',
-  angler: ['angler0', 'angler1'],
+  alex: ['alex0', 'alex1'],
+  heart: 'heart',
+  stick: 'stick',
   lilyA: 'lilyA',
   lilyB: 'lilyB',
   reed: 'reed',
@@ -67,8 +68,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.moon, moonRaster());
   addRaster(scene, TEX.bobber, Raster.fromSprite(BOBBER));
   addRaster(scene, TEX.bobberUnder, Raster.fromSprite(BOBBER_UNDER));
-  addRaster(scene, TEX.angler[0], Raster.fromSprite(ANGLER));
-  addRaster(scene, TEX.angler[1], Raster.fromSprite(ANGLER_B));
+  createCharacterTextures(scene);
   addRaster(scene, TEX.lilyA, Raster.fromSprite(LILY_A));
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));
   addRaster(scene, TEX.reed, Raster.fromSprite(REED));
@@ -87,4 +87,23 @@ export function repaintSky(scene: Phaser.Scene, top: number, bottom: number): vo
   paintSky(r, top, bottom);
   tex.getContext().putImageData(new ImageData(new Uint8ClampedArray(r.data), r.width, r.height), 0, 0);
   tex.refresh();
+}
+
+export const pajSitKey = (pose: PajPose, breath: 0 | 1) => `paj:${pose}:${breath}`;
+export const pajWalkKey = (pose: PajWalkPose) => `pajw:${pose}`;
+export { dogKey };
+
+/** Alex, Pajkel (seated and walking), the dog, plus the small props. */
+function createCharacterTextures(scene: Phaser.Scene): void {
+  addRaster(scene, TEX.alex[0], Raster.fromSprite(alexSprite(0)));
+  addRaster(scene, TEX.alex[1], Raster.fromSprite(alexSprite(1)));
+  for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
+    for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
+  }
+  for (const pose of ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw'] as PajWalkPose[]) {
+    addRaster(scene, pajWalkKey(pose), Raster.fromSprite(pajkelWalkSprite(pose)));
+  }
+  for (const f of allDogFrames()) addRaster(scene, dogKey(f), Raster.fromSprite(dogSprite(f)));
+  addRaster(scene, TEX.heart, Raster.fromSprite(HEART));
+  addRaster(scene, TEX.stick, Raster.fromSprite(STICK));
 }
