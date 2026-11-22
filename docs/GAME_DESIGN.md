@@ -64,6 +64,12 @@ The game stars the two of them and their dog. Reference photos live untracked in
   (fetch, running around); they come back when she starts fishing again.
 - **View** — ¾ back view on the dock, so profiles show (beard, sunglasses, bangs).
   A front-facing "show off the catch" pose comes with the catch bar.
+- **Alex's stance** (slice 4b) — she **stands** at the dock edge in every phase, mostly back to
+  the camera, facing the lake; Pajkel stays seated beside her, Bestia lies nearby. Slim build
+  (she is very slim in real life). Hair must read clearly against the planks (lighter tones,
+  strands, visible bangs). During idle/waiting she occasionally glances left (toward Pajkel and
+  the dog) or right (along the shore) for ~1–2 s every 6–15 s at random; a nibble snaps her
+  head back to the bobber; no glances during the fight.
 - **Names** — editable on first launch, stored on the device only. Defaults live in code; nothing
   more personal than the defaults is in the public repo.
 
@@ -82,6 +88,27 @@ The game stars the two of them and their dog. Reference photos live untracked in
    - Each species has a movement pattern (smooth, darting, sinker, floater, erratic) + difficulty.
    - **Gear modifies the bar:** rod → zone size; reel → zone responsiveness/weight;
      line → progress drain rate; bait/lure → calms fish / shrinks its movements.
+   - **Details (decided for slice 5):**
+     - *Layout:* the bar is on the right side of the portrait screen, ~55% of the screen height.
+       The lake stays visible and isn't dimmed.
+     - *Look:* pixel-art wooden frame, translucent green zone band, a small fish icon, and a
+       progress strip that goes red → yellow → green. Slightly dimmed at night.
+     - *Input:* hold anywhere on the screen.
+     - *Progress:* starts at 30%. No extra grace period. Drains whenever the fish is outside the zone.
+     - *Difficulty:* with starter gear, shallow day fish are nearly impossible to lose. The real
+       difficulty starts in deep water.
+     - *Target fight length:* shallow ~4–8 s, deep ~8–15 s, legendary 20 s or more.
+     - *Loss:* "it got away…", the line goes slack, then reel in. A `fishLost` event is emitted;
+       losing the bait hooks onto that event in slice 7.
+     - *Placeholder fish until slice 6:* all 5 patterns plus a difficulty setting live in core,
+       picked by zone. Dev flag `?fish=<pattern>&diff=<0..1>` forces one.
+     - *Gear:* a `gear` input to the bar, hardwired to starter values until slice 7.
+     - *Fight feedback:* the rod bends more while holding, the line is taut, and the bobber jerks
+       with the fish.
+     - *Catch:* front-facing "show off the catch" pose with a placeholder fish and "Caught!";
+       a tap or 3 s dismisses it. Pajkel claps and Bestia hops on a catch; small reactions on a loss.
+     - *Vibration:* short buzz on hook and on catch, where the browser supports it.
+     - *Not in v1:* treasure chests, line snap, tension.
 4. **Result** — each catch rolls a size/weight. The fish log keeps personal bests per species
    (a star when a record is beaten).
 5. **Bag & shop** — caught fish go into a 10-slot bag. Shop: sell fish (sell all / keep),
@@ -154,8 +181,15 @@ be tweaked without touching logic.
   - Night fish (eel, catfish, zander) are still catchable 20:00–02:00 without gear; deep-night
     species (02:00–05:00) could be the reward for owning night gear.
 
+- **Treasure in the catch bar** (Stardew-style) — sometimes a chest icon appears in the bar.
+  Keeping it in the zone long enough grabs it as a bonus (coins, bait, cosmetics).
+  Open questions: what can a chest hold, how often does one appear, and does missing it cost anything (it shouldn't)?
+
+- **Livelier companion reactions in the fight** — Pajkel leans in or cheers during the fight,
+  Bestia watches the line. Slice 5 only adds small reactions on a catch or loss.
+
 ### Parked on purpose
-Weather & seasons · cloud sync · landscape/walkable world · music · treasure chests.
+Weather & seasons · cloud sync · landscape/walkable world · music.
 
 ---
 
@@ -218,7 +252,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
 2. Game clock (day/night) + bite system (nibbles, hook window) ✅
 3. Art pass: hand-authored pixel-art sprites, day/night palettes ✅
 4. Characters: Alex + Pajkel (¾ back view), the dog, idle play, petting, name entry (§2b) ✅
-5. Catch bar fight + front-facing "show off the catch" pose ← *current*
+4b. Standing Alex: slimmer, clearer hair, facing the lake with occasional glances (§2b) ← *current*
+5. Catch bar fight + front-facing "show off the catch" pose (details in §3)
 6. Fish data, spawn rules, sizes, catch result
 7. Bag, shop, coins, rod upgrades
 8. Fish log + personal bests
