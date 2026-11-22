@@ -1,0 +1,130 @@
+# Rybki — Game Design
+
+A cozy, fishing-only game in the spirit of Stardew Valley / Terraria. Made as a gift.
+Working title: **Rybki** (to be renamed later).
+
+This doc records decisions. When a decision changes, update it here.
+
+---
+
+## 1. Platform & tech
+
+| Decision | Choice |
+|---|---|
+| Delivery | Web game as a PWA (installable to phone home screen), playable in desktop browser |
+| Engine | Phaser 4 + TypeScript, bundled with Vite |
+| Tests | Vitest, for pure game logic |
+| PWA | `vite-plugin-pwa` (added in the deploy slice) |
+| Hosting | GitHub Pages |
+| Orientation | Portrait for now (base resolution 360×640, scaled to fit) |
+| Language | English first; text kept in one place so translations (e.g. Polish) are easy to add |
+| Saving | Local (localStorage) + export/import save code. Cloud sync later, maybe. |
+
+### Architecture rule
+
+`src/core/` is **pure TypeScript with no Phaser imports**: fish data, spawn rules, economy,
+catch-bar physics, clock, state machines. It is unit-tested.
+
+`src/scenes/` is the Phaser layer: rendering, input, animation, sound. It reads core state
+and sends events to it. It contains no game rules.
+
+Why: the long-term direction is a Stardew-like walkable world. With rules separated from
+rendering, the portrait lake screen becomes one scene of a bigger world instead of a rewrite.
+
+**Location is a first-class concept** in the data model from day one, even with one lake.
+
+---
+
+## 2. Look & feel
+
+- Pixel art. Placeholder shapes first, then free/CC0 asset packs, custom art later.
+- Cozy: no energy, no stress. Losing a fish costs only the bait.
+- Accelerated day/night clock: ~20 real minutes = one in-game day; paused when the game is closed.
+- Ambient sound (water, birds, crickets at night) + SFX in v1. Music later.
+- Haptics (`navigator.vibrate`) on bites and key moments where supported.
+
+---
+
+## 3. v1 gameplay loop
+
+1. **Cast** — hold to charge a power meter, release to cast. Distance decides the zone:
+   *shallow* (near shore) or *deep* (far). The starter rod only reaches shallow water.
+2. **Wait / bite** — the bobber gives a few small *nibbles* (fake-outs), then a big dip with
+   a "!" and a ~1 s window to tap. Tapping on a nibble scares the fish away. Shy species nibble more.
+3. **Fight** — Stardew-style vertical catch bar:
+   - Hold to raise the catch zone, release and it falls (gravity).
+   - Progress fills while the fish is inside the zone, drains while outside. Full = caught, empty = lost.
+   - Each species has a movement pattern (smooth, darting, sinker, floater, erratic) + difficulty.
+   - **Gear modifies the bar:** rod → zone size; reel → zone responsiveness/weight;
+     line → progress drain rate; bait/lure → calms fish / shrinks its movements.
+4. **Result** — each catch rolls a size/weight. The fish log keeps personal bests per species
+   (a star when a record is beaten).
+5. **Bag & shop** — caught fish go into a 10-slot bag. Shop: sell fish (sell all / keep),
+   buy worms, buy 2 rod upgrades (each: more cast distance + bigger catch zone).
+6. **Screens** — the lake is always the main screen; Bag / Shop / Fish log open as overlay panels
+   from a bottom bar.
+7. **Which fish bites** — v1: time of day + depth zone. (Bait type in v2; weather/seasons later.)
+
+### v1 fish roster (proposed)
+
+| Fish | Zone | Time | Notes |
+|---|---|---|---|
+| Roach | shallow | day | common starter |
+| Rudd | shallow | day | |
+| Bleak | shallow | day | tiny, darting |
+| Perch | shallow | day | |
+| Crucian carp | shallow | any | |
+| Eel | shallow | night | |
+| Bream | deep | any | |
+| Tench | deep | dawn/dusk | |
+| Carp | deep | any | strong |
+| Pike | deep | day | darting |
+| Zander | deep | dusk/night | |
+| Catfish | deep | night | heavy, sinker |
+| *Legendary* | deep | ? | brutal, needs best gear |
+
+**Legendaries** are brutally hard and gear-dependent. Caught once for the log; afterwards
+rematches are possible for personal-best size records.
+
+Tuning (prices, spawn weights, difficulty) lives in data files under `src/core/data/` so it can
+be tweaked without touching logic.
+
+---
+
+## 4. Roadmap
+
+- **v1** — one lake, float fishing, worms only, ~12 fish + 1 legendary, log, bag, shop, 2 rod upgrades.
+- **v2a Worm farm** — soil plots near the lake; feed them (leaves, scraps, compost); worms multiply
+  over in-game days; feed type decides worm type (earthworm, red wiggler, nightcrawler).
+- **v2b Fields & bait crafting** — grow crops (corn, wheat, hemp…); craft two layers of bait:
+  *hook bait* (decides which fish bite) and *groundbait / zanęta* (attracts fish, raises bite rate).
+  Recipes are unlockables.
+- **v2c Spinning** — lures/wobblers, active cast-and-retrieve; retrieve speed + lure depth decide
+  what attacks. Predators: pike, perch, zander.
+- **v2d Feeder / bottom fishing** — heavy cast, bite alarm, patient; maybe 2 rods. Carp, bream, catfish.
+- **Later** — more locations (river, pond, sea, ice fishing), fly fishing, weather & seasons,
+  walkable Stardew-like world (landscape), music, personal touches (her own legendary fish), cloud sync.
+
+### Parked on purpose
+Personal touches · weather & seasons · cloud sync · landscape/walkable world · music · treasure chests.
+
+---
+
+## 5. Workflow
+
+- Work in small vertical slices, one branch per slice (`slice/NN-name`).
+- Each slice: core logic + tests, then the scene layer. Reviewed (diff) and play-tested before merge.
+- Run locally: `npm run dev` (exposed on the LAN, so a phone on the same Wi-Fi can open it).
+
+### Slice plan
+
+1. Lake scene, hold-to-charge casting, bobber, distance zones ← *current*
+2. Game clock (day/night) + bite system (nibbles, hook window)
+3. Catch bar fight
+4. Fish data, spawn rules, sizes, catch result
+5. Bag, shop, coins, rod upgrades
+6. Fish log + personal bests
+7. Saving (local + export code)
+8. Art pass (asset packs), sound, haptics
+9. PWA + GitHub Pages deploy
+10. Legendary fish
