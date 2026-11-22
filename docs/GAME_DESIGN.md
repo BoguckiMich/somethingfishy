@@ -114,6 +114,29 @@ The game stars the two of them and their dog. Reference photos live untracked in
    (a star when a record is beaten).
 5. **Bag & shop** — caught fish go into a 10-slot bag. Shop: sell fish (sell all / keep),
    buy worms, buy 2 rod upgrades (each: more cast distance + bigger catch zone).
+   - **Details (decided for slice 7):**
+     - *Start:* 10 worms, 0 coins.
+     - *Worms:* a caught fish always uses the worm; a fish lost in the fight uses it 50% of the
+       time; a nibble scare or missed bite never costs one. A small "−1 worm" cue shows when one is
+       used.
+     - *Out of worms:* casting is blocked ("Out of worms, visit the shop"). Soft-lock guard: with
+       0 worms, too few coins for a pack and an empty bag, the shop gives 5 free worms.
+     - *Worm price:* a pack of 10 for 10 coins.
+     - *Sell price:* `basePrice × (0.5 + size position in the species range)`, so 0.5×–1.5×;
+       fixed at catch time and shown in the bag.
+     - *Bag full (10/10):* the catch is still shown off, then a choice: "Release" or
+       "Swap for your cheapest" (named). The bag counter turns amber at 10/10.
+     - *Rods:* Fiberglass 250 coins (26 m, reaches deep, zone 0.34), Carbon 1200 coins (40 m,
+       zone 0.38); bought in order, equipped at once. Starter Bamboo: 14 m, zone 0.30.
+     - *Tuning:* deep fights hit 8–15 s with **fiberglass**; carbon makes them a bit easier.
+     - *Screens:* a bottom bar with Bag (count, e.g. 7/10), Shop and Log (greyed out until
+       slice 8). Panels are DOM overlays styled as pixel-art wood, like the name card. The hint
+       sits just above the bar; coins and worms show next to the clock.
+     - *When:* panels open only while idle; the clock and companions keep running.
+     - *Shop:* Sell (tap a fish or "Sell all"; keeping = not selling), Worms (10-pack),
+       Rods (the next upgrade). No lock/favourite yet.
+     - *Before saving (slice 9):* everything resets on reload. Dev flags `?coins=N`, `?worms=N`;
+       `?rod=` also counts as the owned rod.
 6. **Screens** — the lake is always the main screen; Bag / Shop / Fish log open as overlay panels
    from a bottom bar.
 7. **Which fish bites** — v1: time of day + depth zone. (Bait type in v2; weather/seasons later.)
@@ -204,6 +227,10 @@ be tweaked without touching logic.
 - **Treasure in the catch bar** (Stardew-style) — sometimes a chest icon appears in the bar.
   Keeping it in the zone long enough grabs it as a bonus (coins, bait, cosmetics).
   Open questions: what can a chest hold, how often does one appear, and does missing it cost anything (it shouldn't)?
+
+- **More gear** — other bobbers, line types, reels and so on, each tweaking the catch bar
+  (line → drain, reel → zone responsiveness, bobber → bite readability?). v1 has only the two
+  rod upgrades.
 
 - **Fun facts on catch** — a short real fact about the species when caught (or in the fish log).
   Each species already has one `fact` in the data (slice 6). Open: show it on the catch screen or
