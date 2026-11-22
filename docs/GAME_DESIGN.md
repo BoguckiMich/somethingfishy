@@ -47,6 +47,28 @@ rendering, the portrait lake screen becomes one scene of a bigger world instead 
 
 ---
 
+## 2b. Characters (personal touches)
+
+The game stars the two of them and their dog. Reference photos live untracked in the repo root
+(`me.png`, `wife.png`, git-ignored) — never commit them.
+
+- **Alex** (default name) — the player character. Shoulder-length light-brown hair with bangs,
+  smartwatch, black capri pants. Default top: black metal-band t-shirt with a jagged white logo
+  (a nod to her favourite band, Trivium — inspired by, not a copy of, their logo). Alternate outfit
+  later: black hoodie with a blue dinosaur patch (cosmetic unlock).
+- **Pajkel** (default name) — companion. Messy dirty-blonde hair, long full brown beard, dark
+  sunglasses, black t-shirt, broad build. Sits next to Alex on the dock, reacts to her catches.
+- **The dog** — small, ginger, short-haired, folded ears, yellow harness. Lies on the dock; ears
+  perk on a nibble, jumps up on a bite, happy spin when hooked, sleeps at night. Tap to pet (heart).
+- **Idle / AFK** — after a while without input, Pajkel and the dog get up and play on the grass
+  (fetch, running around); they come back when she starts fishing again.
+- **View** — ¾ back view on the dock, so profiles show (beard, sunglasses, bangs).
+  A front-facing "show off the catch" pose comes with the catch bar.
+- **Names** — editable on first launch, stored on the device only. Defaults live in code; nothing
+  more personal than the defaults is in the public repo.
+
+---
+
 ## 3. v1 gameplay loop
 
 1. **Cast** — hold to charge a power meter, release to cast. Distance decides the zone:
@@ -133,7 +155,7 @@ be tweaked without touching logic.
     species (02:00–05:00) could be the reward for owning night gear.
 
 ### Parked on purpose
-Personal touches · weather & seasons · cloud sync · landscape/walkable world · music · treasure chests.
+Weather & seasons · cloud sync · landscape/walkable world · music · treasure chests.
 
 ---
 
@@ -173,7 +195,7 @@ Goal: a gentle reason to open the game every day. It should feel cozy and never 
 - Reward tables in `src/core/data/`, so they're tunable.
 - Use device time for resets, but guard against clock changes (store the last claim date
   and never grant twice for the same date).
-- Depends on: saving (slice 8), and ideally the bait systems (v2), so rewards have variety.
+- Depends on: saving (slice 9), and ideally the bait systems (v2), so rewards have variety.
 
 **Roadmap decision:** build the daily box and daily quests soon after v1 saving lands, even with
 only worms and coins as rewards. They're cheap and create the daily habit early. Weekly quests
@@ -193,14 +215,15 @@ come once the v2 bait and lure systems provide more interesting rewards.
 ### Slice plan
 
 1. Lake scene, hold-to-charge casting, bobber, distance zones ✅
-2. Game clock (day/night) + bite system (nibbles, hook window) ← *current*
-3. Art pass: hand-authored pixel-art sprites (angler, dock, water, trees, bobber), day/night palettes
-4. Catch bar fight
-5. Fish data, spawn rules, sizes, catch result
-6. Bag, shop, coins, rod upgrades
-7. Fish log + personal bests
-8. Saving (local + export code)
-9. Sound + second art pass (UI panels, fish sprites)
-10. PWA + GitHub Pages deploy
-11. Legendary fish
-12. Daily bait box + daily quests (§5)
+2. Game clock (day/night) + bite system (nibbles, hook window) ✅
+3. Art pass: hand-authored pixel-art sprites, day/night palettes ✅
+4. Characters: Alex + Pajkel (¾ back view), the dog, idle play, petting, name entry (§2b) ← *current*
+5. Catch bar fight + front-facing "show off the catch" pose
+6. Fish data, spawn rules, sizes, catch result
+7. Bag, shop, coins, rod upgrades
+8. Fish log + personal bests
+9. Saving (local + export code)
+10. Sound + second art pass (UI panels, fish sprites, pixel font)
+11. PWA + GitHub Pages deploy
+12. Legendary fish
+13. Daily bait box + daily quests (§5)
