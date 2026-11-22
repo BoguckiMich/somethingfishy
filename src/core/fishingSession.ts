@@ -1,6 +1,9 @@
 import { castDistance, chargePower } from './casting';
-import { barResult, newCatchBar, placeholderFish, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
+import { barResult, newCatchBar, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
+import type { TimeOfDay } from './clock';
+import { speciesById } from './data/fish';
 import type { GameEvent } from './events';
+import { fightProfile, rollHookedFish, type HookedFish } from './fish';
 import type { BarGear, Rod } from './gear';
 import { zoneAt, type Location, type ZoneId } from './location';
 import type { Rng } from './random';
@@ -16,13 +19,13 @@ export type FishingState =
   | { kind: 'charging'; heldMs: number }
   | { kind: 'casting'; power: number; distanceM: number; zone: ZoneId }
   /** Bobber in the water. `untilMs` counts down to the next nibble or the real bite. */
-  | { kind: 'waiting'; distanceM: number; zone: ZoneId; untilMs: number; nibblesLeft: number; hadNibble: boolean }
+  | { kind: 'waiting'; distanceM: number; zone: ZoneId; hooked: HookedFish; untilMs: number; nibblesLeft: number; hadNibble: boolean }
   /** The real bite: the bobber is under and the player must tap within `windowLeftMs`. */
-  | { kind: 'bite'; distanceM: number; zone: ZoneId; windowLeftMs: number }
+  | { kind: 'bite'; distanceM: number; zone: ZoneId; hooked: HookedFish; windowLeftMs: number }
   /** The catch-bar fight. Holding raises the zone; `bar.holding` mirrors the player's thumb. */
-  | { kind: 'fighting'; distanceM: number; zone: ZoneId; fish: FishProfile; bar: CatchBarState }
+  | { kind: 'fighting'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; bar: CatchBarState }
   /** The show-off: the fish is held up. A press (after a short guard) or the timer ends it. */
-  | { kind: 'caught'; distanceM: number; zone: ZoneId; fish: FishProfile; shownMs: number }
+  | { kind: 'caught'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; shownMs: number }
   /** The fish got away: the line hangs slack for a moment, then the normal reel-in follows. */
   | { kind: 'lost'; distanceM: number; ageMs: number }
   | { kind: 'retrieving'; distanceM: number };
@@ -40,16 +43,18 @@ export interface SessionContext {
   /** What the gear does to the catch bar. */
   barGear: BarGear;
   rng: Rng;
-  /** Dev flag: forces the fish (pattern and difficulty) instead of the zone's placeholder pick. */
+  /** The current time of day, from the scene's clock (core stays free of the clock itself). */
+  timeOfDay: () => TimeOfDay;
+  /** Dev flag: forces the bar profile (pattern and difficulty) instead of the species' own. */
   fishOverride?: FishProfile;
+  /** Dev flag: forces the species that bites. */
+  speciesOverride?: string;
 }
 
-/** Bite timing. Will become per-species once fish data exists. */
+/** Bite timing. The number of nibbles comes from the species. */
 export const BITE_TUNING = {
   /** Wait before the first nibble (or the bite, if there are no nibbles). */
   firstWaitMs: [2500, 8000] as [number, number],
-  /** Number of fake-out nibbles before the real bite, inclusive range. */
-  nibbles: [0, 3] as [number, number],
   /** Gap between nibbles, and between the last nibble and the bite. */
   nibbleGapMs: [600, 1600] as [number, number],
   /** How long the player has to tap once the real bite happens. */
@@ -60,7 +65,7 @@ export const FIGHT_TUNING = {
   /** A press ends the show-off only after this long (so the finger still holding from the fight doesn't skip it). */
   showOffGuardMs: 400,
   /** The show-off ends by itself after this long. */
-  showOffMs: 3000,
+  showOffMs: 4000,
   /** How long the line hangs slack after a lost fish, before the reel-in. */
   slackMs: 1000,
 };
@@ -95,12 +100,15 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
 
     case 'casting':
       if (input.type !== 'landed') return same(state);
+      // The fish is chosen as the bobber lands: its species shapes the wait (shy fish nibble more).
+      const hooked = rollHookedFish(state.zone, ctx.timeOfDay(), ctx.rng, ctx.speciesOverride);
       return same({
         kind: 'waiting',
         distanceM: state.distanceM,
         zone: state.zone,
+        hooked,
         untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs),
-        nibblesLeft: randInt(ctx.rng, ...BITE_TUNING.nibbles),
+        nibblesLeft: randInt(ctx.rng, ...speciesById(hooked.speciesId)!.nibbles),
         hadNibble: false,
       });
 
@@ -127,17 +135,17 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         };
       }
       return {
-        state: { kind: 'bite', distanceM: state.distanceM, zone: state.zone, windowLeftMs: BITE_TUNING.hookWindowMs },
+        state: { kind: 'bite', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, windowLeftMs: BITE_TUNING.hookWindowMs },
         events: [{ type: 'bite' }],
       };
     }
 
     case 'bite': {
       if (input.type === 'press') {
-        const fish = ctx.fishOverride ?? placeholderFish(state.zone, ctx.rng);
+        const fish = ctx.fishOverride ?? fightProfile(speciesById(state.hooked.speciesId)!, state.hooked.lengthCm);
         const bar = { ...newCatchBar(fish, ctx.barGear, ctx.rng), holding: true }; // the hooking press is still down
         return {
-          state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, fish, bar },
+          state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, fish, bar },
           events: [{ type: 'hooked', zone: state.zone }],
         };
       }
@@ -157,17 +165,28 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (input.type !== 'tick') return same(state);
       const bar = tickCatchBar(state.bar, input.dtMs, state.bar.holding, state.fish, ctx.barGear, ctx.rng);
       const result = barResult(bar);
-      const { zone, fish, distanceM } = state;
+      const { zone, fish, distanceM, hooked } = state;
       if (result === 'caught') {
         return {
-          state: { kind: 'caught', distanceM, zone, fish, shownMs: 0 },
-          events: [{ type: 'fishCaught', zone, pattern: fish.pattern, difficulty: fish.difficulty, fightMs: bar.elapsedMs }],
+          state: { kind: 'caught', distanceM, zone, hooked, fish, shownMs: 0 },
+          events: [
+            {
+              type: 'fishCaught',
+              zone,
+              pattern: fish.pattern,
+              difficulty: fish.difficulty,
+              fightMs: bar.elapsedMs,
+              speciesId: hooked.speciesId,
+              lengthCm: hooked.lengthCm,
+              weightG: hooked.weightG,
+            },
+          ],
         };
       }
       if (result === 'lost') {
         return {
           state: { kind: 'lost', distanceM, ageMs: 0 },
-          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty }],
+          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty, speciesId: hooked.speciesId }],
         };
       }
       return same({ ...state, bar });

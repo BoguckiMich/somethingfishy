@@ -1,6 +1,8 @@
 import type Phaser from 'phaser';
-import { ALEX_HEADS, HEART, STICK, alexKey, alexShowOffKey, alexShowOffSprite, alexSprite, placeholderFishSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { ALEX_HEADS, HEART, STICK, alexKey, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
+import { FISH_SIZE_CLASSES, fishIconKey, fishIconSprite, fishKey, fishSprite } from './fishArt';
+import { SPECIES } from '../core/data/fish';
 import { FAR_SHORE_Y, W } from './layout';
 import { Raster } from './raster';
 import {
@@ -41,7 +43,6 @@ export const TEX = {
   lilyB: 'lilyB',
   reed: 'reed',
   post: 'post',
-  placeholderFish: 'placeholderFish',
   barFrame: 'barFrame',
   stripFrame: 'stripFrame',
 } as const;
@@ -104,7 +105,10 @@ function createCharacterTextures(scene: Phaser.Scene): void {
     for (const b of [0, 1] as const) addRaster(scene, alexKey(head, b), Raster.fromSprite(alexSprite(head, b)));
   }
   for (const b of [0, 1] as const) addRaster(scene, alexShowOffKey(b), Raster.fromSprite(alexShowOffSprite(b)));
-  addRaster(scene, TEX.placeholderFish, Raster.fromSprite(placeholderFishSprite()));
+  for (const sp of SPECIES) {
+    for (const cls of FISH_SIZE_CLASSES) addRaster(scene, fishKey(sp.id, cls), Raster.fromSprite(fishSprite(sp.id, cls)));
+    addRaster(scene, fishIconKey(sp.id), Raster.fromSprite(fishIconSprite(sp.id)));
+  }
   for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
   }

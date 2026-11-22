@@ -7,7 +7,7 @@ import { TRANSPARENT, sprite, type Sprite } from './pixelGrid';
  * (the band-tee logo, mug, stick, heart) are letter grids.
  */
 
-class Pix {
+export class Pix {
   readonly px: Int32Array;
   constructor(
     readonly w: number,
@@ -225,28 +225,9 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
 
 // ---- Alex showing off the catch: front-facing, both hands raised --------------------------------
 
-/** Centre of the fish she holds, in sprite pixels. The fish itself is a separate sprite. */
+/** Centre of the fish she holds, in sprite pixels. The fish itself is a separate sprite (see fishArt.ts). */
 export const SHOW_OFF_FISH_ANCHOR = { x: 16, y: 21 };
 export const alexShowOffKey = (breath: 0 | 1) => `alex:showoff:${breath}`;
-
-/** A small, silvery-green fish (facing right). Slice 6 swaps in real species. */
-export const PLACEHOLDER_FISH_SIZE = { w: 14, h: 6 };
-export function placeholderFishSprite(): Sprite {
-  const p = new Pix(14, 6);
-  // Body: dark back, silvery flank, pale belly; a forked tail on the left.
-  p.ell(8, 2.5, 4.6, 1.9, (_x, y) => (y <= 1 ? PAL.fishDark : y === 2 ? PAL.fish : y === 3 ? PAL.fishLight : PAL.fishBelly));
-  p.set(1, 1, PAL.fishDark);
-  p.set(1, 4, PAL.fishDark);
-  p.set(2, 1, PAL.fish);
-  p.set(2, 2, PAL.fish);
-  p.set(2, 3, PAL.fish);
-  p.set(2, 4, PAL.fish);
-  p.set(3, 2, PAL.fish);
-  p.set(3, 3, PAL.fishLight);
-  p.set(11, 2, PAL.outline); // eye
-  p.set(10, 3, PAL.fish); // gill
-  return p.outline().done();
-}
 
 export function alexShowOffSprite(breath: 0 | 1): Sprite {
   const p = new Pix(32, 56);

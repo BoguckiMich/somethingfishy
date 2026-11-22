@@ -127,11 +127,7 @@ export const PAL = {
   harnessDark: 0xb88a14,
   heart: 0xe8505b,
 
-  // Placeholder fish and the catch bar
-  fishDark: 0x3c6a5e,
-  fish: 0x7aa898,
-  fishLight: 0xb4d2c2,
-  fishBelly: 0xe8f0e2,
+  // The catch bar
   barWater: 0x1d3250,
 
   // Night creatures

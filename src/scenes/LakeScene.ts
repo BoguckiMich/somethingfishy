@@ -16,14 +16,17 @@ import { PAL } from '../art/palette';
 import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
+import { fishKey, fishSizeClass } from '../art/fishArt';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
-import { FISH_PATTERNS, newCatchBar, type FishPattern, type FishProfile } from '../core/catchBar';
+import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
 import { STARTER_BAR_GEAR } from '../core/data/barGear';
+import { speciesById } from '../core/data/fish';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
 import type { GameEvent } from '../core/events';
+import { fightProfile, formatCatchSize, rollHookedFish } from '../core/fish';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
 import { showNameOverlay } from '../ui/nameOverlay';
@@ -110,7 +113,7 @@ function hash01(n: number): number {
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
-  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0], barGear: STARTER_BAR_GEAR, rng: Math.random };
+  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0], barGear: STARTER_BAR_GEAR, rng: Math.random, timeOfDay: () => timeOfDay(this.clock.minute) };
   private clock: GameClock = NEW_GAME_CLOCK;
 
   // Scenery images (tinted by the day cycle).
@@ -133,6 +136,7 @@ export class LakeScene extends Phaser.Scene {
   /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
   private showOffFish!: Phaser.GameObjects.Image;
   private caughtText!: Phaser.GameObjects.Text;
+  private caughtSub!: Phaser.GameObjects.Text;
   /** Eased rod bend while fighting: more while the thumb is down, less when released. */
   private fightBend = 8;
   /** Dev-only ?debug=caught: the show-off never times out or gets dismissed. */
@@ -186,7 +190,7 @@ export class LakeScene extends Phaser.Scene {
     createTextures(this);
     // Dev-only: ?debug=waiting forces the waiting state at 10 m (screenshots).
     if (params.get('debug') === 'waiting') {
-      this.state = { kind: 'waiting', distanceM: 10, zone: 'shallow', untilMs: 1e9, nibblesLeft: 0, hadNibble: false };
+      this.state = { kind: 'waiting', distanceM: 10, zone: 'shallow', hooked: { speciesId: 'perch', lengthCm: 20, weightG: 150 }, untilMs: 1e9, nibblesLeft: 0, hadNibble: false };
     }
     const dbg = params.get('debug') ?? '';
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
@@ -197,12 +201,21 @@ export class LakeScene extends Phaser.Scene {
       const fishOverride: FishProfile = { pattern, difficulty: Phaser.Math.Clamp(Number.isFinite(diff) ? diff : 0.5, 0, 1) };
       this.ctx = { ...this.ctx, fishOverride };
     }
+    // Dev-only: ?species=<id> forces the species that bites; ?rod=<id> picks a rod (carbon reaches deep water).
+    const speciesParam = params.get('species');
+    if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
+    const rod = RODS.find((r) => r.id === params.get('rod'));
+    if (rod) this.ctx = { ...this.ctx, rod };
     if (dbg === 'fight' || dbg === 'caught') {
-      const fish: FishProfile = this.ctx.fishOverride ?? { pattern: 'smooth' as FishPattern, difficulty: 0.3 };
+      // The forced species (default perch) at a rolled size, in its own zone.
+      const hooked = rollHookedFish('shallow', timeOfDay(this.clock.minute), this.ctx.rng, this.ctx.speciesOverride ?? 'perch');
+      const species = speciesById(hooked.speciesId)!;
+      const fish: FishProfile = this.ctx.fishOverride ?? fightProfile(species, hooked.lengthCm);
+      const distanceM = species.zone === 'deep' ? 25 : 10;
       if (dbg === 'fight') {
-        this.state = { kind: 'fighting', distanceM: 10, zone: 'shallow', fish, bar: newCatchBar(fish, this.ctx.barGear, this.ctx.rng) };
+        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, bar: newCatchBar(fish, this.ctx.barGear, this.ctx.rng) };
       } else {
-        this.state = { kind: 'caught', distanceM: 10, zone: 'shallow', fish, shownMs: 0 };
+        this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
       }
     }
@@ -459,7 +472,7 @@ export class LakeScene extends Phaser.Scene {
     this.alexImg = this.add.image(ALEX_POS.x, ALEX_POS.y, alexKey('forward', 0)).setOrigin(0, 0).setDepth(Z.angler);
     this.worldImgs.push(this.alexImg);
     this.showOffFish = this.add
-      .image(ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x, ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y, TEX.placeholderFish)
+      .image(ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x, ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y, fishKey('perch', 0))
       .setDepth(Z.angler + 0.5)
       .setVisible(false);
     this.worldImgs.push(this.showOffFish);
@@ -526,6 +539,11 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
+    this.caughtSub = this.add
+      .text(W / 2, 240, '', { fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold', color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.hint = this.add.text(W / 2, H - 24, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     for (let i = 0; i < 3; i++) {
       const text = this.add
@@ -551,6 +569,10 @@ export class LakeScene extends Phaser.Scene {
     const showingOff = this.state.kind === 'caught';
     this.alexImg.setTexture(showingOff ? alexShowOffKey(breath) : alexKey(this.lookOverride ?? this.look.dir, breath));
     this.showOffFish.setVisible(showingOff);
+    if (this.state.kind === 'caught') {
+      const { speciesId, lengthCm } = this.state.hooked;
+      this.showOffFish.setTexture(fishKey(speciesId, fishSizeClass(speciesId, lengthCm)));
+    }
 
     const g = this.action;
     g.clear();
@@ -587,12 +609,16 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (s.kind === 'charging') this.drawPowerMeter(g, chargePower(s.heldMs));
-    if (s.kind === 'fighting') this.catchBar.update(s.bar, this.ctx.barGear, lerpColor(0xffffff, look.worldTint, 0.35));
+    if (s.kind === 'fighting') this.catchBar.update(s.bar, this.ctx.barGear, lerpColor(0xffffff, look.worldTint, 0.35), s.hooked.speciesId);
     else this.catchBar.hide();
     const pop = Math.min(1, 0.45 + this.stateAge / 160);
-    this.caughtText
-      .setVisible(s.kind === 'caught')
-      .setScale(pop + 0.18 * Math.exp(-this.stateAge / 140) * Math.sin(this.stateAge / 40));
+    const popScale = pop + 0.18 * Math.exp(-this.stateAge / 140) * Math.sin(this.stateAge / 40);
+    this.caughtText.setVisible(s.kind === 'caught').setScale(popScale);
+    this.caughtSub.setVisible(s.kind === 'caught').setScale(popScale);
+    if (s.kind === 'caught') {
+      this.caughtText.setText(speciesById(s.hooked.speciesId)?.name ?? 'Caught!');
+      this.caughtSub.setText(formatCatchSize(s.hooked.lengthCm, s.hooked.weightG));
+    }
 
     // Labels.
     this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);

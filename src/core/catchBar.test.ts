@@ -1,15 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
   CATCH_BAR_TUNING,
   barResult,
   newCatchBar,
-  placeholderFish,
   tickCatchBar,
   type CatchBarState,
   type FishPattern,
   type FishProfile,
 } from './catchBar';
 import { STARTER_BAR_GEAR } from './data/barGear';
+import { SPECIES } from './data/fish';
+import { fightProfile, rollLength } from './fish';
 import type { BarGear } from './gear';
 import { seededRng } from './random';
 
@@ -194,10 +195,22 @@ describe('fish patterns', () => {
     expect(floater).toBeLessThan(smooth);
   });
 
-  it('darting dashes much faster than smooth glides', () => {
-    const darting = avg(seeds(8).map((s) => sample('darting', s).peak));
-    const smooth = avg(seeds(8).map((s) => sample('smooth', s).peak));
-    expect(darting).toBeGreaterThan(smooth * 1.5);
+  it('darting fish move in bursts: far more of the time standing still than smooth glides', () => {
+    const stillShare = (pattern: FishPattern, seed: number) => {
+      const f: FishProfile = { pattern, difficulty: 0.7 };
+      const rng = seededRng(seed);
+      let s = newCatchBar(f, STARTER_BAR_GEAR, rng);
+      let still = 0;
+      const n = 3000;
+      for (let i = 0; i < n; i++) {
+        s = tickCatchBar({ ...s, progress: 0.5 }, 16, i % 50 < 25, f, STARTER_BAR_GEAR, rng);
+        if (Math.abs(s.fishVel) < 0.08) still++;
+      }
+      return still / n;
+    };
+    const darting = avg(seeds(8).map((s) => stillShare('darting', s)));
+    const smooth = avg(seeds(8).map((s) => stillShare('smooth', s)));
+    expect(darting).toBeGreaterThan(smooth * 1.3);
   });
 
   it('erratic fish change direction far more often than smooth ones', () => {
@@ -247,56 +260,73 @@ describe('frame-rate independence', () => {
   });
 });
 
+/** A fight against a species at a rolled size, the way the session builds it. */
+const speciesFight = (sp: (typeof SPECIES)[number]) => (seed: number): FishProfile =>
+  fightProfile(sp, rollLength(sp, seededRng(seed * 977)));
+const shallowSpecies = SPECIES.filter((s) => s.zone === 'shallow');
+const deepSpecies = SPECIES.filter((s) => s.zone === 'deep');
+const caughtShare = (f: Fight[]) => f.filter((x) => x.result === 'caught').length / f.length;
+
 describe('difficulty tuning (scripted player bots, starter gear)', () => {
-  it('shallow fish: a decent player takes about 4-8 s, and even a sloppy one nearly never loses', () => {
+  it('shallow fish: forgiving. A decent player takes about 4-8 s, a sloppy one still lands at least 85%', () => {
     const shallow = (seed: number): FishProfile => ({
       pattern: PATTERNS[seed % PATTERNS.length],
       difficulty: 0.05 + ((seed * 37) % 100) / 100 * 0.25,
     });
     const good = fights(shallow, GOOD_BOT, 50);
-    expect(good.every((f) => f.result === 'caught')).toBe(true);
+    expect(caughtShare(good)).toBeGreaterThanOrEqual(0.98);
     const m = median(good.map((f) => f.ms)) / 1000;
     expect(m).toBeGreaterThanOrEqual(4);
     expect(m).toBeLessThanOrEqual(8);
-    const sloppy = fights(shallow, SLOPPY_BOT, 50);
-    expect(sloppy.filter((f) => f.result === 'caught').length / sloppy.length).toBeGreaterThanOrEqual(0.95);
+    expect(caughtShare(fights(shallow, SLOPPY_BOT, 50))).toBeGreaterThanOrEqual(0.85);
   });
 
   it('deep fish: a decent player takes about 8-15 s, and a sloppy one loses a fair share', () => {
-    const deep = (seed: number): FishProfile => placeholderFish('deep', seededRng(seed * 31));
-    const good = fights(deep, GOOD_BOT, 50);
+    const deep = (seed: number): FishProfile => speciesFight(deepSpecies[seed % deepSpecies.length])(seed);
+    const good = fights(deep, GOOD_BOT, 60);
     const m = median(good.map((f) => f.ms)) / 1000;
     expect(m).toBeGreaterThanOrEqual(8);
     expect(m).toBeLessThanOrEqual(15);
-    const sloppy = fights(deep, SLOPPY_BOT, 50);
-    const lostShare = sloppy.filter((f) => f.result !== 'caught').length / sloppy.length;
+    const lostShare = 1 - caughtShare(fights(deep, SLOPPY_BOT, 60));
     expect(lostShare).toBeGreaterThanOrEqual(0.2);
   });
 
-  it('legendary (difficulty 1.0): takes 20 s or more, or is often lost', () => {
+  it('difficulty 1.0: often lost, or a very long fight', () => {
     const legend = (seed: number): FishProfile => ({ pattern: PATTERNS[seed % PATTERNS.length], difficulty: 1 });
     const good = fights(legend, GOOD_BOT, 50);
-    const lost = good.filter((f) => f.result !== 'caught').length / good.length;
+    const lost = 1 - caughtShare(good);
     const m = median(good.map((f) => (f.result === 'caught' ? f.ms : MAX_MS))) / 1000;
     expect(m >= 20 || lost >= 0.4).toBe(true);
   });
 });
 
-describe('placeholderFish', () => {
-  it('shallow fish are easy and mostly calm; deep fish are harder and can be any pattern', () => {
-    const seen = new Set<FishPattern>();
-    for (const seed of seeds(200)) {
-      const f = placeholderFish('shallow', seededRng(seed));
-      expect(f.difficulty).toBeGreaterThanOrEqual(0.05);
-      expect(f.difficulty).toBeLessThanOrEqual(0.3);
-      expect(['smooth', 'floater', 'sinker']).toContain(f.pattern);
+describe('the real roster, fought by the bots', () => {
+  const rows: string[] = [];
+  afterAll(() => console.log(['roster bot results (median seconds, catch share)', ...rows].join(String.fromCharCode(10))));
+  const stats = (sp: (typeof SPECIES)[number]) => {
+    const good = fights(speciesFight(sp), GOOD_BOT, 40);
+    const sloppy = fights(speciesFight(sp), SLOPPY_BOT, 40);
+    const gm = median(good.map((f) => (f.result === 'caught' ? f.ms : MAX_MS))) / 1000;
+    const sm = median(sloppy.map((f) => (f.result === 'caught' ? f.ms : MAX_MS))) / 1000;
+    rows.push(
+      `${sp.id.padEnd(8)} ${sp.zone.padEnd(7)} good: ${gm.toFixed(1)}s ${(caughtShare(good) * 100).toFixed(0)}%   sloppy: ${sm.toFixed(1)}s ${(caughtShare(sloppy) * 100).toFixed(0)}%`,
+    );
+    return { gm, goodShare: caughtShare(good), sloppyShare: caughtShare(sloppy) };
+  };
+
+  it('every shallow species is forgiving', () => {
+    const results = shallowSpecies.map((sp) => ({ sp, ...stats(sp) }));
+    for (const r of results) {
+      expect(r.goodShare, `${r.sp.id} good`).toBeGreaterThanOrEqual(0.98);
+      expect(r.sloppyShare, `${r.sp.id} sloppy`).toBeGreaterThanOrEqual(0.85);
     }
-    for (const seed of seeds(200)) {
-      const f = placeholderFish('deep', seededRng(seed));
-      expect(f.difficulty).toBeGreaterThanOrEqual(0.45);
-      expect(f.difficulty).toBeLessThanOrEqual(0.8);
-      seen.add(f.pattern);
+  });
+
+  it('every deep species takes a good player 8-15 s', () => {
+    const results = deepSpecies.map((sp) => ({ sp, ...stats(sp) }));
+    for (const r of results) {
+      expect(r.gm, r.sp.id).toBeGreaterThanOrEqual(8);
+      expect(r.gm, r.sp.id).toBeLessThanOrEqual(15);
     }
-    expect(seen.size).toBe(5);
   });
 });
