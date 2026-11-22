@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { chargePower } from '../core/casting';
+import { castDistance, chargePower } from '../core/casting';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
 import { INITIAL_STATE, step, type FishingEvent, type FishingState, type SessionContext } from '../core/fishingSession';
@@ -230,13 +230,28 @@ export class LakeScene extends Phaser.Scene {
     g.fillStyle(COLORS.bobberTop).fillRect(px, py - 6, 1, 3); // antenna
   }
 
+  /**
+   * Power feedback, kept in the top half of the screen so a thumb holding anywhere near the
+   * bottom never covers it: a horizontal bar up top, plus a marker on the water showing where
+   * the bobber would land right now.
+   */
   private drawPowerMeter(g: Phaser.GameObjects.Graphics, power: number): void {
-    const x = 250;
-    const top = SHORE_Y - 40;
-    const h = 100;
-    g.fillStyle(COLORS.meterBg, 0.85).fillRect(x - 2, top - 2, 16, h + 4);
-    const fillH = Math.round(h * power);
-    g.fillStyle(power > 0.95 ? COLORS.meterFull : COLORS.meterFill).fillRect(x, top + h - fillH, 12, fillH);
+    const full = power > 0.95;
+    const color = full ? COLORS.meterFull : COLORS.meterFill;
+
+    // Bar.
+    const w = 240;
+    const x = (W - w) / 2;
+    const y = 72;
+    g.fillStyle(COLORS.meterBg, 0.85).fillRect(x - 3, y - 3, w + 6, 16);
+    g.fillStyle(color).fillRect(x, y, Math.round(w * power), 10);
+
+    // Landing marker on the water.
+    const distanceM = castDistance(power, this.ctx.rod);
+    const ly = Math.round(distanceToY(distanceM));
+    const pulse = 1 + Math.sin(this.time0 / 120) * 0.15;
+    g.lineStyle(1, color, 0.9).strokeEllipse(BOBBER_X, ly, 14 * pulse, 5 * pulse);
+    g.fillStyle(color).fillRect(BOBBER_X, ly, 1, 1);
   }
 
   private drawShimmer(g: Phaser.GameObjects.Graphics): void {
