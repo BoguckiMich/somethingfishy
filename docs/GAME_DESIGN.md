@@ -95,8 +95,9 @@ The game stars the two of them and their dog. Reference photos live untracked in
        progress strip that goes red → yellow → green. Slightly dimmed at night.
      - *Input:* hold anywhere on the screen.
      - *Progress:* starts at 30%. No extra grace period. Drains whenever the fish is outside the zone.
-     - *Difficulty:* with starter gear, shallow day fish are nearly impossible to lose. The real
-       difficulty starts in deep water.
+     - *Difficulty:* with starter gear, shallow fish are *forgiving* (revised after play-testing:
+       "nearly impossible to lose" was too easy). A sloppy player still lands ≥85%. The real
+       difficulty starts in deep water. Base drain ~0.13/s vs fill 0.16/s.
      - *Target fight length:* shallow ~4–8 s, deep ~8–15 s, legendary 20 s or more.
      - *Loss:* "it got away…", the line goes slack, then reel in. A `fishLost` event is emitted;
        losing the bait hooks onto that event in slice 7.
@@ -106,7 +107,7 @@ The game stars the two of them and their dog. Reference photos live untracked in
      - *Fight feedback:* the rod bends more while holding, the line is taut, and the bobber jerks
        with the fish.
      - *Catch:* front-facing "show off the catch" pose with a placeholder fish and "Caught!";
-       a tap or 3 s dismisses it. Pajkel claps and Bestia hops on a catch; small reactions on a loss.
+       a tap (after 0.4 s) or 4 s dismisses it. Pajkel claps and Bestia hops on a catch; small reactions on a loss.
      - *Vibration:* short buzz on hook and on catch, where the browser supports it.
      - *Not in v1:* treasure chests, line snap, tension.
 4. **Result** — each catch rolls a size/weight. The fish log keeps personal bests per species
@@ -117,23 +118,42 @@ The game stars the two of them and their dog. Reference photos live untracked in
    from a bottom bar.
 7. **Which fish bites** — v1: time of day + depth zone. (Bait type in v2; weather/seasons later.)
 
-### v1 fish roster (proposed)
+### v1 fish roster (decided for slice 6)
 
-| Fish | Zone | Time | Notes |
-|---|---|---|---|
-| Roach | shallow | day | common starter |
-| Rudd | shallow | day | |
-| Bleak | shallow | day | tiny, darting |
-| Perch | shallow | day | |
-| Crucian carp | shallow | any | |
-| Eel | shallow | night | |
-| Bream | deep | any | |
-| Tench | deep | dawn/dusk | |
-| Carp | deep | any | strong |
-| Pike | deep | day | darting |
-| Zander | deep | dusk/night | |
-| Catfish | deep | night | heavy, sinker |
-| *Legendary* | deep | ? | brutal, needs best gear |
+| Fish | Zone | Time | Rarity | Pattern | Difficulty | Length | Nibbles |
+|---|---|---|---|---|---|---|---|
+| Roach | shallow | day | common | smooth | 0.10 | 12–30 cm | 0–1 |
+| Rudd | shallow | day | common | floater | 0.15 | 12–30 cm | 0–3 |
+| Bleak | shallow | day | common | darting | 0.20 | 8–18 cm | 0–1 |
+| Perch | shallow | day | uncommon | darting | 0.25 | 10–35 cm | 2–4 |
+| Crucian carp | shallow | any | common | sinker | 0.12 | 10–30 cm | 0–3 |
+| Eel | shallow | night | uncommon | erratic | 0.30 | 40–100 cm | 0–3 |
+| Bream | deep | any | common | sinker | 0.45 | 25–60 cm | 2–4 |
+| Tench | deep | dawn/dusk | uncommon | smooth | 0.50 | 25–55 cm | 2–4 |
+| Carp | deep | any | uncommon | smooth | 0.65 | 35–90 cm | 2–4 |
+| Pike | deep | day | uncommon | darting | 0.70 | 40–110 cm | 0–1 |
+| Zander | deep | dusk/night | uncommon | erratic | 0.65 | 35–80 cm | 0–3 |
+| Catfish | deep | night | rare | sinker | 0.80 | 60–180 cm | 0–3 |
+| *Legendary* | deep | ? | | | | | slice 12 |
+
+**Slice 6 details (decided):**
+- *Data* in `src/core/data/fish.ts`; tunable. Each species also has `basePrice` (used from slice 7)
+  and one short real `fact` (displayed later, see Ideas).
+- *Spawn:* candidates = species matching the bobber's zone and the current time of day
+  (dawn/day/dusk/night); weighted pick common 60 / uncommon 30 / rare 10. Every zone has an
+  "any time" species, so there is always a candidate. Bait joins the rules in v2.
+- *When:* the species is picked when the bobber lands, so it shapes the wait (nibble range per
+  species; shy fish nibble more). The hook window stays 1 s for everyone in v1.
+- *Size:* length rolled in the species range, skewed so most are small/medium and the top ~10% is
+  rare. Weight = a·L³ with a per-species body-shape factor (eel light, bream heavy). Metric units.
+- *Size → fight:* up to +0.10 difficulty at the top of the size range; shallow fish capped at 0.3.
+- *Catch screen:* show-off pose with species name and "24 cm · 210 g". `fishCaught` carries
+  `speciesId`, `lengthCm`, `weightG`. "New species!" and record stars wait for the fish log (slice 8).
+- *Art:* recoloured placeholder fish per species in 2–3 sizes by length (also the bar icon);
+  real fish sprites in slice 10.
+- *Where it goes:* catch and release until the bag (slice 7).
+- *Dev flags:* `?species=<id>` forces a species; `?rod=<id>` picks a rod (deep water for testing);
+  `?fish=<pattern>&diff=` stays for raw bar tuning.
 
 **Legendaries** are brutally hard and gear-dependent. Caught once for the log; afterwards
 rematches are possible for personal-best size records.
@@ -184,6 +204,10 @@ be tweaked without touching logic.
 - **Treasure in the catch bar** (Stardew-style) — sometimes a chest icon appears in the bar.
   Keeping it in the zone long enough grabs it as a bonus (coins, bait, cosmetics).
   Open questions: what can a chest hold, how often does one appear, and does missing it cost anything (it shouldn't)?
+
+- **Fun facts on catch** — a short real fact about the species when caught (or in the fish log).
+  Each species already has one `fact` in the data (slice 6). Open: show it on the catch screen or
+  only in the log? One fact or a rotating pool per species?
 
 - **Livelier companion reactions in the fight** — Pajkel leans in or cheers during the fight,
   Bestia watches the line. Slice 5 only adds small reactions on a catch or loss.
