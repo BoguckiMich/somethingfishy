@@ -79,13 +79,12 @@ const noise = (x: number, y: number) => {
 /** An original spiky "metal band" logo for the back of Alex's tee (not a real band's mark). */
 const LOGO = sprite(
   `
-  w...w.w.w...w
-  ww..ww.ww..ww
-  .wwwwwwwwwww.
-  wwwwwwwwwwwww
-  .wwww.w.wwww.
-  ..ww..w..ww..
-  ..w...w...w..
+  w..w.w..w
+  ww.www.ww
+  .wwwwwww.
+  wwwwwwwww
+  .ww.w.ww.
+  ..w.w.w..
 `,
   { w: PAL.white },
 );
@@ -103,69 +102,111 @@ export const HEART = sprite(
 
 export const STICK = sprite('sLsssss', { s: PAL.woodLight, L: PAL.woodHi });
 
-// ---- Alex (player): ¾ back view, seated, turned a little toward Pajkel --------------------
+// ---- Alex (player): standing at the dock edge, ¾ back view, rod in her right hand ----------
 
-export const ALEX_SIZE = { w: 32, h: 40 };
+export const ALEX_SIZE = { w: 32, h: 56 };
 /** Where the rod is held, in sprite pixels (her right hand). */
-export const ALEX_HAND = { x: 29, y: 26 };
+export const ALEX_HAND = { x: 27, y: 28 };
+/** Row of the soles of her shoes, in sprite pixels. */
+export const ALEX_FEET_Y = 55;
 
-export function alexSprite(breath: 0 | 1): Sprite {
-  const p = new Pix(32, 40);
-  // Black band tee.
-  for (let y = 22; y <= 34; y++) {
-    const x0 = y === 22 ? 8 : 6;
-    const x1 = y === 22 ? 23 : 25;
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 9 ? PAL.teeLight : x >= 22 ? PAL.teeDark : PAL.tee);
-  }
-  p.blit(LOGO, 9, 25);
-  // Black capri pants (seat).
-  for (let y = 35; y <= 38; y++) for (let x = 5; x <= 26; x++) p.set(x, y, x <= 8 ? PAL.tee : PAL.teeDark);
-  // Left arm resting, right arm out to the rod with a smartwatch.
-  p.rect(3, 23, 3, 4, PAL.tee);
-  p.rect(3, 27, 3, 6, PAL.skin);
-  p.rect(5, 27, 1, 6, PAL.skinShade);
-  p.rect(26, 22, 4, 3, PAL.tee);
-  p.rect(28, 25, 3, 4, PAL.skin);
-  p.set(30, 25, PAL.skinShade);
-  p.set(30, 26, PAL.skinShade);
-  p.rect(28, 27, 2, 1, PAL.watch);
-  p.set(30, 27, PAL.shades);
-  // Neck.
-  p.rect(13, 19, 5, 4, PAL.skinShade);
-  // Shoulder-length light-brown hair.
+export type AlexHead = 'forward' | 'left' | 'right';
+export const ALEX_HEADS: readonly AlexHead[] = ['forward', 'left', 'right'];
+export const alexKey = (head: AlexHead, breath: 0 | 1) => `alex:${head}:${breath}`;
+
+export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
+  const p = new Pix(32, 56);
   const dy = breath;
-  const hairColor = (x: number, y: number) => {
+  // Slim black band tee: narrow shoulders, a waist, a slight flare at the hem.
+  for (let y = 21; y <= 36; y++) {
+    let x0 = 10;
+    let x1 = 21;
+    if (y === 21) [x0, x1] = [11, 20];
+    else if (y >= 31 && y <= 34) [x0, x1] = [11, 20];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 11 ? PAL.teeLight : x >= 19 ? PAL.teeDark : PAL.tee);
+  }
+  p.blit(LOGO, 11, 24);
+  // Left arm hanging (sleeve, then bare forearm and hand).
+  p.rect(8, 22, 2, 4, PAL.tee);
+  p.rect(8, 26, 2, 9, PAL.skin);
+  p.rect(9, 26, 1, 9, PAL.skinShade);
+  // Right arm bent out to the rod: sleeve, forearm, fist, smartwatch on the wrist.
+  p.rect(22, 22, 3, 3, PAL.tee);
+  p.rect(23, 25, 2, 3, PAL.skin);
+  p.set(24, 25, PAL.skinShade);
+  p.set(24, 26, PAL.skinShade);
+  p.rect(25, 27, 3, 3, PAL.skin);
+  p.set(27, 29, PAL.skinShade);
+  p.rect(25, 27, 1, 2, PAL.watch);
+  // Black capri pants: hips, then two slim legs ending mid-calf.
+  for (let y = 37; y <= 41; y++) {
+    const x0 = y <= 40 ? 10 : 11;
+    const x1 = y <= 40 ? 21 : 20;
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.tee : PAL.teeDark);
+  }
+  for (let y = 42; y <= 47; y++) {
+    for (let x = 11; x <= 14; x++) p.set(x, y, x === 11 ? PAL.teeLight : PAL.tee);
+    for (let x = 17; x <= 20; x++) p.set(x, y, x === 20 ? PAL.teeDark : PAL.tee);
+  }
+  p.rect(11, 47, 4, 1, PAL.teeLight);
+  p.rect(17, 47, 4, 1, PAL.tee);
+  // Bare calves and ankles, then shoes (white with a dark sole).
+  p.rect(12, 48, 3, 5, PAL.skin);
+  p.rect(14, 48, 1, 5, PAL.skinShade);
+  p.rect(18, 48, 3, 5, PAL.skin);
+  p.rect(20, 48, 1, 5, PAL.skinShade);
+  for (const x of [11, 17]) {
+    p.rect(x, 53, 4, 2, PAL.shoe);
+    p.rect(x, 55, 4, 1, PAL.shoeDark);
+  }
+  // Neck.
+  p.rect(14, 17 + dy, 3, 5 - dy, PAL.skinShade);
+
+  // Shoulder-length light-brown hair. Strands run down the head; the ends are ragged.
+  // Breathing moves the whole head and hair block rigidly by `dy`: colours are sampled in
+  // head-local rows (y - dy), so the strand pattern travels with the silhouette.
+  const hairColor = (x: number, yy: number) => {
+    const y = yy - dy;
+    const col = noise(x, 3.7);
     const n = noise(x, y);
-    if (x < 17 && y < 16 + dy && n > 0.42) return PAL.alexHairLight;
-    if (x > 19 || y > 20 || n < 0.18 || (y > 14 && (x + y) % 5 === 0)) return PAL.alexHairDark;
+    // Highlight band sweeping across the crown (light from the upper left).
+    const sheen = Math.abs(x + y * 0.8 - 18) < 1.3 && y < 11;
+    if (sheen) return n > 0.4 ? PAL.alexHairHi : PAL.alexHairLight;
+    if (y > 17 && (x < 10 || x > 21)) return PAL.alexHairDark;
+    if (col > 0.62) return y > 12 && n < 0.3 ? PAL.alexHair : PAL.alexHairLight;
+    if (col < 0.28 || (n < 0.12 && y > 6)) return PAL.alexHairDark;
     return PAL.alexHair;
   };
-  p.ell(15.5, 11 + dy, 8.6, 9.2, hairColor);
-  for (let y = 19; y <= 25; y++) {
-    const x0 = y < 23 ? 8 : 9;
-    const x1 = y < 23 ? 23 : 22;
-    for (let x = x0; x <= x1; x++) {
-      if (y === 25 && (x * 7) % 3 === 0) continue;
-      if (y === 24 && x % 5 === 0) continue;
-      p.set(x, y, hairColor(x, y));
-    }
+  // Hair hanging to the shoulders, with uneven ends.
+  for (let x = 9; x <= 22; x++) {
+    const end = 20 + Math.floor(noise(x, 9.1) * 4) - (x === 9 || x === 22 ? 2 : 0);
+    for (let y = 14 + dy; y <= end + dy; y++) p.set(x, y, hairColor(x, y));
   }
-  // Face turned left: cheek, nose, eye, and bangs sweeping across the forehead.
-  p.ell(7.5, 13 + dy, 2.8, 3.8, PAL.skin);
-  p.set(4, 13 + dy, PAL.skin);
-  p.set(4, 14 + dy, PAL.skin);
-  p.set(5, 12 + dy, PAL.outline);
-  p.set(6, 16 + dy, PAL.skinShade);
-  // Bangs: a fringe across the forehead, with a couple of strands falling over it.
-  p.rect(4, 8 + dy, 10, 2, PAL.alexHair);
-  p.rect(4, 9 + dy, 4, 1, PAL.alexHairDark);
-  p.set(4, 10 + dy, PAL.alexHair);
-  p.set(5, 10 + dy, PAL.alexHairDark);
-  p.set(7, 10 + dy, PAL.alexHair);
-  p.set(9, 10 + dy, PAL.alexHairDark);
-  p.set(5, 8 + dy, PAL.alexHairLight);
-  p.set(8, 8 + dy, PAL.alexHairLight);
-  p.rect(10, 10 + dy, 1, 4, PAL.alexHairDark);
+  // The head itself.
+  p.ell(15.5, 8.5 + dy, 7.6, 8.3, hairColor);
+
+  // The crown parting sits a little toward the side she is turned to.
+  const part = head === 'left' ? 13 : head === 'right' ? 18 : 15;
+  p.line(part + 1, 1 + dy, part, 7 + dy, PAL.alexHairDark);
+  p.set(part, 8 + dy, PAL.alexHairDark);
+  p.set(part + 2, 3 + dy, PAL.alexHairLight);
+  if (head !== 'forward') {
+    // Turned: only a sliver of profile inside the same silhouette (mirrored for 'right').
+    const f = (x: number, y: number, c: number) => p.set(head === 'right' ? 31 - x : x, y + dy, c);
+    for (let y = 11; y <= 15; y++) f(9, y, y === 15 ? PAL.skinShade : PAL.skin);
+    f(8, 12, PAL.skin);
+    f(8, 13, PAL.skin); // nose tip
+    f(8, 14, PAL.skinShade);
+    f(10, 13, PAL.skinShade); // a hint of cheek/ear shadow
+    f(10, 14, PAL.skinShade);
+    // Bangs sweeping over the forehead, a couple of strands falling toward the cheek.
+    for (let x = 9; x <= 13; x++) f(x, 9, x % 2 ? PAL.alexHairDark : PAL.alexHair);
+    f(9, 10, PAL.alexHairDark);
+    f(10, 10, PAL.alexHair);
+    f(12, 10, PAL.alexHairDark);
+    f(9, 8, PAL.alexHairLight);
+    f(11, 7, PAL.alexHairHi);
+  }
   return p.outline().done();
 }
 
@@ -178,36 +219,36 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
   const p = new Pix(40, 44);
   // Broad black tee.
   for (let y = 24; y <= 41; y++) {
-    let x0 = 8;
-    let x1 = 31;
-    if (y === 24) [x0, x1] = [12, 27];
-    else if (y === 25) [x0, x1] = [9, 30];
-    else if (y >= 40) [x0, x1] = [9, 30];
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.teeLight : x >= 27 ? PAL.teeDark : PAL.tee);
+    let x0 = 10;
+    let x1 = 29;
+    if (y === 24) [x0, x1] = [13, 26];
+    else if (y === 25) [x0, x1] = [11, 28];
+    else if (y >= 40) [x0, x1] = [11, 28];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.teeLight : x >= 26 ? PAL.teeDark : PAL.tee);
   }
   // Left arm hanging, right arm holding the thermos (or raised).
-  p.rect(5, 26, 4, 5, PAL.tee);
-  p.rect(5, 31, 4, 5, PAL.skin);
-  p.rect(8, 31, 1, 5, PAL.skinShade);
+  p.rect(7, 26, 3, 5, PAL.tee);
+  p.rect(7, 31, 3, 5, PAL.skin);
+  p.rect(9, 31, 1, 5, PAL.skinShade);
   if (pose === 'sip') {
-    p.rect(30, 26, 4, 5, PAL.tee);
-    p.rect(30, 21, 4, 6, PAL.skin);
-    p.rect(30, 14, 4, 7, PAL.mug);
-    p.rect(30, 14, 1, 7, PAL.mugDark);
-    p.rect(30, 12, 4, 2, PAL.stoneLight);
+    p.rect(29, 26, 3, 5, PAL.tee);
+    p.rect(29, 21, 3, 6, PAL.skin);
+    p.rect(29, 14, 4, 7, PAL.mug);
+    p.rect(29, 14, 1, 7, PAL.mugDark);
+    p.rect(29, 12, 4, 2, PAL.stoneLight);
   } else if (pose === 'cheer') {
-    p.rect(30, 26, 4, 4, PAL.tee);
-    p.rect(31, 12, 3, 14, PAL.skin);
-    p.rect(33, 12, 1, 14, PAL.skinShade);
-    p.rect(30, 5, 5, 7, PAL.mug);
-    p.rect(30, 5, 1, 7, PAL.mugDark);
-    p.rect(30, 3, 5, 2, PAL.stoneLight);
+    p.rect(29, 26, 3, 4, PAL.tee);
+    p.rect(29, 12, 3, 14, PAL.skin);
+    p.rect(31, 12, 1, 14, PAL.skinShade);
+    p.rect(28, 5, 5, 7, PAL.mug);
+    p.rect(28, 5, 1, 7, PAL.mugDark);
+    p.rect(28, 3, 5, 2, PAL.stoneLight);
   } else {
-    p.rect(30, 26, 4, 5, PAL.tee);
-    p.rect(30, 31, 4, 5, PAL.skin);
-    p.rect(31, 30, 4, 8, PAL.mug);
-    p.rect(31, 30, 1, 8, PAL.mugDark);
-    p.rect(31, 28, 4, 2, PAL.stoneLight);
+    p.rect(29, 26, 3, 5, PAL.tee);
+    p.rect(29, 31, 3, 5, PAL.skin);
+    p.rect(30, 30, 4, 8, PAL.mug);
+    p.rect(30, 30, 1, 8, PAL.mugDark);
+    p.rect(30, 28, 4, 2, PAL.stoneLight);
   }
   const dy = breath;
   // Messy shoulder-length dirty-blond hair (head + back), with flyaway strands.

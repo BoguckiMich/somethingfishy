@@ -4,7 +4,7 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ALEX_SIZE, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { ALEX_HEADS, ALEX_SIZE, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
 import { BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
 
 describe('palette', () => {
@@ -25,13 +25,35 @@ describe('sprites', () => {
   });
 
   it('characters have the intended sizes and breathing frames', () => {
-    const a0 = alexSprite(0);
-    expect([a0.width, a0.height]).toEqual([ALEX_SIZE.w, ALEX_SIZE.h]);
-    expect(Array.from(alexSprite(1).pixels)).not.toEqual(Array.from(a0.pixels));
+    for (const head of ALEX_HEADS) {
+      const h0 = alexSprite(head, 0);
+      const h1 = alexSprite(head, 1);
+      expect([h0.width, h0.height, h1.width, h1.height]).toEqual([ALEX_SIZE.w, ALEX_SIZE.h, ALEX_SIZE.w, ALEX_SIZE.h]);
+      expect(Array.from(h1.pixels)).not.toEqual(Array.from(h0.pixels));
+    }
+    const px = (h: AlexHead) => Array.from(alexSprite(h, 0).pixels);
+    expect(px('left')).not.toEqual(px('forward'));
+    expect(px('right')).not.toEqual(px('forward'));
+    expect(px('left')).not.toEqual(px('right'));
     const p = pajkelSittingSprite('sit', 0);
     expect([p.width, p.height]).toEqual([PAJ_SIZE.w, PAJ_SIZE.h]);
     expect(Array.from(pajkelSittingSprite('sip', 0).pixels)).not.toEqual(Array.from(p.pixels));
     expect(pajkelWalkSprite('walk1').width).toBeGreaterThan(0);
+  });
+
+  it("Alex's hair moves as one block when she breathes", () => {
+    // Every hair pixel of frame 0 sits exactly one row lower in frame 1 (no torn or static parts).
+    const hair = new Set<number>([PAL.alexHair, PAL.alexHairLight, PAL.alexHairHi, PAL.alexHairDark]);
+    for (const head of ALEX_HEADS) {
+      const a = alexSprite(head, 0);
+      const b = alexSprite(head, 1);
+      const at = (s: typeof a, x: number, y: number) => s.pixels[y * s.width + x];
+      for (let y = 0; y < a.height - 1; y++) {
+        for (let x = 0; x < a.width; x++) {
+          if (hair.has(at(a, x, y))) expect(at(b, x, y + 1), `${head} ${x},${y}`).toBe(at(a, x, y));
+        }
+      }
+    }
   });
 
   it('has a distinct dog sprite for every frame key', () => {

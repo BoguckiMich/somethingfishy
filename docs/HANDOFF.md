@@ -67,7 +67,7 @@ npm run build
 ```
 
 Dev URL flags (all dev-only): `?time=HH` start hour · `?debug=waiting` bobber in water at 10 m ·
-`?debug=afk` companions play on the grass · `?reset=profile` show first-launch names ·
+`?debug=afk` companions play on the grass · `?debug=look=left|right` freeze Alex's gaze · `?reset=profile` show first-launch names ·
 `?skipnames` skip the name card.
 
 Headless screenshots (Edge is installed, Chrome is not):
