@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import { castDistance, chargePower } from '../core/casting';
+import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, type GameClock } from '../core/clock';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
-import { INITIAL_STATE, step, type FishingEvent, type FishingState, type SessionContext } from '../core/fishingSession';
+import type { GameEvent } from '../core/events';
+import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
+import { HAPTICS, vibrate } from './haptics';
 
 // ---- Layout (base resolution 360×640, portrait) ----------------------------------------------
 const W = 360;
@@ -12,6 +15,10 @@ const FAR_WATER_Y = 170; // y of the farthest castable point (location.maxDistan
 const SHORE_Y = 520; // y of distance 0 (the near shore)
 const ROD_TIP = { x: 214, y: 508 };
 const BOBBER_X = 214;
+
+const NIBBLE_ANIM_MS = 260;
+const TOAST_MS = 1800;
+const RIPPLE_MS = 1200;
 
 const COLORS = {
   sky: [0x8ecae6, 0xa6d8ee, 0xbfe3f2],
@@ -31,7 +38,11 @@ const COLORS = {
   meterBg: 0x1b2b3a,
   meterFill: 0xf4a261,
   meterFull: 0xe76f51,
+  night: 0x0b1026,
+  warm: 0xff8c42,
+  star: 0xfdf6e3,
   text: '#f1faee',
+  alert: '#ffd166',
 };
 
 /** Converts a cast distance in meters into a screen y coordinate. */
@@ -43,30 +54,55 @@ function distanceToY(distanceM: number): number {
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
-  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0] };
+  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0], rng: Math.random };
+  private clock: GameClock = NEW_GAME_CLOCK;
 
   private dynamic!: Phaser.GameObjects.Graphics;
+  private sky!: Phaser.GameObjects.Graphics;
   private zoneLabel!: Phaser.GameObjects.Text;
+  private clockLabel!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
+  private toast!: Phaser.GameObjects.Text;
+  private alertMark!: Phaser.GameObjects.Text;
 
   /** Animation progress 0..1 for the current casting/retrieving state. */
   private anim = 0;
-  /** Ripple rings spawned when the bobber lands. */
-  private ripples: { x: number; y: number; age: number }[] = [];
-  private time0 = 0;
+  /** Ripple rings on the water. */
+  private ripples: { x: number; y: number; age: number; big: boolean }[] = [];
+  /** Time since the last nibble, for the bobber dip animation. */
+  private nibbleAge = Infinity;
+  private toastAge = Infinity;
+  private elapsed = 0;
 
   constructor() {
     super('Lake');
   }
 
   create(): void {
+    // Dev helper: ?time=22 starts the clock at 22:00, to check night/dawn without waiting.
+    const startHour = Number(new URLSearchParams(location.search).get('time'));
+    if (startHour >= 0 && startHour < 24 && location.search.includes('time=')) {
+      this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
+    }
+
     this.drawBackground();
     this.dynamic = this.add.graphics();
+    this.sky = this.add.graphics(); // day/night tint + stars, drawn over the world, under the UI
 
     const textStyle = { fontFamily: 'monospace', fontSize: '14px', color: COLORS.text };
+    const panel = { backgroundColor: '#1b2b3aaa', padding: { x: 8, y: 4 } };
+    this.clockLabel = this.add.text(10, 10, '', { ...textStyle, ...panel });
     this.zoneLabel = this.add
-      .text(W / 2, 40, '', { ...textStyle, fontSize: '16px', backgroundColor: '#1b2b3aaa', padding: { x: 8, y: 4 } })
+      .text(W / 2, 40, '', { ...textStyle, ...panel, fontSize: '16px' })
       .setOrigin(0.5)
+      .setVisible(false);
+    this.toast = this.add
+      .text(W / 2, 110, '', { ...textStyle, ...panel, fontSize: '18px', color: COLORS.alert })
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.alertMark = this.add
+      .text(0, 0, '!', { fontFamily: 'monospace', fontSize: '22px', color: COLORS.alert, stroke: '#1b2b3a', strokeThickness: 4 })
+      .setOrigin(0.5, 1)
       .setVisible(false);
     this.hint = this.add.text(W / 2, H - 24, '', textStyle).setOrigin(0.5);
 
@@ -78,7 +114,8 @@ export class LakeScene extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number): void {
-    this.time0 += deltaMs;
+    this.elapsed += deltaMs;
+    this.clock = advanceClock(this.clock, deltaMs);
     this.send({ type: 'tick', dtMs: deltaMs });
 
     if (this.state.kind === 'casting' || this.state.kind === 'retrieving') {
@@ -86,7 +123,7 @@ export class LakeScene extends Phaser.Scene {
       this.anim = Math.min(1, this.anim + deltaMs / durationMs);
       if (this.anim >= 1) {
         if (this.state.kind === 'casting') {
-          this.ripples.push({ x: BOBBER_X, y: distanceToY(this.state.distanceM), age: 0 });
+          this.addRipple(this.state.distanceM, false);
           this.send({ type: 'landed' });
         } else {
           this.send({ type: 'retrieved' });
@@ -95,16 +132,55 @@ export class LakeScene extends Phaser.Scene {
     }
 
     for (const r of this.ripples) r.age += deltaMs;
-    this.ripples = this.ripples.filter((r) => r.age < 1200);
+    this.ripples = this.ripples.filter((r) => r.age < RIPPLE_MS);
+    this.nibbleAge += deltaMs;
+    this.toastAge += deltaMs;
 
     this.render();
   }
 
-  private send(event: FishingEvent): void {
-    const next = step(this.state, event, this.ctx);
+  private send(input: FishingInput): void {
+    const { state: next, events } = step(this.state, input, this.ctx);
+    for (const e of events) this.onEvent(e);
     if (next === this.state) return;
     if (next.kind !== this.state.kind) this.anim = 0;
     this.state = next;
+  }
+
+  /** Feedback for things the core reports: ripples, haptics, messages. */
+  private onEvent(e: GameEvent): void {
+    const s = this.state;
+    const distanceM = 'distanceM' in s ? s.distanceM : 0;
+    switch (e.type) {
+      case 'nibble':
+        this.nibbleAge = 0;
+        this.addRipple(distanceM, false);
+        vibrate(HAPTICS.nibble);
+        break;
+      case 'bite':
+        this.addRipple(distanceM, true);
+        vibrate(HAPTICS.bite);
+        break;
+      case 'hooked':
+        this.showToast('Hooked!');
+        vibrate(HAPTICS.hooked);
+        break;
+      case 'fishEscaped':
+        this.showToast(e.reason === 'tooEarly' ? 'Too early, you scared it off' : 'Too slow, it got away…');
+        vibrate(HAPTICS.escaped);
+        break;
+      case 'cast':
+        break;
+    }
+  }
+
+  private addRipple(distanceM: number, big: boolean): void {
+    this.ripples.push({ x: BOBBER_X, y: distanceToY(distanceM), age: 0, big });
+  }
+
+  private showToast(text: string): void {
+    this.toast.setText(text);
+    this.toastAge = 0;
   }
 
   // ---- Rendering ---------------------------------------------------------------------------
@@ -164,30 +240,44 @@ export class LakeScene extends Phaser.Scene {
     this.drawShimmer(g);
 
     for (const r of this.ripples) {
-      const t = r.age / 1200;
-      g.lineStyle(1, COLORS.shimmer, 1 - t).strokeEllipse(r.x, r.y, 8 + t * 30, 3 + t * 10);
+      const t = r.age / RIPPLE_MS;
+      const scale = r.big ? 2 : 1;
+      g.lineStyle(1, COLORS.shimmer, 1 - t).strokeEllipse(r.x, r.y, (8 + t * 30) * scale, (3 + t * 10) * scale);
     }
 
     const s = this.state;
     const bobber = this.bobberPosition();
     if (bobber) {
-      this.drawLine(g, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : 2);
-      this.drawBobber(g, bobber.x, bobber.y);
+      const tight = s.kind === 'bite' || s.kind === 'hooked';
+      this.drawLine(g, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : 2);
+      this.drawBobber(g, bobber.x, bobber.y, s.kind === 'bite' || s.kind === 'hooked');
+    }
+
+    this.alertMark.setVisible(s.kind === 'bite' && bobber !== null);
+    if (s.kind === 'bite' && bobber) {
+      const pop = Math.sin(this.elapsed / 60) * 2;
+      this.alertMark.setPosition(bobber.x, bobber.y - 10 + pop);
     }
 
     if (s.kind === 'charging') this.drawPowerMeter(g, chargePower(s.heldMs));
 
-    // Zone label & hint.
+    this.drawDayNight();
+
+    // Labels.
+    this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);
     } else if (s.kind === 'idle') {
       this.zoneLabel.setVisible(false);
     }
+    this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.hint.setText(
       s.kind === 'idle' ? 'Hold to charge, release to cast'
       : s.kind === 'charging' ? 'Release to cast!'
-      : s.kind === 'waiting' ? 'Waiting for a bite… tap to reel in'
+      : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
+      : s.kind === 'bite' ? 'TAP NOW!'
+      : s.kind === 'hooked' ? 'Tap to reel in (catch bar: slice 4)'
       : '',
     );
   }
@@ -202,8 +292,18 @@ export class LakeScene extends Phaser.Scene {
       return { x: Phaser.Math.Linear(ROD_TIP.x, BOBBER_X, t), y };
     }
     if (s.kind === 'waiting') {
-      const bob = Math.round(Math.sin(this.time0 / 400) * 1.2);
-      return { x: BOBBER_X, y: distanceToY(s.distanceM) + bob };
+      const bob = Math.round(Math.sin(this.elapsed / 400) * 1.2);
+      // A nibble tugs the bobber down briefly.
+      const dip = this.nibbleAge < NIBBLE_ANIM_MS ? Math.round(Math.sin((this.nibbleAge / NIBBLE_ANIM_MS) * Math.PI) * 3) : 0;
+      return { x: BOBBER_X, y: distanceToY(s.distanceM) + bob + dip };
+    }
+    if (s.kind === 'bite') {
+      const shake = Math.round(Math.sin(this.elapsed / 30));
+      return { x: BOBBER_X + shake, y: distanceToY(s.distanceM) + 3 };
+    }
+    if (s.kind === 'hooked') {
+      const thrash = Math.round(Math.sin(this.elapsed / 70) * 3);
+      return { x: BOBBER_X + thrash, y: distanceToY(s.distanceM) + 2 };
     }
     if (s.kind === 'retrieving') {
       const t = this.anim * this.anim; // ease-in: starts slow, speeds up
@@ -222,11 +322,14 @@ export class LakeScene extends Phaser.Scene {
     g.strokePoints(curve.getPoints(16));
   }
 
-  private drawBobber(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  /** `under`: pulled below the surface, only the antenna tip shows. */
+  private drawBobber(g: Phaser.GameObjects.Graphics, x: number, y: number, under: boolean): void {
     const px = Math.round(x);
     const py = Math.round(y);
-    g.fillStyle(COLORS.bobberBottom).fillRect(px - 2, py, 5, 3);
-    g.fillStyle(COLORS.bobberTop).fillRect(px - 2, py - 3, 5, 3);
+    if (!under) {
+      g.fillStyle(COLORS.bobberBottom).fillRect(px - 2, py, 5, 3);
+      g.fillStyle(COLORS.bobberTop).fillRect(px - 2, py - 3, 5, 3);
+    }
     g.fillStyle(COLORS.bobberTop).fillRect(px, py - 6, 1, 3); // antenna
   }
 
@@ -249,7 +352,7 @@ export class LakeScene extends Phaser.Scene {
     // Landing marker on the water.
     const distanceM = castDistance(power, this.ctx.rod);
     const ly = Math.round(distanceToY(distanceM));
-    const pulse = 1 + Math.sin(this.time0 / 120) * 0.15;
+    const pulse = 1 + Math.sin(this.elapsed / 120) * 0.15;
     g.lineStyle(1, color, 0.9).strokeEllipse(BOBBER_X, ly, 14 * pulse, 5 * pulse);
     g.fillStyle(color).fillRect(BOBBER_X, ly, 1, 1);
   }
@@ -259,8 +362,26 @@ export class LakeScene extends Phaser.Scene {
     for (let i = 0; i < 14; i++) {
       const y = FAR_SHORE_Y + 12 + ((i * 97) % (SHORE_Y - FAR_SHORE_Y - 20));
       const speed = 0.006 + (i % 3) * 0.003;
-      const x = ((i * 53 + this.time0 * speed) % (W + 40)) - 20;
+      const x = ((i * 53 + this.elapsed * speed) % (W + 40)) - 20;
       g.fillRect(Math.round(x), y, 6 + (i % 4) * 3, 1);
+    }
+  }
+
+  /** Night darkening, warm light at dawn/dusk, stars at night. Placeholder until the art pass. */
+  private drawDayNight(): void {
+    const g = this.sky;
+    g.clear();
+    const light = daylight(this.clock.minute);
+    const dark = 1 - light;
+    if (dark > 0) g.fillStyle(COLORS.night, dark * 0.6).fillRect(0, 0, W, H);
+    const warm = 4 * light * (1 - light); // peaks halfway through dawn and dusk
+    if (warm > 0) g.fillStyle(COLORS.warm, warm * 0.15).fillRect(0, 0, W, H);
+    if (dark > 0.3) {
+      for (let i = 0; i < 24; i++) {
+        const twinkle = 0.5 + 0.5 * Math.sin(this.elapsed / 500 + i * 1.7);
+        g.fillStyle(COLORS.star, (dark - 0.3) * twinkle);
+        g.fillRect((i * 149) % W, 6 + ((i * 61) % (FAR_SHORE_Y - 40)), 1, 1);
+      }
     }
   }
 }

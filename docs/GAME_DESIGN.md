@@ -37,7 +37,9 @@ rendering, the portrait lake screen becomes one scene of a bigger world instead 
 
 ## 2. Look & feel
 
-- Pixel art. Placeholder shapes first, then free/CC0 asset packs, custom art later.
+- Pixel art with real detail (Stardew-like) at 360×640. Sprites are **hand-authored in code** as
+  palette grids (`src/art/`), turned into textures at startup: no downloads, no licences, version-
+  controlled. Pack art or custom art can replace individual sprites later.
 - Cozy: no energy, no stress. Losing a fish costs only the bait.
 - Accelerated day/night clock: ~20 real minutes = one in-game day; paused when the game is closed.
 - Ambient sound (water, birds, crickets at night) + SFX in v1. Music later.
@@ -158,7 +160,7 @@ Goal: a gentle reason to open the game every day. It should feel cozy and never 
 - Reward tables in `src/core/data/`, so they're tunable.
 - Use device time for resets, but guard against clock changes (store the last claim date
   and never grant twice for the same date).
-- Depends on: saving (slice 7), and ideally the bait systems (v2), so rewards have variety.
+- Depends on: saving (slice 8), and ideally the bait systems (v2), so rewards have variety.
 
 **Roadmap decision:** build the daily box and daily quests soon after v1 saving lands, even with
 only worms and coins as rewards. They're cheap and create the daily habit early. Weekly quests
@@ -177,14 +179,15 @@ come once the v2 bait and lure systems provide more interesting rewards.
 
 ### Slice plan
 
-1. Lake scene, hold-to-charge casting, bobber, distance zones ← *current*
-2. Game clock (day/night) + bite system (nibbles, hook window)
-3. Catch bar fight
-4. Fish data, spawn rules, sizes, catch result
-5. Bag, shop, coins, rod upgrades
-6. Fish log + personal bests
-7. Saving (local + export code)
-8. Art pass (asset packs), sound, haptics
-9. PWA + GitHub Pages deploy
-10. Legendary fish
-11. Daily bait box + daily quests (§5)
+1. Lake scene, hold-to-charge casting, bobber, distance zones ✅
+2. Game clock (day/night) + bite system (nibbles, hook window) ← *current*
+3. Art pass: hand-authored pixel-art sprites (angler, dock, water, trees, bobber), day/night palettes
+4. Catch bar fight
+5. Fish data, spawn rules, sizes, catch result
+6. Bag, shop, coins, rod upgrades
+7. Fish log + personal bests
+8. Saving (local + export code)
+9. Sound + second art pass (UI panels, fish sprites)
+10. PWA + GitHub Pages deploy
+11. Legendary fish
+12. Daily bait box + daily quests (§5)
