@@ -119,6 +119,19 @@ be tweaked without touching logic.
   Core impact: cast result becomes distance + angle (a 2D point), and "zone" lookup becomes a
   point-in-area check; keep that in mind when extending `Location`.
 
+- **Bedtime at 2 AM & night gear** — the angler has to sleep: at 02:00 the day ends and she wakes
+  up the next morning (Stardew-style). With *night equipment* bought in the shop (tent, lantern,
+  headlamp…) she can stay out and fish all night, but the angler gets *tired*.
+  Open questions (to grill before building):
+  - What does "tired" do? Ideas: harder catch bar (smaller zone), slower reel, shorter hook window,
+    more nibble fake-outs. Must stay cozy: no lost coins or items.
+  - What happens at 02:00 without gear: a gentle "you head home to sleep" fade, and she wakes at 06:00?
+  - How does she recover: sleeping in the tent, coffee/food from the shop?
+  - Conflicts with the v1 decision "no energy". Proposal: tiredness exists *only* past bedtime with
+    night gear, so normal play stays energy-free.
+  - Night fish (eel, catfish, zander) are still catchable 20:00–02:00 without gear; deep-night
+    species (02:00–05:00) could be the reward for owning night gear.
+
 ### Parked on purpose
 Personal touches · weather & seasons · cloud sync · landscape/walkable world · music · treasure chests.
 
