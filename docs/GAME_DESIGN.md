@@ -94,6 +94,8 @@ be tweaked without touching logic.
 ## 4. Roadmap
 
 - **v1** — one lake, float fishing, worms only, ~12 fish + 1 legendary, log, bag, shop, 2 rod upgrades.
+- **v1.5 Daily habit** — daily bait box + daily quests (rewards: worms + coins), right after saving lands.
+  See §5.
 - **v2a Worm farm** — soil plots near the lake; feed them (leaves, scraps, compost); worms multiply
   over in-game days; feed type decides worm type (earthworm, red wiggler, nightcrawler).
 - **v2b Fields & bait crafting** — grow crops (corn, wheat, hemp…); craft two layers of bait:
@@ -102,6 +104,7 @@ be tweaked without touching logic.
 - **v2c Spinning** — lures/wobblers, active cast-and-retrieve; retrieve speed + lure depth decide
   what attacks. Predators: pike, perch, zander.
 - **v2d Feeder / bottom fishing** — heavy cast, bite alarm, patient; maybe 2 rods. Carp, bream, catfish.
+- **After v2** — weekly quests (once bait/lure systems give interesting rewards). See §5.
 - **Later** — more locations (river, pond, sea, ice fishing), fly fishing, weather & seasons,
   walkable Stardew-like world (landscape), music, personal touches (her own legendary fish), cloud sync.
 
@@ -110,7 +113,54 @@ Personal touches · weather & seasons · cloud sync · landscape/walkable world 
 
 ---
 
-## 5. Workflow
+## 5. Retention: daily & weekly content (future)
+
+Goal: a gentle reason to open the game every day. It should feel cozy and never punishing.
+
+**Daily quests**
+- 3 small quests per day, e.g. "Catch 5 roach", "Catch a fish at dawn",
+  "Catch something in deep water", "Sell 200 coins' worth of fish".
+- Rolled from a quest pool, weighted toward what she has unlocked (no deep-water quests before the rod upgrade).
+- Reset at local midnight (real time, not the in-game clock).
+- One free reroll per day.
+
+**Weekly quests**
+- 1–3 bigger goals, e.g. "Catch 3 different deep-water species",
+  "Beat 2 personal-best sizes", "Catch a zander at night".
+- Reset on Monday.
+- Better rewards: rare bait, groundbait recipes, cosmetics, lure blueprints (once spinning exists).
+
+**Daily bait box**
+- One free box per day ("The bait shop left a package on the dock").
+- Contents are rolled from a loot table: worms (common), special baits, groundbait ingredients,
+  seeds for the bait fields, and a small chance of a rare item.
+- A streak bonus makes the box contents better over consecutive days.
+- No punishment for missing a day: the streak pauses or drops a tier instead of resetting to zero.
+  It's cozy, not a guilt trip.
+
+**Possible extras**
+- "Fish of the day": one species gives bonus coins or bonus quest progress today.
+- Weekly "tournament" vs her own records (biggest fish of a chosen species this week).
+- Seasonal/holiday events later (ties into weather & seasons).
+
+**Tech notes**
+- Pure logic in `src/core/quests/`: quest definitions, a seeded daily roll (seed = date),
+  progress tracking driven by game events (`fishCaught`, `fishSold`, ...).
+- Reward tables in `src/core/data/`, so they're tunable.
+- Use device time for resets, but guard against clock changes (store the last claim date
+  and never grant twice for the same date).
+- Depends on: saving (slice 7), and ideally the bait systems (v2), so rewards have variety.
+
+**Roadmap decision:** build the daily box and daily quests soon after v1 saving lands, even with
+only worms and coins as rewards. They're cheap and create the daily habit early. Weekly quests
+come once the v2 bait and lure systems provide more interesting rewards.
+
+**Design implication for earlier slices:** the core should emit game events (`fishCaught`,
+`fishSold`, …) from the start, so quests can subscribe to them later without refactoring.
+
+---
+
+## 6. Workflow
 
 - Work in small vertical slices, one branch per slice (`slice/NN-name`).
 - Each slice: core logic + tests, then the scene layer. Reviewed (diff) and play-tested before merge.
@@ -128,3 +178,4 @@ Personal touches · weather & seasons · cloud sync · landscape/walkable world 
 8. Art pass (asset packs), sound, haptics
 9. PWA + GitHub Pages deploy
 10. Legendary fish
+11. Daily bait box + daily quests (§5)
