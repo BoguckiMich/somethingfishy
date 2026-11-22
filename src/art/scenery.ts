@@ -7,10 +7,15 @@ import {
   FLOWER_PINK,
   FLOWER_WHITE,
   FLOWER_YELLOW,
+  BUSH,
+  BUSH_BIG,
   PINE_A,
   PINE_B,
+  PINE_MID,
+  PINE_TALL,
   ROUND_A,
   ROUND_B,
+  ROUND_C,
   TUFT_A,
   TUFT_B,
 } from './sprites';
@@ -133,17 +138,20 @@ export function farShoreRaster(): Raster {
     r.set(x, BASE + 2, rnd() < 0.5 ? PAL.sandDark : PAL.stoneDark);
   }
 
-  const trees = [PINE_A, PINE_B, ROUND_A, ROUND_B, PINE_A, ROUND_A];
-  // Back row: smaller, hazier.
-  for (let x = -6; x < W; x += 6 + Math.floor(rnd() * 6)) {
-    const s = rnd() < 0.5 ? PINE_B : ROUND_B;
-    r.blit(s, x, BASE - 3 - s.height, { mix: { color: PAL.hillFar, t: 0.45 }, flip: rnd() < 0.5 });
+  const haze = { color: PAL.hillFar, t: 0.5 };
+  // Back row: smaller, hazier, bluer.
+  const back = [PINE_B, ROUND_B, PINE_A, BUSH, PINE_B];
+  for (let x = -6; x < W; x += 5 + Math.floor(rnd() * 7)) {
+    const sp = back[Math.floor(rnd() * back.length)];
+    r.blit(sp, x, BASE - 4 - sp.height, { mix: haze, flip: rnd() < 0.5 });
   }
-  // Front row, overlapping.
-  for (let x = -8; x < W + 4; x += 8 + Math.floor(rnd() * 10)) {
-    if (rnd() < 0.1) x += 14; // occasional clearing
-    const s = trees[Math.floor(rnd() * trees.length)];
-    r.blit(s, x, BASE + 1 - s.height - Math.floor(rnd() * 2), { flip: rnd() < 0.5 });
+  // Front row: a real skyline of tall pines, big round trees and bushes.
+  const front = [PINE_TALL, ROUND_C, PINE_MID, ROUND_A, PINE_A, PINE_TALL, BUSH, ROUND_C, PINE_MID, BUSH_BIG, ROUND_B];
+  let x = -10;
+  while (x < W + 4) {
+    const sp = front[Math.floor(rnd() * front.length)];
+    r.blit(sp, x, BASE + 1 - sp.height - Math.floor(rnd() * 2), { flip: rnd() < 0.5 });
+    x += Math.max(8, Math.floor(sp.width * (0.55 + rnd() * 0.4)));
   }
   return r;
 }
@@ -257,14 +265,23 @@ export function nearShoreRaster(): Raster {
     r.rect(x + 1, y + 2, 2, 1, PAL.stoneDark);
   }
 
+  // Foreground bushes framing the bottom corners.
+  r.blit(BUSH_BIG, -6, NS_H - 44);
+  r.blit(BUSH_BIG, W - 26, NS_H - 52, { flip: true });
+  r.blit(BUSH, 276, NS_H - 30);
+  r.blit(ROUND_C, 2, NS_H - 118);
+  r.blit(BUSH_BIG, W - 36, NS_H - 108, { flip: true });
+  r.blit(BUSH, 84, NS_H - 70);
+  r.blit(BUSH, 262, NS_H - 76, { flip: true });
+
   // Tufts and flowers.
   const flowers = [FLOWER_WHITE, FLOWER_PINK, FLOWER_YELLOW, FLOWER_BLUE];
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 60; i++) {
     const x = Math.floor(rnd() * (W - 6));
     const y = shoreLine(x) + 16 + Math.floor(rnd() * (NS_H - shoreLine(x) - 24));
     r.blit(rnd() < 0.5 ? TUFT_A : TUFT_B, x, y);
   }
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 34; i++) {
     const x = Math.floor(rnd() * (W - 4));
     const y = shoreLine(x) + 18 + Math.floor(rnd() * (NS_H - shoreLine(x) - 30));
     r.blit(flowers[Math.floor(rnd() * flowers.length)], x, y);
@@ -290,7 +307,7 @@ export function dockRaster(): Raster {
   }
 
   const tones = [PAL.wood, PAL.woodLight, PAL.wood, PAL.woodLight, PAL.wood];
-  const plankH = 8;
+  const plankH = 11;
   const top = 4;
   const count = Math.floor((DOCK.h - top) / (plankH + 1));
   for (let p = 0; p < count; p++) {
@@ -308,9 +325,9 @@ export function dockRaster(): Raster {
       }
     }
     // grain
-    for (let g = 0; g < 4; g++) {
-      const gx = Math.floor(rnd() * (width - 14)) + 3;
-      const gy = 2 + Math.floor(rnd() * 4);
+    for (let g = 0; g < 6; g++) {
+      const gx = Math.floor(rnd() * (width - 20)) + 3;
+      const gy = 2 + Math.floor(rnd() * 7);
       const len = 5 + Math.floor(rnd() * 9);
       for (let k = 0; k < len; k++) r.set(left + gx + k, y + gy, PAL.woodDark);
     }
@@ -323,8 +340,8 @@ export function dockRaster(): Raster {
     }
     // nails
     for (const nx of [3, width - 4]) {
-      r.set(left + nx, y + 3, PAL.woodDeep);
-      r.set(left + nx - 1, y + 2, PAL.stoneLight);
+      r.rect(left + nx, y + 4, 2, 2, PAL.woodDeep);
+      r.set(left + nx, y + 4, PAL.stoneLight);
     }
     // gap between planks
     for (let xx = 0; xx < width; xx++) r.set(left + xx, y + plankH, PAL.woodDeep);

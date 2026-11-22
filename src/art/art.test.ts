@@ -4,7 +4,7 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ANGLER, ANGLER_B, BOBBER, PINE_A, REED } from './sprites';
+import { ANGLER, ANGLER_B, BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
 
 describe('palette', () => {
   it('has 32-60 unique colours', () => {
@@ -17,10 +17,12 @@ describe('palette', () => {
 
 describe('sprites', () => {
   it('have the intended sizes', () => {
-    expect([ANGLER.width, ANGLER.height]).toEqual([20, 28]);
-    expect([ANGLER_B.width, ANGLER_B.height]).toEqual([20, 28]);
+    expect([ANGLER.width, ANGLER.height]).toEqual([32, ANGLER.height]);
+    expect([ANGLER_B.width, ANGLER_B.height]).toEqual([32, ANGLER.height]);
     expect([BOBBER.width, BOBBER.height]).toEqual([5, 9]);
     expect(PINE_A.width).toBe(15);
+    expect(ANGLER.height).toBeGreaterThanOrEqual(40);
+    expect(PINE_TALL.height).toBeGreaterThan(PINE_A.height * 1.8);
     expect(REED.width).toBe(11);
   });
 

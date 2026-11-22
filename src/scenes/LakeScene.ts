@@ -57,14 +57,15 @@ const Z = {
 
 /** Dock posts standing in the water: [centre x, base y]. */
 const POST_BASES: [number, number][] = [
-  [147, 502],
-  [147, 518],
-  [219, 502],
-  [219, 518],
+  [113, 384],
+  [113, 414],
+  [250, 384],
+  [250, 414],
 ];
 
-const ANGLER_POS = { x: 172, y: 484 };
-const ROD_HAND = { x: 190, y: 501 };
+const ANGLER_POS = { x: 164, y: 368 };
+const ROD_HAND = { x: ANGLER_POS.x + 27, y: ANGLER_POS.y + 29 };
+const GLINT_N = 130;
 
 /** Multiplies two 0xRRGGBB colours (what setTint does on the GPU). */
 function multiply(a: number, b: number): number {
@@ -86,6 +87,11 @@ function pixelEllipse(g: Phaser.GameObjects.Graphics, cx: number, cy: number, rx
     lx = x;
     ly = y;
   }
+}
+
+function hash01(n: number): number {
+  const h = Math.sin(n * 12.9898) * 43758.5453;
+  return h - Math.floor(h);
 }
 
 /** Lake screen: the angler on the dock, casting a float into the lake. */
@@ -122,6 +128,9 @@ export class LakeScene extends Phaser.Scene {
   private starPoints: { x: number; y: number; phase: number; big: boolean }[] = [];
   private sparkles: { x: number; y: number; phase: number; speed: number }[] = [];
   private flies: { x: number; y: number; ax: number; ay: number; sx: number; sy: number; phase: number; blink: number }[] = [];
+  private glintSpeed: number[] = [];
+  private glintPhase: number[] = [];
+  private stateAge = 0;
   private lastSkyKey = -1;
   private lastGlowKey = -1;
 
@@ -158,6 +167,7 @@ export class LakeScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number): void {
     this.elapsed += deltaMs;
+    this.stateAge += deltaMs;
     this.clock = advanceClock(this.clock, deltaMs);
     this.send({ type: 'tick', dtMs: deltaMs });
 
@@ -186,7 +196,10 @@ export class LakeScene extends Phaser.Scene {
     const { state: next, events } = step(this.state, input, this.ctx);
     for (const e of events) this.onEvent(e);
     if (next === this.state) return;
-    if (next.kind !== this.state.kind) this.anim = 0;
+    if (next.kind !== this.state.kind) {
+      this.anim = 0;
+      this.stateAge = 0;
+    }
     this.state = next;
   }
 
@@ -259,21 +272,22 @@ export class LakeScene extends Phaser.Scene {
 
     // Decor on the water, away from the bobber column.
     const decor: [string, number, number][] = [
-      [TEX.lilyA, 34, 468],
-      [TEX.lilyB, 62, 484],
-      [TEX.lilyB, 18, 448],
-      [TEX.lilyA, 306, 450],
-      [TEX.lilyB, 332, 470],
-      [TEX.lilyA, 318, 492],
-      [TEX.lilyB, 24, 392],
-      [TEX.lilyA, 338, 400],
-      [TEX.reed, 6, 504],
-      [TEX.reed, 24, 508],
-      [TEX.reed, 338, 506],
-      [TEX.reed, 322, 510],
-      [TEX.reed, 344, 330],
-    ];
-    for (const [key, x, y] of decor) {
+      [TEX.lilyA, 30, 330],
+      [TEX.lilyB, 62, 352],
+      [TEX.lilyB, 16, 296],
+      [TEX.lilyA, 292, 300],
+      [TEX.lilyB, 322, 330],
+      [TEX.lilyA, 296, 376],
+      [TEX.lilyB, 30, 388],
+      [TEX.lilyA, 326, 262],
+      [TEX.lilyB, 52, 250],
+      [TEX.reed, 4, 434],
+      [TEX.reed, 22, 438],
+      [TEX.reed, 322, 436],
+      [TEX.reed, 340, 432],
+      [TEX.reed, 340, 252],
+      [TEX.reed, 8, 262],
+    ];    for (const [key, x, y] of decor) {
       const i = this.add.image(x, y, key).setOrigin(0, key === TEX.reed ? 1 : 0).setDepth(Z.waterDecor);
       this.worldImgs.push(i);
     }
@@ -300,6 +314,10 @@ export class LakeScene extends Phaser.Scene {
     for (let i = 0; i < 46; i++) {
       this.starPoints.push({ x: Math.floor(rnd() * W), y: 3 + Math.floor(rnd() * 112), phase: rnd() * 6.28, big: i % 9 === 0 });
     }
+    for (let i = 0; i < GLINT_N; i++) {
+      this.glintSpeed.push(1.5 + rnd() * 3);
+      this.glintPhase.push(rnd() * 6.28);
+    }
     for (let i = 0; i < 46; i++) {
       this.sparkles.push({
         x: Math.floor(rnd() * W),
@@ -311,7 +329,7 @@ export class LakeScene extends Phaser.Scene {
     for (let i = 0; i < 16; i++) {
       this.flies.push({
         x: rnd() * W,
-        y: 528 + rnd() * 96,
+        y: 446 + rnd() * 170,
         ax: 8 + rnd() * 16,
         ay: 5 + rnd() * 10,
         sx: 0.3 + rnd() * 0.5,
@@ -370,10 +388,10 @@ export class LakeScene extends Phaser.Scene {
     const s = this.state;
     const bobber = this.bobberPosition();
     const tight = s.kind === 'bite' || s.kind === 'hooked';
-    const bend = s.kind === 'hooked' ? 7 : s.kind === 'bite' ? 3 : 0;
-    this.drawRod(g, look, bend);
+    const tip = this.rodTip();
+    this.drawRod(g, look, tip);
     if (bobber) {
-      this.drawLine(g, look, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : 2);
+      this.drawLine(g, look, tip, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : 2);
       if (s.kind === 'waiting') pixelEllipse(g, Math.round(bobber.x), Math.round(bobber.y) + 1, 4, 1, tintFx(PAL.foam), 0.45);
       this.placeBobber(bobber.x, bobber.y, tight, look);
     } else {
@@ -434,7 +452,7 @@ export class LakeScene extends Phaser.Scene {
     this.reflectionImg.setTexture(TEX.reflection[Math.floor(this.elapsed / 650) % 3]);
 
     // Sun and moon on their arcs, rising behind the hills.
-    const horizonY = 134;
+    const horizonY = FAR_SHORE_Y - 20;
     const topY = 26;
     const sun = sunArc(this.clock.minute);
     this.sunImg
@@ -491,24 +509,31 @@ export class LakeScene extends Phaser.Scene {
       g.fillRect(Math.round(x), y, 5 + (i % 4) * 3, 1);
     }
 
-    // Glint under whichever body is up.
+    // Glitter under whichever body is up: short twinkling sparkles, densest at the horizon.
     const sun = sunArc(this.clock.minute);
     const moon = moonArc(this.clock.minute);
-    const useSun = look.sunAlpha * (sun.up ? 1 : 0) >= look.moonAlpha * (moon.up ? 1 : 0);
+    const sunStr = look.sunAlpha * (sun.up ? 1 : 0);
+    const moonStr = look.moonAlpha * (moon.up ? 1 : 0);
+    const useSun = sunStr >= moonStr;
     const body = useSun ? sun : moon;
-    const strength = (useSun ? look.sunAlpha * (sun.up ? 1 : 0) : look.moonAlpha * (moon.up ? 1 : 0)) * (0.45 + 0.55 * Math.min(1, body.height * 1.6));
+    const strength = (useSun ? sunStr : moonStr * 0.95) * (0.7 + 0.3 * Math.min(1, body.height * 1.6));
     if (strength < 0.04) return;
-    const cx = Math.round(body.x * W);
-    const color = useSun ? lerpColor(0xfff3b4, look.skyBottom, 0.25) : 0xdfe6ff;
-    const frame = Math.floor(t * 5);
-    for (let y = FAR_SHORE_Y + 6; y < 420; y += 3) {
-      const depth = (y - FAR_SHORE_Y) / 270;
-      const h = Math.sin(y * 12.9898 + frame * 78.233) * 43758.5453;
-      const r = h - Math.floor(h);
-      if (r < 0.28 + depth * 0.2) continue;
-      const half = Math.round(2 + depth * 18 * r);
-      const off = Math.round((r - 0.5) * 6 * (1 + depth * 2));
-      g.fillStyle(color, strength * (0.85 - depth * 0.55)).fillRect(cx - half + off, y, half * 2, 1);
+    const cx = body.x * W;
+    const color = useSun ? lerpColor(0xfff3b4, look.skyBottom, 0.3) : 0xc4d4ff;
+    const depthPx = (SHORE_Y - FAR_SHORE_Y) / 3;
+    for (let i = 0; i < GLINT_N; i++) {
+      const w = t * this.glintSpeed[i] + this.glintPhase[i];
+      const v = Math.sin(w);
+      if (v < 0.2) continue;
+      const cyc = Math.floor(w / Math.PI);
+      const r1 = hash01(i * 7.1 + cyc * 13.7);
+      const r2 = hash01(i * 3.3 + cyc * 5.9 + 1);
+      const r3 = hash01(i * 1.7 + cyc * 9.1 + 2);
+      const u = Math.pow(r1, 1.3);
+      const y = FAR_SHORE_Y + 5 + u * depthPx;
+      const x = cx + (r2 - 0.5) * 2 * (4 + u * 28);
+      const len = 1 + Math.floor(r3 * 3);
+      g.fillStyle(color, v * strength * (1 - u * 0.7)).fillRect(Math.round(x), Math.round(y), len, 1);
     }
   }
 
@@ -549,8 +574,9 @@ export class LakeScene extends Phaser.Scene {
       // Arc from rod tip to the landing point; "height" shown as upward offset.
       const t = this.anim;
       const targetY = distanceToY(s.distanceM);
-      const y = Phaser.Math.Linear(ROD_TIP.y, targetY, t) - Math.sin(Math.PI * t) * (30 + s.distanceM * 2);
-      return { x: Phaser.Math.Linear(ROD_TIP.x, BOBBER_X, t), y };
+      const tip = this.rodTip();
+      const y = Phaser.Math.Linear(tip.y, targetY, t) - Math.sin(Math.PI * t) * (30 + s.distanceM * 2);
+      return { x: Phaser.Math.Linear(tip.x, BOBBER_X, t), y };
     }
     if (s.kind === 'waiting') {
       const bob = Math.round(Math.sin(this.elapsed / 400) * 1.2);
@@ -568,36 +594,88 @@ export class LakeScene extends Phaser.Scene {
     }
     if (s.kind === 'retrieving') {
       const t = this.anim * this.anim; // ease-in: starts slow, speeds up
-      return { x: BOBBER_X, y: Phaser.Math.Linear(distanceToY(s.distanceM), ROD_TIP.y, t) };
+      return { x: BOBBER_X, y: Phaser.Math.Linear(distanceToY(s.distanceM), this.rodTip().y, t) };
     }
     return null;
   }
 
-  /** The rod: a bent brown line from the angler's hands to ROD_TIP, drawn as pixels. */
-  private drawRod(g: Phaser.GameObjects.Graphics, look: DayLook, bend: number): void {
+  /** Current animated rod tip (and how much the rod bends), from the game state. */
+  private rodTip(): { x: number; y: number; bend: number } {
+    const s = this.state;
+    const t = this.elapsed / 1000;
+    let dx = 0;
+    let dy = 0;
+    let bend = 3;
+    const towardBobber = BOBBER_X - ROD_TIP.x;
+    switch (s.kind) {
+      case 'idle':
+      case 'waiting':
+        dx = Math.sin(t * 1.1);
+        dy = Math.sin(t * 0.8 + 1) * 0.9;
+        if (this.nibbleAge < NIBBLE_ANIM_MS) dy += Math.sin(this.nibbleAge / 32) * 2.5 * (1 - this.nibbleAge / NIBBLE_ANIM_MS);
+        break;
+      case 'charging': {
+        const p = chargePower(s.heldMs);
+        dx = -8 * p;
+        dy = 48 * p;
+        bend = 3 + 8 * p;
+        break;
+      }
+      case 'casting': {
+        const ms = this.stateAge;
+        dy = ms < 110 ? Phaser.Math.Linear(40, -16, ms / 110) : -16 * Math.exp(-(ms - 110) / 110) * Math.cos((ms - 110) / 45);
+        bend = ms < 110 ? 2 : 3 + Math.max(0, 8 * Math.exp(-(ms - 110) / 90));
+        break;
+      }
+      case 'bite':
+        dx = towardBobber * 0.2 + Math.sin(t * 40);
+        dy = -4;
+        bend = 9;
+        break;
+      case 'hooked':
+        dx = towardBobber * 0.3 + Math.sin(t * 22) * 1.5;
+        dy = -8 + Math.sin(t * 31) * 2;
+        bend = 15 + Math.sin(t * 25) * 2;
+        break;
+      case 'retrieving':
+        dy = 12 * Math.sin(this.anim * Math.PI);
+        bend = 6;
+        break;
+    }
+    return { x: Math.round(ROD_TIP.x + dx), y: Math.round(ROD_TIP.y + dy), bend };
+  }
+
+  /** The rod: a long tapered pole from the hands to the animated tip, drawn as pixels. */
+  private drawRod(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number; bend: number }): void {
     const p0 = ROD_HAND;
-    const ctrl = { x: 206, y: 485 + bend };
+    const dxv = tip.x - p0.x;
+    const dyv = tip.y - p0.y;
+    const len = Math.hypot(dxv, dyv) || 1;
+    // Bend toward the right of the rod direction.
+    const ctrl = { x: (p0.x + tip.x) / 2 + (-dyv / len) * tip.bend, y: (p0.y + tip.y) / 2 + (dxv / len) * tip.bend };
     const dark = multiply(PAL.woodDeep, look.worldTint);
     const light = multiply(PAL.woodHi, look.worldTint);
-    const n = 40;
+    const mid = multiply(PAL.woodLight, look.worldTint);
+    const n = Math.ceil(len * 1.4);
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       const u = 1 - t;
-      const x = Math.round(u * u * p0.x + 2 * u * t * ctrl.x + t * t * ROD_TIP.x);
-      const y = Math.round(u * u * p0.y + 2 * u * t * ctrl.y + t * t * ROD_TIP.y);
-      g.fillStyle(dark).fillRect(x - 1, y + 1, t < 0.35 ? 3 : 2, t < 0.35 ? 3 : 2);
-      g.fillStyle(light).fillRect(x, y, t < 0.35 ? 2 : 1, t < 0.35 ? 2 : 1);
+      const x = Math.round(u * u * p0.x + 2 * u * t * ctrl.x + t * t * tip.x);
+      const y = Math.round(u * u * p0.y + 2 * u * t * ctrl.y + t * t * tip.y);
+      const th = t < 0.25 ? 3 : t < 0.6 ? 2 : 1;
+      g.fillStyle(dark).fillRect(x + 1, y + 1, th, th);
+      g.fillStyle(t < 0.25 ? mid : light).fillRect(x, y, th, th);
     }
-    // Reel.
-    g.fillStyle(multiply(PAL.stoneLight, look.worldTint)).fillRect(p0.x - 1, p0.y + 2, 2, 2);
-    g.fillStyle(PAL.redLight).fillRect(ROD_TIP.x, ROD_TIP.y, 1, 1);
+    // Reel at the hands.
+    g.fillStyle(multiply(PAL.stoneLight, look.worldTint)).fillRect(p0.x - 4, p0.y + 1, 3, 3);
+    g.fillStyle(PAL.redLight).fillRect(tip.x, tip.y, 1, 1);
   }
 
-  private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, bx: number, by: number, sag: number): void {
+  private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number): void {
     const color = multiply(PAL.white, lerpColor(0xffffff, look.worldTint, 0.6));
-    const cx = (ROD_TIP.x + bx) / 2 + sag;
-    const cy = (ROD_TIP.y + by) / 2;
-    const len = Math.hypot(bx - ROD_TIP.x, by - ROD_TIP.y);
+    const cx = (tip.x + bx) / 2 + sag;
+    const cy = (tip.y + by) / 2;
+    const len = Math.hypot(bx - tip.x, by - tip.y);
     const n = Math.max(6, Math.ceil(len / 1.5));
     g.fillStyle(color, 0.85);
     let lx = NaN;
@@ -605,8 +683,8 @@ export class LakeScene extends Phaser.Scene {
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       const u = 1 - t;
-      const x = Math.round(u * u * ROD_TIP.x + 2 * u * t * cx + t * t * bx);
-      const y = Math.round(u * u * ROD_TIP.y + 2 * u * t * cy + t * t * by);
+      const x = Math.round(u * u * tip.x + 2 * u * t * cx + t * t * bx);
+      const y = Math.round(u * u * tip.y + 2 * u * t * cy + t * t * by);
       if (x === lx && y === ly) continue;
       g.fillRect(x, y, 1, 1);
       lx = x;
