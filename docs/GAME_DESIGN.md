@@ -217,8 +217,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
 1. Lake scene, hold-to-charge casting, bobber, distance zones ✅
 2. Game clock (day/night) + bite system (nibbles, hook window) ✅
 3. Art pass: hand-authored pixel-art sprites, day/night palettes ✅
-4. Characters: Alex + Pajkel (¾ back view), the dog, idle play, petting, name entry (§2b) ← *current*
-5. Catch bar fight + front-facing "show off the catch" pose
+4. Characters: Alex + Pajkel (¾ back view), the dog, idle play, petting, name entry (§2b) ✅
+5. Catch bar fight + front-facing "show off the catch" pose ← *current*
 6. Fish data, spawn rules, sizes, catch result
 7. Bag, shop, coins, rod upgrades
 8. Fish log + personal bests

@@ -13,7 +13,7 @@ _Last updated: 2026-11-22._
 | 1 | Lake scene, hold-to-charge casting, bobber, distance zones | merged |
 | 2 | Game clock, day/night, bites (nibbles, 1 s hook window), GameEvents | merged |
 | 3 | Art pass: hand-authored pixel art, day/night palettes, rod animations | merged |
-| 4 | Characters: Alex + Pajkel + Bestia (dog), AFK play, petting, name entry | **on `slice/04-characters`, awaiting the user's play-test + merge** |
+| 4 | Characters: Alex + Pajkel + Bestia (dog), AFK play, petting, name entry | merged |
 | 5 | Catch bar fight + front-facing "show off the catch" pose | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
