@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { HEART, STICK, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { ALEX_HEADS, HEART, STICK, alexKey, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { FAR_SHORE_Y, W } from './layout';
 import { Raster } from './raster';
 import {
@@ -34,7 +34,6 @@ export const TEX = {
   moon: 'moon',
   bobber: 'bobber',
   bobberUnder: 'bobberUnder',
-  alex: ['alex0', 'alex1'],
   heart: 'heart',
   stick: 'stick',
   lilyA: 'lilyA',
@@ -95,8 +94,9 @@ export { dogKey };
 
 /** Alex, Pajkel (seated and walking), the dog, plus the small props. */
 function createCharacterTextures(scene: Phaser.Scene): void {
-  addRaster(scene, TEX.alex[0], Raster.fromSprite(alexSprite(0)));
-  addRaster(scene, TEX.alex[1], Raster.fromSprite(alexSprite(1)));
+  for (const head of ALEX_HEADS) {
+    for (const b of [0, 1] as const) addRaster(scene, alexKey(head, b), Raster.fromSprite(alexSprite(head, b)));
+  }
   for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
   }

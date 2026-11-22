@@ -14,7 +14,8 @@ import {
 } from '../art/layout';
 import { PAL } from '../art/palette';
 import { mulberry32 } from '../art/raster';
-import { ALEX_HAND } from '../art/characters';
+import { ALEX_FEET_Y, ALEX_HAND, alexKey } from '../art/characters';
+import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
@@ -70,7 +71,8 @@ const POST_BASES: [number, number][] = [
   [252, 432],
 ];
 
-const ALEX_POS = { x: 192, y: DOCK.y + 6 };
+/** She stands near the dock's far end, feet on the planks. */
+const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
 const GLINT_N = 130;
@@ -116,6 +118,9 @@ export class LakeScene extends Phaser.Scene {
   private reflectionImg!: Phaser.GameObjects.Image;
   private worldImgs: Phaser.GameObjects.Image[] = [];
   private alexImg!: Phaser.GameObjects.Image;
+  private look: LookState = newLook(Math.random);
+  /** Dev-only ?debug=look=left|right: freeze her gaze for screenshots. */
+  private lookOverride: LookDir | null = null;
   private companions!: CompanionView;
   private profile: Profile = DEFAULT_PROFILE;
   private tags: { text: Phaser.GameObjects.Text; age: number }[] = [];
@@ -172,6 +177,8 @@ export class LakeScene extends Phaser.Scene {
     if (params.get('debug') === 'waiting') {
       this.state = { kind: 'waiting', distanceM: 10, zone: 'shallow', untilMs: 1e9, nibblesLeft: 0, hadNibble: false };
     }
+    const dbg = params.get('debug') ?? '';
+    if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
     this.buildScenery();
     this.buildUi();
 
@@ -225,6 +232,7 @@ export class LakeScene extends Phaser.Scene {
       }
     }
 
+    tickLook(this.look, deltaMs, this.state.kind, Math.random);
     for (const r of this.ripples) r.age += deltaMs;
     this.ripples = this.ripples.filter((r) => r.age < RIPPLE_MS);
     this.nibbleAge += deltaMs;
@@ -253,6 +261,7 @@ export class LakeScene extends Phaser.Scene {
   /** Feedback for things the core reports: ripples, haptics, messages. */
   private onEvent(e: GameEvent): void {
     companionEvent(this.companions.state, e.type);
+    lookEvent(this.look, e.type, Math.random);
     const s = this.state;
     const distanceM = 'distanceM' in s ? s.distanceM : 0;
     switch (e.type) {
@@ -411,7 +420,7 @@ export class LakeScene extends Phaser.Scene {
     }
     this.postFx = this.add.graphics().setDepth(Z.postFx);
 
-    this.alexImg = this.add.image(ALEX_POS.x, ALEX_POS.y, TEX.alex[0]).setOrigin(0, 0).setDepth(Z.angler);
+    this.alexImg = this.add.image(ALEX_POS.x, ALEX_POS.y, alexKey('forward', 0)).setOrigin(0, 0).setDepth(Z.angler);
     this.worldImgs.push(this.alexImg);
     this.companions = new CompanionView(this);
 
@@ -490,8 +499,8 @@ export class LakeScene extends Phaser.Scene {
     this.drawPosts(look);
     this.drawFireflies(look);
 
-    // Angler idle: 2-frame breathing.
-    this.alexImg.setTexture(TEX.alex[Math.floor(this.elapsed / 900) % 2]);
+    // Angler: 2-frame breathing, and the head turns when she glances around.
+    this.alexImg.setTexture(alexKey(this.lookOverride ?? this.look.dir, (Math.floor(this.elapsed / 900) % 2) as 0 | 1));
 
     const g = this.action;
     g.clear();
