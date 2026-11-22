@@ -45,8 +45,8 @@ describe('angler look', () => {
     }
   });
 
-  it('never glances while charging, casting, biting, hooked or retrieving', () => {
-    for (const kind of ['charging', 'casting', 'bite', 'hooked', 'retrieving'] as const) {
+  it('never glances while charging, casting, biting, fighting, showing off, losing or retrieving', () => {
+    for (const kind of ['charging', 'casting', 'bite', 'fighting', 'caught', 'lost', 'retrieving'] as const) {
       expect(record(kind, 300_000, 11)).toEqual([]);
     }
   });

@@ -5,7 +5,7 @@
  */
 import type { Rng } from '../../core/random';
 
-export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped';
+export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
 
 export interface Point {
   x: number;
@@ -27,6 +27,11 @@ export const IDLE_BEFORE_PLAY_MS = 25_000;
 const PAJ_WALK_SPEED = 46;
 const PAJ_RUN_SPEED = 90;
 const DOG_RUN_SPEED = 120;
+/** Pajkel claps for a catch this long, flipping between two frames this often. */
+export const CLAP_MS = 2000;
+const CLAP_FLIP_MS = 150;
+/** Bestia hops for a catch this long. */
+export const HOP_MS = 1500;
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
 export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw';
@@ -51,7 +56,7 @@ export interface Companions {
   dog: Actor & {
     shape: DogShape;
     /** Time in the current reaction, and which one. */
-    reaction: 'none' | 'perk' | 'stand' | 'spin' | 'sit';
+    reaction: 'none' | 'perk' | 'stand' | 'spin' | 'sit' | 'hop';
     reactMs: number;
     /** Time since the last tail wag started; wagMs > 0 means wagging. */
     wagMs: number;
@@ -67,6 +72,8 @@ export interface Companions {
     reactMs: number;
     nextSipIn: number;
     walkMs: number;
+    /** Time left clapping (alternating the cheer and sit frames). */
+    clapMs: number;
   };
   stick: Stick;
   play: { phase: PlayPhase; phaseMs: number; fetches: number; target: Point; angle: number };
@@ -99,7 +106,7 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       restMs: 0,
       sleeping: false,
     },
-    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkMs: 0 },
+    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkMs: 0, clapMs: 0 },
     stick: { x: 0, y: 0, state: 'hidden' },
     play: { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, angle: 0 },
   };
@@ -133,6 +140,16 @@ export function companionEvent(s: Companions, e: GameEventKind): void {
   } else if (e === 'fishEscaped') {
     setReaction(s, 'sit');
     if (s.paj.shape === 'look' || s.paj.shape === 'cheer') s.paj.shape = 'sit';
+  } else if (e === 'fishCaught') {
+    setReaction(s, 'hop');
+    s.paj.clapMs = CLAP_MS;
+    s.paj.shape = 'cheer';
+    s.paj.reactMs = 0;
+  } else if (e === 'fishLost') {
+    setReaction(s, 'sit');
+    s.paj.clapMs = 0;
+    s.paj.shape = 'look';
+    s.paj.reactMs = 0;
   }
 }
 
@@ -277,6 +294,11 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
       d.face = Math.floor(d.reactMs / 220) % 2 === 0 ? 1 : -1;
       if (d.reactMs > 2200) setReaction(s, 'sit');
       break;
+    case 'hop':
+      d.shape = 'stand';
+      d.hop = Math.abs(Math.sin(d.reactMs / 110)) * 7;
+      if (d.reactMs > HOP_MS) setReaction(s, 'sit');
+      break;
     case 'sit':
       d.shape = 'sit';
       if (d.reactMs > 4000) setReaction(s, 'none');
@@ -309,6 +331,18 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
 
   // Pajkel: breathing is the scene's job; here only reactions and the occasional sip.
   p.reactMs += dtMs;
+  if (p.clapMs > 0) {
+    // Clapping: the cheer and sit frames alternate quickly.
+    const elapsed = CLAP_MS - p.clapMs;
+    p.clapMs = Math.max(0, p.clapMs - dtMs);
+    if (p.clapMs === 0) {
+      p.shape = 'sit';
+      p.reactMs = 0;
+    } else {
+      p.shape = Math.floor(elapsed / CLAP_FLIP_MS) % 2 === 0 ? 'cheer' : 'sit';
+    }
+    return;
+  }
   if (p.shape === 'look' && p.reactMs > 1600) p.shape = 'sit';
   if (p.shape === 'cheer' && p.reactMs > 1900) p.shape = 'sit';
   if (p.shape === 'sip') {
@@ -451,7 +485,7 @@ export function dogView(s: Companions): DogView {
   return {
     shape: d.shape,
     tail,
-    perked: d.reaction === 'perk' || d.reaction === 'stand' || d.reaction === 'spin' || d.petMs > 0,
+    perked: d.reaction === 'perk' || d.reaction === 'stand' || d.reaction === 'spin' || d.reaction === 'hop' || d.petMs > 0,
     step: Math.floor(s.elapsed / 90) % 4,
   };
 }

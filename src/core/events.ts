@@ -1,3 +1,4 @@
+import type { FishPattern } from './catchBar';
 import type { ZoneId } from './location';
 
 /**
@@ -9,4 +10,8 @@ export type GameEvent =
   | { type: 'nibble' }
   | { type: 'bite' }
   | { type: 'hooked'; zone: ZoneId }
-  | { type: 'fishEscaped'; reason: 'tooEarly' | 'tooLate' };
+  | { type: 'fishEscaped'; reason: 'tooEarly' | 'tooLate' }
+  /** The catch bar was filled. `fightMs` is how long the fight took. */
+  | { type: 'fishCaught'; zone: ZoneId; pattern: FishPattern; difficulty: number; fightMs: number }
+  /** The catch bar ran empty. Slice 7 hooks losing the bait onto this. */
+  | { type: 'fishLost'; zone: ZoneId; pattern: FishPattern; difficulty: number };

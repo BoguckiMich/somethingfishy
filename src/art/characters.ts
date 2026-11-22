@@ -114,6 +114,50 @@ export type AlexHead = 'forward' | 'left' | 'right';
 export const ALEX_HEADS: readonly AlexHead[] = ['forward', 'left', 'right'];
 export const alexKey = (head: AlexHead, breath: 0 | 1) => `alex:${head}:${breath}`;
 
+/**
+ * Hair colour for a pixel. Colours are sampled in head-local rows (y - dy), so the strand pattern
+ * travels with the head when she breathes.
+ */
+function alexHairColor(dy: number): (x: number, yy: number) => number {
+  return (x, yy) => {
+    const y = yy - dy;
+    const col = noise(x, 3.7);
+    const n = noise(x, y);
+    // Highlight band sweeping across the crown (light from the upper left).
+    const sheen = Math.abs(x + y * 0.8 - 18) < 1.3 && y < 11;
+    if (sheen) return n > 0.4 ? PAL.alexHairHi : PAL.alexHairLight;
+    if (y > 17 && (x < 10 || x > 21)) return PAL.alexHairDark;
+    if (col > 0.62) return y > 12 && n < 0.3 ? PAL.alexHair : PAL.alexHairLight;
+    if (col < 0.28 || (n < 0.12 && y > 6)) return PAL.alexHairDark;
+    return PAL.alexHair;
+  };
+}
+
+/** Black capris and bare calves, white shoes with dark soles (same in every pose). */
+function paintAlexLegs(p: Pix): void {
+  // Black capri pants: hips, then two slim legs ending mid-calf.
+  for (let y = 37; y <= 41; y++) {
+    const x0 = y <= 40 ? 10 : 11;
+    const x1 = y <= 40 ? 21 : 20;
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.tee : PAL.teeDark);
+  }
+  for (let y = 42; y <= 47; y++) {
+    for (let x = 11; x <= 14; x++) p.set(x, y, x === 11 ? PAL.teeLight : PAL.tee);
+    for (let x = 17; x <= 20; x++) p.set(x, y, x === 20 ? PAL.teeDark : PAL.tee);
+  }
+  p.rect(11, 47, 4, 1, PAL.teeLight);
+  p.rect(17, 47, 4, 1, PAL.tee);
+  // Bare calves and ankles, then shoes (white with a dark sole).
+  p.rect(12, 48, 3, 5, PAL.skin);
+  p.rect(14, 48, 1, 5, PAL.skinShade);
+  p.rect(18, 48, 3, 5, PAL.skin);
+  p.rect(20, 48, 1, 5, PAL.skinShade);
+  for (const x of [11, 17]) {
+    p.rect(x, 53, 4, 2, PAL.shoe);
+    p.rect(x, 55, 4, 1, PAL.shoeDark);
+  }
+}
+
 export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
   const p = new Pix(32, 56);
   const dy = breath;
@@ -138,45 +182,14 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
   p.rect(25, 27, 3, 3, PAL.skin);
   p.set(27, 29, PAL.skinShade);
   p.rect(25, 27, 1, 2, PAL.watch);
-  // Black capri pants: hips, then two slim legs ending mid-calf.
-  for (let y = 37; y <= 41; y++) {
-    const x0 = y <= 40 ? 10 : 11;
-    const x1 = y <= 40 ? 21 : 20;
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.tee : PAL.teeDark);
-  }
-  for (let y = 42; y <= 47; y++) {
-    for (let x = 11; x <= 14; x++) p.set(x, y, x === 11 ? PAL.teeLight : PAL.tee);
-    for (let x = 17; x <= 20; x++) p.set(x, y, x === 20 ? PAL.teeDark : PAL.tee);
-  }
-  p.rect(11, 47, 4, 1, PAL.teeLight);
-  p.rect(17, 47, 4, 1, PAL.tee);
-  // Bare calves and ankles, then shoes (white with a dark sole).
-  p.rect(12, 48, 3, 5, PAL.skin);
-  p.rect(14, 48, 1, 5, PAL.skinShade);
-  p.rect(18, 48, 3, 5, PAL.skin);
-  p.rect(20, 48, 1, 5, PAL.skinShade);
-  for (const x of [11, 17]) {
-    p.rect(x, 53, 4, 2, PAL.shoe);
-    p.rect(x, 55, 4, 1, PAL.shoeDark);
-  }
+  paintAlexLegs(p);
   // Neck.
   p.rect(14, 17 + dy, 3, 5 - dy, PAL.skinShade);
 
   // Shoulder-length light-brown hair. Strands run down the head; the ends are ragged.
   // Breathing moves the whole head and hair block rigidly by `dy`: colours are sampled in
   // head-local rows (y - dy), so the strand pattern travels with the silhouette.
-  const hairColor = (x: number, yy: number) => {
-    const y = yy - dy;
-    const col = noise(x, 3.7);
-    const n = noise(x, y);
-    // Highlight band sweeping across the crown (light from the upper left).
-    const sheen = Math.abs(x + y * 0.8 - 18) < 1.3 && y < 11;
-    if (sheen) return n > 0.4 ? PAL.alexHairHi : PAL.alexHairLight;
-    if (y > 17 && (x < 10 || x > 21)) return PAL.alexHairDark;
-    if (col > 0.62) return y > 12 && n < 0.3 ? PAL.alexHair : PAL.alexHairLight;
-    if (col < 0.28 || (n < 0.12 && y > 6)) return PAL.alexHairDark;
-    return PAL.alexHair;
-  };
+  const hairColor = alexHairColor(dy);
   // Hair hanging to the shoulders, with uneven ends.
   for (let x = 9; x <= 22; x++) {
     const end = 20 + Math.floor(noise(x, 9.1) * 4) - (x === 9 || x === 22 ? 2 : 0);
@@ -207,6 +220,88 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
     f(9, 8, PAL.alexHairLight);
     f(11, 7, PAL.alexHairHi);
   }
+  return p.outline().done();
+}
+
+// ---- Alex showing off the catch: front-facing, both hands raised --------------------------------
+
+/** Centre of the fish she holds, in sprite pixels. The fish itself is a separate sprite. */
+export const SHOW_OFF_FISH_ANCHOR = { x: 16, y: 21 };
+export const alexShowOffKey = (breath: 0 | 1) => `alex:showoff:${breath}`;
+
+/** A small, silvery-green fish (facing right). Slice 6 swaps in real species. */
+export const PLACEHOLDER_FISH_SIZE = { w: 14, h: 6 };
+export function placeholderFishSprite(): Sprite {
+  const p = new Pix(14, 6);
+  // Body: dark back, silvery flank, pale belly; a forked tail on the left.
+  p.ell(8, 2.5, 4.6, 1.9, (_x, y) => (y <= 1 ? PAL.fishDark : y === 2 ? PAL.fish : y === 3 ? PAL.fishLight : PAL.fishBelly));
+  p.set(1, 1, PAL.fishDark);
+  p.set(1, 4, PAL.fishDark);
+  p.set(2, 1, PAL.fish);
+  p.set(2, 2, PAL.fish);
+  p.set(2, 3, PAL.fish);
+  p.set(2, 4, PAL.fish);
+  p.set(3, 2, PAL.fish);
+  p.set(3, 3, PAL.fishLight);
+  p.set(11, 2, PAL.outline); // eye
+  p.set(10, 3, PAL.fish); // gill
+  return p.outline().done();
+}
+
+export function alexShowOffSprite(breath: 0 | 1): Sprite {
+  const p = new Pix(32, 56);
+  const dy = breath;
+  // Slim black band tee, seen from the front; the small jagged logo sits low on the chest.
+  for (let y = 21; y <= 36; y++) {
+    let x0 = 10;
+    let x1 = 21;
+    if (y === 21) [x0, x1] = [11, 20];
+    else if (y >= 31 && y <= 34) [x0, x1] = [11, 20];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 11 ? PAL.teeLight : x >= 19 ? PAL.teeDark : PAL.tee);
+  }
+  p.blit(LOGO, 11, 27);
+  // Both arms bent up: short sleeve, upper arm out to the elbow, forearm up to the hand.
+  // The smartwatch is on her left wrist (the right side of the picture).
+  for (const side of [-1, 1] as const) {
+    const X = (x: number) => (side < 0 ? x : 31 - x);
+    p.rect(side < 0 ? 8 : 21, 22, 3, 3, PAL.tee);
+    p.line(X(8), 25, X(6), 28, PAL.skin);
+    p.line(X(9), 25, X(7), 28, PAL.skinShade);
+    p.line(X(6), 28, X(6), 21, PAL.skin);
+    p.line(X(7), 27, X(7), 21, side < 0 ? PAL.skinShade : PAL.skin);
+    p.rect(side < 0 ? 5 : 23, 18, 4, 3, PAL.skin); // hand, gripping the fish's end
+    p.set(X(6), 19, PAL.skinShade);
+  }
+  p.rect(25, 22, 2, 1, PAL.watch);
+  paintAlexLegs(p);
+  // Neck.
+  p.rect(14, 17 + dy, 3, 5 - dy, PAL.skinShade);
+
+  // Head: shoulder-length hair framing a small, quiet face, with bangs.
+  const hairColor = alexHairColor(dy);
+  for (let x = 8; x <= 23; x++) {
+    const end = 21 + Math.floor(noise(x, 9.1) * 3) - (x === 8 || x === 23 ? 2 : 0);
+    for (let y = 12 + dy; y <= end + dy; y++) p.set(x, y, hairColor(x, y));
+  }
+  p.ell(15.5, 8.5 + dy, 7.6, 8.3, hairColor);
+  // The face: a rounded skin oval inside the hair.
+  p.ell(15.5, 11.2 + dy, 4.7, 5.9, (_x, y) => (y - dy >= 16 ? PAL.skinShade : PAL.skin));
+  // Bangs across the forehead, parted a little to her left, with a few loose strands.
+  for (let x = 10; x <= 21; x++) {
+    const bottom = 6 + (x < 13 || x > 18 ? 2 : 1) + (x === 15 || x === 16 ? 0 : 0);
+    for (let y = 3; y <= bottom; y++) p.set(x, y + dy, hairColor(x, y + dy));
+  }
+  p.set(11, 9 + dy, PAL.alexHairDark);
+  p.set(20, 9 + dy, PAL.alexHair);
+  p.set(15, 6 + dy, PAL.alexHairDark);
+  // Minimal face: 1 px eyes, a faint nose, a tiny smile.
+  p.set(13, 10 + dy, PAL.outline);
+  p.set(18, 10 + dy, PAL.outline);
+  p.set(16, 12 + dy, PAL.skinShade);
+  p.set(14, 14 + dy, PAL.skinShade);
+  p.set(15, 15 + dy, PAL.skinShade);
+  p.set(16, 15 + dy, PAL.skinShade);
+  p.set(17, 14 + dy, PAL.skinShade);
   return p.outline().done();
 }
 

@@ -2,7 +2,7 @@
  * Where Alex is looking: a pure, seeded glance behaviour (no Phaser). While she idles or waits
  * for a bite she looks at the lake and now and then glances left (Pajkel and the dog) or right
  * (along the shore). A nibble or bite snaps her gaze back; during every other fishing phase
- * (charging, casting, hooked, retrieving, the future fight) she never glances.
+ * (charging, casting, fighting, the catch show-off, a lost fish, retrieving) she never glances.
  */
 import type { FishingState } from '../core/fishingSession';
 import { randRange, type Rng } from '../core/random';

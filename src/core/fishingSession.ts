@@ -1,6 +1,7 @@
 import { castDistance, chargePower } from './casting';
+import { barResult, newCatchBar, placeholderFish, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
 import type { GameEvent } from './events';
-import type { Rod } from './gear';
+import type { BarGear, Rod } from './gear';
 import { zoneAt, type Location, type ZoneId } from './location';
 import type { Rng } from './random';
 import { randInt, randRange } from './random';
@@ -18,8 +19,12 @@ export type FishingState =
   | { kind: 'waiting'; distanceM: number; zone: ZoneId; untilMs: number; nibblesLeft: number; hadNibble: boolean }
   /** The real bite: the bobber is under and the player must tap within `windowLeftMs`. */
   | { kind: 'bite'; distanceM: number; zone: ZoneId; windowLeftMs: number }
-  /** Fish on the hook. The catch-bar fight starts here (slice 4); for now a tap reels in. */
-  | { kind: 'hooked'; distanceM: number; zone: ZoneId }
+  /** The catch-bar fight. Holding raises the zone; `bar.holding` mirrors the player's thumb. */
+  | { kind: 'fighting'; distanceM: number; zone: ZoneId; fish: FishProfile; bar: CatchBarState }
+  /** The show-off: the fish is held up. A press (after a short guard) or the timer ends it. */
+  | { kind: 'caught'; distanceM: number; zone: ZoneId; fish: FishProfile; shownMs: number }
+  /** The fish got away: the line hangs slack for a moment, then the normal reel-in follows. */
+  | { kind: 'lost'; distanceM: number; ageMs: number }
   | { kind: 'retrieving'; distanceM: number };
 
 export type FishingInput =
@@ -32,7 +37,11 @@ export type FishingInput =
 export interface SessionContext {
   location: Location;
   rod: Rod;
+  /** What the gear does to the catch bar. */
+  barGear: BarGear;
   rng: Rng;
+  /** Dev flag: forces the fish (pattern and difficulty) instead of the zone's placeholder pick. */
+  fishOverride?: FishProfile;
 }
 
 /** Bite timing. Will become per-species once fish data exists. */
@@ -45,6 +54,15 @@ export const BITE_TUNING = {
   nibbleGapMs: [600, 1600] as [number, number],
   /** How long the player has to tap once the real bite happens. */
   hookWindowMs: 1000,
+};
+
+export const FIGHT_TUNING = {
+  /** A press ends the show-off only after this long (so the finger still holding from the fight doesn't skip it). */
+  showOffGuardMs: 400,
+  /** The show-off ends by itself after this long. */
+  showOffMs: 3000,
+  /** How long the line hangs slack after a lost fish, before the reel-in. */
+  slackMs: 1000,
 };
 
 export interface StepResult {
@@ -116,8 +134,10 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
 
     case 'bite': {
       if (input.type === 'press') {
+        const fish = ctx.fishOverride ?? placeholderFish(state.zone, ctx.rng);
+        const bar = { ...newCatchBar(fish, ctx.barGear, ctx.rng), holding: true }; // the hooking press is still down
         return {
-          state: { kind: 'hooked', distanceM: state.distanceM, zone: state.zone },
+          state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, fish, bar },
           events: [{ type: 'hooked', zone: state.zone }],
         };
       }
@@ -130,9 +150,41 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       };
     }
 
-    case 'hooked':
-      // Placeholder until the catch bar (slice 4): tap to reel the fish in.
-      return input.type === 'press' ? same({ kind: 'retrieving', distanceM: state.distanceM }) : same(state);
+    case 'fighting': {
+      if (input.type === 'press' || input.type === 'release') {
+        return same({ ...state, bar: { ...state.bar, holding: input.type === 'press' } });
+      }
+      if (input.type !== 'tick') return same(state);
+      const bar = tickCatchBar(state.bar, input.dtMs, state.bar.holding, state.fish, ctx.barGear, ctx.rng);
+      const result = barResult(bar);
+      const { zone, fish, distanceM } = state;
+      if (result === 'caught') {
+        return {
+          state: { kind: 'caught', distanceM, zone, fish, shownMs: 0 },
+          events: [{ type: 'fishCaught', zone, pattern: fish.pattern, difficulty: fish.difficulty, fightMs: bar.elapsedMs }],
+        };
+      }
+      if (result === 'lost') {
+        return {
+          state: { kind: 'lost', distanceM, ageMs: 0 },
+          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty }],
+        };
+      }
+      return same({ ...state, bar });
+    }
+
+    case 'caught': {
+      if (input.type === 'press' && state.shownMs >= FIGHT_TUNING.showOffGuardMs) return same(INITIAL_STATE);
+      if (input.type !== 'tick') return same(state);
+      const shownMs = state.shownMs + input.dtMs;
+      return same(shownMs >= FIGHT_TUNING.showOffMs ? INITIAL_STATE : { ...state, shownMs });
+    }
+
+    case 'lost': {
+      if (input.type !== 'tick') return same(state); // presses are ignored while the line hangs slack
+      const ageMs = state.ageMs + input.dtMs;
+      return same(ageMs >= FIGHT_TUNING.slackMs ? { kind: 'retrieving', distanceM: state.distanceM } : { ...state, ageMs });
+    }
 
     case 'retrieving':
       return input.type === 'retrieved' ? same(INITIAL_STATE) : same(state);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CLAP_MS,
   DOG_SPOT,
+  HOP_MS,
   IDLE_BEFORE_PLAY_MS,
   companionEvent,
   companionPress,
@@ -149,5 +151,55 @@ describe('petting', () => {
     run(s, 100, { fishing: 'waiting', night: true });
     expect(dogView(s).shape).toBe('lie');
     expect(s.dog.wagMs).toBeGreaterThan(0);
+  });
+});
+
+describe('reactions to the fight result', () => {
+  it('Pajkel claps for ~2 s on a catch, alternating the cheer and sit frames, then settles', () => {
+    const s = createCompanions(rng);
+    companionEvent(s, 'hooked');
+    run(s, 2500);
+    companionEvent(s, 'fishCaught');
+    const seen = new Set<string>();
+    for (let t = 0; t < CLAP_MS - 100; t += 50) {
+      tickCompanions(s, 50, { fishing: 'caught', night: false }, rng);
+      seen.add(s.paj.shape);
+    }
+    expect([...seen].sort()).toEqual(['cheer', 'sit']);
+    run(s, 300, { fishing: 'caught', night: false });
+    expect(s.paj.shape).toBe('sit');
+    expect(s.paj.clapMs).toBe(0);
+  });
+
+  it('Bestia hops (a y bounce while standing) for ~1.5 s on a catch, then sits', () => {
+    const s = createCompanions(rng);
+    companionEvent(s, 'fishCaught');
+    let peak = 0;
+    for (let t = 0; t < HOP_MS - 100; t += 50) {
+      tickCompanions(s, 50, { fishing: 'caught', night: false }, rng);
+      expect(dogView(s).shape).toBe('stand');
+      peak = Math.max(peak, s.dog.hop);
+    }
+    expect(peak).toBeGreaterThan(4);
+    run(s, 300, { fishing: 'caught', night: false });
+    expect(dogView(s).shape).toBe('sit');
+    expect(s.dog.hop).toBe(0);
+  });
+
+  it('a lost fish gets small reactions: Pajkel looks, Bestia sits; a catch also stops any clap on loss', () => {
+    const s = createCompanions(rng);
+    companionEvent(s, 'hooked');
+    companionEvent(s, 'fishLost');
+    run(s, 100, { fishing: 'lost', night: false });
+    expect(s.paj.shape).toBe('look');
+    expect(dogView(s).shape).toBe('sit');
+    run(s, 2000, { fishing: 'retrieving', night: false });
+    expect(s.paj.shape).toBe('sit');
+  });
+
+  it('the fight keeps them on the dock (idle timer does not run)', () => {
+    const s = createCompanions(rng);
+    run(s, 40_000, { fishing: 'fighting', night: false });
+    expect(s.mode).toBe('dock');
   });
 });

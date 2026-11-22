@@ -14,17 +14,20 @@ import {
 } from '../art/layout';
 import { PAL } from '../art/palette';
 import { mulberry32 } from '../art/raster';
-import { ALEX_FEET_Y, ALEX_HAND, alexKey } from '../art/characters';
+import { ALEX_FEET_Y, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
+import { FISH_PATTERNS, newCatchBar, type FishPattern, type FishProfile } from '../core/catchBar';
+import { STARTER_BAR_GEAR } from '../core/data/barGear';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
 import type { GameEvent } from '../core/events';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
 import { showNameOverlay } from '../ui/nameOverlay';
+import { CatchBarView } from './CatchBarView';
 import { companionEvent, companionPress, startPlayNow, tickCompanions } from './companions/behaviour';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
@@ -107,7 +110,7 @@ function hash01(n: number): number {
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
-  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0], rng: Math.random };
+  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0], barGear: STARTER_BAR_GEAR, rng: Math.random };
   private clock: GameClock = NEW_GAME_CLOCK;
 
   // Scenery images (tinted by the day cycle).
@@ -126,6 +129,14 @@ export class LakeScene extends Phaser.Scene {
   private tags: { text: Phaser.GameObjects.Text; age: number }[] = [];
   private swallowUp = false;
   private bobberImg!: Phaser.GameObjects.Image;
+  private catchBar!: CatchBarView;
+  /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
+  private showOffFish!: Phaser.GameObjects.Image;
+  private caughtText!: Phaser.GameObjects.Text;
+  /** Eased rod bend while fighting: more while the thumb is down, less when released. */
+  private fightBend = 8;
+  /** Dev-only ?debug=caught: the show-off never times out or gets dismissed. */
+  private freezeCaught = false;
 
   // Per-frame graphics layers.
   private stars!: Phaser.GameObjects.Graphics;
@@ -179,6 +190,22 @@ export class LakeScene extends Phaser.Scene {
     }
     const dbg = params.get('debug') ?? '';
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
+    // Dev-only: ?fish=<pattern>&diff=<0..1> forces the fish; ?debug=fight / ?debug=caught jump into those states.
+    if (params.has('fish') || params.has('diff')) {
+      const pattern = FISH_PATTERNS.find((p) => p === params.get('fish')) ?? 'smooth';
+      const diff = Number(params.get('diff') ?? 0.5);
+      const fishOverride: FishProfile = { pattern, difficulty: Phaser.Math.Clamp(Number.isFinite(diff) ? diff : 0.5, 0, 1) };
+      this.ctx = { ...this.ctx, fishOverride };
+    }
+    if (dbg === 'fight' || dbg === 'caught') {
+      const fish: FishProfile = this.ctx.fishOverride ?? { pattern: 'smooth' as FishPattern, difficulty: 0.3 };
+      if (dbg === 'fight') {
+        this.state = { kind: 'fighting', distanceM: 10, zone: 'shallow', fish, bar: newCatchBar(fish, this.ctx.barGear, this.ctx.rng) };
+      } else {
+        this.state = { kind: 'caught', distanceM: 10, zone: 'shallow', fish, shownMs: 0 };
+        this.freezeCaught = true;
+      }
+    }
     this.buildScenery();
     this.buildUi();
 
@@ -217,7 +244,7 @@ export class LakeScene extends Phaser.Scene {
     this.elapsed += deltaMs;
     this.stateAge += deltaMs;
     this.clock = advanceClock(this.clock, deltaMs);
-    this.send({ type: 'tick', dtMs: deltaMs });
+    if (!(this.freezeCaught && this.state.kind === 'caught')) this.send({ type: 'tick', dtMs: deltaMs });
 
     if (this.state.kind === 'casting' || this.state.kind === 'retrieving') {
       const durationMs = this.state.kind === 'casting' ? 350 + this.state.distanceM * 25 : 300 + this.state.distanceM * 15;
@@ -282,6 +309,13 @@ export class LakeScene extends Phaser.Scene {
         this.showToast(e.reason === 'tooEarly' ? 'Too early, you scared it off' : 'Too slow, it got away…');
         vibrate(HAPTICS.escaped);
         break;
+      case 'fishCaught':
+        vibrate(HAPTICS.caught);
+        break;
+      case 'fishLost':
+        this.showToast('It got away…');
+        vibrate(HAPTICS.escaped);
+        break;
       case 'cast':
         break;
     }
@@ -300,6 +334,8 @@ export class LakeScene extends Phaser.Scene {
 
   /** Taps on the dog, Pajkel or the pencil button are handled here. Returns true when consumed. */
   private handleTap(x: number, y: number): boolean {
+    // During the fight and the show-off every press belongs to the fishing state machine.
+    if (this.state.kind === 'fighting' || this.state.kind === 'caught') return false;
     if (PENCIL.contains(x, y)) {
       showNameOverlay(this.profile, false, (p) => this.applyProfile(p));
       return true;
@@ -422,11 +458,17 @@ export class LakeScene extends Phaser.Scene {
 
     this.alexImg = this.add.image(ALEX_POS.x, ALEX_POS.y, alexKey('forward', 0)).setOrigin(0, 0).setDepth(Z.angler);
     this.worldImgs.push(this.alexImg);
+    this.showOffFish = this.add
+      .image(ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x, ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y, TEX.placeholderFish)
+      .setDepth(Z.angler + 0.5)
+      .setVisible(false);
+    this.worldImgs.push(this.showOffFish);
     this.companions = new CompanionView(this);
 
     this.action = this.add.graphics().setDepth(Z.action);
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
     this.fireflies = this.add.graphics().setDepth(Z.fireflies);
+    this.catchBar = new CatchBarView(this);
 
     // Fixed random layouts for stars, sparkles and fireflies.
     const rnd = mulberry32(77);
@@ -479,6 +521,11 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(Z.alert)
       .setVisible(false);
+    this.caughtText = this.add
+      .text(W / 2, 206, 'Caught!', { fontFamily: 'monospace', fontSize: '40px', fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 7 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.hint = this.add.text(W / 2, H - 24, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     for (let i = 0; i < 3; i++) {
       const text = this.add
@@ -500,7 +547,10 @@ export class LakeScene extends Phaser.Scene {
     this.drawFireflies(look);
 
     // Angler: 2-frame breathing, and the head turns when she glances around.
-    this.alexImg.setTexture(alexKey(this.lookOverride ?? this.look.dir, (Math.floor(this.elapsed / 900) % 2) as 0 | 1));
+    const breath = (Math.floor(this.elapsed / 900) % 2) as 0 | 1;
+    const showingOff = this.state.kind === 'caught';
+    this.alexImg.setTexture(showingOff ? alexShowOffKey(breath) : alexKey(this.lookOverride ?? this.look.dir, breath));
+    this.showOffFish.setVisible(showingOff);
 
     const g = this.action;
     g.clear();
@@ -514,11 +564,16 @@ export class LakeScene extends Phaser.Scene {
 
     const s = this.state;
     const bobber = this.bobberPosition();
-    const tight = s.kind === 'bite' || s.kind === 'hooked';
+    const tight = s.kind === 'bite' || s.kind === 'fighting';
+    if (s.kind === 'fighting') {
+      this.fightBend += ((s.bar.holding ? 18 : 8) - this.fightBend) * Math.min(1, _deltaMs / 110);
+    }
     const tip = this.rodTip();
-    this.drawRod(g, look, tip);
+    // The rod, line and bobber are put away while she shows off the catch.
+    if (s.kind !== 'caught') this.drawRod(g, look, tip);
     if (bobber) {
-      this.drawLine(g, look, tip, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : 2);
+      const slack = s.kind === 'lost' ? 22 * Math.min(1, this.stateAge / 220) : 0;
+      this.drawLine(g, look, tip, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : s.kind === 'lost' ? 4 : 2, slack);
       if (s.kind === 'waiting') pixelEllipse(g, Math.round(bobber.x), Math.round(bobber.y) + 1, 4, 1, tintFx(PAL.foam), 0.45);
       this.placeBobber(bobber.x, bobber.y, tight, look);
     } else {
@@ -532,13 +587,19 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (s.kind === 'charging') this.drawPowerMeter(g, chargePower(s.heldMs));
+    if (s.kind === 'fighting') this.catchBar.update(s.bar, this.ctx.barGear, lerpColor(0xffffff, look.worldTint, 0.35));
+    else this.catchBar.hide();
+    const pop = Math.min(1, 0.45 + this.stateAge / 160);
+    this.caughtText
+      .setVisible(s.kind === 'caught')
+      .setScale(pop + 0.18 * Math.exp(-this.stateAge / 140) * Math.sin(this.stateAge / 40));
 
     // Labels.
     this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);
-    } else if (s.kind === 'idle') {
+    } else if (s.kind === 'idle' || s.kind === 'caught') {
       this.zoneLabel.setVisible(false);
     }
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
@@ -547,7 +608,8 @@ export class LakeScene extends Phaser.Scene {
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
-      : s.kind === 'hooked' ? 'Tap to reel in (catch bar: slice 4)'
+      : s.kind === 'fighting' ? 'Hold to raise the bar'
+      : s.kind === 'caught' ? 'Tap to continue'
       : '',
     );
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
@@ -715,9 +777,19 @@ export class LakeScene extends Phaser.Scene {
       const shake = Math.round(Math.sin(this.elapsed / 30));
       return { x: BOBBER_X + shake, y: distanceToY(s.distanceM) + 3 };
     }
-    if (s.kind === 'hooked') {
-      const thrash = Math.round(Math.sin(this.elapsed / 70) * 3);
-      return { x: BOBBER_X + thrash, y: distanceToY(s.distanceM) + 2 };
+    if (s.kind === 'fighting') {
+      // The bobber jerks with the fish: it follows the fish height on the bar and its speed.
+      const { fish, fishVel } = s.bar;
+      const kick = Phaser.Math.Clamp(fishVel * 9, -10, 10);
+      const jitter = Math.sin(this.elapsed / 45) * Math.min(2.5, 0.6 + Math.abs(fishVel) * 4);
+      return {
+        x: BOBBER_X + Math.round((fish - 0.5) * 24 + kick * 0.6 + jitter),
+        y: distanceToY(s.distanceM) + 2 + Math.round((0.5 - fish) * 8 - kick * 0.5),
+      };
+    }
+    if (s.kind === 'lost') {
+      // Nothing pulls on it any more: it just floats and bobs.
+      return { x: BOBBER_X, y: distanceToY(s.distanceM) + Math.round(Math.sin(this.elapsed / 400) * 1.2) };
     }
     if (s.kind === 'retrieving') {
       const t = this.anim * this.anim; // ease-in: starts slow, speeds up
@@ -760,11 +832,20 @@ export class LakeScene extends Phaser.Scene {
         dy = tow * 5;
         bend = 9;
         break;
-      case 'hooked':
-        dx = 3 + Math.sin(t * 22) * 1.5;
-        dy = tow * 9 + Math.sin(t * 31) * 2;
-        bend = 15 + Math.sin(t * 25) * 2;
+      case 'fighting': {
+        const hold = s.bar.holding;
+        dx = 3 + Math.sin(t * 18) * (hold ? 1.5 : 1);
+        dy = tow * (hold ? 11 : 6) + Math.sin(t * 29) * (hold ? 2 : 1.2);
+        bend = this.fightBend + Math.sin(t * 24) * (hold ? 1.6 : 0.8);
         break;
+      }
+      case 'lost': {
+        // The tip springs back when the fish comes off.
+        const ms = this.stateAge;
+        dy = -10 * Math.exp(-ms / 160) * Math.cos(ms / 55);
+        bend = 3 + 8 * Math.exp(-ms / 200);
+        break;
+      }
       case 'retrieving':
         dy = 12 * Math.sin(this.anim * Math.PI);
         bend = 6;
@@ -828,10 +909,11 @@ export class LakeScene extends Phaser.Scene {
     g.fillStyle(PAL.redLight).fillRect(tip.x, tip.y, 2, 1);
   }
 
-  private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number): void {
+  /** `sag` bows the line sideways, `droop` lets it hang down (a slack line). */
+  private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number, droop = 0): void {
     const color = multiply(PAL.white, lerpColor(0xffffff, look.worldTint, 0.6));
     const cx = (tip.x + bx) / 2 + sag;
-    const cy = (tip.y + by) / 2;
+    const cy = (tip.y + by) / 2 + droop;
     const len = Math.hypot(bx - tip.x, by - tip.y);
     const n = Math.max(6, Math.ceil(len / 1.5));
     g.fillStyle(color, 0.85);
