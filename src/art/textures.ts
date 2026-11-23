@@ -11,6 +11,7 @@ import {
   BOBBER_UNDER,
   LILY_A,
   LILY_B,
+  CRATE,
   POST,
   REED,
 } from './sprites';
@@ -45,6 +46,7 @@ export const TEX = {
   lilyB: 'lilyB',
   reed: 'reed',
   post: 'post',
+  crate: 'crate',
   barFrame: 'barFrame',
   stripFrame: 'stripFrame',
   gear: 'gear',
@@ -89,6 +91,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));
   addRaster(scene, TEX.reed, Raster.fromSprite(REED));
   addRaster(scene, TEX.post, Raster.fromSprite(POST));
+  addRaster(scene, TEX.crate, Raster.fromSprite(CRATE));
   addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
   addRaster(scene, TEX.stripFrame, Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
   if (!scene.textures.exists(TEX.sky)) {

@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { pageParams } from '../urlParams';
+import { todayLocal } from '../localDate';
+import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
+import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { sound } from '../audio/sound';
 import { dayLook, lerpColor, moonArc, sunArc, type DayLook } from '../art/dayCycle';
 import {
@@ -132,6 +135,11 @@ const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
+/** The crate from the bait shop: feet position on the dock, and a finger-sized (~40 px) tap area around it. */
+const CRATE_FEET = { x: 214, y: 458 };
+const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 20, CRATE_FEET.y - 30, 40, 40);
+/** How often the device date is re-read (a game left open past midnight gets the new crate). */
+const DATE_CHECK_MS = 5000;
 const GLINT_N = 130;
 
 /** Multiplies two 0xRRGGBB colours (what setTint does on the GPU). */
@@ -218,6 +226,11 @@ export class LakeScene extends Phaser.Scene {
   private profile: Profile = DEFAULT_PROFILE;
   private tags: { text: Phaser.GameObjects.Text; age: number }[] = [];
   private swallowUp = false;
+  /** Today's date on the device (YYYY-MM-DD), re-read every few seconds. */
+  private today = todayLocal();
+  private sinceDateCheck = 0;
+  private crateImg!: Phaser.GameObjects.Image;
+  private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
   private catchBar!: CatchBarView;
   /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
@@ -350,6 +363,12 @@ export class LakeScene extends Phaser.Scene {
       for (let t = 0; t < 1500; t += 50) tickCompanions(this.companions.state, 50, { fishing: 'idle', night: false });
     }
 
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') this.refreshDate();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => document.removeEventListener('visibilitychange', onVisible));
+
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.panel) return;
       if (this.handleTap(pointer.worldX, pointer.worldY)) {
@@ -429,6 +448,8 @@ export class LakeScene extends Phaser.Scene {
     this.stateAge += deltaMs;
     this.clock = advanceClock(this.clock, deltaMs);
     this.sinceClockSave += deltaMs;
+    this.sinceDateCheck += deltaMs;
+    if (this.sinceDateCheck >= DATE_CHECK_MS) this.refreshDate();
     if (this.sinceClockSave >= CLOCK_SAVE_MS) this.persist();
     if (!(this.freezeCaught && this.state.kind === 'caught')) this.send({ type: 'tick', dtMs: deltaMs });
 
@@ -635,6 +656,10 @@ export class LakeScene extends Phaser.Scene {
       this.panel = openSoundBoard(this.clock.minute, () => (this.panel = null));
       return;
     }
+    if (dbg === 'box') {
+      this.openBaitBox();
+      return;
+    }
     if (dbg === 'settings') {
       this.openPlayerPanel('settings');
       return;
@@ -713,6 +738,31 @@ export class LakeScene extends Phaser.Scene {
     t.age = 0;
   }
 
+  private refreshDate(): void {
+    this.sinceDateCheck = 0;
+    this.today = todayLocal();
+  }
+
+  private crateVisible(): boolean {
+    return boxAvailable(dailyOf(this.player), this.today);
+  }
+
+  /** The crate card: offers the box; taking it grants the contents and saves. Only while idle. */
+  private openBaitBox(): void {
+    if (this.state.kind !== 'idle' || this.panel || !this.crateVisible()) return;
+    this.swallowUp = false;
+    const tier = tierFor(dailyOf(this.player), this.today);
+    this.panel = showBaitBoxCard(
+      tier,
+      () => {
+        const r = openBox(this.player, this.today, Math.random);
+        if (r.contents) this.setPlayer(r.player);
+        return r.contents;
+      },
+      () => (this.panel = null),
+    );
+  }
+
   /** Taps on the dog, Pajkel or the pencil button are handled here. Returns true when consumed. */
   private handleTap(x: number, y: number): boolean {
     // During the fight and the show-off every press belongs to the fishing state machine.
@@ -725,6 +775,10 @@ export class LakeScene extends Phaser.Scene {
     }
     if (PENCIL.contains(x, y)) {
       this.openNames();
+      return true;
+    }
+    if (this.state.kind === 'idle' && this.crateVisible() && CRATE_HIT.contains(x, y)) {
+      this.openBaitBox();
       return true;
     }
     const dog = this.companions.dogRect();
@@ -857,6 +911,9 @@ export class LakeScene extends Phaser.Scene {
     this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
     this.worldImgs.push(this.showOffHands);
     this.companions = new CompanionView(this);
+    this.crateImg = this.add.image(CRATE_FEET.x, CRATE_FEET.y, TEX.crate).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
+    this.worldImgs.push(this.crateImg);
+    this.crateFx = this.add.graphics().setDepth(Z.angler - 0.1);
 
     this.action = this.add.graphics().setDepth(Z.action);
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
@@ -1062,6 +1119,8 @@ export class LakeScene extends Phaser.Scene {
     this.caughtBadge.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal').setScale(popScale);
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 
+    this.drawCrate();
+
     // Labels.
     this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);
     if (s.kind === 'waiting') {
@@ -1090,6 +1149,24 @@ export class LakeScene extends Phaser.Scene {
     if (s.kind === 'idle' && this.slipNoteAge < SLIP_NOTE_MS) this.hint.setText(SLIP_NOTE);
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
     this.drawPanels();
+  }
+
+  /** The crate shows while today's box is unopened, with a small twinkle to catch the eye. */
+  private drawCrate(): void {
+    const on = this.crateVisible();
+    this.crateImg.setVisible(on);
+    this.crateFx.clear();
+    if (!on) return;
+    const t = (this.elapsed % 2400) / 2400;
+    if (t > 0.45) return;
+    const k = Math.sin((t / 0.45) * Math.PI); // 0..1..0
+    const cx = CRATE_FEET.x + 5;
+    const cy = CRATE_FEET.y - 15;
+    const arm = k > 0.6 ? 3 : 2;
+    this.crateFx.fillStyle(PAL.white, 0.5 + 0.5 * k);
+    this.crateFx.fillRect(cx, cy - arm, 1, arm * 2 + 1);
+    this.crateFx.fillRect(cx - arm, cy, arm * 2 + 1, 1);
+    this.crateFx.fillStyle(PAL.gold, 0.8 * k).fillRect(cx - 1, cy - 1, 3, 3);
   }
 
   /** Sky, sun, moon, clouds, stars and every tint for the current time of day. */
