@@ -2,7 +2,7 @@ import { FONT, FS, LINE } from '../font';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { fishSilhouette } from '../art/fishVariants';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
-import { SPECIES, type Species } from '../core/data/fish';
+import { isLegendary, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
 import { speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
@@ -22,7 +22,8 @@ function fishCanvas(sprite: Sprite, maxW: number, maxScale: number): HTMLCanvasE
 const artOf = (s: Species, log: FishLog, maxW: number, maxScale: number): HTMLCanvasElement => {
   const entry = log[s.id];
   if (!entry) return fishCanvas(fishSilhouette(s.id), maxW, maxScale);
-  return fishCanvas(fishSprite(s.id, fishSizeClass(s.id, entry.bestLengthCm)), maxW, maxScale);
+  // A legendary always shows at its full size: it is a huge fish whatever the record says.
+  return fishCanvas(fishSprite(s.id, isLegendary(s) ? 2 : fishSizeClass(s.id, entry.bestLengthCm)), maxW, maxScale);
 };
 
 function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLElement {
@@ -43,7 +44,7 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     'text-align:center',
   ].join(';');
   const t = el(entry ? 'button' : 'div', base + (entry ? ';cursor:pointer' : ''));
-  t.className = 'rb-box';
+  t.className = entry && isLegendary(s) ? 'rb-box rb-legend' : 'rb-box';
   if (t instanceof HTMLButtonElement) {
     t.type = 'button';
     t.addEventListener('click', () => onOpen(s.id));
@@ -55,7 +56,7 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     t.append(el('div', 'line-height:1', s.name));
   } else {
     t.append(el('div', `color:${COLORS.dim};line-height:0.8`, '???'));
-    const [where, when] = whereWhen(s).split(' · ');
+    const [where, when] = s.logHint ? s.logHint.split(/(?<=\.) /) : whereWhen(s).split(' · ');
     const hint = `font-size:${FS.tiny}px;line-height:1.2;color:${COLORS.dim}`;
     t.append(el('div', hint, where), el('div', hint, when));
   }
@@ -66,7 +67,7 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   const entry = log[s.id]!;
   const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
   const art = el('div', `box-sizing:border-box;width:100%;height:96px;display:flex;align-items:center;justify-content:center;background:${COLORS.woodLight}`);
-  art.className = 'rb-box';
+  art.className = isLegendary(s) ? 'rb-box rb-legend' : 'rb-box';
   art.append(artOf(s, log, 150, 6));
   col.append(
     art,

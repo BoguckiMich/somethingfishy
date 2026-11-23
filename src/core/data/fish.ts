@@ -2,7 +2,8 @@ import type { TimeOfDay } from '../clock';
 import type { FishPattern } from '../catchBar';
 import type { ZoneId } from '../location';
 
-export type Rarity = 'common' | 'uncommon' | 'rare';
+/** `legendary` fish are not in the weighted spawn pool: they have their own rule (core/legendary.ts). */
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
 export interface Species {
   id: string;
@@ -24,6 +25,10 @@ export interface Species {
   basePrice: number;
   /** One short, real fact (shown in the fish log later). */
   fact: string;
+  /** Shown on the log tile while the species is unknown, instead of where and when. */
+  logHint?: string;
+  /** How Alex shows it off: at her chest (default), or hugged head-up with the tail on the dock (too big for the chest). */
+  showOff?: 'chest' | 'hug';
 }
 
 const ANY: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
@@ -90,8 +95,23 @@ export const SPECIES: Species[] = [
     lengthCm: [60, 180], nibbles: [0, 3], bodyFactor: 0.0074, basePrice: 100,
     fact: 'The wels catfish is the largest freshwater fish in Europe and can pass two metres in length.',
   },
+  {
+    // Legendary (slice 12): not in the weighted pool. Spawn rule and tunables: core/data/legendary.ts.
+    // basePrice 0: it is never sold. `times` is only informational; the rule is the clock window.
+    id: 'pale', name: 'The Pale One', zone: 'deep', times: ['night'], rarity: 'legendary', pattern: 'abyssal', difficulty: 0.9,
+    lengthCm: [150, 220], nibbles: [0, 1], bodyFactor: 0.01, basePrice: 0,
+    fact: 'No one has caught it twice. No one remembers why.',
+    logHint: 'Deep, far water. When the clock shows 3.',
+    showOff: 'hug',
+  },
 ];
+
+/** The species that bite through the weighted pool (everything but the legendaries). */
+export const POOL_SPECIES: Species[] = SPECIES.filter((s) => s.rarity !== 'legendary');
 
 export function speciesById(id: string): Species | undefined {
   return SPECIES.find((s) => s.id === id);
 }
+
+/** True for a legendary species (never in the normal pool, never bagged or sold). */
+export const isLegendary = (s: Species | undefined): boolean => s?.rarity === 'legendary';

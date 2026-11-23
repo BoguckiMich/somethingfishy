@@ -20,12 +20,15 @@ import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HANDS_KEY, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
-import { fishKey, fishSizeClass } from '../art/fishArt';
+import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
-import { speciesById, SPECIES } from '../core/data/fish';
+import { isLegendary, speciesById, SPECIES } from '../core/data/fish';
+import { PALE_ONE } from '../core/data/legendary';
+import { eerieLevel, eerieLook } from '../core/eerie';
+import { slipsAway } from '../core/legendary';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
 import { SHOP } from '../core/data/shop';
@@ -69,6 +72,15 @@ const TOAST_MS = 1800;
 /** The show-off of a first-of-its-kind catch stays up longer (tap works after the usual guard). */
 const NEW_SPECIES_SHOW_OFF_MS = 8000;
 const RIPPLE_MS = 1200;
+/** Where the hugged fish's head end sits on Alex's sprite (her chest), and how far the hug leans to her side (sprite px). */
+const HUG_HEAD_Y = 23;
+const HUG_DX = 0;
+/** How long the "it slips away" line stays where the hint speaks. */
+const SLIP_NOTE_MS = 4500;
+const SLIP_NOTE = 'It slips back into the dark water…';
+/** Time constant (ms) of the eerie look easing in and out. */
+const EERIE_EASE_MS = 700;
+const EERIE_GREEN = 0x5cdc72;
 /** The clock is saved this often (real ms of play) besides every player change. */
 const CLOCK_SAVE_MS = 10_000;
 
@@ -148,7 +160,7 @@ function pixelEllipse(g: Phaser.GameObjects.Graphics, cx: number, cy: number, rx
 function debugLog(which: 'half' | 'all'): FishLog {
   const log: FishLog = {};
   SPECIES.forEach((sp, i) => {
-    if (which === 'half' && i % 2 === 1) return;
+    if (which === 'half' && (i % 2 === 1 || sp.rarity === 'legendary')) return; // half: the legendary stays "???"
     const lengthCm = Math.round(sp.lengthCm[0] + (sp.lengthCm[1] - sp.lengthCm[0]) * (0.25 + ((i * 37) % 70) / 100));
     log[sp.id] = { count: 1 + ((i * 5) % 9), bestLengthCm: lengthCm, bestWeightG: Math.round(sp.bodyFactor * lengthCm ** 3) };
   });
@@ -171,6 +183,7 @@ export class LakeScene extends Phaser.Scene {
     barGear: RODS[0].barGear,
     rng: Math.random,
     timeOfDay: () => timeOfDay(this.clock.minute),
+    minute: () => this.clock.minute,
     canCast: () => canCast(this.player),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
@@ -220,6 +233,14 @@ export class LakeScene extends Phaser.Scene {
   private catchOutcome: CatchOutcome = { kind: 'normal' };
   private caughtBadge!: Phaser.GameObjects.Text;
   private caughtNote!: Phaser.GameObjects.Text;
+  /** A line that takes over the hint for a moment once back at idle (the legendary slipping away). */
+  private slipNoteAge = Infinity;
+  /** Eased eerie look: green overlay alpha on the water and how still the water is (0..1). */
+  private eerieTint = 0;
+  private eerieCalm = 0;
+  /** Drift clock of the water dashes: runs slower while the lake is still. */
+  private driftT = 0;
+  private eerieFx!: Phaser.GameObjects.Graphics;
 
   // Per-frame graphics layers.
   private stars!: Phaser.GameObjects.Graphics;
@@ -286,7 +307,7 @@ export class LakeScene extends Phaser.Scene {
       this.ctx = { ...this.ctx, fishOverride };
     }
     // Dev-only: ?species=<id> forces the species that bites; ?rod=<id> picks a rod (carbon reaches deep water).
-    const speciesParam = params.get('species');
+    const speciesParam = params.get('species') === 'legendary' ? PALE_ONE.speciesId : params.get('species');
     if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
     const rod = RODS.find((r) => r.id === params.get('rod'));
@@ -352,6 +373,7 @@ export class LakeScene extends Phaser.Scene {
     });
     this.input.on('gameout', () => this.send({ type: 'release' }));
 
+    this.updateEerie(0, true); // opening inside the window (or a dev fight) starts with the look already there
     this.render();
   }
 
@@ -429,6 +451,8 @@ export class LakeScene extends Phaser.Scene {
     this.ripples = this.ripples.filter((r) => r.age < RIPPLE_MS);
     this.nibbleAge += deltaMs;
     this.toastAge += deltaMs;
+    this.slipNoteAge += deltaMs;
+    this.updateEerie(deltaMs);
 
     this.updateSound(deltaMs);
     this.companions.update(
@@ -438,6 +462,19 @@ export class LakeScene extends Phaser.Scene {
       dayLook(this.clock.minute).worldTint,
     );
     this.render(deltaMs);
+  }
+
+  /** How eerie the lake is right now (pure rule in core/eerie): eases the picture and tells the sound. */
+  private updateEerie(deltaMs: number, snap = false): void {
+    const s = this.state;
+    const fightingLegend = s.kind === 'fighting' && isLegendary(speciesById(s.hooked.speciesId));
+    const level = eerieLevel(this.clock.minute, fightingLegend);
+    const look = eerieLook(level);
+    const k = snap ? 1 : 1 - Math.exp(-deltaMs / EERIE_EASE_MS);
+    this.eerieTint += (look.tint - this.eerieTint) * k;
+    this.eerieCalm += (look.calm - this.eerieCalm) * k;
+    this.driftT += (deltaMs / 1000) * (1 - 0.9 * this.eerieCalm);
+    sound.setEerie(level);
   }
 
   /** Ambient follows the game clock; the reel clicks while the catch bar is held; the dog barks at fetch. */
@@ -472,7 +509,8 @@ export class LakeScene extends Phaser.Scene {
     const r = recordCatch(this.player.log, hooked);
     this.setPlayer({ ...this.player, log: r.log });
     this.catchOutcome = r.outcome;
-    this.ctx = { ...this.ctx, showOffMs: r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined };
+    const showOffMs = slipsAway(hooked.speciesId) ? PALE_ONE.showOffMs : r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined;
+    this.ctx = { ...this.ctx, showOffMs };
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
   }
 
@@ -490,6 +528,11 @@ export class LakeScene extends Phaser.Scene {
   }
 
   private stowCatch(hooked: HookedFish): void {
+    // A legendary is a trophy: no bag slot (so the bag-full card never shows), no coins. It was logged already.
+    if (slipsAway(hooked.speciesId)) {
+      this.slipNoteAge = 0;
+      return;
+    }
     const r = addCatch(this.player, hooked);
     if (r.result === 'added') {
       this.setPlayer(r.state);
@@ -645,7 +688,7 @@ export class LakeScene extends Phaser.Scene {
       case 'fishCaught':
         vibrate(HAPTICS.caught);
         this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, true);
-        sound.play(this.catchOutcome.kind === 'normal' ? 'catch' : 'fanfare');
+        sound.play(this.catchOutcome.kind === 'normal' && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
         break;
       case 'fishLost':
         this.showToast('It got away…');
@@ -766,6 +809,7 @@ export class LakeScene extends Phaser.Scene {
     this.waterGlow = this.add.graphics().setDepth(Z.waterGlow);
     this.reflectionImg = this.add.image(0, FAR_SHORE_Y + 4, TEX.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(0.7);
     this.waterFx = this.add.graphics().setDepth(Z.waterFx);
+    this.eerieFx = this.add.graphics().setDepth(Z.waterFx + 0.5);
 
     // Decor on the water, away from the bobber column.
     const decor: [string, number, number][] = [
@@ -926,6 +970,7 @@ export class LakeScene extends Phaser.Scene {
     const look = dayLook(this.clock.minute);
     this.applyLook(look);
     this.drawWaterFx(look);
+    this.drawEerie();
     this.drawPosts(look);
     this.drawFireflies(look);
 
@@ -937,14 +982,21 @@ export class LakeScene extends Phaser.Scene {
     this.showOffHands.setVisible(showingOff);
     if (this.state.kind === 'caught') {
       const { speciesId, lengthCm } = this.state.hooked;
-      this.showOffFish.setTexture(fishKey(speciesId, fishSizeClass(speciesId, lengthCm)));
-      // Held level at chest height at its real size: whole pixels, centred on the anchor.
-      const fw = this.showOffFish.width;
-      const fh = this.showOffFish.height;
-      this.showOffFish.setPosition(
-        ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x - Math.floor(fw / 2),
-        ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y - Math.floor(fh / 2),
-      );
+      if (isHugged(speciesId)) {
+        // Too big for the chest: she hugs its head end (the sprite turned head-up) and the tail drags down onto the dock.
+        this.showOffFish.setTexture(fishHugKey(speciesId));
+        const fw = this.showOffFish.width;
+        this.showOffFish.setPosition(ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x - Math.floor(fw / 2) + HUG_DX, ALEX_POS.y + HUG_HEAD_Y);
+      } else {
+        this.showOffFish.setTexture(fishKey(speciesId, fishSizeClass(speciesId, lengthCm)));
+        // Held level at chest height at its real size: whole pixels, centred on the anchor.
+        const fw = this.showOffFish.width;
+        const fh = this.showOffFish.height;
+        this.showOffFish.setPosition(
+          ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x - Math.floor(fw / 2),
+          ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y - Math.floor(fh / 2),
+        );
+      }
     }
 
     const g = this.action;
@@ -1032,9 +1084,10 @@ export class LakeScene extends Phaser.Scene {
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
       : s.kind === 'fighting' ? 'Hold to raise the bar'
-      : s.kind === 'caught' ? 'Tap to continue'
+      : s.kind === 'caught' ? (slipsAway(s.hooked.speciesId) ? 'Tap to let it go' : 'Tap to continue')
       : '',
     );
+    if (s.kind === 'idle' && this.slipNoteAge < SLIP_NOTE_MS) this.hint.setText(SLIP_NOTE);
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
     this.drawPanels();
   }
@@ -1104,20 +1157,23 @@ export class LakeScene extends Phaser.Scene {
     const t = this.elapsed / 1000;
     const sparkleColor = lerpColor(PAL.foam, look.skyBottom, 0.35);
     const lightLevel = Math.min(1, 0.35 + look.sunAlpha * 0.65 + look.moonAlpha * 0.25);
+    // The Pale One's window: the lake goes still (fewer, fainter sparkles, slow dashes, quiet glints).
+    const calm = this.eerieCalm;
+    const still = 1 - 0.85 * calm;
 
     for (const sp of this.sparkles) {
       const v = Math.sin(t * sp.speed + sp.phase);
-      if (v < 0.55) continue;
-      const a = (v - 0.55) / 0.45;
-      g.fillStyle(sparkleColor, a * 0.85 * lightLevel).fillRect(sp.x, sp.y, a > 0.7 ? 2 : 1, 1);
+      if (v < 0.55 + 0.35 * calm) continue;
+      const a = (v - 0.55 - 0.35 * calm) / (0.45 - 0.35 * calm);
+      g.fillStyle(sparkleColor, a * 0.85 * lightLevel * still).fillRect(sp.x, sp.y, a > 0.7 ? 2 : 1, 1);
     }
 
     // Drifting dashes.
-    g.fillStyle(sparkleColor, 0.22 * lightLevel);
+    g.fillStyle(sparkleColor, 0.22 * lightLevel * still);
     for (let i = 0; i < 12; i++) {
       const y = FAR_SHORE_Y + 14 + ((i * 97) % (SHORE_Y - FAR_SHORE_Y - 40));
       const speed = 4 + (i % 3) * 3;
-      const x = ((i * 53 + t * speed) % (W + 40)) - 20;
+      const x = ((i * 53 + this.driftT * speed) % (W + 40)) - 20;
       g.fillRect(Math.round(x), y, 5 + (i % 4) * 3, 1);
     }
 
@@ -1128,7 +1184,7 @@ export class LakeScene extends Phaser.Scene {
     const moonStr = look.moonAlpha * (moon.up ? 1 : 0);
     const useSun = sunStr >= moonStr;
     const body = useSun ? sun : moon;
-    const strength = (useSun ? sunStr : moonStr * 0.95) * (0.7 + 0.3 * Math.min(1, body.height * 1.6));
+    const strength = (useSun ? sunStr : moonStr * 0.95) * (0.7 + 0.3 * Math.min(1, body.height * 1.6)) * still;
     if (strength < 0.04) return;
     const cx = body.x * W;
     const color = useSun ? lerpColor(0xfff3b4, look.skyBottom, 0.3) : 0xc4d4ff;
@@ -1149,6 +1205,15 @@ export class LakeScene extends Phaser.Scene {
     }
   }
 
+  /** The sickly green wash over the water: faint in the Pale One's window, stronger (and slowly pulsing) while it fights. */
+  private drawEerie(): void {
+    const g = this.eerieFx;
+    g.clear();
+    if (this.eerieTint < 0.004) return;
+    const pulse = 1 + 0.12 * Math.sin(this.elapsed / 900);
+    g.fillStyle(EERIE_GREEN, Math.min(1, this.eerieTint * pulse)).fillRect(0, FAR_SHORE_Y, W, SHORE_Y - FAR_SHORE_Y + 4);
+  }
+
   private drawPosts(look: DayLook): void {
     const g = this.postFx;
     g.clear();
@@ -1158,7 +1223,7 @@ export class LakeScene extends Phaser.Scene {
       const [x, base] = POST_BASES[i];
       for (let k = 0; k < 2; k++) {
         const p = (t * 0.55 + i * 0.27 + k * 0.5) % 1;
-        pixelEllipse(g, x, base, 3 + p * 6, 1 + p * 2, color, (1 - p) * 0.75);
+        pixelEllipse(g, x, base, 3 + p * 6, 1 + p * 2, color, (1 - p) * 0.75 * (1 - 0.6 * this.eerieCalm));
       }
     }
   }

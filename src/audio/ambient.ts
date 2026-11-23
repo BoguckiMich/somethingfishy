@@ -4,14 +4,16 @@ import { vary } from '../core/variation';
 import type { AudioGraph } from './AudioEngine';
 import { tone } from './synth';
 
-export const AMBIENT_LAYERS = ['water', 'birds', 'frogs', 'crickets'] as const;
+export const AMBIENT_LAYERS = ['water', 'birds', 'frogs', 'crickets', 'drone'] as const;
 export type AmbientLayer = (typeof AMBIENT_LAYERS)[number];
 export type LayerGains = Record<AmbientLayer, number>;
 
 /** Loudness of each layer at gain 1: the ambience sits well under the effects. */
-const LEVEL: LayerGains = { water: 0.28, birds: 0.5, frogs: 0.42, crickets: 0.05 };
+const LEVEL: LayerGains = { water: 0.28, birds: 0.5, frogs: 0.42, crickets: 0.05, drone: 0.5 };
 /** Seconds the layer gains take to follow the time of day (a smooth crossfade). */
 const FADE_TC = 1.2;
+/** The drone swells in and out more slowly than the rest (seconds). */
+const DRONE_FADE_TC = 2.2;
 /** A call is skipped when its layer is quieter than this. */
 const AUDIBLE = 0.03;
 
@@ -22,7 +24,7 @@ const AUDIBLE = 0.03;
  */
 export class AmbientBed {
   private layers = {} as Record<AmbientLayer, GainNode>;
-  private targets: LayerGains = { water: 0, birds: 0, frogs: 0, crickets: 0 };
+  private targets: LayerGains = { water: 0, birds: 0, frogs: 0, crickets: 0, drone: 0 };
   private frogFilter: BiquadFilterNode;
   private sources: (AudioScheduledSourceNode | undefined)[] = [];
   private timers: Partial<Record<CallKind, ReturnType<typeof setTimeout>>> = {};
@@ -48,6 +50,7 @@ export class AmbientBed {
 
     this.buildWater();
     this.buildCrickets();
+    this.buildDrone();
     this.schedule('birds');
     this.schedule('frogs');
   }
@@ -56,7 +59,7 @@ export class AmbientBed {
   setTargets(t: LayerGains): void {
     this.targets = { ...t };
     const now = this.g.ctx.currentTime;
-    for (const l of AMBIENT_LAYERS) this.layers[l].gain.setTargetAtTime(t[l] * LEVEL[l], now, FADE_TC);
+    for (const l of AMBIENT_LAYERS) this.layers[l].gain.setTargetAtTime(t[l] * LEVEL[l], now, l === 'drone' ? DRONE_FADE_TC : FADE_TC);
   }
 
   stop(): void {
@@ -142,6 +145,61 @@ export class AmbientBed {
     // Lowered from ~4 kHz (it read as a whine on a phone speaker) to a softer tree-cricket range.
     voice(2150, 24, 1.2, 0.6);
     voice(1880, 20, 0.85, 0.45);
+  }
+
+  /**
+   * The Pale One's drone: two sawtooth voices a hair apart (a slow beating around 55 Hz), a sine a
+   * fifth and an octave up, all through a lowpass whose cutoff drifts, plus a breath of dark noise.
+   * The saw harmonics keep it audible on a phone speaker, where the fundamental alone would vanish.
+   */
+  private buildDrone(): void {
+    const { ctx } = this.g;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 240;
+    filter.Q.value = 2.2;
+    const swell = ctx.createGain();
+    swell.gain.value = 0.7;
+    filter.connect(swell).connect(this.layers.drone);
+
+    const lfo = (hz: number, depth: number, target: AudioParam): void => {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = hz;
+      const amount = ctx.createGain();
+      amount.gain.value = depth;
+      osc.connect(amount).connect(target);
+      osc.start();
+      this.sources.push(osc);
+    };
+    lfo(0.06, 90, filter.frequency); // the cutoff slowly opens and closes
+    lfo(0.11, 0.25, swell.gain); // and the whole thing breathes
+
+    const voice = (type: OscillatorType, hz: number, level: number): void => {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.value = hz;
+      const gain = ctx.createGain();
+      gain.gain.value = level;
+      osc.connect(gain).connect(filter);
+      osc.start();
+      this.sources.push(osc);
+    };
+    voice('sawtooth', 55, 0.5);
+    voice('sawtooth', 55.6, 0.5);
+    voice('sine', 82.4, 0.35);
+    voice('sine', 110.9, 0.18);
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.g.noise;
+    src.loop = true;
+    src.start(0, this.rng() * 1.5);
+    this.sources.push(src);
+    const rumble = ctx.createBiquadFilter();
+    rumble.type = 'lowpass';
+    rumble.frequency.value = 160;
+    const rumbleGain = ctx.createGain();
+    rumbleGain.gain.value = 0.5;
+    src.connect(rumble).connect(rumbleGain).connect(this.layers.drone);
   }
 
   private schedule(kind: CallKind): void {

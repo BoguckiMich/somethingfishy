@@ -53,6 +53,15 @@ export function spriteToRgba(s: Sprite): Uint8ClampedArray {
   return out;
 }
 
+/** Turns the sprite a quarter turn counter-clockwise (a fish facing right ends up head-up, back to the left). */
+export function rotateSpriteCcw(s: Sprite): Sprite {
+  const pixels = new Int32Array(s.pixels.length);
+  for (let y = 0; y < s.height; y++) {
+    for (let x = 0; x < s.width; x++) pixels[(s.width - 1 - x) * s.height + y] = s.pixels[y * s.width + x];
+  }
+  return { width: s.height, height: s.width, pixels };
+}
+
 export function flipSpriteX(s: Sprite): Sprite {
   const pixels = new Int32Array(s.pixels.length);
   for (let y = 0; y < s.height; y++) {

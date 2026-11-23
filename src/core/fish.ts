@@ -1,6 +1,7 @@
 import type { FishProfile } from './catchBar';
 import type { TimeOfDay } from './clock';
-import { SPECIES, speciesById, type Rarity, type Species } from './data/fish';
+import { POOL_SPECIES, speciesById, type Rarity, type Species } from './data/fish';
+import { rollLegendary } from './legendary';
 import type { ZoneId } from './location';
 import type { Rng } from './random';
 
@@ -12,7 +13,7 @@ export interface HookedFish {
 }
 
 /** Spawn weights by rarity. */
-export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10 };
+export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10, legendary: 0 };
 
 export const FISH_TUNING = {
   /** Length roll: min + (max - min) * u^k. k > 1 skews toward small fish. */
@@ -24,7 +25,7 @@ export const FISH_TUNING = {
 };
 
 export function candidates(zone: ZoneId, time: TimeOfDay): Species[] {
-  return SPECIES.filter((s) => s.zone === zone && s.times.includes(time));
+  return POOL_SPECIES.filter((s) => s.zone === zone && s.times.includes(time));
 }
 
 export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng): Species {
@@ -49,9 +50,19 @@ export function weightG(species: Species, lengthCm: number): number {
   return Math.round(species.bodyFactor * lengthCm ** 3);
 }
 
-/** Picks the species (or the forced one) and rolls its size. */
-export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string): HookedFish {
-  const species = (forcedId ? speciesById(forcedId) : undefined) ?? pickSpecies(zone, time, rng);
+/** Where and when the bobber landed; the legendary rule needs it (the zone and time of day are not enough). */
+export interface CastPlace {
+  distanceM: number;
+  /** Minute of the in-game day. */
+  minute: number;
+}
+
+/** Picks the species (or the forced one) and rolls its size. A legendary may replace the normal pick. */
+export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace): HookedFish {
+  const species =
+    (forcedId ? speciesById(forcedId) : undefined) ??
+    (place ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
+    pickSpecies(zone, time, rng);
   const lengthCm = rollLength(species, rng);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };
 }

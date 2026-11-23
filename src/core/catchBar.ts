@@ -8,8 +8,8 @@ import { randRange } from './random';
  * Positions are normalised: 0 = bottom of the bar, 1 = top.
  */
 
-export type FishPattern = 'smooth' | 'darting' | 'sinker' | 'floater' | 'erratic';
-export const FISH_PATTERNS: readonly FishPattern[] = ['smooth', 'darting', 'sinker', 'floater', 'erratic'];
+export type FishPattern = 'smooth' | 'darting' | 'sinker' | 'floater' | 'erratic' | 'abyssal';
+export const FISH_PATTERNS: readonly FishPattern[] = ['smooth', 'darting', 'sinker', 'floater', 'erratic', 'abyssal'];
 
 /** What the bar needs to know about the fish: built from the species by `fightProfile`. */
 export interface FishProfile {
@@ -26,6 +26,8 @@ export interface CatchBarState {
   fish: number;
   fishVel: number;
   fishTarget: number;
+  /** Abyssal only: the last move was a hard dive (so the next one is the slow climb back). */
+  fishDiving: boolean;
   /** Seconds until the fish picks its next move. */
   fishTimer: number;
   /** Top speed of the current move, bar units per second. */
@@ -51,6 +53,18 @@ interface PatternTuning {
   reach: Range;
   /** How sharply the fish changes speed (1/s). */
   response: number;
+  /** Multiplies how fast progress fills while the fish is inside the zone (default 1). */
+  fill?: number;
+  /** Abyssal only: the sudden hard dives that break the long calm drifts (speed/interval/reach above are the drift). */
+  dive?: {
+    /** Chance that a move is a dive (when the fish is high enough to dive). */
+    chance: Range;
+    speed: Range;
+    /** The dive ends within this height of the bottom. */
+    depth: number;
+    /** Seconds the fish stays down. */
+    hold: Range;
+  };
 }
 
 export const CATCH_BAR_TUNING = {
@@ -79,6 +93,11 @@ export const CATCH_BAR_TUNING = {
     sinker: { speed: [0.12, 2.1], interval: [1.9, 0.28], reach: [0.2, 0.9], response: 4 },
     floater: { speed: [0.12, 1.2], interval: [2.4, 0.5], reach: [0.2, 0.85], response: 4 },
     erratic: { speed: [0.25, 1.15], interval: [0.7, 0.18], reach: [0.2, 0.75], response: 9 },
+    // Long calm drifts, then a sudden hard dive to the bottom and a slow climb back.
+    abyssal: {
+      speed: [0.1, 0.3], interval: [2.8, 2.1], reach: [0.1, 0.2], response: 9, fill: 0.4,
+      dive: { chance: [0.55, 0.75], speed: [1.2, 2.6], depth: 0.16, hold: [1.2, 1.6] },
+    },
   } satisfies Record<FishPattern, PatternTuning>,
   /** Difficulty is raised to this power before it scales speed and reach: gentle fish stay gentle, legends bite. */
   difficultyCurve: 0.75,
@@ -101,6 +120,7 @@ export function newCatchBar(fish: FishProfile, gear: BarGear, rng: Rng): CatchBa
     fish: gear.zoneSize * 0.8,
     fishVel: 0,
     fishTarget: gear.zoneSize * 0.8,
+    fishDiving: false,
     fishTimer: 0.4,
     fishSpeed: 0,
     progress: T.startProgress,
@@ -139,6 +159,23 @@ function pickMove(s: CatchBarState, fish: FishProfile, gear: BarGear, rng: Rng):
       const dist = randRange(rng, 0.5, 1) * reach;
       if (s.fish + dir * dist < lo || s.fish + dir * dist > hi) dir = -dir;
       s.fishTarget = clamp(s.fish + dir * dist, lo, hi);
+      break;
+    }
+    case 'abyssal': {
+      const dive = cfg.dive!;
+      const wasDiving = s.fishDiving;
+      s.fishDiving = false;
+      if (wasDiving) {
+        // The climb back: one slow, long move up into the middle of the bar.
+        s.fishTarget = randRange(rng, 0.4, 0.75);
+      } else if (s.fish > 0.35 && rng() < lerp(dive.chance, d)) {
+        s.fishDiving = true;
+        s.fishTarget = randRange(rng, lo, dive.depth);
+        s.fishSpeed = lerp(dive.speed, d) * calm;
+        s.fishTimer = (lerp(dive.hold, d) * randRange(rng, 0.8, 1.2)) / calm;
+      } else {
+        s.fishTarget = clamp(s.fish + randRange(rng, -reach, reach) + (0.55 - s.fish) * 0.5, lo, hi); // drifts around the middle
+      }
       break;
     }
     case 'sinker':
@@ -202,7 +239,7 @@ export function tickCatchBar(
 
     // Progress: fills while the fish is inside the zone, drains whenever it is outside.
     const inside = Math.abs(s.fish - s.zone) <= half + T.fishTolerance;
-    s.progress += (inside ? T.fillPerSec : -drain) * h;
+    s.progress += (inside ? T.fillPerSec * (cfg.fill ?? 1) : -drain) * h;
     if (s.progress >= 1) {
       s.progress = 1;
       break;

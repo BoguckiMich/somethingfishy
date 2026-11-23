@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TimeOfDay } from './clock';
-import { SPECIES, speciesById } from './data/fish';
+import { POOL_SPECIES, SPECIES, speciesById } from './data/fish';
 import { RARITY_WEIGHT, candidates, fightProfile, formatCatchSize, pickSpecies, rollHookedFish, rollLength, weightG } from './fish';
 import type { ZoneId } from './location';
 import { seededRng } from './random';
@@ -10,15 +10,17 @@ const TIMES: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 describe('roster data', () => {
-  it('has the 12 species with unique ids and sane ranges', () => {
-    expect(SPECIES).toHaveLength(12);
-    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(12);
+  it('has the 12 pool species plus the legendary, unique ids and sane ranges', () => {
+    expect(SPECIES).toHaveLength(13);
+    expect(POOL_SPECIES).toHaveLength(12);
+    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(13);
+    expect(SPECIES.filter((s) => s.rarity === 'legendary').map((s) => s.id)).toEqual(['pale']);
     for (const s of SPECIES) {
       expect(s.lengthCm[0]).toBeLessThan(s.lengthCm[1]);
       expect(s.nibbles[0]).toBeLessThanOrEqual(s.nibbles[1]);
       expect(s.times.length).toBeGreaterThan(0);
       expect(s.fact.length).toBeGreaterThan(20);
-      expect(s.basePrice).toBeGreaterThan(0);
+      if (s.rarity !== 'legendary') expect(s.basePrice).toBeGreaterThan(0);
     }
   });
 
@@ -41,10 +43,10 @@ describe('roster data', () => {
   });
 
   it('prices rise with rarity and depth', () => {
-    const cheapestDeep = Math.min(...SPECIES.filter((s) => s.zone === 'deep').map((s) => s.basePrice));
-    const dearestShallow = Math.max(...SPECIES.filter((s) => s.zone === 'shallow').map((s) => s.basePrice));
+    const cheapestDeep = Math.min(...POOL_SPECIES.filter((s) => s.zone === 'deep').map((s) => s.basePrice));
+    const dearestShallow = Math.max(...POOL_SPECIES.filter((s) => s.zone === 'shallow').map((s) => s.basePrice));
     expect(cheapestDeep).toBeGreaterThanOrEqual(dearestShallow - 5);
-    expect(speciesById('catfish')!.basePrice).toBe(Math.max(...SPECIES.map((s) => s.basePrice)));
+    expect(speciesById('catfish')!.basePrice).toBe(Math.max(...POOL_SPECIES.map((s) => s.basePrice)));
   });
 });
 
@@ -64,8 +66,8 @@ describe('spawn rules', () => {
     expect(candidates('deep', 'day').map((s) => s.id)).not.toContain('catfish');
   });
 
-  it('weights are 60/30/10', () => {
-    expect(RARITY_WEIGHT).toEqual({ common: 60, uncommon: 30, rare: 10 });
+  it('weights are 60/30/10, and the legendary has none', () => {
+    expect(RARITY_WEIGHT).toEqual({ common: 60, uncommon: 30, rare: 10, legendary: 0 });
   });
 
   it('pickSpecies only returns candidates and favours common over rare', () => {

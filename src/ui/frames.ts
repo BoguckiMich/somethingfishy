@@ -2,7 +2,7 @@
  * DOM side of the pixel frames: renders the pure frame sprites (src/art/frameArt.ts) to data URLs
  * and installs the CSS classes that use them as 9-slice `border-image`s:
  *   .rb-panel  big wooden card with a wood-grain inside (frame x2)
- *   .rb-box    small inset box (log tiles, inputs)
+ *   .rb-box    small inset box (log tiles, inputs); add .rb-legend for the gold frame of a caught legendary
  *   .rb-btn    bevelled button; add .rb-gold / .rb-wood / .rb-off for the colour; pressed = inverted
  */
 import { FRAME_STYLES, frameBorder, frameSprite, woodGrainSprite, type FrameStyle } from '../art/frameArt';
@@ -40,6 +40,7 @@ export function installFrameStyles(): void {
   const css = [
     `.rb-panel{box-sizing:border-box;${borderImage(FRAME_STYLES.panel, false, PANEL_SCALE, false)}background-color:#3a2318;background-image:url(${grain});background-size:${16 * PANEL_SCALE}px ${16 * PANEL_SCALE}px;background-clip:padding-box;image-rendering:pixelated;filter:drop-shadow(0 4px 0 rgba(36,26,46,.85))}`,
     `.rb-box{box-sizing:border-box;${borderImage(FRAME_STYLES.hud, false, 1, false)}background-clip:padding-box;image-rendering:pixelated}`,
+    `.rb-box.rb-legend{${borderImage(FRAME_STYLES.buttonGold, false, 1, false)}}`,
     `.rb-btn{box-sizing:border-box;margin:0;image-rendering:pixelated;background:none;cursor:pointer;text-align:center}`,
     btn('rb-gold', FRAME_STYLES.buttonGold),
     btn('rb-wood', FRAME_STYLES.buttonWood),

@@ -1,4 +1,5 @@
 import type { Species } from './data/fish';
+import { PALE_ONE } from './data/legendary';
 import type { HookedFish } from './fish';
 
 /**
@@ -40,6 +41,10 @@ export const speciesCaught = (log: FishLog): number => Object.keys(log).length;
 
 /** "Shallow water · day", "Deep water · dusk, night", "Deep water · any time". */
 export function whereWhen(species: Species): string {
+  if (species.rarity === 'legendary') {
+    const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
+    return `Deep water, ${PALE_ONE.minDistanceM} m or more · ${hh(PALE_ONE.fromHour)} to ${hh(PALE_ONE.toHour)}`;
+  }
   const where = species.zone === 'deep' ? 'Deep water' : 'Shallow water';
   const when = species.times.length >= 4 ? 'any time' : species.times.join(', ');
   return `${where} · ${when}`;

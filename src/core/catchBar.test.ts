@@ -9,7 +9,7 @@ import {
   type FishProfile,
 } from './catchBar';
 import { STARTER_BAR_GEAR } from './data/barGear';
-import { SPECIES } from './data/fish';
+import { POOL_SPECIES, SPECIES } from './data/fish';
 import { RODS } from './data/rods';
 import { fightProfile, rollLength } from './fish';
 import type { BarGear } from './gear';
@@ -264,8 +264,8 @@ describe('frame-rate independence', () => {
 /** A fight against a species at a rolled size, the way the session builds it. */
 const speciesFight = (sp: (typeof SPECIES)[number]) => (seed: number): FishProfile =>
   fightProfile(sp, rollLength(sp, seededRng(seed * 977)));
-const shallowSpecies = SPECIES.filter((s) => s.zone === 'shallow');
-const deepSpecies = SPECIES.filter((s) => s.zone === 'deep');
+const shallowSpecies = POOL_SPECIES.filter((s) => s.zone === 'shallow');
+const deepSpecies = POOL_SPECIES.filter((s) => s.zone === 'deep');
 const caughtShare = (f: Fight[]) => f.filter((x) => x.result === 'caught').length / f.length;
 
 const [, FIBERGLASS, CARBON] = RODS.map((r) => r.barGear);
@@ -346,5 +346,84 @@ describe('the real roster, fought by the bots', () => {
       expect(cb.gm, sp.id).toBeLessThanOrEqual(fg.gm + 0.3);
       expect(cb.goodShare, sp.id).toBeGreaterThanOrEqual(fg.goodShare - 0.03);
     }
+  });
+});
+
+describe('the Pale One (abyssal pattern, scripted player bots)', () => {
+  const pale = SPECIES.find((s) => s.id === 'pale')!;
+  const palFight = speciesFight(pale);
+  const rows: string[] = [];
+  afterAll(() => console.log(['pale bot results (carbon rod)', ...rows].join(String.fromCharCode(10))));
+
+  it('is a very hard fight: difficulty from about 0.9 up to 1', () => {
+    expect(pale.pattern).toBe('abyssal');
+    const lo = fightProfile(pale, pale.lengthCm[0]).difficulty;
+    const hi = fightProfile(pale, pale.lengthCm[1]).difficulty;
+    expect(lo).toBeGreaterThanOrEqual(0.9);
+    expect(hi).toBeLessThanOrEqual(1);
+  });
+
+  it('moves in long calm drifts broken by sudden hard dives to the bottom', () => {
+    const f: FishProfile = { pattern: 'abyssal', difficulty: 0.95 };
+    let slow = 0;
+    let n = 0;
+    let dives = 0;
+    let fastBefore = false;
+    let fastestDown = 0;
+    for (const seed of seeds(6)) {
+      const rng = seededRng(seed);
+      let s = newCatchBar(f, CARBON, rng);
+      for (let i = 0; i < 60 * 60; i++) {
+        s = tickCatchBar({ ...s, progress: 0.5 }, 16, i % 50 < 25, f, CARBON, rng);
+        n++;
+        if (Math.abs(s.fishVel) < 0.35) slow++;
+        const fast = s.fishVel < -1;
+        if (fast && !fastBefore) dives++;
+        fastBefore = fast;
+        fastestDown = Math.min(fastestDown, s.fishVel);
+      }
+    }
+    expect(slow / n).toBeGreaterThan(0.7); // long calm drifts
+    expect(fastestDown).toBeLessThan(-1.5); // hard dives
+    expect(dives / 6).toBeGreaterThan(3); // a few dives in a minute of fight
+    expect(dives / 6).toBeLessThan(25);
+  });
+
+  it('a dive ends near the bottom of the bar', () => {
+    const f: FishProfile = { pattern: 'abyssal', difficulty: 0.95 };
+    const rng = seededRng(4);
+    let s = newCatchBar(f, CARBON, rng);
+    let lowest = 1;
+    for (let i = 0; i < 60 * 60; i++) {
+      s = tickCatchBar({ ...s, progress: 0.5 }, 16, i % 50 < 25, f, CARBON, rng);
+      lowest = Math.min(lowest, s.fish);
+    }
+    expect(lowest).toBeLessThan(0.25);
+  });
+
+  it('a skilled bot with the carbon rod needs at least 20 s (median) and wins a fair share', () => {
+    const good = fights(palFight, GOOD_BOT, 80, CARBON);
+    const times = good.map((f) => f.ms);
+    const won = caughtShare(good);
+    rows.push(`good   win ${(won * 100).toFixed(0)}%  median fight ${(median(times) / 1000).toFixed(1)}s (all)  ${(median(good.filter((f) => f.result === 'caught').map((f) => f.ms)) / 1000).toFixed(1)}s (won)`);
+    expect(median(times) / 1000).toBeGreaterThanOrEqual(20);
+    expect(median(good.filter((f) => f.result === 'caught').map((f) => f.ms)) / 1000).toBeGreaterThanOrEqual(20);
+    expect(won).toBeGreaterThanOrEqual(0.4);
+  });
+
+  it('a sloppy bot loses most of the time, and a player who never holds almost always loses', () => {
+    const sloppy = fights(palFight, SLOPPY_BOT, 80, CARBON);
+    rows.push(`sloppy win ${(caughtShare(sloppy) * 100).toFixed(0)}%`);
+    expect(caughtShare(sloppy)).toBeLessThan(0.5);
+    const never = seeds(80).map((seed) => {
+      const f = palFight(seed);
+      const rng = seededRng(seed);
+      let s = newCatchBar(f, CARBON, rng);
+      for (let i = 0; i < 6000 && barResult(s) === 'fighting'; i++) s = tickCatchBar(s, 16, false, f, CARBON, rng);
+      return barResult(s);
+    });
+    const winShare = never.filter((r) => r === 'caught').length / never.length;
+    rows.push(`passive win ${(winShare * 100).toFixed(0)}%`);
+    expect(winShare).toBeLessThan(0.1);
   });
 });
