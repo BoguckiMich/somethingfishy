@@ -19,7 +19,8 @@ _Last updated: 2026-11-23._
 | 6 | Fish data (12 species), spawn rules, sizes, catch result | merged |
 | 7 | Bag, shop, coins, worms, rod upgrades | merged |
 | 8 | Fish log + personal bests, "New species!" / record moments | merged |
-| 9 | Saving (local + export code; needs a grilling round) | next |
+| 9 | Saving: autosave, export code, ⚙ settings panel (GAME_DESIGN §3 item 8) | merged |
+| 10 | Sound + second art pass (UI panels, fish sprites, pixel font) | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -42,6 +43,11 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   real 360 px phone; real fight→log flow, bag-full release still counting, the 8 s new-species
   show-off and the bigger clap/hop not seen in motion (unit-tested); a long fact (eel) wraps to 3
   lines on the catch screen, unchecked; silhouettes are dark placeholder icons until slice 10.
+- Saving (slice 9): only unit-tested against a fake storage plus a phone copy check; Import,
+  Start over and reload-mid-game not exercised by the reviewer; broken-save toast and "can't save"
+  note never seen live; the 13 px gear icon is a bit blobby (art pass); after an import the sky
+  catches up on its next 2-game-minute repaint; a save without a stored profile re-shows the name
+  card. Copy uses `execCommand` on plain http (LAN dev), `navigator.clipboard` on https.
 - Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
 - AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
 - Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
@@ -89,7 +95,7 @@ npm run build
 
 Dev URL flags (all dev-only): `?time=HH` start hour · `?debug=waiting` bobber in water at 10 m ·
 `?debug=afk` companions play on the grass · `?debug=look=left|right` freeze Alex's gaze · `?reset=profile` show first-launch names · `?reset=save` wipe the saved game · `?debug=settings` open the settings (gear) panel ·
-`?skipnames` skip the name card · `?fish=smooth|darting|sinker|floater|erratic&diff=0..1` force the fish · `?debug=fight` start in the fight at 10 m · `?debug=caught` start in the show-off (timer frozen) · `?species=<id>` force the species that bites (roach, rudd, bleak, perch, crucian, eel, bream, tench, carp, pike, zander, catfish; `?debug=fight|caught` default to perch) · `?rod=bamboo|fiberglass|carbon` pick a rod (carbon reaches deep water) · `?fish=&diff=` only overrides the bar profile, the species still decides the art and size · `?coins=N` `?worms=N` start purse (`?rod=` is also the owned rod; all reset on reload) · `?debug=shop|bag|bagfull` open the shop / bag / bag-full card with a pre-filled bag · `?debug=log` open the fish log with about half the species filled (add `&species=<id>` to open that species' detail card when it is filled) · `?log=all` mark every species caught (works with `?debug=caught` to see "New record!" or a normal catch; without it `?debug=caught` shows "New species!").
+`?skipnames` skip the name card · `?fish=smooth|darting|sinker|floater|erratic&diff=0..1` force the fish · `?debug=fight` start in the fight at 10 m · `?debug=caught` start in the show-off (timer frozen) · `?species=<id>` force the species that bites (roach, rudd, bleak, perch, crucian, eel, bream, tench, carp, pike, zander, catfish; `?debug=fight|caught` default to perch) · `?rod=bamboo|fiberglass|carbon` pick a rod (carbon reaches deep water) · `?fish=&diff=` only overrides the bar profile, the species still decides the art and size · `?coins=N` `?worms=N` start purse (`?rod=` is also the owned rod; sandboxed, never saved) · `?debug=shop|bag|bagfull` open the shop / bag / bag-full card with a pre-filled bag · `?debug=log` open the fish log with about half the species filled (add `&species=<id>` to open that species' detail card when it is filled) · `?log=all` mark every species caught (works with `?debug=caught` to see "New record!" or a normal catch; without it `?debug=caught` shows "New species!").
 
 Any URL parameter except `?skipnames` / `?reset=` runs the game as a sandbox: the save is neither loaded nor written and a "DEV · not saving" tag shows, so the flags above never touch the real save.
 

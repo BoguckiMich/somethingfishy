@@ -357,8 +357,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
 6. Fish data, spawn rules, sizes, catch result ✅
 7. Bag, shop, coins, rod upgrades ✅
 8. Fish log + personal bests ✅
-9. Saving (local + export code, ⚙ panel; details in §3 item 8) ← *current*
-10. Sound + second art pass (UI panels, fish sprites, pixel font)
+9. Saving (local + export code, ⚙ panel; details in §3 item 8) ✅
+10. Sound + second art pass (UI panels, fish sprites, pixel font) ← *current*
 11. PWA + GitHub Pages deploy
 12. Legendary fish
 13. Daily bait box + daily quests (§5)
