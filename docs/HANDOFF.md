@@ -56,8 +56,12 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
 - Font (slice 10b, Tiny5 at 15 px, off its 10 px grid): user on the phone, "text is sometimes hard
-  to read"; deferred to a later polish stage. Ideas then: larger sizes on the 10 px grid (20),
-  canvas text rendered at device resolution, a different font, or a text shadow/outline.
+  to read"; deferred to a later polish stage. Worst: longer text (fish facts) and "Caught ×N"
+  in the log. User: "overall font is not so good; previous (Pixelify Sans) was more readable but
+  had the problem with B and numbers". Ideas: go back to Pixelify Sans and take only the digits
+  (and maybe B) from another pixel font via unicode-range; check whether the upstream GitHub
+  build of Pixelify has a normal 5/B; larger sizes; text outline/shadow; render canvas text at
+  device resolution.
 - Sound (slice 10a): all synthesised in `src/audio/` (facade `sound.ts`; pure parts in `src/core/`
   soundSettings/ambientMix/variation/callSchedule/reelClicks). User: frog "ribbit is better but not
   perfect", polish later; crickets were lowered to ~2 kHz after "too high". Birds, cast whoosh and
