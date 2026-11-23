@@ -275,7 +275,7 @@ The game stars the two of them and their dog. Reference photos live untracked in
 | Pike | deep | day | uncommon | darting | 0.75 | 40–110 cm | 0–1 |
 | Zander | deep | dusk/night | uncommon | erratic | 0.70 | 35–80 cm | 0–3 |
 | Catfish | deep | night | rare | sinker | 0.85 | 60–180 cm | 0–3 |
-| *Legendary* | deep | ? | | | | | slice 12 |
+| *The Pale One* (legendary) | deep ≥30 m | 02:00–04:00 | 25% in window | abyssal (new) | ~0.95 | 150–220 cm | 0–1 |
 
 **Slice 6 details (decided):**
 - *Data* in `src/core/data/fish.ts`; tunable. Each species also has `basePrice` (used from slice 7)
@@ -298,6 +298,29 @@ The game stars the two of them and their dog. Reference photos live untracked in
 
 **Legendaries** are brutally hard and gear-dependent. Caught once for the log; afterwards
 rematches are possible for personal-best size records.
+
+**Slice 12: The Pale One (decided 2026-11-23)** — the first, quiet eldritch hint (see Ideas → Eldritch thread).
+- *Look:* huge, pale, very old fish that is slightly *wrong*: one eye too many, scales like old coins.
+  Its name shows as "???" in the log until the first catch.
+- *Where/when:* only when the bobber lands at **≥ 30 m** (in practice only the carbon rod) and the
+  clock is **02:00–04:00** (~100 real s per in-game day). Then a **25 %** chance per landed cast that
+  it replaces the normal spawn pick. Outside that, it never appears.
+- *The window shows itself:* while it's 02:00–04:00 the lake goes still (ripples/sparkles calm), the water
+  gets a slight green tint and the crickets go quiet — even with no bite. That's the hint that
+  something is down there.
+- *Log:* a 13th tile, "???", hint text *"Deep, far water. When the clock shows 3."*; once caught,
+  the tile gets a special gold frame.
+- *Fight:* new bar pattern **abyssal**: long calm drifts broken by sudden hard dives; difficulty ~0.95;
+  progress fills slowly so a fight lasts **≥ 20 s**. Losing costs only the worm, like any fish; she can
+  retry the same night.
+- *During the fight:* stronger green tint over the lake, all ambient fades out, a low synthesised drone
+  fades in. All of it clears on catch or loss.
+- *Catch:* too big for the chest pose: Alex hugs its head end, the tail drags down onto the dock;
+  longer show-off. Fact: *"No one has caught it twice. No one remembers why."*
+- *Afterwards:* it always slips away — "it slips back into the dark water…". No bag slot, no coins
+  (a trophy, not loot). Rematches only count for size records (log best size, "★ New record!").
+- *Dev flags:* `?species=legendary` (id `pale`; both accepted), `?debug=fight&species=pale`,
+  `?debug=caught&species=pale`, `?time=3`.
 
 Tuning (prices, spawn weights, difficulty) lives in data files under `src/core/data/` so it can
 be tweaked without touching logic.
@@ -456,7 +479,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 10a. Sound ✅
     - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel, dog fetch) ✅
 11. PWA + GitHub Pages deploy (details in §3 item 10) ✅
-11b. Readability polish (font, text legibility, update-toast position) ← *next*
-12. Legendary fish (first eldritch hint, see Ideas)
+11b. Readability polish (device-resolution canvas, VT323 font, update-toast position) ✅
+12. Legendary fish: The Pale One (details in §3 → Slice 12) ← *in progress*
 13. Daily bait box + daily quests (§5)
 14. Lake moments (see Ideas) — candidate
