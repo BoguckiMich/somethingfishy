@@ -6,7 +6,6 @@ import {
   DOCK,
   FAR_SHORE_TOP,
   FAR_SHORE_Y,
-  H,
   NEAR_SHORE_TOP,
   ROD_TIP,
   SHORE_Y,
@@ -21,15 +20,33 @@ import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
-import { STARTER_BAR_GEAR } from '../core/data/barGear';
-import { speciesById } from '../core/data/fish';
+import { speciesById, SPECIES } from '../core/data/fish';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
+import { SHOP } from '../core/data/shop';
 import type { GameEvent } from '../core/events';
-import { fightProfile, formatCatchSize, rollHookedFish } from '../core/fish';
+import { fightProfile, formatCatchSize, rollHookedFish, type HookedFish } from '../core/fish';
+import {
+  addCatch,
+  applyEvent,
+  canCast,
+  cheapestIndex,
+  equippedRod,
+  freeWormsIfStuck,
+  newPlayer,
+  releasePending,
+  swapForCheapest,
+  toBagFish,
+  type BagFish,
+  type PlayerState,
+} from '../core/inventory';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
+import { showBagFullCard } from '../ui/bagFullCard';
+import { openBagPanel, openShopPanel } from '../ui/bagShop';
 import { showNameOverlay } from '../ui/nameOverlay';
+import type { PanelHandle } from '../ui/panel';
+import { BAR_TOP, BottomBar } from './BottomBar';
 import { CatchBarView } from './CatchBarView';
 import { companionEvent, companionPress, startPlayNow, tickCompanions } from './companions/behaviour';
 import { CompanionView } from './companions/CompanionView';
@@ -113,7 +130,23 @@ function hash01(n: number): number {
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
-  private ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[0], barGear: STARTER_BAR_GEAR, rng: Math.random, timeOfDay: () => timeOfDay(this.clock.minute) };
+  /** Coins, worms, bag and rod: one plain object (slice 9 will save it). */
+  private player: PlayerState = newPlayer();
+  private ctx: SessionContext = {
+    location: QUIET_LAKE,
+    rod: RODS[0],
+    barGear: RODS[0].barGear,
+    rng: Math.random,
+    timeOfDay: () => timeOfDay(this.clock.minute),
+    canCast: () => canCast(this.player),
+  };
+  /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
+  private panel: PanelHandle | null = null;
+  private bottomBar!: BottomBar;
+  private wormLabel!: Phaser.GameObjects.Text;
+  private coinLabel!: Phaser.GameObjects.Text;
+  private wormCue!: Phaser.GameObjects.Text;
+  private wormCueAge = Infinity;
   private clock: GameClock = NEW_GAME_CLOCK;
 
   // Scenery images (tinted by the day cycle).
@@ -204,8 +237,14 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?species=<id> forces the species that bites; ?rod=<id> picks a rod (carbon reaches deep water).
     const speciesParam = params.get('species');
     if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
+    // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
     const rod = RODS.find((r) => r.id === params.get('rod'));
-    if (rod) this.ctx = { ...this.ctx, rod };
+    if (rod) this.player = { ...this.player, rodId: rod.id };
+    const coinsParam = Number(params.get('coins'));
+    if (params.has('coins') && Number.isFinite(coinsParam)) this.player = { ...this.player, coins: Math.max(0, Math.floor(coinsParam)) };
+    const wormsParam = Number(params.get('worms'));
+    if (params.has('worms') && Number.isFinite(wormsParam)) this.player = { ...this.player, worms: Math.max(0, Math.floor(wormsParam)) };
+    this.syncRod();
     if (dbg === 'fight' || dbg === 'caught') {
       // The forced species (default perch) at a rolled size, in its own zone.
       const hooked = rollHookedFish('shallow', timeOfDay(this.clock.minute), this.ctx.rng, this.ctx.speciesOverride ?? 'perch');
@@ -223,6 +262,7 @@ export class LakeScene extends Phaser.Scene {
     this.buildUi();
 
     this.setupProfile(params);
+    this.setupDebugPanels(dbg);
     // Let the companions settle in (at night the dog is already dozing when the game opens).
     for (let t = 0; t < 2000; t += 50) {
       tickCompanions(this.companions.state, 50, { fishing: 'idle', night: timeOfDay(this.clock.minute) === 'night' });
@@ -234,8 +274,14 @@ export class LakeScene extends Phaser.Scene {
     }
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.panel) return;
       if (this.handleTap(pointer.x, pointer.y)) {
         this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
+        return;
+      }
+      if (this.state.kind === 'idle' && !canCast(this.player)) {
+        this.swallowUp = true;
+        this.blockedCast();
         return;
       }
       companionPress(this.companions.state);
@@ -288,18 +334,104 @@ export class LakeScene extends Phaser.Scene {
   }
 
   private send(input: FishingInput): void {
-    const { state: next, events } = step(this.state, input, this.ctx);
+    const prev = this.state;
+    const { state: next, events } = step(prev, input, this.ctx);
     for (const e of events) this.onEvent(e);
-    if (next === this.state) return;
-    if (next.kind !== this.state.kind) {
+    if (next === prev) return;
+    if (next.kind !== prev.kind) {
       this.anim = 0;
       this.stateAge = 0;
     }
     this.state = next;
+    // The show-off is over: the fish goes into the bag (or the bag-full card asks).
+    if (prev.kind === 'caught' && next.kind === 'idle') this.stowCatch(prev.hooked);
+  }
+
+  /** The player's side of a game event: bait use. */
+  private applyToPlayer(e: GameEvent): void {
+    const r = applyEvent(this.player, e, this.ctx.rng);
+    this.player = r.state;
+    if (r.wormUsed) this.wormCueAge = 0;
+  }
+
+  /** Keeps the session's rod and catch-bar gear in step with the equipped rod. */
+  private syncRod(): void {
+    const rod = equippedRod(this.player);
+    this.ctx = { ...this.ctx, rod, barGear: rod.barGear };
+  }
+
+  private stowCatch(hooked: HookedFish): void {
+    const r = addCatch(this.player, hooked);
+    if (r.result === 'added') {
+      this.player = r.state;
+      this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);
+      return;
+    }
+    this.askBagFull(r.fish);
+  }
+
+  private askBagFull(fish: BagFish): void {
+    const cheapest = this.player.bag[cheapestIndex(this.player.bag)];
+    this.swallowUp = false;
+    this.panel = showBagFullCard(
+      fish,
+      cheapest,
+      () => {
+        this.player = releasePending(this.player);
+        this.panel = null;
+        this.showToast('Released it back into the lake');
+      },
+      () => {
+        this.player = swapForCheapest(this.player, fish).state;
+        this.panel = null;
+        this.showToast('Swapped');
+      },
+    );
+  }
+
+  private openPlayerPanel(kind: 'bag' | 'shop'): void {
+    if (this.state.kind !== 'idle' || this.panel) return;
+    this.swallowUp = false;
+    const store = {
+      get: () => this.player,
+      set: (p: PlayerState) => {
+        this.player = p;
+        this.syncRod();
+      },
+    };
+    const onClose = () => (this.panel = null);
+    this.panel = kind === 'bag' ? openBagPanel(store, onClose) : openShopPanel(store, onClose);
+  }
+
+  /** A press while out of worms: the soft-lock guard may help, otherwise point to the shop. */
+  private blockedCast(): void {
+    const guard = freeWormsIfStuck(this.player);
+    if (guard.granted) {
+      this.player = guard.state;
+      this.showToast('The bait shop owner slips you a few worms');
+    } else {
+      this.showToast('Out of worms, visit the shop');
+    }
+  }
+
+  /** Dev-only: ?debug=shop|bag|bagfull open the panels with a filled bag (screenshots). */
+  private setupDebugPanels(dbg: string): void {
+    if (dbg !== 'shop' && dbg !== 'bag' && dbg !== 'bagfull') return;
+    const mid = (id: string, share: number): BagFish => {
+      const sp = SPECIES.find((x) => x.id === id)!;
+      const lengthCm = Math.round(sp.lengthCm[0] + (sp.lengthCm[1] - sp.lengthCm[0]) * share);
+      return toBagFish({ speciesId: id, lengthCm, weightG: Math.round(sp.bodyFactor * lengthCm ** 3) });
+    };
+    const ids = ['roach', 'perch', 'bleak', 'crucian', 'eel', 'bream', 'tench', 'carp', 'pike', 'rudd'];
+    const count = dbg === 'bag' ? 7 : dbg === 'shop' ? 5 : SHOP.bagSlots;
+    this.player = { ...this.player, bag: ids.slice(0, count).map((id, i) => mid(id, 0.2 + ((i * 37) % 70) / 100)) };
+    if (dbg === 'bagfull') this.askBagFull(mid('catfish', 0.5));
+    else this.openPlayerPanel(dbg);
   }
 
   /** Feedback for things the core reports: ripples, haptics, messages. */
   private onEvent(e: GameEvent): void {
+    this.applyToPlayer(e);
     companionEvent(this.companions.state, e.type);
     lookEvent(this.look, e.type, Math.random);
     const s = this.state;
@@ -349,6 +481,12 @@ export class LakeScene extends Phaser.Scene {
   private handleTap(x: number, y: number): boolean {
     // During the fight and the show-off every press belongs to the fishing state machine.
     if (this.state.kind === 'fighting' || this.state.kind === 'caught') return false;
+    // The bottom bar: its buttons work only while idle, and a tap there never casts.
+    if (this.state.kind === 'idle' && this.bottomBar.covers(x, y)) {
+      const hit = this.bottomBar.hit(x, y);
+      if (hit === 'bag' || hit === 'shop') this.openPlayerPanel(hit);
+      return true;
+    }
     if (PENCIL.contains(x, y)) {
       showNameOverlay(this.profile, false, (p) => this.applyProfile(p));
       return true;
@@ -519,8 +657,17 @@ export class LakeScene extends Phaser.Scene {
     const pad = { padding: { x: 9, y: 5 } };
     this.ui = this.add.graphics().setDepth(Z.uiPanel);
     this.clockLabel = this.add.text(8, 8, '', { ...textStyle, ...pad }).setDepth(Z.uiText);
+    const statStyle = { ...textStyle, padding: { left: 22, right: 8, top: 4, bottom: 4 } };
+    this.wormLabel = this.add.text(8, 40, '', statStyle).setDepth(Z.uiText);
+    this.coinLabel = this.add.text(70, 40, '', statStyle).setDepth(Z.uiText);
+    this.wormCue = this.add
+      .text(0, 0, '-1 worm', { fontFamily: 'monospace', fontSize: '14px', fontStyle: 'bold', color: '#ffb0a0', stroke: '#241a2e', strokeThickness: 4 })
+      .setOrigin(0.5, 0)
+      .setDepth(Z.uiText)
+      .setVisible(false);
+    this.bottomBar = new BottomBar(this, Z.uiText);
     this.zoneLabel = this.add
-      .text(W / 2, 46, '', { ...textStyle, ...pad, fontSize: '16px' })
+      .text(W / 2, 84, '', { ...textStyle, ...pad, fontSize: '16px' })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
@@ -544,7 +691,7 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
-    this.hint = this.add.text(W / 2, H - 24, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
+    this.hint = this.add.text(W / 2, BAR_TOP - 18, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     for (let i = 0; i < 3; i++) {
       const text = this.add
         .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: TEXT, padding: { x: 6, y: 3 } })
@@ -628,9 +775,16 @@ export class LakeScene extends Phaser.Scene {
     } else if (s.kind === 'idle' || s.kind === 'caught') {
       this.zoneLabel.setVisible(false);
     }
+    this.wormLabel.setText(String(this.player.worms));
+    this.coinLabel.setText(String(this.player.coins)).setX(this.wormLabel.x + this.wormLabel.width + 4);
+    this.wormCueAge += _deltaMs;
+    this.wormCue
+      .setVisible(this.wormCueAge < 1200)
+      .setAlpha(Math.min(1, (1200 - this.wormCueAge) / 400))
+      .setPosition(this.wormLabel.x + this.wormLabel.width / 2, this.wormLabel.y + this.wormLabel.height + 2 - this.wormCueAge / 100);
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.hint.setText(
-      s.kind === 'idle' ? 'Hold to charge, release to cast'
+      s.kind === 'idle' ? (canCast(this.player) ? 'Hold to charge, release to cast' : 'Out of worms, visit the shop')
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
@@ -1018,6 +1172,8 @@ export class LakeScene extends Phaser.Scene {
       g.fillStyle(PAL.woodDark, 0.9 * a).fillRect(l + 1, top + 1, w - 2, 1);
     };
     panel(this.clockLabel);
+    panel(this.wormLabel);
+    panel(this.coinLabel);
     panel(this.zoneLabel);
     panel(this.toast);
     panel(this.hint);
@@ -1026,6 +1182,21 @@ export class LakeScene extends Phaser.Scene {
       t.text.setVisible(t.age < 2400);
       panel(t.text);
     }
+    // Tiny pixel icons: a worm and a coin.
+    const wx = Math.round(this.wormLabel.x) + 6;
+    const wy = Math.round(this.wormLabel.y + this.wormLabel.height / 2);
+    g.fillStyle(PAL.pink).fillRect(wx, wy - 1, 3, 2).fillRect(wx + 3, wy, 3, 2).fillRect(wx + 6, wy - 1, 3, 2);
+    g.fillStyle(PAL.cream).fillRect(wx + 8, wy - 1, 1, 1);
+    const cx = Math.round(this.coinLabel.x) + 6;
+    const cy = Math.round(this.coinLabel.y + this.coinLabel.height / 2);
+    g.fillStyle(PAL.outline).fillRect(cx - 1, cy - 4, 10, 8).fillRect(cx, cy - 5, 8, 10);
+    g.fillStyle(PAL.gold).fillRect(cx, cy - 4, 8, 8).fillRect(cx + 1, cy - 5, 6, 10);
+    g.fillStyle(0xb78837).fillRect(cx + 3, cy - 2, 2, 4);
+    this.bottomBar.draw(g, {
+      enabled: this.state.kind === 'idle' && !this.panel,
+      bagCount: this.player.bag.length,
+      bagSlots: SHOP.bagSlots,
+    });
     // Pencil button (rename), top right.
     g.fillStyle(PAL.outline).fillRect(PENCIL.x - 1, PENCIL.y, PENCIL.width + 2, PENCIL.height).fillRect(PENCIL.x, PENCIL.y - 1, PENCIL.width, PENCIL.height + 2);
     g.fillStyle(PAL.woodLight).fillRect(PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height);

@@ -10,6 +10,7 @@ import {
 } from './catchBar';
 import { STARTER_BAR_GEAR } from './data/barGear';
 import { SPECIES } from './data/fish';
+import { RODS } from './data/rods';
 import { fightProfile, rollLength } from './fish';
 import type { BarGear } from './gear';
 import { seededRng } from './random';
@@ -54,8 +55,8 @@ function playBot(fish: FishProfile, bot: Bot, seed: number, gear: BarGear = STAR
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
-function fights(profiles: (seed: number) => FishProfile, bot: Bot, n = 40): Fight[] {
-  return seeds(n).map((seed) => playBot(profiles(seed), bot, seed));
+function fights(profiles: (seed: number) => FishProfile, bot: Bot, n = 40, gear: BarGear = STARTER_BAR_GEAR): Fight[] {
+  return seeds(n).map((seed) => playBot(profiles(seed), bot, seed, gear));
 }
 
 describe('catch bar basics', () => {
@@ -267,8 +268,10 @@ const shallowSpecies = SPECIES.filter((s) => s.zone === 'shallow');
 const deepSpecies = SPECIES.filter((s) => s.zone === 'deep');
 const caughtShare = (f: Fight[]) => f.filter((x) => x.result === 'caught').length / f.length;
 
-describe('difficulty tuning (scripted player bots, starter gear)', () => {
-  it('shallow fish: forgiving. A decent player takes about 4-8 s, a sloppy one still lands at least 85%', () => {
+const [, FIBERGLASS, CARBON] = RODS.map((r) => r.barGear);
+
+describe('difficulty tuning (scripted player bots)', () => {
+  it('shallow fish (starter gear): forgiving. A decent player takes about 4-8 s, a sloppy one still lands at least 85%', () => {
     const shallow = (seed: number): FishProfile => ({
       pattern: PATTERNS[seed % PATTERNS.length],
       difficulty: 0.05 + ((seed * 37) % 100) / 100 * 0.25,
@@ -281,14 +284,20 @@ describe('difficulty tuning (scripted player bots, starter gear)', () => {
     expect(caughtShare(fights(shallow, SLOPPY_BOT, 50))).toBeGreaterThanOrEqual(0.85);
   });
 
-  it('deep fish: a decent player takes about 8-15 s, and a sloppy one loses a fair share', () => {
+  it('deep fish (fiberglass gear): a decent player takes about 8-15 s, and a sloppy one loses a fair share', () => {
     const deep = (seed: number): FishProfile => speciesFight(deepSpecies[seed % deepSpecies.length])(seed);
-    const good = fights(deep, GOOD_BOT, 60);
+    const good = fights(deep, GOOD_BOT, 60, FIBERGLASS);
     const m = median(good.map((f) => f.ms)) / 1000;
     expect(m).toBeGreaterThanOrEqual(8);
     expect(m).toBeLessThanOrEqual(15);
-    const lostShare = 1 - caughtShare(fights(deep, SLOPPY_BOT, 60));
+    const lostShare = 1 - caughtShare(fights(deep, SLOPPY_BOT, 60, FIBERGLASS));
     expect(lostShare).toBeGreaterThanOrEqual(0.2);
+  });
+
+  it('carbon makes deep fights a bit easier than fiberglass', () => {
+    const deep = (seed: number): FishProfile => speciesFight(deepSpecies[seed % deepSpecies.length])(seed);
+    const medianMs = (gear: BarGear) => median(fights(deep, GOOD_BOT, 60, gear).map((f) => f.ms));
+    expect(medianMs(CARBON)).toBeLessThanOrEqual(medianMs(FIBERGLASS));
   });
 
   it('difficulty 1.0: often lost, or a very long fight', () => {
@@ -303,13 +312,13 @@ describe('difficulty tuning (scripted player bots, starter gear)', () => {
 describe('the real roster, fought by the bots', () => {
   const rows: string[] = [];
   afterAll(() => console.log(['roster bot results (median seconds, catch share)', ...rows].join(String.fromCharCode(10))));
-  const stats = (sp: (typeof SPECIES)[number]) => {
-    const good = fights(speciesFight(sp), GOOD_BOT, 40);
-    const sloppy = fights(speciesFight(sp), SLOPPY_BOT, 40);
+  const stats = (sp: (typeof SPECIES)[number], gear: BarGear = STARTER_BAR_GEAR, label = 'bamboo') => {
+    const good = fights(speciesFight(sp), GOOD_BOT, 40, gear);
+    const sloppy = fights(speciesFight(sp), SLOPPY_BOT, 40, gear);
     const gm = median(good.map((f) => (f.result === 'caught' ? f.ms : MAX_MS))) / 1000;
     const sm = median(sloppy.map((f) => (f.result === 'caught' ? f.ms : MAX_MS))) / 1000;
     rows.push(
-      `${sp.id.padEnd(8)} ${sp.zone.padEnd(7)} good: ${gm.toFixed(1)}s ${(caughtShare(good) * 100).toFixed(0)}%   sloppy: ${sm.toFixed(1)}s ${(caughtShare(sloppy) * 100).toFixed(0)}%`,
+      `${sp.id.padEnd(8)} ${sp.zone.padEnd(7)} ${label.padEnd(10)} good: ${gm.toFixed(1)}s ${(caughtShare(good) * 100).toFixed(0)}%   sloppy: ${sm.toFixed(1)}s ${(caughtShare(sloppy) * 100).toFixed(0)}%`,
     );
     return { gm, goodShare: caughtShare(good), sloppyShare: caughtShare(sloppy) };
   };
@@ -322,11 +331,20 @@ describe('the real roster, fought by the bots', () => {
     }
   });
 
-  it('every deep species takes a good player 8-15 s', () => {
-    const results = deepSpecies.map((sp) => ({ sp, ...stats(sp) }));
+  it('every deep species takes a good player 8-15 s with fiberglass', () => {
+    const results = deepSpecies.map((sp) => ({ sp, ...stats(sp, FIBERGLASS, 'fiberglass') }));
     for (const r of results) {
       expect(r.gm, r.sp.id).toBeGreaterThanOrEqual(8);
       expect(r.gm, r.sp.id).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it('every deep species is no harder with carbon than with fiberglass (and no less catchable)', () => {
+    for (const sp of deepSpecies) {
+      const fg = stats(sp, FIBERGLASS, 'fiberglass');
+      const cb = stats(sp, CARBON, 'carbon');
+      expect(cb.gm, sp.id).toBeLessThanOrEqual(fg.gm + 0.3);
+      expect(cb.goodShare, sp.id).toBeGreaterThanOrEqual(fg.goodShare - 0.03);
     }
   });
 });

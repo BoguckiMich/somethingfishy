@@ -151,12 +151,12 @@ The game stars the two of them and their dog. Reference photos live untracked in
 | Perch | shallow | day | uncommon | darting | 0.25 | 10–35 cm | 2–4 |
 | Crucian carp | shallow | any | common | sinker | 0.12 | 10–30 cm | 0–3 |
 | Eel | shallow | night | uncommon | erratic | 0.30 | 40–100 cm | 0–3 |
-| Bream | deep | any | common | sinker | 0.45 | 25–60 cm | 2–4 |
-| Tench | deep | dawn/dusk | uncommon | smooth | 0.50 | 25–55 cm | 2–4 |
-| Carp | deep | any | uncommon | smooth | 0.65 | 35–90 cm | 2–4 |
-| Pike | deep | day | uncommon | darting | 0.70 | 40–110 cm | 0–1 |
-| Zander | deep | dusk/night | uncommon | erratic | 0.65 | 35–80 cm | 0–3 |
-| Catfish | deep | night | rare | sinker | 0.80 | 60–180 cm | 0–3 |
+| Bream | deep | any | common | sinker | 0.66 | 25–60 cm | 2–4 |
+| Tench | deep | dawn/dusk | uncommon | smooth | 0.55 | 25–55 cm | 2–4 |
+| Carp | deep | any | uncommon | smooth | 0.70 | 35–90 cm | 2–4 |
+| Pike | deep | day | uncommon | darting | 0.75 | 40–110 cm | 0–1 |
+| Zander | deep | dusk/night | uncommon | erratic | 0.70 | 35–80 cm | 0–3 |
+| Catfish | deep | night | rare | sinker | 0.85 | 60–180 cm | 0–3 |
 | *Legendary* | deep | ? | | | | | slice 12 |
 
 **Slice 6 details (decided):**

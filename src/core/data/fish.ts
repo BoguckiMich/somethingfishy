@@ -61,32 +61,32 @@ export const SPECIES: Species[] = [
     fact: 'European eels are born in the Sargasso Sea and travel thousands of kilometres to reach our waters.',
   },
   {
-    id: 'bream', name: 'Bream', zone: 'deep', times: ANY, rarity: 'common', pattern: 'sinker', difficulty: 0.45,
+    id: 'bream', name: 'Bream', zone: 'deep', times: ANY, rarity: 'common', pattern: 'sinker', difficulty: 0.66,
     lengthCm: [25, 60], nibbles: [2, 4], bodyFactor: 0.0144, basePrice: 20,
     fact: 'Bream graze along the bottom for insect larvae and worms.',
   },
   {
-    id: 'tench', name: 'Tench', zone: 'deep', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.5,
+    id: 'tench', name: 'Tench', zone: 'deep', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.55,
     lengthCm: [25, 55], nibbles: [2, 4], bodyFactor: 0.0172, basePrice: 30,
     fact: 'The tench is covered in thick slime, and old folklore called it the doctor fish.',
   },
   {
-    id: 'carp', name: 'Carp', zone: 'deep', times: ANY, rarity: 'uncommon', pattern: 'smooth', difficulty: 0.65,
+    id: 'carp', name: 'Carp', zone: 'deep', times: ANY, rarity: 'uncommon', pattern: 'smooth', difficulty: 0.7,
     lengthCm: [35, 90], nibbles: [2, 4], bodyFactor: 0.0175, basePrice: 38,
     fact: 'Common carp can live for several decades.',
   },
   {
-    id: 'pike', name: 'Pike', zone: 'deep', times: ['day'], rarity: 'uncommon', pattern: 'darting', difficulty: 0.7,
+    id: 'pike', name: 'Pike', zone: 'deep', times: ['day'], rarity: 'uncommon', pattern: 'darting', difficulty: 0.75,
     lengthCm: [40, 110], nibbles: [0, 1], bodyFactor: 0.008, basePrice: 45,
     fact: 'Pike are ambush predators that strike in a fraction of a second.',
   },
   {
-    id: 'zander', name: 'Zander', zone: 'deep', times: ['dusk', 'night'], rarity: 'uncommon', pattern: 'erratic', difficulty: 0.65,
+    id: 'zander', name: 'Zander', zone: 'deep', times: ['dusk', 'night'], rarity: 'uncommon', pattern: 'erratic', difficulty: 0.7,
     lengthCm: [35, 80], nibbles: [0, 3], bodyFactor: 0.0106, basePrice: 48,
     fact: 'Zander have large glassy eyes that help them hunt in murky water and at dusk.',
   },
   {
-    id: 'catfish', name: 'Catfish', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'sinker', difficulty: 0.8,
+    id: 'catfish', name: 'Catfish', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'sinker', difficulty: 0.85,
     lengthCm: [60, 180], nibbles: [0, 3], bodyFactor: 0.0074, basePrice: 100,
     fact: 'The wels catfish is the largest freshwater fish in Europe and can pass two metres in length.',
   },
