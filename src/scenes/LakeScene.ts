@@ -113,9 +113,9 @@ const POST_BASES: [number, number][] = [
 /** She stands near the dock's far end, feet on the planks. */
 /** Catch screen text stack (game px): title, size line, badge, note; the note's bottom must stay above Alex's head. */
 const CATCH_TITLE_Y = 206;
-const CATCH_SUB_Y = 240;
-const CATCH_BADGE_Y = 274;
-const CATCH_NOTE_Y = 296;
+const CATCH_SUB_Y = 234;
+const CATCH_BADGE_Y = 258;
+const CATCH_NOTE_Y = 274;
 const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
@@ -887,17 +887,17 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.alert)
       .setVisible(false);
     this.caughtText = this.add
-      .text(W / 2, CATCH_TITLE_Y, 'Caught!', { fontFamily: FONT, fontSize: `${FS.title}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 6 })
+      .text(W / 2, CATCH_TITLE_Y, 'Caught!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtSub = this.add
-      .text(W / 2, CATCH_SUB_Y, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, CATCH_SUB_Y, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtBadge = this.add
-      .text(W / 2, CATCH_BADGE_Y, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, CATCH_BADGE_Y, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
