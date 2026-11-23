@@ -72,8 +72,8 @@ export interface Stick extends Point {
 // ---- Bedtime, naps and the car (slice 16) ---------------------------------------------------
 
 /** Where Pajkel stands to get in and out of the car (feet), and where Bestia waits beside him. */
-export const CAR_STAND: Point = { x: 34, y: 574 };
-export const CAR_DOG: Point = { x: 60, y: 578 };
+export const CAR_STAND: Point = { x: 34, y: 560 };
+export const CAR_DOG: Point = { x: 60, y: 564 };
 /** Phase lengths in ms and speeds in px/s of the bedtime choreography. */
 export const BED_TUNING = {
   sayMs: 2400,
@@ -433,7 +433,7 @@ function zigzag(from: Point, rng: Rng): Point[] {
     pts.push({ x: right ? rand(rng, 240, 320) : rand(rng, 90, 150), y: rand(rng, 508, 584) });
     right = !right;
   }
-  pts.push({ x: rand(rng, 100, 124), y: rand(rng, 566, 582) });
+  pts.push({ x: rand(rng, 100, 124), y: rand(rng, 548, 566) });
   return pts;
 }
 

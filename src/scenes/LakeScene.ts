@@ -170,11 +170,11 @@ const GLINT_N = 130;
  * The car (slice 16): its front quarter peeks in from the LEFT screen edge, on the grass between the
  * bushes and the bottom bar. Why there: the dock, the crate, the fetch area (x 112-320) and the right
  * edge (bushes, the throw targets) are all busy, the HUD is at the top and the bar starts at y 602,
- * while the lower left is only grass and a bush. Its wheels touch down at y 562, 40 px above the bar and
- * above the hint line (x from ~55, y 575-593).
+ * while the lower left is only grass and a bush. Its wheels touch down at y 546, clear of the hint line
+ * (y 567-600) and the bar (y 602+).
  */
-const CAR_POS = { x: 0, y: 516 };
-const CAR_HIT = new Phaser.Geom.Rectangle(0, 510, 84, 58);
+const CAR_POS = { x: 0, y: 500 };
+const CAR_HIT = new Phaser.Geom.Rectangle(0, 494, 84, 58);
 /** The dock lantern's feet, and the centre of its glow (between the lantern and Alex, near the dock end). */
 const LANTERN_FEET = { x: 180, y: 388 };
 const GLOW_CENTER = { x: 194, y: 374 };
@@ -1570,8 +1570,9 @@ export class LakeScene extends Phaser.Scene {
     if (variant === 'light') {
       // Warm light spilling from the windows.
       const w = CAR_PARTS.window;
-      g.fillStyle(PAL.gold, 0.13).fillRect(CAR_POS.x + w.x - 2, CAR_POS.y + w.y - 2, w.w + 4, w.h + 4);
-      g.fillStyle(PAL.gold, 0.08).fillRect(CAR_POS.x + w.x - 5, CAR_POS.y + w.y - 5, w.w + 10, w.h + 10);
+      g.fillStyle(PAL.gold, 0.1).fillRect(CAR_POS.x + w.x - 6, CAR_POS.y + w.y - 6, w.w + 12, w.h + 12);
+      g.fillStyle(PAL.gold, 0.16).fillRect(CAR_POS.x + w.x - 3, CAR_POS.y + w.y - 3, w.w + 6, w.h + 6);
+      g.fillStyle(PAL.strawLight, 0.3).fillRect(CAR_POS.x + w.x, CAR_POS.y + w.y, w.w - 4, w.h - 2);
     }
     // Zzz floats (from a tap, and now and then on their own while they sleep).
     this.sinceAutoZ += deltaMs;
