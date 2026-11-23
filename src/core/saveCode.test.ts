@@ -12,7 +12,7 @@ function fullSave(): SaveData {
   const log: SaveData['player']['log'] = {};
   for (const sp of SPECIES) log[sp.id] = { count: 9, bestLengthCm: sp.lengthCm[1], bestWeightG: 1234 };
   const bag = Array.from({ length: SHOP.bagSlots }, (_, i) => ({ speciesId: SPECIES[i % SPECIES.length].id, lengthCm: 30 + i, weightG: 400 + i, price: 20 + i }));
-  return { version: 1, player: { coins: 4321, worms: 17, bag, rodId: 'fiberglass', log, daily: { lastBoxDate: '2026-11-23', streakTier: 4 } }, clock: { day: 12, minute: 901.5 } };
+  return { version: 1, player: { coins: 4321, worms: 17, bag, rodId: 'fiberglass', log, daily: { lastBoxDate: '2026-11-23', streakTier: 4 }, quests: { date: '2026-11-23', rerollUsed: true, list: [{ kind: 'catchSpecies', params: { target: 3, speciesId: 'roach' }, progress: 3, done: true, claimed: false, reward: { coins: 25, worms: 3 } }, { kind: 'catchAtTime', params: { target: 2, timeOfDay: 'dusk' }, progress: 1, done: false, claimed: false, reward: { coins: 30, worms: 4 } }] } }, clock: { day: 12, minute: 901.5 } };
 }
 
 describe('base64url', () => {

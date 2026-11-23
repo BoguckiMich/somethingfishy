@@ -34,7 +34,7 @@ const withBag = (n: number, base: Partial<PlayerState> = {}): PlayerState => ({
 
 describe('newPlayer', () => {
   it('starts with 10 worms, no coins, an empty bag and the bamboo rod', () => {
-    expect(newPlayer()).toEqual({ coins: 0, worms: 10, bag: [], rodId: 'bamboo', log: {}, daily: { lastBoxDate: null, streakTier: 0 } });
+    expect(newPlayer()).toEqual({ coins: 0, worms: 10, bag: [], rodId: 'bamboo', log: {}, daily: { lastBoxDate: null, streakTier: 0 }, quests: { date: null, rerollUsed: false, list: [] } });
     expect(equippedRod(newPlayer()).id).toBe('bamboo');
   });
 });

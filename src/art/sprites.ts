@@ -425,3 +425,28 @@ export const CRATE = sprite(
 `,
   { o: PAL.outline, h: PAL.woodHi, l: PAL.woodLight, w: PAL.wood, d: PAL.woodDark, D: PAL.woodDeep, g: PAL.gold, c: PAL.cream, r: PAL.red },
 );
+
+// ---- The daily quests (a notice board with pinned notes, on the top-right button) ------------
+
+/** 16 x 16: a small notice board, two cream notes pinned with red pins on dark wood. */
+export const NOTICE_BOARD = sprite(
+  `
+  ................
+  ................
+  .oooooooooooooo.
+  .ollllllllllllo.
+  .olDDDDDDDDDDlo.
+  .olDrcccDrccDlo.
+  .olDcddcDcdcDlo.
+  .olDcccdDcccDlo.
+  .olDcccDDDDDDlo.
+  .olDDDDrcccDDlo.
+  .olDDDDcddcDDlo.
+  .olDDDDcccdDDlo.
+  .olDDDDDDDDDDlo.
+  .ollllllllllllo.
+  .oooooooooooooo.
+  ................
+`,
+  { o: PAL.outline, l: PAL.woodLight, D: PAL.woodDeep, d: PAL.woodDark, c: PAL.cream, r: PAL.red },
+);
