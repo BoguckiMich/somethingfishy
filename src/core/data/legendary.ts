@@ -18,7 +18,7 @@ export const PALE_ONE = {
 /** The window ambience (still lake, green tint, quiet crickets), by eerie level 0 / 1 / 2. */
 export const EERIE_TUNING = {
   /** Green overlay strength on the water (alpha). */
-  tint: [0, 0.17, 0.36] as const,
+  tint: [0, 0.22, 0.5] as const,
   /** How still the water is, 0..1. */
   calm: [0, 1, 1] as const,
   /** Cricket gain factor inside the window (level 1). */

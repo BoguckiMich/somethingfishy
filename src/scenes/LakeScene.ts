@@ -80,7 +80,7 @@ const SLIP_NOTE_MS = 4500;
 const SLIP_NOTE = 'It slips back into the dark water…';
 /** Time constant (ms) of the eerie look easing in and out. */
 const EERIE_EASE_MS = 700;
-const EERIE_GREEN = 0x5cdc72;
+const EERIE_GREEN = 0x1e4a2c; // dark murky green: darkens and greens the water rather than brightening it
 /** The clock is saved this often (real ms of play) besides every player change. */
 const CLOCK_SAVE_MS = 10_000;
 
