@@ -27,7 +27,7 @@ export interface SettingsStore {
 }
 
 const IMPORT_ERRORS: Record<Extract<DecodeResult, { ok: false }>['reason'], string> = {
-  notACode: "That doesn't look like a Rybki code",
+  notACode: "That doesn't look like a Something Fishy save code",
   incomplete: 'That code looks incomplete',
   tooNew: 'That code is from a newer version of the game',
   unreadable: "That code couldn't be read",
