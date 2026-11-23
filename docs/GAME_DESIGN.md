@@ -537,6 +537,6 @@ come once the v2 bait and lure systems provide more interesting rewards.
 11b. Readability polish (device-resolution canvas, VT323 font, update-toast position) ✅
 12. Legendary fish: The Pale One (details in §3 → Slice 12) ✅
 13. Daily bait box + daily quests (§5; details in §3 → Slice 13)
-    - 13a. Daily bait box ← *next*
-    - 13b. Daily quests
+    - 13a. Daily bait box ✅
+    - 13b. Daily quests ← *next*
 14. Lake moments (see Ideas) — candidate

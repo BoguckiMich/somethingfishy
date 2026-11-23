@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 13 grilled and split into 13a/13b; 13a in progress)._
+_Last updated: 2026-11-23 (slice 13a merged, not pushed; 13b in progress)._
 
 ## Current state
 
@@ -25,8 +25,8 @@ _Last updated: 2026-11-23 (slice 13 grilled and split into 13a/13b; 13a in progr
 | 11 | PWA (offline precache, update toast), app icon, GitHub Pages deploy via Actions, renamed Something Fishy (GAME_DESIGN §3 item 10) | merged |
 | 11b | Readability: whole canvas renders at device resolution (K×, `src/renderScale.ts`), font → VT323 on its 12.5 px grid, update toast above the bar, `/dev/font-sheet.html` | merged |
 | 12 | Legendary: The Pale One (≥30 m, 02–04 h, 25%), abyssal fight, eerie window (still lake, murky tint, drone), hug show-off, log tile 13 | merged |
-| 13a | Daily bait box: crate on the dock, real-date day, streak tiers (GAME_DESIGN §3 → Slice 13) | built, awaiting play-test (`slice/13a-bait-box`) |
-| 13b | Daily quests: 3/day, notice-board button, claim, reroll | next (spec decided) |
+| 13a | Daily bait box: crate on the dock, real-date day, streak tiers (GAME_DESIGN §3 → Slice 13) | merged |
+| 13b | Daily quests: 3/day, notice-board button, claim, reroll | in progress on `slice/13b-quests` |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -69,7 +69,7 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   motion, the drone and cricket dip (never heard by a reviewer), the full cast→fight→release flow and
   the "slips back" line. Hug pose covers Alex from the chin down (may read as a fish standing in front
   of her). Window tint is very subtle. Extra eye only on the large sprite. `?debug=fight` uses 25 m.
-- Daily bait box (slice 13a): pure rules in `src/core/daily/` (`dates.ts`, `daily.ts`), tunables `src/core/data/daily.ts`; the tier that fills a box is the *new* tier (day-after = +1). Only seen as stills (crate on the dock, the offer card): taking the box, the "Lucky box!" card, the sparkle, a real midnight rollover and the crate tap on a phone were NOT exercised live (logic is unit-tested). Bestia does not sniff at the crate (skipped: the dog is pinned to its dock spot in `tickDock`, a walk-and-sniff activity would need new movement). The crate is small (16x12 px) with a 40 px tap area; the date is re-read every 5 s and on tab focus. Sandbox flags never save, so the streak can only be tested live with a real save and the device clock.
+- Daily bait box (slice 13a): pure rules in `src/core/daily/` (`dates.ts`, `daily.ts`), tunables `src/core/data/daily.ts`; the tier that fills a box is the *new* tier (day-after = +1). Reviewer clicked through it in the in-app browser at phone size (crate tap opens the card without casting, Take it adds worms, crate disappears). Not seen live: the "Lucky box!" card, the sparkle, a real midnight rollover, a streak across real days (unit-tested). User OK with the crate size. Bestia does not sniff at the crate (skipped: the dog is pinned to its dock spot in `tickDock`, a walk-and-sniff activity would need new movement). The crate is small (16x12 px) with a 40 px tap area; the date is re-read every 5 s and on tab focus. Sandbox flags never save, so the streak can only be tested live with a real save and the device clock.
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
