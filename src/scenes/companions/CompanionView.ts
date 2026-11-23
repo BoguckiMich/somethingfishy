@@ -1,9 +1,15 @@
 import Phaser from 'phaser';
 import { DOG_SIZE, PAJ_SIZE, PAJ_WALK_SIZE, dogKey, type DogFrame, type PajWalkPose } from '../../art/characters';
+import { W } from '../../art/layout';
+import { PAL } from '../../art/palette';
 import { TEX, pajSitKey, pajWalkKey } from '../../art/textures';
+import { FONT, FS, textPad } from '../../font';
+import { drawFrame } from '../frameDraw';
 import {
+  bubbleAlpha,
   createCompanions,
   dogView,
+  pajSay,
   pajWalkFrame,
   petDog,
   tickCompanions,
@@ -12,6 +18,15 @@ import {
 } from './behaviour';
 
 const DEPTH = 14;
+/** The speech bubble: height of the tail (rows incl. the tip), the gap to the screen edge, and the canvas width it must stay inside. */
+const BUBBLE_TAIL = 4;
+/** Extra stalk so the box clears Alex's head, who stands right beside Pajkel on the dock. */
+const BUBBLE_LIFT = 30;
+const BUBBLE_MARGIN = 4;
+const BUBBLE_VIEW_W = W;
+const BUBBLE_INK = '#241a2e';
+/** Above the characters and the show-off, below the HUD panels (LakeScene's uiPanel is 30). */
+const BUBBLE_DEPTH = 28;
 
 /** Phaser layer for Pajkel and the dog: owns the images, the pure state machine owns the logic. */
 export class CompanionView {
@@ -21,6 +36,8 @@ export class CompanionView {
   private stick: Phaser.GameObjects.Image;
   private zs: Phaser.GameObjects.Image[] = [];
   private hearts: { img: Phaser.GameObjects.Image; age: number }[] = [];
+  private bubbleGfx: Phaser.GameObjects.Graphics;
+  private bubbleText: Phaser.GameObjects.Text;
 
   constructor(
     private scene: Phaser.Scene,
@@ -33,8 +50,53 @@ export class CompanionView {
     for (const key of [TEX.zSmall, TEX.zBig]) {
       this.zs.push(scene.add.image(0, 0, key).setDepth(DEPTH + 3).setVisible(false));
     }
+    this.bubbleGfx = scene.add.graphics().setDepth(BUBBLE_DEPTH);
+    this.bubbleText = scene
+      .add.text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.small}px`, color: BUBBLE_INK, padding: textPad(7, 4) })
+      .setDepth(BUBBLE_DEPTH + 1)
+      .setVisible(false);
   }
 
+
+  /** Pajkel says a line in a speech bubble (a new one replaces the one showing). */
+  say(text: string): void {
+    pajSay(this.state, text);
+  }
+
+  /**
+   * Draws the bubble over Pajkel's head: a cream pixel frame with a small tail pointing at him. It
+   * follows him when he walks and is kept on screen (the tail slides along the bottom edge).
+   */
+  private drawBubble(): void {
+    const b = this.state.bubble;
+    this.bubbleGfx.clear();
+    this.bubbleText.setVisible(b !== null);
+    if (!b) return;
+    const p = this.state.paj;
+    const alpha = bubbleAlpha(b);
+    if (this.bubbleText.text !== b.text) this.bubbleText.setText(b.text);
+    const w = Math.round(this.bubbleText.width);
+    const h = Math.round(this.bubbleText.height);
+    const tx = Math.round(p.x);
+    const headTop = Math.round(p.y) - (p.shape === 'sit' || p.shape === 'sip' || p.shape === 'cheer' || p.shape === 'look' ? PAJ_SIZE.h - 2 : PAJ_WALK_SIZE.h - 2);
+    const left = Math.min(Math.max(tx - Math.round(w / 2), BUBBLE_MARGIN), BUBBLE_VIEW_W - BUBBLE_MARGIN - w);
+    const top = headTop - h - BUBBLE_TAIL - BUBBLE_LIFT;
+    // The tail stays within the straight part of the bottom edge.
+    const tail = Math.min(Math.max(tx, left + 6), left + w - 7);
+    const g = this.bubbleGfx;
+    drawFrame(g, left, top, w, h, 'bubble', alpha);
+    // The tail: open the bottom edge, flare once, run a 3 px stalk down to his head, then narrow to a point.
+    const cream = PAL.cream;
+    const rows = BUBBLE_TAIL + BUBBLE_LIFT;
+    g.fillStyle(cream, alpha).fillRect(tail - 2, top + h - 2, 5, 2);
+    for (let r = 0; r < rows - 1; r++) {
+      const hw = r === 0 ? 2 : r < rows - 3 ? 1 : rows - 2 - r; // 2, then 1 down the stalk, then 1, 0
+      g.fillStyle(PAL.outline, alpha).fillRect(tail - hw - 1, top + h + r, 2 * hw + 3, 1);
+      g.fillStyle(cream, alpha).fillRect(tail - hw, top + h + r, 2 * hw + 1, 1);
+    }
+    g.fillStyle(PAL.outline, alpha).fillRect(tail, top + h + rows - 1, 1, 1);
+    this.bubbleText.setPosition(left, top).setAlpha(alpha);
+  }
 
   /** Pets the dog and floats a heart. */
   pet(): void {
@@ -113,6 +175,8 @@ export class CompanionView {
       .setFlipX(carried && d.face < 0)
       .setPosition(Math.round(st.x), Math.round(st.y))
       .setTint(tint);
+
+    this.drawBubble();
 
     // Hearts float up and fade.
     for (const h of this.hearts) {

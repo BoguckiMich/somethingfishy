@@ -31,6 +31,8 @@ export const FRAME_STYLES = {
   buttonWood: { outline: PAL.outline, lit: [PAL.woodLight, PAL.wood], dark: [PAL.woodDeep, PAL.woodDeep], fill: PAL.woodDark, notch: 1 },
   /** The gold primary button. */
   buttonGold: { outline: PAL.outline, lit: [PAL.sun, 0xffe27e], dark: [PAL.strawDark, 0xd9a943], fill: PAL.gold, notch: 1 },
+  /** Speech bubbles (slice 15a): a light cream box with a dark text colour on it. */
+  bubble: { outline: PAL.outline, lit: [0xfff6e4], dark: [0xd9c28f], fill: PAL.cream, notch: 1 },
   /** A disabled button: dull but readable. */
   buttonOff: { outline: PAL.outline, lit: [0x6b5242, 0x5a4333], dark: [0x2a1c14, 0x3a2a1e], fill: 0x4a3426, notch: 1 },
 } as const satisfies Record<string, FrameStyle>;

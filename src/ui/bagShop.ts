@@ -2,11 +2,18 @@ import { FONT, FS, LINE } from '../font';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
 import { RODS } from '../core/data/rods';
+import type { Line, Reel } from '../core/gear';
 import {
   bagValue,
+  buyLine,
+  buyReel,
   buyRod,
   buyWorms,
+  equippedLine,
+  equippedReel,
   freeWormsIfStuck,
+  nextLine,
+  nextReel,
   nextRod,
   sellAll,
   sellOne,
@@ -37,7 +44,39 @@ function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
   return row;
 }
 
-const emptyNote = (text: string) => el('div', `font-size:${FS.body}px;color:${COLORS.cream};padding:6px 0`, text);
+/** A shop row for a line or reel: what she has, the next one with its price and effect, and a Buy button. */
+function tackleRow(
+  kind: 'Line' | 'Reel',
+  owned: Line | Reel | undefined,
+  next: Line | Reel | undefined,
+  coins: number,
+  buy: () => void,
+  refresh: () => void,
+): HTMLElement {
+  const row = el('div', `display:flex;flex-direction:column;gap:6px;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight}`);
+  const have = owned ? owned.name : `No ${kind.toLowerCase()} yet`;
+  if (!next) {
+    row.append(el('div', `font-size:${FS.body}px;color:${COLORS.gold}`, `${have} (best owned)`));
+    return row;
+  }
+  const info = el('div', `font-size:${FS.body}px`);
+  info.append(
+    el('div', '', `${next.name}, ${next.price} coins`),
+    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `${next.effect}.`),
+    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `You have: ${have}`),
+  );
+  const missing = Math.max(0, next.price - coins);
+  row.append(
+    info,
+    woodButton('Buy', () => {
+      buy();
+      refresh();
+    }, { disabledReason: missing ? `need ${missing} more` : undefined, sfx: 'coin' }),
+  );
+  return row;
+}
+
+const emptyNote =(text: string) => el('div', `font-size:${FS.body}px;color:${COLORS.cream};padding:6px 0`, text);
 
 /** The bag: what she caught, its size and price, and the total value. */
 export function openBagPanel(store: PlayerStore, onClose: () => void): PanelHandle {
@@ -127,6 +166,13 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         );
         body.append(line);
       }
+
+      // Lines and reels (slice 15a): one row each, the next item up, bought in order.
+      body.append(sectionTitle('Line and reel'));
+      body.append(
+        tackleRow('Line', equippedLine(p), nextLine(p), p.coins, () => apply(buyLine(store.get())), () => panel.refresh()),
+        tackleRow('Reel', equippedReel(p), nextReel(p), p.coins, () => apply(buyReel(store.get())), () => panel.refresh()),
+      );
     },
     onClose,
   );

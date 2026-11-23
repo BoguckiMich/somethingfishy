@@ -33,7 +33,7 @@ import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './an
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
-import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
+import { advanceClock, formatClock, NEW_GAME_CLOCK, TIME_OF_DAY_NAMES, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
 import { isLegendary, speciesById, SPECIES } from '../core/data/fish';
 import { PALE_ONE } from '../core/data/legendary';
@@ -41,6 +41,7 @@ import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
+import { LINES, REELS } from '../core/data/tackle';
 import { SHOP } from '../core/data/shop';
 import type { GameEvent } from '../core/events';
 import { fightProfile, formatCatchSize, rollHookedFish, type HookedFish } from '../core/fish';
@@ -49,6 +50,7 @@ import {
   applyEvent,
   canCast,
   cheapestIndex,
+  effectiveBarGear,
   equippedRod,
   freeWormsIfStuck,
   newPlayer,
@@ -73,7 +75,8 @@ import { openSettingsPanel } from '../ui/settingsPanel';
 import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar } from './BottomBar';
 import { CatchBarView } from './CatchBarView';
-import { companionEvent, companionPress, startPlayNow, tickCompanions } from './companions/behaviour';
+import { companionEvent, companionPress, pickLine, startPlayNow, tickCompanions } from './companions/behaviour';
+import { RECORD_LINES } from '../core/data/pajkelLines';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
 
@@ -251,6 +254,8 @@ export class LakeScene extends Phaser.Scene {
   private momentGap: Scheduler = newScheduler(Math.random);
   private lastMoment: MomentKind | null = null;
   private debugMoment: { kind: MomentKind; inMs: number } | null = null;
+  /** ?debug=bubble: ms until Pajkel says a line (dev only), or null. */
+  private debugBubbleInMs: number | null = null;
   private crateImg!: Phaser.GameObjects.Image;
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
@@ -335,6 +340,7 @@ export class LakeScene extends Phaser.Scene {
     const dbg = params.get('debug') ?? '';
     const debugKind = dbg.startsWith('moment=') ? MOMENT_KINDS.find((k) => k === dbg.slice(7)) : undefined;
     if (debugKind) this.debugMoment = { kind: debugKind, inMs: 1000 };
+    if (dbg === 'bubble') this.debugBubbleInMs = 1000;
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
     // Dev-only: ?fish=<pattern>&diff=<0..1> forces the fish; ?debug=fight / ?debug=caught jump into those states.
     if (params.has('fish') || params.has('diff')) {
@@ -349,6 +355,11 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
     const rod = RODS.find((r) => r.id === params.get('rod'));
     if (rod) this.setPlayer({ ...this.player, rodId: rod.id });
+    // ?line=braided|fluoro and ?reel=smooth|pro own that line / reel (sandboxed like ?rod=).
+    const line = LINES.find((l) => l.id === params.get('line'));
+    if (line) this.setPlayer({ ...this.player, lineId: line.id });
+    const reel = REELS.find((r) => r.id === params.get('reel'));
+    if (reel) this.setPlayer({ ...this.player, reelId: reel.id });
     const coinsParam = Number(params.get('coins'));
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
@@ -511,6 +522,10 @@ export class LakeScene extends Phaser.Scene {
 
     this.updateSound(deltaMs);
     this.updateMoments(deltaMs);
+    if (this.debugBubbleInMs !== null && (this.debugBubbleInMs -= deltaMs) <= 0) {
+      this.companions.say(pickLine(RECORD_LINES));
+      this.debugBubbleInMs = null;
+    }
     this.companions.update(
       deltaMs,
       { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
@@ -614,6 +629,8 @@ export class LakeScene extends Phaser.Scene {
     const showOffMs = slipsAway(hooked.speciesId) ? PALE_ONE.showOffMs : r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined;
     this.ctx = { ...this.ctx, showOffMs };
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
+    // Pajkel praises a record out loud (slice 15a). The dev catch (celebrate = false) speaks too, so ?debug=caught&log=all shows it.
+    if (r.outcome.kind === 'newRecord') this.companions.say(pickLine(RECORD_LINES));
   }
 
   /** The player's side of a game event: bait use. */
@@ -623,10 +640,9 @@ export class LakeScene extends Phaser.Scene {
     if (r.wormUsed) this.wormCueAge = 0;
   }
 
-  /** Keeps the session's rod and catch-bar gear in step with the equipped rod. */
+  /** Keeps the session's rod and catch-bar gear in step with the equipped rod, line and reel. */
   private syncRod(): void {
-    const rod = equippedRod(this.player);
-    this.ctx = { ...this.ctx, rod, barGear: rod.barGear };
+    this.ctx = { ...this.ctx, rod: equippedRod(this.player), barGear: effectiveBarGear(this.player) };
   }
 
   private stowCatch(hooked: HookedFish): void {
@@ -1268,7 +1284,7 @@ export class LakeScene extends Phaser.Scene {
     this.drawCrate();
 
     // Labels.
-    this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);
+    this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)} · ${TIME_OF_DAY_NAMES[timeOfDay(this.clock.minute)]}`);
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);

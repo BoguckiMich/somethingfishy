@@ -20,3 +20,24 @@ export interface BarGear {
   /** Bait: 0..1, calms the fish and shrinks its movements. */
   baitCalm: number;
 }
+
+/** A line upgrade (slice 15a): scales how fast catch-bar progress drains. */
+export interface Line {
+  id: string;
+  name: string;
+  price: number;
+  /** Multiplies the rod's `lineDrain` (< 1 = easier). */
+  drain: number;
+  /** One line for the shop, e.g. "progress drains 15% slower". */
+  effect: string;
+}
+
+/** A reel upgrade (slice 15a): scales how eagerly the catch zone follows the thumb. */
+export interface Reel {
+  id: string;
+  name: string;
+  price: number;
+  /** Multiplies the rod's `reelResponse` (> 1 = easier). */
+  response: number;
+  effect: string;
+}

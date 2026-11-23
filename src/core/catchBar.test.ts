@@ -11,6 +11,7 @@ import {
 import { STARTER_BAR_GEAR } from './data/barGear';
 import { POOL_SPECIES, SPECIES } from './data/fish';
 import { RODS } from './data/rods';
+import { LINES, REELS } from './data/tackle';
 import { fightProfile, rollLength } from './fish';
 import type { BarGear } from './gear';
 import { seededRng } from './random';
@@ -425,5 +426,47 @@ describe('the Pale One (abyssal pattern, scripted player bots)', () => {
     const winShare = never.filter((r) => r === 'caught').length / never.length;
     rows.push(`passive win ${(winShare * 100).toFixed(0)}%`);
     expect(winShare).toBeLessThan(0.1);
+  });
+});
+
+describe('tackle: lines and reels make fights easier (slice 15a)', () => {
+  const rows: string[] = [];
+  afterAll(() => console.log(['tackle bot results, deep roster, carbon rod (catch share, median seconds of a won fight)', ...rows].join(String.fromCharCode(10))));
+  const withTackle = (line: number, reel: number): BarGear => ({
+    ...CARBON,
+    lineDrain: CARBON.lineDrain * (line > 0 ? LINES[line - 1].drain : 1),
+    reelResponse: CARBON.reelResponse * (reel > 0 ? REELS[reel - 1].response : 1),
+  });
+  const deep = (seed: number): FishProfile => speciesFight(deepSpecies[seed % deepSpecies.length])(seed);
+  /** Share of fights won (sloppy and good bot) and the median length of the good bot's won fights. */
+  const measure = (label: string, gear: BarGear) => {
+    const sloppy = fights(deep, SLOPPY_BOT, 300, gear);
+    const good = fights(deep, GOOD_BOT, 300, gear);
+    const won = good.filter((f) => f.result === 'caught').map((f) => f.ms);
+    const out = { sloppyShare: caughtShare(sloppy), goodShare: caughtShare(good), goodMedianS: median(won) / 1000 };
+    rows.push(`${label.padEnd(16)} sloppy ${(out.sloppyShare * 100).toFixed(1)}%   good ${(out.goodShare * 100).toFixed(1)}%  ${out.goodMedianS.toFixed(1)}s`);
+    return out;
+  };
+
+  it('each line step wins more fights for a sloppy player, and none makes a good player lose more', () => {
+    const steps = [0, 1, 2].map((i) => measure(i === 0 ? 'no line' : LINES[i - 1].name, withTackle(i, 0)));
+    expect(steps[1].sloppyShare).toBeGreaterThan(steps[0].sloppyShare);
+    expect(steps[2].sloppyShare).toBeGreaterThan(steps[1].sloppyShare);
+    expect(steps[2].goodShare).toBeGreaterThanOrEqual(steps[0].goodShare);
+  });
+
+  it('each reel step wins more fights for a sloppy player, or shortens the fights of a good one', () => {
+    const steps = [0, 1, 2].map((i) => measure(i === 0 ? 'no reel' : REELS[i - 1].name, withTackle(0, i)));
+    for (const i of [1, 2]) {
+      const better = steps[i].sloppyShare > steps[i - 1].sloppyShare || steps[i].goodMedianS < steps[i - 1].goodMedianS;
+      expect(better, `reel step ${i}`).toBe(true);
+    }
+    expect(steps[2].sloppyShare).toBeGreaterThan(steps[0].sloppyShare);
+  });
+
+  it('the best line and reel together are clearly the easiest', () => {
+    const none = measure('none', withTackle(0, 0));
+    const best = measure('fluoro + pro', withTackle(2, 2));
+    expect(best.sloppyShare).toBeGreaterThan(none.sloppyShare + 0.1);
   });
 });
