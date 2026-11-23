@@ -15,6 +15,7 @@ import {
 } from '../art/layout';
 import { PAL } from '../art/palette';
 import { FONT, FS } from '../font';
+import { applyCameraZoom, sharpenTexts } from '../renderScale';
 import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HANDS_KEY, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
@@ -254,6 +255,7 @@ export class LakeScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyCameraZoom(this);
     // Dev helper: ?time=22 starts the clock at 22:00, to check night/dawn without waiting.
     const params = pageParams();
     this.sandbox = isSandbox([...params.keys()]);
@@ -306,6 +308,7 @@ export class LakeScene extends Phaser.Scene {
     }
     this.buildScenery();
     this.buildUi();
+    sharpenTexts(this); // every Phaser text rasterises at device resolution
     if (saveStatus === 'broken') this.showToast("Your save couldn't be read, starting fresh");
 
     this.setupProfile(params);
@@ -322,7 +325,7 @@ export class LakeScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.panel) return;
-      if (this.handleTap(pointer.x, pointer.y)) {
+      if (this.handleTap(pointer.worldX, pointer.worldY)) {
         this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
         return;
       }
