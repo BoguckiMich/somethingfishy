@@ -4,7 +4,7 @@ Rybki is a cozy pixel-art fishing game (PWA, portrait) made by the developer (Pa
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23._
+_Last updated: 2026-11-23 (slice 10b merged)._
 
 ## Current state
 
@@ -21,37 +21,40 @@ _Last updated: 2026-11-23._
 | 8 | Fish log + personal bests, "New species!" / record moments | merged |
 | 9 | Saving: autosave, export code, ⚙ settings panel (GAME_DESIGN §3 item 8) | merged |
 | 10a | Sound: synthesised SFX + ambient by time of day, volume sliders in ⚙, `?debug=sounds` | merged |
-| 10b | Art pass: pixel font, panels, fish sprites, polish, Pajkel, dog fetch (GAME_DESIGN §3 item 9) | next |
+| 10b | Art pass: Tiny5 font, code-drawn pixel frames, icons, 12 fish sprites, show-off at chest, Pajkel, dog spin (GAME_DESIGN §3 item 9) | merged |
+| 11 | PWA + GitHub Pages deploy | next (not grilled yet) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
 
 ### Known weak spots (candidates for polish, not blockers)
-- Catch bar (slice 5) — user wants to perfect it later: show-off fish is tiny and sits under her chin;
-  bar frame reads thin/dark; shallow fights are at the short end (~4.4 s median); zone drag and a
+- Catch bar (slice 5) — user wants to perfect it later: shallow fights are at the short end (~4.4 s median); zone drag and a
   difficulty^6 drain boost were added beyond spec to make tuning work (`CATCH_BAR_TUNING`);
   a passive player beats ~38% of mid fish (sinkers reach the resting zone, Stardew-like, accepted).
   Rod bend/bobber jerk were not seen in motion by the reviewer.
-- Fish (slice 6): show-off fish is small at her chin (bleak = a few px); tuning margins thin
+- Fish (slice 6): tuning margins thin
   (bream/tench ~8.3 s vs 8 s floor, pike 13.7 s vs 15 s ceiling); shallow is still ~100% for a
-  sloppy bot despite drain 0.13/s, user may want shallow actually losable. Per-species fish art
-  is procedural placeholder (`src/art/fishArt.ts`) until slice 10.
+  sloppy bot despite drain 0.13/s, user may want shallow actually losable.
 - Shop (slice 7): real catch→bag→bag-full flow and the "−1 worm" float were not exercised end to
-  end by the reviewer; worm/coin icons are tiny; the bottom bar covers the dog's lowest 40 px;
+  end by the reviewer; the bottom bar covers the dog's lowest 40 px;
   panels only checked at desktop width; bream needed difficulty 0.66 (sinker pattern barely
   responds to difficulty — fragile).
 - Fish log (slice 8): panels/catch screen only seen at 560 px wide (headless limit), not at a
   real 360 px phone; real fight→log flow, bag-full release still counting, the 8 s new-species
   show-off and the bigger clap/hop not seen in motion (unit-tested); a long fact (eel) wraps to 3
-  lines on the catch screen, unchecked; silhouettes are dark placeholder icons until slice 10.
+  lines on the catch screen, unchecked.
 - Saving (slice 9): only unit-tested against a fake storage plus a phone copy check; Import,
   Start over and reload-mid-game not exercised by the reviewer; broken-save toast and "can't save"
-  note never seen live; the 13 px gear icon is a bit blobby (art pass); after an import the sky
+  note never seen live; after an import the sky
   catches up on its next 2-game-minute repaint; a save without a stored profile re-shows the name
   card. Copy uses `execCommand` on plain http (LAN dev), `navigator.clipboard` on https.
-- Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
-- AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
-- Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
+- Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left.
+- Art pass (slice 10b): Pajkel now wears a slate-blue jacket in every view (was a black tee; user
+  may want the tee back when walking); the dog carries the stick pointing forward from the snout,
+  not crosswise; the dog's nose is clipped at its sprite edge; tall fish (bream) cover Alex's chin
+  in the show-off; medium-class pike looks small; catfish whiskers a bit dotty. The spin, the
+  4-frame walk and the carry trot were only seen as single frames (unit-tested). Zoomed sprite
+  sheets: `/dev/fish-sheet.html`, `/dev/char-sheet.html` on the dev server.
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
