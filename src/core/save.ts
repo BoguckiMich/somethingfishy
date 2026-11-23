@@ -2,6 +2,7 @@ import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
 import { SHOP } from './data/shop';
+import { LINES, REELS } from './data/tackle';
 import { newPlayer, type BagFish, type PlayerState } from './inventory';
 import { isValidDate } from './daily/dates';
 import { newDaily, type DailyState } from './daily/daily';
@@ -119,6 +120,9 @@ function normalizePlayer(v: unknown): PlayerState {
     worms: intAtLeast(p.worms, 0, SHOP.startWorms),
     bag: bag.slice(0, SHOP.bagSlots),
     rodId: RODS.some((r) => r.id === p.rodId) ? (p.rodId as string) : RODS[0].id,
+    // Line and reel: only a known id is kept (an unknown one means none); no key at all when none.
+    ...(LINES.some((l) => l.id === p.lineId) ? { lineId: p.lineId as string } : {}),
+    ...(REELS.some((r) => r.id === p.reelId) ? { reelId: p.reelId as string } : {}),
     log: normalizeLog(p.log),
     daily: normalizeDaily(p.daily),
     quests: normalizeQuests(p.quests),

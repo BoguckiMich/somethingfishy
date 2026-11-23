@@ -18,6 +18,9 @@ export type TimeOfDay = 'dawn' | 'day' | 'dusk' | 'night';
 /** Start of each period, in hours. Night wraps past midnight. */
 export const TIME_OF_DAY_STARTS: Record<TimeOfDay, number> = { dawn: 5, day: 7, dusk: 18, night: 20 };
 
+/** How the periods are shown to the player (the clock label; the fish log writes them in lower case). */
+export const TIME_OF_DAY_NAMES: Record<TimeOfDay, string> = { dawn: 'Dawn', day: 'Day', dusk: 'Dusk', night: 'Night' };
+
 export const NEW_GAME_CLOCK: GameClock = { day: 1, minute: 6 * 60 };
 
 export function advanceClock(clock: GameClock, realDtMs: number): GameClock {

@@ -1,10 +1,11 @@
 import { speciesById, type Species } from './data/fish';
 import { RODS } from './data/rods';
-import { SHOP } from './data/shop';
+import { LINES, REELS } from './data/tackle';
+import { RARITY_PRICE_MULT, SHOP } from './data/shop';
 import type { GameEvent } from './events';
 import { sizeShare, type HookedFish } from './fish';
 import { newFishLog, type FishLog } from './fishLog';
-import type { Rod } from './gear';
+import type { BarGear, Line, Reel, Rod } from './gear';
 import type { Rng } from './random';
 import { newDaily, type DailyState } from './daily/daily';
 import { newQuests, questsOf, questsOnSale, type QuestsState } from './quests/quests';
@@ -28,6 +29,9 @@ export interface PlayerState {
   worms: number;
   bag: BagFish[];
   rodId: string;
+  /** The best line / reel owned (slice 15a); missing = none. Read with equippedLine() / equippedReel(). */
+  lineId?: string;
+  reelId?: string;
   /** The fish log: counts and records per species. */
   log: FishLog;
   /** The daily bait box (slice 13a); missing in older saves, read with dailyOf(). */
@@ -51,9 +55,9 @@ export function canCast(p: PlayerState): boolean {
   return p.worms > 0;
 }
 
-/** basePrice x (0.5 + position of the length in the species range), rounded. */
+/** basePrice x rarity multiplier x (0.7 + position of the length in the species range), rounded. */
 export function priceFor(species: Species, lengthCm: number): number {
-  return Math.round(species.basePrice * (SHOP.priceMin + SHOP.priceSpan * sizeShare(species, lengthCm)));
+  return Math.round(species.basePrice * RARITY_PRICE_MULT[species.rarity] * (SHOP.priceMin + SHOP.priceSpan * sizeShare(species, lengthCm)));
 }
 
 export function toBagFish(hooked: HookedFish): BagFish {
@@ -72,7 +76,7 @@ export function cheapestIndex(bag: BagFish[]): number {
   return best;
 }
 
-export type ShopError = 'needCoins' | 'bestRod' | 'badIndex' | 'emptyBag';
+export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag';
 export type Outcome =
   | { state: PlayerState; ok: true }
   | { state: PlayerState; ok: false; error: ShopError; /** Coins still missing, for 'needCoins'. */ missing?: number };
@@ -141,6 +145,44 @@ export function buyRod(state: PlayerState): Outcome {
   if (!rod) return fail(state, 'bestRod');
   if (state.coins < rod.price) return fail(state, 'needCoins', rod.price - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - rod.price, rodId: rod.id } };
+}
+
+// ---- Lines and reels (slice 15a) ------------------------------------------------------------
+
+/** The owned line (the best bought), or undefined for none. */
+export const equippedLine = (p: PlayerState): Line | undefined => LINES.find((l) => l.id === p.lineId);
+export const equippedReel = (p: PlayerState): Reel | undefined => REELS.find((r) => r.id === p.reelId);
+
+/** The next line up from the owned one (the first when none), or undefined when the best is owned. */
+export function nextLine(state: PlayerState): Line | undefined {
+  return LINES[LINES.findIndex((l) => l.id === state.lineId) + 1];
+}
+export function nextReel(state: PlayerState): Reel | undefined {
+  return REELS[REELS.findIndex((r) => r.id === state.reelId) + 1];
+}
+
+export function buyLine(state: PlayerState): Outcome {
+  const line = nextLine(state);
+  if (!line) return fail(state, 'bestLine');
+  if (state.coins < line.price) return fail(state, 'needCoins', line.price - state.coins);
+  return { ok: true, state: { ...state, coins: state.coins - line.price, lineId: line.id } };
+}
+
+export function buyReel(state: PlayerState): Outcome {
+  const reel = nextReel(state);
+  if (!reel) return fail(state, 'bestReel');
+  if (state.coins < reel.price) return fail(state, 'needCoins', reel.price - state.coins);
+  return { ok: true, state: { ...state, coins: state.coins - reel.price, reelId: reel.id } };
+}
+
+/** What the catch bar really uses: the equipped rod's values with the line and reel multipliers on top. */
+export function effectiveBarGear(state: PlayerState): BarGear {
+  const rod = equippedRod(state).barGear;
+  return {
+    ...rod,
+    lineDrain: rod.lineDrain * (equippedLine(state)?.drain ?? 1),
+    reelResponse: rod.reelResponse * (equippedReel(state)?.response ?? 1),
+  };
 }
 
 /**

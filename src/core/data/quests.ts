@@ -13,8 +13,10 @@
  *    more than one night; that is what the reroll is for, and the pick is weighted away from it).
  *  - catchAtTime: dawn and dusk are short, so 1-2 there; night is long, so 2-3.
  *  - catchDeep 2-4: with a deep rod she has to cast far; ~3-6 min.
- *  - sellCoins: one fish sells for ~5-45 coins in shallow water and ~20-100 in deep water, so
- *    60-120 coins (shallow-only rods) or 150-300 (deep rod) is a bag-load of fish.
+ *  - sellCoins: since slice 15a (rarity multipliers, priceMin 0.7) a fish sells for ~4-50 coins in
+ *    shallow water (a mid-size common one ~5-10) and ~25-340 in deep water (income is ~1.2x for
+ *    commons, ~1.6x for uncommons, 2.4x for the rare catfish; ~1.3-1.5x overall), so the targets
+ *    were raised ~1.3x to keep "a bag-load of fish": 80-160 coins (shallow-only rods) or 200-400 (deep rod).
  *  - beatRecord: a strictly longer fish of a species already in the log; lengths skew small, so
  *    one record takes a few catches of the same kind.
  * Rewards grow with the target inside each kind's range (and with rarity for catchSpecies).
@@ -33,7 +35,7 @@ export const QUEST_TUNING = {
   catchAny: [8, 15],
   catchAtTime: { dawn: [1, 2], dusk: [1, 2], night: [2, 3] },
   catchDeep: [2, 4],
-  sellCoins: { shallowRod: [60, 120], deepRod: [150, 300] },
+  sellCoins: { shallowRod: [80, 160], deepRod: [200, 400] },
   /** Rewards: coins and worms, interpolated by where the target sits in its range (0 = easiest). */
   rewards: {
     'catchSpecies.common': { coins: [20, 30], worms: [3, 4] },

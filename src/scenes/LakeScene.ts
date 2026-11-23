@@ -33,7 +33,7 @@ import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './an
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
 import { createTextures, repaintSky, TEX } from '../art/textures';
 import { castDistance, chargePower } from '../core/casting';
-import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
+import { advanceClock, formatClock, NEW_GAME_CLOCK, TIME_OF_DAY_NAMES, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
 import { isLegendary, speciesById, SPECIES } from '../core/data/fish';
 import { PALE_ONE } from '../core/data/legendary';
@@ -49,6 +49,7 @@ import {
   applyEvent,
   canCast,
   cheapestIndex,
+  effectiveBarGear,
   equippedRod,
   freeWormsIfStuck,
   newPlayer,
@@ -623,10 +624,9 @@ export class LakeScene extends Phaser.Scene {
     if (r.wormUsed) this.wormCueAge = 0;
   }
 
-  /** Keeps the session's rod and catch-bar gear in step with the equipped rod. */
+  /** Keeps the session's rod and catch-bar gear in step with the equipped rod, line and reel. */
   private syncRod(): void {
-    const rod = equippedRod(this.player);
-    this.ctx = { ...this.ctx, rod, barGear: rod.barGear };
+    this.ctx = { ...this.ctx, rod: equippedRod(this.player), barGear: effectiveBarGear(this.player) };
   }
 
   private stowCatch(hooked: HookedFish): void {
@@ -1268,7 +1268,7 @@ export class LakeScene extends Phaser.Scene {
     this.drawCrate();
 
     // Labels.
-    this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);
+    this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)} · ${TIME_OF_DAY_NAMES[timeOfDay(this.clock.minute)]}`);
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);

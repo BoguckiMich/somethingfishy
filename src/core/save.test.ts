@@ -72,6 +72,14 @@ describe('normalizeSave', () => {
     expect(f.player.coins).toBe(12);
     expect(f.player.worms).toBe(4);
   });
+  it('keeps a known line and reel, drops unknown ones, and adds nothing to an old save', () => {
+    const ok = normalizeSave({ version: 1, player: { lineId: 'fluoro', reelId: 'smooth' }, clock: {} });
+    expect(ok.player).toMatchObject({ lineId: 'fluoro', reelId: 'smooth' });
+    const bad = normalizeSave({ version: 1, player: { lineId: 'rope', reelId: 7 }, clock: {} });
+    expect('lineId' in bad.player).toBe(false);
+    expect('reelId' in bad.player).toBe(false);
+    expect('lineId' in normalizeSave({ version: 1, player: {}, clock: {} }).player).toBe(false);
+  });
   it('drops bad bag and log entries and caps the bag', () => {
     const bag = [fish, { ...fish, speciesId: 'dragon' }, { ...fish, lengthCm: 'x' }, null, 5, { ...fish, weightG: 0 }];
     const many = Array.from({ length: 15 }, () => fish);
