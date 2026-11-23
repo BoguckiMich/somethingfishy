@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BAITS } from '../core/data/baits';
 import { LINES, REELS } from '../core/data/tackle';
 import { RODS } from '../core/data/rods';
 import { PAL } from './palette';
@@ -14,10 +15,11 @@ const GROUPS: Record<string, string[]> = {
   rods: RODS.map((r) => r.id),
   lines: LINES.map((l) => l.id),
   reels: REELS.map((r) => r.id),
+  baits: BAITS.map((b) => b.id),
 };
 
 describe('shop icons', () => {
-  it('cover the worm pack and every rod, line and reel, and nothing else', () => {
+  it('cover the worm pack and every rod, line, reel and bait, and nothing else', () => {
     const wanted = ['worms', ...Object.values(GROUPS).flat()];
     expect([...SHOP_ICON_IDS].sort()).toEqual([...wanted].sort());
     expect(shopIconSprite('nope')).toBeUndefined();
@@ -78,5 +80,10 @@ describe('shop icons', () => {
     expect(colours(icon('fluoro')).has(PAL.foam)).toBe(true);
     expect(colours(icon('smooth')).has(PAL.stoneLight)).toBe(true);
     expect(colours(icon('pro')).has(PAL.gold)).toBe(true);
+    expect(colours(icon('corn')).has(PAL.straw)).toBe(true);
+    expect(colours(icon('maggots')).has(PAL.cream)).toBe(true);
+    expect(colours(icon('strip')).has(PAL.pink)).toBe(true);
+    expect(colours(icon('strip')).has(PAL.stoneLight)).toBe(true); // the silver skin
+    expect(colours(icon('glow')).has(PAL.firefly)).toBe(true);
   });
 });

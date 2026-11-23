@@ -855,7 +855,10 @@ export class LakeScene extends Phaser.Scene {
     if (!r.rolled) return;
     this.setPlayer(r.player);
     this.seenDone = doneCount(questsOf(this.player));
-    if (r.paid) this.showToast(`Yesterday's quests paid: +${r.paid.coins} coins, +${r.paid.worms} worms`);
+    if (r.paid) {
+      const bait = Object.values(r.paid.baits).reduce((a, b) => a + b, 0);
+      this.showToast(`Yesterday's quests paid: +${r.paid.coins} coins, +${r.paid.worms} worms${bait > 0 ? `, +${bait} bait` : ''}`);
+    }
     this.questPanel?.refresh();
   }
 

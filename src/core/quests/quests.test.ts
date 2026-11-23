@@ -155,7 +155,7 @@ describe('syncQuests', () => {
     const p1 = { ...p0, quests: { ...p0.quests!, rerollUsed: true, list } };
     const r = syncQuests(p1, addDays(TODAY, 1));
     expect(r.rolled).toBe(true);
-    expect(r.paid).toEqual({ coins: 30, worms: 4 });
+    expect(r.paid).toMatchObject({ coins: 30, worms: 4 });
     expect(r.player.coins).toBe(40);
     expect(r.player.worms).toBe(5);
     expect(r.player.quests!.date).toBe(addDays(TODAY, 1));
@@ -271,7 +271,7 @@ describe('claimQuest', () => {
   const base: PlayerState = { ...newPlayer(), coins: 5, worms: 2, quests: board([done, quest('catchDeep', { target: 2 })]) };
   it('pays a finished quest once', () => {
     const r = claimQuest(base, 0);
-    expect(r.paid).toEqual({ coins: 30, worms: 4 });
+    expect(r.paid).toMatchObject({ coins: 30, worms: 4 });
     expect(r.player.coins).toBe(35);
     expect(r.player.worms).toBe(6);
     expect(r.player.quests!.list[0].claimed).toBe(true);

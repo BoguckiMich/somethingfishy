@@ -1,5 +1,6 @@
 import { DAILY_BOX } from '../data/daily';
-import type { PlayerState } from '../inventory';
+import { SHOP_BAITS } from '../data/baits';
+import { addBait, type PlayerState } from '../inventory';
 import { randInt, type Rng } from '../random';
 import { daysBetween, isValidDate } from './dates';
 
@@ -20,6 +21,8 @@ export const newDaily = (): DailyState => ({ lastBoxDate: null, streakTier: 0 })
 export interface BoxContents {
   worms: number;
   coins: number;
+  /** Special baits in the box (slice 15c), by id: glow bait from tier 2 up, sometimes a shop bait. Missing in older code paths = none. */
+  baits: Record<string, number>;
   /** A lucky box: about three times everything. */
   lucky: boolean;
   /** The streak tier this box was filled at (also the "Day-in-a-row" number). */
@@ -54,6 +57,14 @@ export function tierMultiplier(tier: number): number {
   return 1 + ((t - 1) / (DAILY_BOX.maxTier - 1)) * (DAILY_BOX.topTierMultiplier - 1);
 }
 
+/** Chance of glow bait in a box at this tier: 0 below minTier, then linear from chanceAtMinTier to chanceAtMaxTier. */
+export function glowChance(tier: number): number {
+  const G = DAILY_BOX.glow;
+  if (tier < G.minTier) return 0;
+  const t = Math.min(1, (tier - G.minTier) / Math.max(1, DAILY_BOX.maxTier - G.minTier));
+  return G.chanceAtMinTier + (G.chanceAtMaxTier - G.chanceAtMinTier) * t;
+}
+
 /** Rolls what a box holds at this tier (integers; worms are at least 1). */
 export function rollContents(tier: number, rng: Rng): BoxContents {
   const lucky = rng() < DAILY_BOX.luckyChance;
@@ -61,9 +72,14 @@ export function rollContents(tier: number, rng: Rng): BoxContents {
   const baseWorms = randInt(rng, DAILY_BOX.worms.min, DAILY_BOX.worms.max);
   const hasCoins = rng() < DAILY_BOX.coins.chance;
   const baseCoins = randInt(rng, DAILY_BOX.coins.min, DAILY_BOX.coins.max);
+  // The bait rolls come last so the rolls above keep their order (and their seeded test values).
+  const baits: Record<string, number> = {};
+  if (rng() < glowChance(tier)) baits.glow = randInt(rng, DAILY_BOX.glow.min, DAILY_BOX.glow.max);
+  if (rng() < DAILY_BOX.pack.chance) baits[SHOP_BAITS[randInt(rng, 0, SHOP_BAITS.length - 1)].id] = randInt(rng, DAILY_BOX.pack.min, DAILY_BOX.pack.max);
   return {
     worms: Math.max(1, Math.round(baseWorms * factor)),
     coins: hasCoins ? Math.round(baseCoins * factor) : 0,
+    baits,
     lucky,
     tier,
   };
@@ -79,13 +95,12 @@ export function openBox(player: PlayerState, today: string, rng: Rng): { player:
   if (!boxAvailable(daily, today)) return { player, contents: null };
   const tier = tierFor(daily, today);
   const contents = rollContents(tier, rng);
-  return {
-    contents,
-    player: {
-      ...player,
-      coins: player.coins + contents.coins,
-      worms: player.worms + contents.worms,
-      daily: { lastBoxDate: today, streakTier: tier },
-    },
+  let next: PlayerState = {
+    ...player,
+    coins: player.coins + contents.coins,
+    worms: player.worms + contents.worms,
+    daily: { lastBoxDate: today, streakTier: tier },
   };
+  for (const [id, n] of Object.entries(contents.baits)) next = addBait(next, id, n);
+  return { contents, player: next };
 }
