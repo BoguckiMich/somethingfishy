@@ -20,7 +20,8 @@ _Last updated: 2026-11-23._
 | 7 | Bag, shop, coins, worms, rod upgrades | merged |
 | 8 | Fish log + personal bests, "New species!" / record moments | merged |
 | 9 | Saving: autosave, export code, ⚙ settings panel (GAME_DESIGN §3 item 8) | merged |
-| 10 | Sound + second art pass (UI panels, fish sprites, pixel font) | next |
+| 10a | Sound: synthesised SFX + ambient by time of day, volume sliders in ⚙, `?debug=sounds` | merged |
+| 10b | Art pass: pixel font, panels, fish sprites, polish, Pajkel, dog fetch (GAME_DESIGN §3 item 9) | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -54,7 +55,13 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
-- Text uses default monospace (pixel font planned for slice 10).
+- Text uses default monospace (pixel font planned for slice 10b).
+- Sound (slice 10a): all synthesised in `src/audio/` (facade `sound.ts`; pure parts in `src/core/`
+  soundSettings/ambientMix/variation/callSchedule/reelClicks). User: frog "ribbit is better but not
+  perfect", polish later; crickets were lowered to ~2 kHz after "too high". Birds, cast whoosh and
+  slack tone are plain. Hidden-page silence and the first-tap unlock on Android were reasoned, not
+  exercised. Settings are volumes 0–100 under `rybki.settings.v1` (old booleans read as 100/0).
+  Opening any panel plays a tap; the dog "boofs" on petting and fetch bring/zoomies.
 
 ## How we work (user preferences — follow these)
 

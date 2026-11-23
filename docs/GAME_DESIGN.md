@@ -397,8 +397,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
 8. Fish log + personal bests ✅
 9. Saving (local + export code, ⚙ panel; details in §3 item 8) ✅
 10. Sound + second art pass (details in §3 item 9)
-    - 10a. Sound ← *current*
-    - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel)
+    - 10a. Sound ✅
+    - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel, dog fetch) ← *current*
 11. PWA + GitHub Pages deploy
 12. Legendary fish
 13. Daily bait box + daily quests (§5)
