@@ -575,7 +575,9 @@ open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5
   - *Online leaderboards* between players: needs a backend, accounts or nicknames, and cheat
     resistance (the game is fully client-side today, so any score can be faked). Ties into cloud
     sync (parked).
-  Open questions: does the gift version stay single-player with a separate "friends" build, which
+  Decided (user, 2026-11-23): no separate friends build. Later, a "choose your character" step at
+  the start lets friends play as someone else; for now the game stays Alex only.
+  Open questions: which
   records are fair to compare (biggest fish per species? weekly totals?), and where it would be
   hosted (GitHub Pages is static only).
 
