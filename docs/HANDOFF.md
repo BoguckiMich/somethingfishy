@@ -1,10 +1,10 @@
-﻿# Handoff — read this first in a new session
+# Handoff — read this first in a new session
 
 Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fishing game (PWA, portrait) made by the developer (Pajkel) as a gift
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 15c baits on its branch awaiting review; 15a/15b merged, not pushed)._
+_Last updated: 2026-11-23 (15c baits merged overnight; 15a/15b merged, not pushed)._
 
 ## Current state
 
