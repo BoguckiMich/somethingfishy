@@ -62,7 +62,8 @@ function tackleRow(
   const info = el('div', `font-size:${FS.body}px`);
   info.append(
     el('div', '', `${next.name}, ${next.price} coins`),
-    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `${next.effect}. You have: ${have}`),
+    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `${next.effect}.`),
+    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `You have: ${have}`),
   );
   const missing = Math.max(0, next.price - coins);
   row.append(
