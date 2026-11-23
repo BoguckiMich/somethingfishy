@@ -1,4 +1,6 @@
+import { sound } from '../audio/sound';
 import type { Profile } from '../core/profile';
+import type { SoundSettings } from '../core/soundSettings';
 import { saveSummary, type SaveData } from '../core/save';
 import { decodeSaveCode, type DecodeResult } from '../core/saveCode';
 import { SPECIES } from '../core/data/fish';
@@ -16,6 +18,9 @@ export interface SettingsStore {
   openNames(): void;
   /** False when the last write failed or storage is missing. */
   canSave(): boolean;
+  /** The Sounds / Ambience volumes, 0..100 (saved by the setter unless sandboxed). */
+  soundSettings(): SoundSettings;
+  setSoundSettings(s: SoundSettings): void;
   /** Dev sandbox: nothing here reaches storage. */
   sandbox: boolean;
 }
@@ -92,6 +97,32 @@ const row = (...kids: HTMLElement[]) => {
   return r;
 };
 
+/**
+ * A labelled volume slider (0..100 %, 0 reads "Off"). `onInput` fires while dragging,
+ * `onRelease` once the thumb is let go (to play a sample at the new level).
+ */
+const volumeRow = (label: string, initial: number, onInput: (v: number) => void, onRelease: (v: number) => void): HTMLElement => {
+  const r = el('div', 'display:flex;align-items:center;gap:10px;margin-top:8px');
+  r.append(el('div', `font-size:13px;color:${COLORS.text};width:76px;flex:none`, label));
+  const slider = el('input', `flex:1;min-width:0;margin:0;accent-color:${COLORS.gold};height:24px`);
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = '100';
+  slider.step = '5';
+  slider.value = String(initial);
+  slider.setAttribute('aria-label', `${label} volume`);
+  const value = el('div', `font-size:12px;color:${COLORS.cream};width:44px;flex:none;text-align:right;padding-right:4px;box-sizing:border-box`);
+  const paint = () => (value.textContent = Number(slider.value) === 0 ? 'Off' : `${slider.value}%`);
+  slider.addEventListener('input', () => {
+    paint();
+    onInput(Number(slider.value));
+  });
+  slider.addEventListener('change', () => onRelease(Number(slider.value)));
+  paint();
+  r.append(slider, value);
+  return r;
+};
+
 type Pending = { kind: 'import'; save: SaveData; profile: Profile } | { kind: 'startOver' };
 
 /** The ⚙ panel: export, import, change names, start over. */
@@ -144,6 +175,23 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
   function buildMain(body: HTMLElement): void {
     if (store.sandbox) body.append(note('DEV sandbox: changes here are not saved', COLORS.amber));
     else if (!store.canSave()) body.append(note("Can't save on this device; use Export to keep your progress.", COLORS.amber));
+
+    body.append(sectionTitle('Sound'));
+    const sounds = store.soundSettings();
+    body.append(
+      volumeRow(
+        'Sounds',
+        sounds.sfx,
+        (v) => store.setSoundSettings({ ...store.soundSettings(), sfx: v }),
+        () => sound.play('coin'), // a sample at the new level
+      ),
+      volumeRow(
+        'Ambience',
+        sounds.ambience,
+        (v) => store.setSoundSettings({ ...store.soundSettings(), ambience: v }),
+        () => undefined, // the ambience itself is the sample
+      ),
+    );
 
     body.append(sectionTitle('Export'));
     body.append(note('Copy this code to keep your game or move it to another device.'));

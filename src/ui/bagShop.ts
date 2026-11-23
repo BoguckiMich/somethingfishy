@@ -78,7 +78,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
             woodButton('Sell', () => {
               apply(sellOne(store.get(), i));
               panel.refresh();
-            }, { small: true }),
+            }, { small: true, sfx: 'coin' }),
           ),
         );
       });
@@ -86,7 +86,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         const all = woodButton(`Sell all (+${bagValue(p.bag)} coins)`, () => {
           apply(sellAll(store.get()));
           panel.refresh();
-        });
+        }, { sfx: 'coin' });
         all.style.cssText += ';width:100%;margin-top:8px';
         body.append(all);
       }
@@ -99,7 +99,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         woodButton('Buy', () => {
           apply(buyWorms(store.get()));
           panel.refresh();
-        }, { disabledReason: missing ? `need ${missing} more` : undefined }),
+        }, { disabledReason: missing ? `need ${missing} more` : undefined, sfx: 'coin' }),
       );
       body.append(wormLine);
 
@@ -122,7 +122,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
           woodButton('Buy', () => {
             apply(buyRod(store.get()));
             panel.refresh();
-          }, { disabledReason: rodMissing ? `need ${rodMissing} more` : undefined }),
+          }, { disabledReason: rodMissing ? `need ${rodMissing} more` : undefined, sfx: 'coin' }),
         );
         body.append(line);
       }

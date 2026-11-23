@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sound } from '../audio/sound';
 import { dayLook, lerpColor, moonArc, sunArc, type DayLook } from '../art/dayCycle';
 import {
   BOBBER_X,
@@ -41,10 +42,12 @@ import {
   type PlayerState,
 } from '../core/inventory';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
+import type { SoundSettings } from '../core/soundSettings';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
 import { showBagFullCard } from '../ui/bagFullCard';
 import { openBagPanel, openShopPanel } from '../ui/bagShop';
 import { openLogPanel } from '../ui/logPanel';
+import { openSoundBoard } from '../ui/soundBoard';
 import { recordCatch, type CatchOutcome, type FishLog } from '../core/fishLog';
 import { backupSave, clearSave, isSandbox, loadSave, startOver, writeSave, type SaveData } from '../core/save';
 import { encodeSaveCode } from '../core/saveCode';
@@ -236,6 +239,8 @@ export class LakeScene extends Phaser.Scene {
   /** Time since the last nibble, for the bobber dip animation. */
   private nibbleAge = Infinity;
   private toastAge = Infinity;
+  /** The fetch phase last frame, to bark when it changes. */
+  private lastPlayPhase: string | null = null;
   private elapsed = 0;
 
   constructor() {
@@ -396,6 +401,7 @@ export class LakeScene extends Phaser.Scene {
       if (this.anim >= 1) {
         if (this.state.kind === 'casting') {
           this.addRipple(this.state.distanceM, false);
+          sound.play('plop');
           this.send({ type: 'landed' });
         } else {
           this.send({ type: 'retrieved' });
@@ -409,6 +415,7 @@ export class LakeScene extends Phaser.Scene {
     this.nibbleAge += deltaMs;
     this.toastAge += deltaMs;
 
+    this.updateSound(deltaMs);
     this.companions.update(
       deltaMs,
       { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
@@ -416,6 +423,16 @@ export class LakeScene extends Phaser.Scene {
       dayLook(this.clock.minute).worldTint,
     );
     this.render(deltaMs);
+  }
+
+  /** Ambient follows the game clock; the reel clicks while the catch bar is held; the dog barks at fetch. */
+  private updateSound(deltaMs: number): void {
+    sound.setMinute(this.clock.minute);
+    sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
+    const play = this.companions.state;
+    const phase = play.mode === 'play' ? play.play.phase : null;
+    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'zoomies')) sound.play('boof');
+    this.lastPlayPhase = phase;
   }
 
   private send(input: FishingInput): void {
@@ -512,6 +529,8 @@ export class LakeScene extends Phaser.Scene {
       startOver: () => this.startNewGame(),
       openNames: () => this.openNames(),
       canSave: () => !this.saveFailed && this.safeStorage() !== undefined,
+      soundSettings: () => sound.current,
+      setSoundSettings: (s: SoundSettings) => sound.set(s),
       sandbox: this.sandbox,
     };
   }
@@ -554,6 +573,10 @@ export class LakeScene extends Phaser.Scene {
 
   /** Dev-only: ?debug=log|shop|bag|bagfull open the panels with a filled bag (screenshots). */
   private setupDebugPanels(dbg: string): void {
+    if (dbg === 'sounds') {
+      this.panel = openSoundBoard(this.clock.minute, () => (this.panel = null));
+      return;
+    }
     if (dbg === 'settings') {
       this.openPlayerPanel('settings');
       return;
@@ -587,28 +610,36 @@ export class LakeScene extends Phaser.Scene {
         this.nibbleAge = 0;
         this.addRipple(distanceM, false);
         vibrate(HAPTICS.nibble);
+        sound.play('nibble');
         break;
       case 'bite':
         this.addRipple(distanceM, true);
         vibrate(HAPTICS.bite);
+        sound.play('bite');
         break;
       case 'hooked':
         this.showToast(`Hooked! ${this.profile.companion} cheers!`);
         vibrate(HAPTICS.hooked);
+        sound.play('hook');
         break;
       case 'fishEscaped':
         this.showToast(e.reason === 'tooEarly' ? 'Too early, you scared it off' : 'Too slow, it got away…');
         vibrate(HAPTICS.escaped);
+        sound.play('slack');
         break;
       case 'fishCaught':
         vibrate(HAPTICS.caught);
         this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, true);
+        sound.play(this.catchOutcome.kind === 'normal' ? 'catch' : 'fanfare');
         break;
       case 'fishLost':
         this.showToast('It got away…');
         vibrate(HAPTICS.escaped);
+        sound.play('slack');
         break;
       case 'cast':
+        // The state is still the charging one: a fuller charge makes a higher, louder whoosh.
+        sound.play('cast', { charge: s.kind === 'charging' ? chargePower(s.heldMs) : 0.5 });
         break;
     }
   }
@@ -641,6 +672,7 @@ export class LakeScene extends Phaser.Scene {
     const dog = this.companions.dogRect();
     if (dog.contains(x, y)) {
       this.companions.pet();
+      sound.play('boof');
       this.showTag(2, this.profile.dog, dog.centerX, dog.y - 14);
       this.showToast(`${this.profile.dog} wags happily`);
       return true;

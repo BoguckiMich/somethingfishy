@@ -201,9 +201,12 @@ The game stars the two of them and their dog. Reference photos live untracked in
      - *Ambient:* water lapping always; birds by day, frogs at dusk, crickets at night, crossfaded
        on the game clock like `dayLook`. Birds/frogs are randomly spaced calls, not a fixed loop.
        Quiet under the SFX, no ducking during a fight.
-     - *Settings:* two toggles in the ⚙ panel, **Sounds** and **Ambience**, both on by default, no
-       volume sliders. Stored under their own key `rybki.settings.v1` (device preference): not in
-       `SaveData`, not in the export code.
+     - *Settings:* two volume sliders in the ⚙ panel, **Sounds** and **Ambience** (0–100 %, steps
+       of 5, 0 = "Off", default 100, squared gain curve), changed from on/off toggles after the
+       play-test. Stored under their own key `rybki.settings.v1` (device preference; old boolean
+       values read as 100 / 0): not in `SaveData`, not in the export code.
+     - *Play-test tuning:* crickets lowered from ~4 kHz to ~2 kHz (too high); frogs remade as a
+       raspy two-syllable "rib-bit" pulse train (the first version was a "boing").
      - *Playback:* audio unlocks on the first tap; everything is silent while the page is hidden.
      - *Dev:* `?debug=sounds` opens a sound board (a button per SFX and ambient layer + a time
        slider for the ambient crossfade). Sandboxed like the other flags.
@@ -221,6 +224,9 @@ The game stars the two of them and their dog. Reference photos live untracked in
        lighter; gear, worm and coin icons redrawn at a proper size; the sleep "z" redrawn;
        Pajkel: readable seated back view (lighter jacket/hair, separate shoulders, visible rod
        arm), fuller walking side view with a 2–3 frame walk, and **no glasses** in any view.
+     - *Dog fetch (from the 10a play-test):* the "bringing the stick back" graphics need polish,
+       and the zoomies running in circles look weird; rework both (shape of the run decided in
+       10b).
 
 ### v1 fish roster (decided for slice 6)
 
