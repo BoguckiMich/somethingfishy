@@ -357,6 +357,31 @@ be tweaked without touching logic.
 - **Livelier companion reactions in the fight** — Pajkel leans in or cheers during the fight,
   Bestia watches the line. Slice 5 only adds small reactions on a catch or loss.
 
+- **Lake moments** (cheap, near-term candidate after slice 13) — small random ambient scenes, art +
+  timing only, no new systems: a duck paddles past, a frog on a lily pad, a shooting star at night
+  (tap it for a few coins?), a bottle washes up with a short note. Rarely, late at night, a moment
+  is *uncanny*: bubbles rising where nobody cast, a shape under the water that's gone when you look.
+  Those quietly foreshadow the eldritch thread below.
+  Open questions: how often (per in-game hour?), are they tappable, do any give rewards, and is
+  there a log of moments seen?
+
+- **Eldritch thread (Cthulhu-like events)** — far future. A slow, cozy-creepy mystery under the
+  lake, told through rare events and eventually a quest line. Seeds can be planted early:
+  - *Slice 12 legendary* can be the first hint: bites only deep at ~03:00–04:00, the lake goes still
+    and slightly green during the fight, and its fact is a little wrong ("No one has caught it
+    twice. No one remembers why.").
+  - *Lake moments* (above) carry the uncanny ones.
+  - Later: a quest chain (strange notes in bottles, odd catches, a final encounter), maybe tied to
+    bedtime / night gear (02:00–05:00 is when things happen).
+  Open questions: tone (whimsical-spooky vs actually unsettling — must stay cozy, no fail state or
+  loss), is there a "sanity"-like mechanic (probably not; conflicts with "no energy"), does it end
+  in a special catch, a cosmetic, a new location?
+
+- **More lakes / locations & fishing methods** — far future, already sketched in the roadmap
+  (river, pond, sea, ice fishing; spinning, feeder, fly fishing). Open questions: how she travels
+  between locations (map screen vs walking), whether each location has its own fish log page,
+  and whether rods/gear are per method.
+
 ### Parked on purpose
 Weather & seasons · cloud sync · landscape/walkable world · music.
 
@@ -431,5 +456,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 10a. Sound ✅
     - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel, dog fetch) ✅
 11. PWA + GitHub Pages deploy (details in §3 item 10) ✅
-12. Legendary fish ← *next*
+11b. Readability polish (font, text legibility, update-toast position) ← *next*
+12. Legendary fish (first eldritch hint, see Ideas)
 13. Daily bait box + daily quests (§5)
+14. Lake moments (see Ideas) — candidate
