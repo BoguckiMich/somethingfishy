@@ -41,6 +41,7 @@ import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
 import { QUIET_LAKE } from '../core/data/locations';
 import { RODS } from '../core/data/rods';
+import { LINES, REELS } from '../core/data/tackle';
 import { SHOP } from '../core/data/shop';
 import type { GameEvent } from '../core/events';
 import { fightProfile, formatCatchSize, rollHookedFish, type HookedFish } from '../core/fish';
@@ -350,6 +351,11 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
     const rod = RODS.find((r) => r.id === params.get('rod'));
     if (rod) this.setPlayer({ ...this.player, rodId: rod.id });
+    // ?line=braided|fluoro and ?reel=smooth|pro own that line / reel (sandboxed like ?rod=).
+    const line = LINES.find((l) => l.id === params.get('line'));
+    if (line) this.setPlayer({ ...this.player, lineId: line.id });
+    const reel = REELS.find((r) => r.id === params.get('reel'));
+    if (reel) this.setPlayer({ ...this.player, reelId: reel.id });
     const coinsParam = Number(params.get('coins'));
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
