@@ -5,7 +5,7 @@ import { TRANSPARENT, type Sprite } from './pixelGrid';
 
 export const BAR_BORDER = 6;
 /** The window the fish and the zone move in (inner size, in pixels). */
-export const BAR_INNER = { w: 22, h: 340 };
+export const BAR_INNER = { w: 36, h: 340 };
 /** The slim progress strip next to the bar. */
 export const STRIP_INNER = { w: 6, h: 340 };
 

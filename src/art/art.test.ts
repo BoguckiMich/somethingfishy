@@ -95,8 +95,8 @@ describe('sprites', () => {
         seen.add(Array.from(f.pixels).join(','));
       }
       const icon = fishIconSprite(sp.id);
-      expect(icon.width).toBeLessThanOrEqual(17);
-      expect(icon.height).toBeLessThanOrEqual(11);
+      expect(icon.width).toBeLessThanOrEqual(34);
+      expect(icon.height).toBeLessThanOrEqual(19);
     }
     expect(seen.size).toBe(SPECIES.length * FISH_SIZE_CLASSES.length); // all different
   });

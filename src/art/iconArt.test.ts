@@ -76,7 +76,7 @@ describe('zSprite', () => {
 describe('barFrameSprite', () => {
   it('is thicker and lighter than before, with an unchanged window', () => {
     expect(BAR_BORDER).toBeGreaterThanOrEqual(6);
-    expect(BAR_INNER).toEqual({ w: 22, h: 340 });
+    expect(BAR_INNER).toEqual({ w: 36, h: 340 });
     const f = barFrameSprite(BAR_INNER.w, BAR_INNER.h);
     expect([f.width, f.height]).toEqual([BAR_INNER.w + BAR_BORDER * 2, BAR_INNER.h + BAR_BORDER * 2]);
     expect(at(f, BAR_BORDER + 3, BAR_BORDER + 3)).toBe(TRANSPARENT); // the window stays open
