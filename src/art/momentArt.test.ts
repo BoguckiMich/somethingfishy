@@ -9,11 +9,15 @@ describe('moment art', () => {
       expect(opaque, name).toBeGreaterThan(10);
     }
   });
-  it('the frog frames and the duck have the intended sizes', () => {
-    expect([MOMENT_SPRITES.frogIdle.width, MOMENT_SPRITES.frogIdle.height]).toEqual([14, 5]);
-    expect([MOMENT_SPRITES.frogPuff.width, MOMENT_SPRITES.frogPuff.height]).toEqual([14, 5]);
-    expect([MOMENT_SPRITES.frogPad.width, MOMENT_SPRITES.frogPad.height]).toEqual([14, 5]);
-    expect([MOMENT_SPRITES.duck.width, MOMENT_SPRITES.duck.height]).toEqual([14, 9]);
+  it('the sprites have the intended (phone-readable) sizes', () => {
+    const size = (k: string) => [MOMENT_SPRITES[k].width, MOMENT_SPRITES[k].height];
+    expect(size('duck')).toEqual([21, 11]);
+    expect(size('frogIdle')).toEqual([20, 8]);
+    expect(size('frogPuff')).toEqual([20, 8]);
+    expect(size('frogPad')).toEqual([20, 6]);
+    expect(size('bottle')).toEqual([19, 9]);
+    expect(size('jumpFish')).toEqual([21, 9]);
+    expect(size('shape')).toEqual([40, 9]);
   });
   it('a ring has no repeated pixels and spans the radii', () => {
     const pts = ringPoints(8, 3);

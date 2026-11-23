@@ -6,32 +6,37 @@ import { sprite, type Sprite } from './pixelGrid';
  * (scenes/MomentsView.ts) places, bobs, tints and fades them; nothing here knows about Phaser.
  */
 
-/** 14 x 9: a mallard drake facing right (green head, white collar, brown body). */
+/** 21 x 11: a mallard drake facing right (green head, white collar, brown body). */
 export const DUCK = sprite(
   `
-  .......ooo....
-  ......oggGo...
-  ......ogkGoyy.
-  ......oggGoYY.
-  .dd..owwwwo...
-  .ooooobBBBBbo.
-  oddbbBBBBBBbo.
-  .obbbbbbbbbbo.
-  ..oooooooooo..
+  ..........ooooo......
+  .........ogggggGo....
+  .........ogggkgGoyyy.
+  .........ogggggGoYYY.
+  ..........oggGGo.....
+  .........owwwwwwo....
+  .dd.....ooBBBBBBBbo..
+  .oddooobBBBBBBBBBbo..
+  oddbbbbBBBBBBBBBBbbo.
+  .obbbbbbbbbbbbbbbbo..
+  ...ooooooooooooooo...
 `,
   { o: PAL.outline, g: PAL.leafLight, G: PAL.leaf, k: PAL.outline, y: PAL.gold, Y: PAL.strawDark, w: PAL.white, b: PAL.wood, B: PAL.woodLight, d: PAL.woodDark },
 );
 
 const FROG_COLORS = { o: PAL.outline, F: PAL.leafHi, f: PAL.leaf, k: PAL.outline, c: PAL.cream, L: PAL.lily, l: PAL.lilyDark };
 
-/** 14 x 5: a frog sitting, mouth closed (it sits on the lily pad, which is its own 14 x 5 sprite below it). */
+/** 20 x 8: a frog sitting, mouth closed (it sits on the lily pad, its own 20 x 6 sprite right below it). */
 export const FROG_IDLE = sprite(
   `
-  ....oo..oo....
-  ...oFkooFko...
-  ...oFFFFFFo...
-  ..oFFFFFFFFo..
-  ..oFfFFFFfFo..
+  .....ooo....ooo.....
+  ....oFkFo..oFkFo....
+  ....oFFFooooFFFo....
+  ...oFFFFFFFFFFFFo...
+  ..oFFFFFFFFFFFFFFo..
+  ..oFfFFFFFFFFFFfFo..
+  .oFFFoFFFFFFFFoFFFo.
+  ..ooo..oooooooo..ooo
 `,
   FROG_COLORS,
 );
@@ -39,37 +44,43 @@ export const FROG_IDLE = sprite(
 /** The same frog with its throat puffed (alternates with the idle frame, a slow croak). */
 export const FROG_PUFF = sprite(
   `
-  ....oo..oo....
-  ...oFkooFko...
-  ...oFFFFFFo...
-  ..oFFFccFFFo..
-  ..oFfcccccFo..
+  .....ooo....ooo.....
+  ....oFkFo..oFkFo....
+  ....oFFFooooFFFo....
+  ...oFFFFFFFFFFFFo...
+  ..oFFFccccccccFFFo..
+  ..oFfFccccccFFFfFo..
+  .oFFFoFFFFFFFFoFFFo.
+  ..ooo..oooooooo..ooo
 `,
   FROG_COLORS,
 );
 
-/** 14 x 5: the lily pad the frog sits on (stays a moment after the frog plops in). */
+/** 20 x 6: the lily pad the frog sits on (stays a moment after the frog plops in). */
 export const FROG_PAD = sprite(
   `
-  ...oooooooo...
-  .ooLLLLLLLLoo.
-  oLLLLLLLLLLLlo
-  .oollllllllloo
-  ...oooooooo...
+  ....oooooooooooo....
+  ..ooLLLLLLLLLLLLoo..
+  .oLLLLLLLLLLLLLLLLo.
+  oLLLLLLLLLLLLLLLLLlo
+  .ooollllllllllllooo.
+  ....oooooooooooo....
 `,
   FROG_COLORS,
 );
 
-/** 15 x 7: a small silver fish facing right; the scene tilts it along its arc. */
+/** 21 x 9: a small silver fish facing right; the scene tilts it along its arc. */
 export const JUMP_FISH = sprite(
   `
-  ....ooooooo....
-  ..ooSSSSSSSoo..
-  .oTTSSSSSSSkSo.
-  oTTTsSSSSSSSSSo
-  .oTTsssssssssso
-  ..ooosssssssoo.
-  ....ooooooo....
+  ......oooooooooo.....
+  ....ooSSSSSSSSSSoo...
+  ..ooTSSSSSSSSSSSSSoo.
+  .oTTTSSSSSSSSSSSSkSSo
+  oTTTTsSSSSSSSSSSSSSSo
+  .oTTTsssssssssssssso.
+  ..ooTsssssssssssssoo.
+  ....oossssssssssoo...
+  ......oooooooooo.....
 `,
   { o: PAL.outline, S: PAL.foam, s: PAL.shallow3, T: PAL.shallow2, k: PAL.outline },
 );
@@ -88,16 +99,18 @@ export const STAR_HEAD = sprite(
   { g: PAL.gold, w: PAL.cream, W: PAL.white },
 );
 
-/** 14 x 7: a corked bottle with a rolled note, lying on the water. */
+/** 19 x 9: a corked bottle with a rolled note, lying on the water. */
 export const BOTTLE = sprite(
   `
-  ..oooooo......
-  .oGGGGGGo.....
-  oGGPPPPGGoooo.
-  oGGPpPPGGGGCCo
-  oGGPPPPGGoooo.
-  .ogggggggo....
-  ..oooooo......
+  ..ooooooooo........
+  .oGGGGGGGGGo.......
+  oGGPPPPPPPGGoooooo.
+  oGGPpppPPPGGGGGGCCo
+  oGGPPpPPPPGGGGGGCCo
+  oGGPPPPPPPGGGGGGCCo
+  oGGPPPPPPPGGoooooo.
+  .ogggggggggo.......
+  ..ooooooooo........
 `,
   { o: PAL.outline, G: PAL.foam, g: PAL.shallow3, P: PAL.cream, p: PAL.sandDark, C: PAL.woodLight },
 );
@@ -107,18 +120,20 @@ export const BUBBLE_SMALL: readonly (readonly [number, number])[] = [[0, -1], [-
 export const BUBBLE_BIG: readonly (readonly [number, number])[] = [[-1, -2], [0, -2], [1, -2], [-2, -1], [2, -1], [-2, 0], [2, 0], [-2, 1], [2, 1], [-1, 2], [0, 2], [1, 2]];
 export const BUBBLE_BIG_HIGHLIGHT: readonly [number, number] = [1, -1];
 
-/** 32 x 7: a long dark shape under the water (drawn translucent by the scene). */
+/** 40 x 9: a long dark shape under the water, with a lighter rim along its back so it still reads on night water (drawn translucent by the scene). */
 export const SHAPE = sprite(
   `
-  ..........DDDDDDDD..............
-  .....DDDDDDDDDDDDDDDDD..........
-  DD.DDDDDDDDDDDDDDDDDDDDDDD......
-  DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD..
-  DD.DDDDDDDDDDDDDDDDDDDDDDD......
-  .....DDDDDDDDDDDDDDDDD..........
-  ..........DDDDDDDD..............
+  ..............RRRRRRRRRRRRRRR...........
+  RR.........RRRDDDDDDDDDDDDDDDRRR........
+  DDRR.....RRDDDDDDDDDDDDDDDDDDDDDRR......
+  DDDDRRRRRDDDDDDDDDDDDDDDDDDDDDDDDDRRRR..
+  ..DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDRR
+  DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD..
+  DDDD.....DDDDDDDDDDDDDDDDDDDDDDDDD......
+  DD.........DDDDDDDDDDDDDDDDDDDDD........
+  ..............DDDDDDDDDDDDDDD...........
 `,
-  { D: PAL.outline },
+  { D: PAL.outline, R: PAL.deep2 },
 );
 
 /**

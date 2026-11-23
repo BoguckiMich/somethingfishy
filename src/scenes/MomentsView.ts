@@ -178,15 +178,15 @@ export class MomentsView {
         break;
       case 'star': {
         // A falling star: from high on one side to lower on the other, well inside the sky.
-        const y0 = randRange(r, 34, 62);
-        a.from = { x: a.dir > 0 ? 130 : W - 40, y: y0 };
-        a.to = { x: a.dir > 0 ? W - 40 : 130, y: y0 + 56 };
+        const y0 = randRange(r, 60, 72);
+        a.from = { x: a.dir > 0 ? 130 : 330, y: y0 };
+        a.to = { x: a.dir > 0 ? 330 : 130, y: y0 + 40 };
         a.x = a.from.x;
         a.y = a.from.y;
         break;
       }
       case 'bottle':
-        a.x = -14;
+        a.x = -20;
         a.y = BOTTLE_REST.y;
         break;
       case 'bubbles':
@@ -233,15 +233,15 @@ export class MomentsView {
     };
     switch (a.kind) {
       case 'duck':
-        return box(a.x, a.y, 24, 24);
+        return box(a.x, a.y, 28, 28);
       case 'frog':
-        return a.age < a.frogLeaves && a.age > 300 ? box(a.x, a.y + 3, 24, 24) : null;
+        return a.age < a.frogLeaves && a.age > 300 ? box(a.x, a.y + 4, 28, 28) : null;
       case 'jump':
         return null;
       case 'star':
         return box(a.x, a.y, 56, 56); // a fast thing: a generous box
       case 'bottle':
-        return canOpenCard && a.age > 600 ? box(a.x, a.y, 24, 24) : null;
+        return canOpenCard && a.age > 600 ? box(a.x, a.y, 28, 28) : null;
       case 'bubbles':
         return box(a.x, a.y - 12, 40, 44);
       case 'shape':
@@ -417,11 +417,11 @@ export class MomentsView {
     this.main.setFlipX(a.dir < 0).setAngle(0);
     // The wake: foam dots trailing behind the body in a V; wider when it hurries.
     for (let i = 1; i <= 5; i++) {
-      const bx = a.x - a.dir * (6 + i * 4);
+      const bx = a.x - a.dir * (10 + i * 4);
       const spread = Math.round(i * (hurry ? 0.9 : 0.6));
       this.fx.fillStyle(multiply(PAL.foam, tint), alpha * (0.85 - i * 0.14));
-      this.fx.fillRect(Math.round(bx), Math.round(a.y) + 4 - spread, 1, 1);
-      this.fx.fillRect(Math.round(bx), Math.round(a.y) + 4 + spread, 1, 1);
+      this.fx.fillRect(Math.round(bx), Math.round(a.y) + 5 - spread, 1, 1);
+      this.fx.fillRect(Math.round(bx), Math.round(a.y) + 5 + spread, 1, 1);
     }
     return a.x > W + 20 || a.x < -20;
   }
@@ -432,7 +432,7 @@ export class MomentsView {
       a.tappedAge = 0;
       this.hooks.sfx('plop');
     }
-    const padY = a.y + 5;
+    const padY = a.y + 7;
     if (a.leftAt < 0) {
       // Sitting: idle most of the time, throat puffed for a moment now and then.
       const puff = a.age % 3200 > 2500;
@@ -445,13 +445,13 @@ export class MomentsView {
     const hopMs = 320;
     const t = since / hopMs;
     if (t < 1) {
-      this.place(this.main, 'frogIdle', a.x + 8 * t * a.dir, a.y - Math.sin(t * Math.PI) * 10 + 4 * t * t, alpha, tint, DEPTH.water);
+      this.place(this.main, 'frogIdle', a.x + 10 * t * a.dir, a.y - Math.sin(t * Math.PI) * 12 + 6 * t * t, alpha * (t > 0.7 ? (1 - t) / 0.3 : 1), tint, DEPTH.water);
       this.place(this.second, 'frogPad', a.x, padY, alpha, tint, DEPTH.water - 0.01);
       return false;
     }
     if (a.stage === 0) {
       a.stage = 1;
-      this.rings.push({ x: a.x + 8 * a.dir, y: padY + 1, age: 0, ms: 1200, rx: 9, ry: 3 });
+      this.rings.push({ x: a.x + 10 * a.dir, y: padY + 1, age: 0, ms: 1200, rx: 11, ry: 3.5 });
     }
     const padAlpha = alpha * Math.max(0, 1 - (since - hopMs - 1200) / 700);
     if (padAlpha <= 0) return true;
@@ -461,12 +461,12 @@ export class MomentsView {
 
   private updateJump(a: Active, tint: number): void {
     const flightMs = 700;
-    const reach = 26 * a.dir;
-    const height = 34;
+    const reach = 34 * a.dir;
+    const height = 40;
     if (a.stage === 0) {
       a.stage = 1;
       this.hooks.sfx('plop');
-      this.rings.push({ x: a.x, y: a.y, age: 0, ms: 700, rx: 7, ry: 2 });
+      this.rings.push({ x: a.x, y: a.y, age: 0, ms: 700, rx: 9, ry: 2.5 });
     }
     const t = a.age / flightMs;
     if (t < 1) {
@@ -481,8 +481,8 @@ export class MomentsView {
       a.stage = 2;
       this.hooks.sfx('plop');
       const lx = a.x + reach;
-      this.rings.push({ x: lx, y: a.y, age: 0, ms: 1300, rx: 15, ry: 4.5 });
-      this.rings.push({ x: lx, y: a.y, age: -260, ms: 1300, rx: 15, ry: 4.5 });
+      this.rings.push({ x: lx, y: a.y, age: 0, ms: 1300, rx: 18, ry: 5.5 });
+      this.rings.push({ x: lx, y: a.y, age: -260, ms: 1300, rx: 18, ry: 5.5 });
     }
   }
 
@@ -521,7 +521,7 @@ export class MomentsView {
     let x = BOTTLE_REST.x;
     let al = alpha;
     if (a.age < approachMs) {
-      x = -14 + (BOTTLE_REST.x + 14) * ease(a.age / approachMs);
+      x = -20 + (BOTTLE_REST.x + 20) * ease(a.age / approachMs);
     } else if (a.age >= stayEnd) {
       const t = (a.age - stayEnd) / leaveMs; // drifts off to the left again
       x = BOTTLE_REST.x - 40 * t;
@@ -533,7 +533,7 @@ export class MomentsView {
     this.main.setFlipX(false).setAngle(Math.sin(a.age / 900) > 0 ? 5 : 0);
     // Small rings now and then where it sits.
     const k = (a.age % 2600) / 2600;
-    if (a.age > approachMs && k < 0.5) this.ring(x, a.y + 4, 4 + k * 12, 1.5 + k * 4, (1 - k * 2) * 0.55 * al, tint);
+    if (a.age > approachMs && k < 0.5) this.ring(x, a.y + 5, 5 + k * 14, 1.5 + k * 4.5, (1 - k * 2) * 0.55 * al, tint);
     return false;
   }
 
@@ -542,8 +542,8 @@ export class MomentsView {
     if (!stopped && a.age < a.life - 2500) {
       a.spawnIn -= dtMs;
       if (a.spawnIn <= 0) {
-        a.spawnIn = randRange(this.rng, 120, 280);
-        this.bubbles.push({ x: a.x + randInt(this.rng, -5, 5), y: a.y, age: 0, rise: randRange(this.rng, 28, 44), big: this.rng() < 0.4, phase: this.rng() * 6 });
+        a.spawnIn = randRange(this.rng, 70, 170);
+        this.bubbles.push({ x: a.x + randInt(this.rng, -5, 5), y: a.y, age: 0, rise: randRange(this.rng, 28, 44), big: this.rng() < 0.5, phase: this.rng() * 6 });
       }
       a.nextSound -= dtMs;
       if (a.nextSound <= 0) {
@@ -552,8 +552,8 @@ export class MomentsView {
       }
     }
     // A faint dark patch where they come from.
-    this.fx.fillStyle(multiply(PAL.deep0, tint), 0.3 * alpha);
-    for (const p of ringPoints(5, 1.6)) this.fx.fillRect(Math.round(a.x) + p.x, Math.round(a.y) + 2 + p.y, 1, 1);
+    this.fx.fillStyle(multiply(PAL.deep0, tint), 0.45 * alpha * Math.min(1, Math.max(0, (a.life - a.age) / 1500)));
+    for (const p of ringPoints(7, 2.2)) this.fx.fillRect(Math.round(a.x) + p.x, Math.round(a.y) + 2 + p.y, 1, 1);
     const RISE_MS = 1700;
     for (const b of this.bubbles) b.age += dtMs * (stopped ? 2.4 : 1);
     for (const b of this.bubbles) {
@@ -562,9 +562,9 @@ export class MomentsView {
       const x = Math.round(b.x + Math.sin(b.phase + t * 7) * 2);
       const y = Math.round(b.y - b.rise * ease(t));
       const al = (t > 0.8 ? (1 - t) / 0.2 : 1) * alpha;
-      this.fx.fillStyle(multiply(PAL.foam, lift(tint)), Math.min(1, al * 1.3));
+      this.fx.fillStyle(multiply(PAL.white, lift(tint)), Math.min(1, al * 1.5));
       for (const [dx, dy] of b.big ? BUBBLE_BIG : BUBBLE_SMALL) this.fx.fillRect(x + dx, y + dy, 1, 1);
-      if (b.big) this.fx.fillStyle(multiply(PAL.white, lift(tint)), al).fillRect(x + BUBBLE_BIG_HIGHLIGHT[0], y + BUBBLE_BIG_HIGHLIGHT[1], 1, 1);
+      if (b.big) this.fx.fillStyle(multiply(PAL.foam, lift(tint)), al).fillRect(x + BUBBLE_BIG_HIGHLIGHT[0], y + BUBBLE_BIG_HIGHLIGHT[1], 1, 1);
       if (t > 0.9) this.ring(x, y, 3 + (t - 0.9) * 40, 1 + (t - 0.9) * 12, (1 - t) * 5 * 0.5, tint);
     }
     this.bubbles = this.bubbles.filter((b) => b.age < RISE_MS);
@@ -573,16 +573,20 @@ export class MomentsView {
   }
 
   private updateShape(a: Active, dtMs: number, tint: number): boolean {
-    const under = multiply(tint, 0x7f8aa0);
+    const under = tint;
     if (a.tappedAge >= 0) {
       // It sinks: down a few pixels and gone.
       const t = Math.min(1, a.tappedAge / 800);
-      this.place(this.main, 'shape', a.x, a.y + t * 10, 0.5 * (1 - t), under, DEPTH.under);
+      this.place(this.main, 'shape', a.x, a.y + t * 10, 0.62 * (1 - t), under, DEPTH.under);
       return t >= 1;
     }
     a.x += a.dir * 4 * (dtMs / 1000); // a slow drift
     const fade = a.fadeLeft >= 0 ? Math.max(0, a.fadeLeft / MOMENT_TUNING.fadeOutMs) : 1;
-    const al = 0.55 * Math.min(1, a.age / 2200) * Math.min(1, (a.life - a.age) / 2400) * fade;
+    const al = 0.65 * Math.min(1, a.age / 2600) * Math.min(1, (a.life - a.age) / 2800) * fade;
+    if (a.stage === 0 && a.age > 3500) {
+      a.stage = 1; // one slow ripple above it, as if something breathed out
+      this.rings.push({ x: a.x, y: a.y - 1, age: 0, ms: 2600, rx: 24, ry: 5 });
+    }
     this.place(this.main, 'shape', a.x, a.y + Math.round(Math.sin(a.age / 900)), al, under, DEPTH.under);
     this.main.setFlipX(a.dir < 0).setAngle(0);
     return false;
