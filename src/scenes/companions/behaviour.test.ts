@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { RECORD_LINES } from '../../core/data/pajkelLines';
 import {
+  BUBBLE_FADE_MS,
+  BUBBLE_MS,
   CLAP_BIG_MS,
   CLAP_MS,
   DOG_MOUTH,
@@ -14,8 +17,11 @@ import {
   companionPress,
   createCompanions,
   dogView,
+  pajSay,
   pajWalkFrame,
   petDog,
+  pickLine,
+  bubbleAlpha,
   startPlayNow,
   tickCompanions,
   type Companions,
@@ -331,5 +337,54 @@ describe('reactions to the fight result', () => {
     const s = createCompanions(rng);
     run(s, 40_000, { fishing: 'fighting', night: false });
     expect(s.mode).toBe('dock');
+  });
+});
+
+describe("Pajkel's speech bubble", () => {
+  it('starts empty, shows a line for BUBBLE_MS and then goes away', () => {
+    const s = createCompanions(rng);
+    expect(s.bubble).toBeNull();
+    pajSay(s, 'New record!');
+    expect(s.bubble).toEqual({ text: 'New record!', ageMs: 0 });
+    run(s, BUBBLE_MS - 100);
+    expect(s.bubble?.text).toBe('New record!');
+    run(s, 150);
+    expect(s.bubble).toBeNull();
+  });
+  it('a new line replaces the old one and restarts the timer', () => {
+    const s = createCompanions(rng);
+    pajSay(s, 'one');
+    run(s, 2000);
+    pajSay(s, 'two');
+    expect(s.bubble).toEqual({ text: 'two', ageMs: 0 });
+    run(s, 2000);
+    expect(s.bubble?.text).toBe('two');
+  });
+  it('keeps ticking while he walks (the bubble is per Pajkel, not per place)', () => {
+    const s = createCompanions(rng);
+    startPlayNow(s);
+    pajSay(s, 'hi');
+    run(s, 1000);
+    expect(s.bubble?.text).toBe('hi');
+  });
+  it('fades over the last BUBBLE_FADE_MS', () => {
+    expect(bubbleAlpha(null)).toBe(0);
+    expect(bubbleAlpha({ text: 'x', ageMs: 0 })).toBe(1);
+    expect(bubbleAlpha({ text: 'x', ageMs: BUBBLE_MS - BUBBLE_FADE_MS })).toBe(1);
+    expect(bubbleAlpha({ text: 'x', ageMs: BUBBLE_MS - BUBBLE_FADE_MS / 2 })).toBeCloseTo(0.5);
+    expect(bubbleAlpha({ text: 'x', ageMs: BUBBLE_MS })).toBe(0);
+  });
+  it('pickLine picks by the random number and survives odd lists', () => {
+    expect(pickLine(['a', 'b', 'c'], () => 0)).toBe('a');
+    expect(pickLine(['a', 'b', 'c'], () => 0.5)).toBe('b');
+    expect(pickLine(['a', 'b', 'c'], () => 0.999)).toBe('c');
+    expect(pickLine([], () => 0.5)).toBe('');
+  });
+  it('the record lines are short plain ASCII that fit one line at 360 px', () => {
+    expect(RECORD_LINES).toEqual(["That's a beast... hehe", 'New record!', 'Look at the size of it!']);
+    for (const l of RECORD_LINES) {
+      expect(l).toMatch(/^[\x20-\x7e]+$/);
+      expect(l.length).toBeLessThanOrEqual(25);
+    }
   });
 });

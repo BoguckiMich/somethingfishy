@@ -44,6 +44,16 @@ export const HOP_MS = 1500;
 export const CLAP_BIG_MS = 3600;
 export const HOP_BIG_MS = 2800;
 
+/** Pajkel's speech bubble stays this long (the last FADE ms fade out). */
+export const BUBBLE_MS = 3000;
+export const BUBBLE_FADE_MS = 300;
+
+export interface Bubble {
+  text: string;
+  /** Ms since it appeared. */
+  ageMs: number;
+}
+
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
 export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning';
@@ -93,6 +103,8 @@ export interface Companions {
     clapTotalMs: number;
   };
   stick: Stick;
+  /** What Pajkel is saying right now, or null. Only one at a time: a new line replaces the old. */
+  bubble: Bubble | null;
   play: { phase: PlayPhase; phaseMs: number; fetches: number; target: Point; /** Which way the dog faced when the spin began. */ spinFace: 1 | -1 };
 }
 
@@ -127,6 +139,7 @@ export function createCompanions(rng: Rng = Math.random): Companions {
     },
     paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
     stick: { x: 0, y: 0, state: 'hidden' },
+    bubble: null,
     play: { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 },
   };
 }
@@ -174,6 +187,22 @@ export function companionEvent(s: Companions, e: GameEventKind, big = false): vo
     s.paj.shape = 'look';
     s.paj.reactMs = 0;
   }
+}
+
+/** Pajkel says something: a bubble over his head for BUBBLE_MS. A new line replaces the one showing. */
+export function pajSay(s: Companions, text: string): void {
+  s.bubble = { text, ageMs: 0 };
+}
+
+/** The bubble's opacity: 1, fading to 0 over its last BUBBLE_FADE_MS; 0 when there is none. */
+export function bubbleAlpha(b: Bubble | null): number {
+  if (!b) return 0;
+  return Math.max(0, Math.min(1, (BUBBLE_MS - b.ageMs) / BUBBLE_FADE_MS));
+}
+
+/** A random line from a list (a list of one gives that line; an empty list gives ''). */
+export function pickLine(lines: readonly string[], rng: Rng = Math.random): string {
+  return lines.length === 0 ? '' : lines[Math.min(lines.length - 1, Math.floor(rng() * lines.length))];
 }
 
 /** Pet the dog. Returns true when it happened (the scene shows the heart). */
@@ -256,6 +285,7 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
   else s.idleMs += dtMs;
 
   if (s.dog.petMs > 0) s.dog.petMs = Math.max(0, s.dog.petMs - dtMs);
+  if (s.bubble) s.bubble = s.bubble.ageMs + dtMs >= BUBBLE_MS ? null : { ...s.bubble, ageMs: s.bubble.ageMs + dtMs };
 
   if (s.mode === 'dock') {
     tickDock(s, dtMs, ctx, rng);

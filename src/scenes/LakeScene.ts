@@ -75,7 +75,8 @@ import { openSettingsPanel } from '../ui/settingsPanel';
 import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar } from './BottomBar';
 import { CatchBarView } from './CatchBarView';
-import { companionEvent, companionPress, startPlayNow, tickCompanions } from './companions/behaviour';
+import { companionEvent, companionPress, pickLine, startPlayNow, tickCompanions } from './companions/behaviour';
+import { RECORD_LINES } from '../core/data/pajkelLines';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
 
@@ -253,6 +254,8 @@ export class LakeScene extends Phaser.Scene {
   private momentGap: Scheduler = newScheduler(Math.random);
   private lastMoment: MomentKind | null = null;
   private debugMoment: { kind: MomentKind; inMs: number } | null = null;
+  /** ?debug=bubble: ms until Pajkel says a line (dev only), or null. */
+  private debugBubbleInMs: number | null = null;
   private crateImg!: Phaser.GameObjects.Image;
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
@@ -337,6 +340,7 @@ export class LakeScene extends Phaser.Scene {
     const dbg = params.get('debug') ?? '';
     const debugKind = dbg.startsWith('moment=') ? MOMENT_KINDS.find((k) => k === dbg.slice(7)) : undefined;
     if (debugKind) this.debugMoment = { kind: debugKind, inMs: 1000 };
+    if (dbg === 'bubble') this.debugBubbleInMs = 1000;
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
     // Dev-only: ?fish=<pattern>&diff=<0..1> forces the fish; ?debug=fight / ?debug=caught jump into those states.
     if (params.has('fish') || params.has('diff')) {
@@ -518,6 +522,10 @@ export class LakeScene extends Phaser.Scene {
 
     this.updateSound(deltaMs);
     this.updateMoments(deltaMs);
+    if (this.debugBubbleInMs !== null && (this.debugBubbleInMs -= deltaMs) <= 0) {
+      this.companions.say(pickLine(RECORD_LINES));
+      this.debugBubbleInMs = null;
+    }
     this.companions.update(
       deltaMs,
       { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
@@ -621,6 +629,8 @@ export class LakeScene extends Phaser.Scene {
     const showOffMs = slipsAway(hooked.speciesId) ? PALE_ONE.showOffMs : r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined;
     this.ctx = { ...this.ctx, showOffMs };
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
+    // Pajkel praises a record out loud (slice 15a). The dev catch (celebrate = false) speaks too, so ?debug=caught&log=all shows it.
+    if (r.outcome.kind === 'newRecord') this.companions.say(pickLine(RECORD_LINES));
   }
 
   /** The player's side of a game event: bait use. */
