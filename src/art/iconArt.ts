@@ -3,7 +3,8 @@ import { TRANSPARENT, type Sprite } from './pixelGrid';
 
 /** Pure art for the small UI icons (gear, worm, coin) and the sleep "z", drawn at 16 x 16 on the 360 px canvas. */
 
-const SIZE = 16;
+export const ICON_SIZE = 16;
+const SIZE = ICON_SIZE;
 const PINK_DARK = 0xc4607e;
 const PINK_LIGHT = 0xffc2d2;
 
@@ -27,7 +28,7 @@ function addOutline(filled: Int32Array, w: number, h: number, neighbours: number
 }
 
 /** Paints `mask` (on a (SIZE-2) grid, TRANSPARENT = empty) into a SIZE grid with a 1 px outline around it. */
-function outlined(mask: (x: number, y: number) => number): Sprite {
+export function outlined(mask: (x: number, y: number) => number): Sprite {
   const inner = SIZE - 2;
   const filled = new Int32Array(SIZE * SIZE).fill(TRANSPARENT);
   for (let y = 0; y < inner; y++) for (let x = 0; x < inner; x++) filled[(y + 1) * SIZE + x + 1] = mask(x, y);
