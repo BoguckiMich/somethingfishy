@@ -3,10 +3,10 @@ import { MOMENT_SPRITES, ringPoints } from './momentArt';
 import { TRANSPARENT } from './pixelGrid';
 
 describe('moment art', () => {
-  it('every sprite has some visible pixels and no row is empty at the edges of the bounding box', () => {
+  it('every sprite has visible pixels', () => {
     for (const [name, s] of Object.entries(MOMENT_SPRITES)) {
       const opaque = Array.from(s.pixels).filter((p) => p !== TRANSPARENT).length;
-      expect(opaque, name).toBeGreaterThan(5);
+      expect(opaque, name).toBeGreaterThan(10);
     }
   });
   it('the frog frames and the duck have the intended sizes', () => {

@@ -60,14 +60,16 @@ export const FROG_PAD = sprite(
   FROG_COLORS,
 );
 
-/** 11 x 5: a small silver fish facing right; the scene tilts it along its arc. */
+/** 15 x 7: a small silver fish facing right; the scene tilts it along its arc. */
 export const JUMP_FISH = sprite(
   `
-  ...oooooo..
-  .oSSSSSSSo.
-  oTSSSSSkSSo
-  .osssssssso
-  ...oooooo..
+  ....ooooooo....
+  ..ooSSSSSSSoo..
+  .oTTSSSSSSSkSo.
+  oTTTsSSSSSSSSSo
+  .oTTsssssssssso
+  ..ooosssssssoo.
+  ....ooooooo....
 `,
   { o: PAL.outline, S: PAL.foam, s: PAL.shallow3, T: PAL.shallow2, k: PAL.outline },
 );
@@ -100,25 +102,10 @@ export const BOTTLE = sprite(
   { o: PAL.outline, G: PAL.foam, g: PAL.shallow3, P: PAL.cream, p: PAL.sandDark, C: PAL.woodLight },
 );
 
-/** 3 x 3 and 5 x 5 bubbles. */
-export const BUBBLE_S = sprite(
-  `
-  .W.
-  W.W
-  .W.
-`,
-  { W: PAL.foam },
-);
-export const BUBBLE_M = sprite(
-  `
-  .WWW.
-  W...W
-  W..hW
-  W...W
-  .WWW.
-`,
-  { W: PAL.foam, h: PAL.white },
-);
+/** Bubbles as pixel offsets from their centre (drawn tinted and faded by the scene): a 3 x 3 and a 5 x 5 ring, the big one with a highlight. */
+export const BUBBLE_SMALL: readonly (readonly [number, number])[] = [[0, -1], [-1, 0], [1, 0], [0, 1]];
+export const BUBBLE_BIG: readonly (readonly [number, number])[] = [[-1, -2], [0, -2], [1, -2], [-2, -1], [2, -1], [-2, 0], [2, 0], [-2, 1], [2, 1], [-1, 2], [0, 2], [1, 2]];
+export const BUBBLE_BIG_HIGHLIGHT: readonly [number, number] = [1, -1];
 
 /** 32 x 7: a long dark shape under the water (drawn translucent by the scene). */
 export const SHAPE = sprite(
@@ -163,7 +150,5 @@ export const MOMENT_SPRITES: Record<string, Sprite> = {
   jumpFish: JUMP_FISH,
   starHead: STAR_HEAD,
   bottle: BOTTLE,
-  bubbleS: BUBBLE_S,
-  bubbleM: BUBBLE_M,
   shape: SHAPE,
 };

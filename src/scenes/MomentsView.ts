@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { SfxName } from '../audio/sound';
 import { W } from '../art/layout';
-import { ringPoints } from '../art/momentArt';
+import { BUBBLE_BIG, BUBBLE_BIG_HIGHLIGHT, BUBBLE_SMALL, ringPoints } from '../art/momentArt';
 import { PAL } from '../art/palette';
 import { momentKey } from '../art/textures';
 import { MOMENTS, MOMENT_TUNING, type MomentKind } from '../core/data/moments';
@@ -41,6 +41,11 @@ const FLOAT_MS = 1500;
 const multiply = (a: number, b: number): number => {
   const ch = (s: number) => Math.round((((a >> s) & 255) * ((b >> s) & 255)) / 255);
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
+/** Half way to white: things that should still read at night (bubbles) use this instead of the full tint. */
+const lift = (tint: number): number => {
+  const ch = (s: number) => ((((tint >> s) & 255) + 255) >> 1) << s;
+  return ch(16) | ch(8) | ch(0);
 };
 const ease = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 2;
 
@@ -173,9 +178,9 @@ export class MomentsView {
         break;
       case 'star': {
         // A falling star: from high on one side to lower on the other, well inside the sky.
-        const y0 = randRange(r, 18, 56);
-        a.from = { x: a.dir > 0 ? 40 : W - 40, y: y0 };
-        a.to = { x: a.dir > 0 ? W - 40 : 40, y: y0 + 70 };
+        const y0 = randRange(r, 34, 62);
+        a.from = { x: a.dir > 0 ? 130 : W - 40, y: y0 };
+        a.to = { x: a.dir > 0 ? W - 40 : 130, y: y0 + 56 };
         a.x = a.from.x;
         a.y = a.from.y;
         break;
@@ -267,7 +272,7 @@ export class MomentsView {
         const coins = this.hooks.claimStar();
         this.hooks.sfx('sparkle');
         this.burst = { x: a.x, y: a.y, age: 0 };
-        this.showFloat(`Make a wish!\n+${coins} coins`, a.x, a.y + 4, true);
+        this.showFloat(`Make a wish!\n+${coins} coins`, a.x, a.y + 44, true);
         break;
       }
       case 'bottle':
@@ -287,7 +292,7 @@ export class MomentsView {
 
   private showFloat(text: string, x: number, y: number, icon: boolean): void {
     this.floatText.setText(text);
-    this.floatAt = { x: Math.round(Phaser.Math.Clamp(x, 70, W - 70)), y: Math.round(y) };
+    this.floatAt = { x: Math.round(Phaser.Math.Clamp(x, 80, W - 80)), y: Math.round(y) };
     this.floatAge = 0;
     this.floatIcon.setData('show', icon);
   }
@@ -317,7 +322,7 @@ export class MomentsView {
     }
     a.age += dtMs;
     if (a.tappedAge >= 0) a.tappedAge += dtMs;
-    if (a.fadeLeft >= 0) a.fadeLeft -= dtMs;
+    if (a.fadeLeft >= 0) a.fadeLeft = Math.max(0, a.fadeLeft - dtMs);
     const fade = a.fadeLeft >= 0 ? Math.max(0, a.fadeLeft / MOMENT_TUNING.fadeOutMs) : 1;
     const inAlpha = Math.min(1, a.age / 350);
     const alpha = inAlpha * fade;
@@ -384,9 +389,9 @@ export class MomentsView {
     if (!on) return;
     const k = this.floatAge / FLOAT_MS;
     const alpha = Math.min(1, (FLOAT_MS - this.floatAge) / 400);
-    const y = this.floatAt.y - 16 - k * 22;
+    const y = this.floatAt.y - k * 16;
     this.floatText.setPosition(this.floatAt.x, y).setAlpha(alpha);
-    this.floatIcon.setPosition(this.floatAt.x, y - 30 + Math.round(Math.sin(this.floatAge / 140))).setAlpha(alpha);
+    this.floatIcon.setPosition(this.floatAt.x, y - 36 + Math.round(Math.sin(this.floatAge / 140))).setAlpha(alpha);
   }
 
   private drawBurst(): void {
@@ -457,7 +462,7 @@ export class MomentsView {
   private updateJump(a: Active, tint: number): void {
     const flightMs = 700;
     const reach = 26 * a.dir;
-    const height = 28;
+    const height = 34;
     if (a.stage === 0) {
       a.stage = 1;
       this.hooks.sfx('plop');
@@ -493,12 +498,12 @@ export class MomentsView {
       const g = this.skyFx;
       const lead = Math.min(1, a.age / 250);
       // The trail: points behind the head, shrinking and fading.
-      for (let i = 1; i <= 18; i++) {
-        const back = i * 3;
-        const k = 1 - i / 19;
-        g.fillStyle(i < 6 ? PAL.white : PAL.gold, k * 0.9 * lead);
+      for (let i = 1; i <= 34; i++) {
+        const back = i * 1.5;
+        const k = 1 - i / 35;
+        g.fillStyle(i < 10 ? PAL.white : PAL.gold, k * 0.85 * lead);
         g.fillRect(Math.round(a.x - ux * back), Math.round(a.y - uy * back), 1, 1);
-        if (i < 9) g.fillRect(Math.round(a.x - ux * back), Math.round(a.y - uy * back) + 1, 1, 1);
+        if (i < 16) g.fillRect(Math.round(a.x - ux * back), Math.round(a.y - uy * back) + 1, 1, 1);
       }
       const end = t > 0.9 ? (1 - t) / 0.1 : 1;
       this.place(this.main, 'starHead', a.x, a.y, lead * end, 0xffffff, DEPTH.sky + 0.1);
@@ -537,8 +542,8 @@ export class MomentsView {
     if (!stopped && a.age < a.life - 2500) {
       a.spawnIn -= dtMs;
       if (a.spawnIn <= 0) {
-        a.spawnIn = randRange(this.rng, 160, 340);
-        this.bubbles.push({ x: a.x + randInt(this.rng, -5, 5), y: a.y, age: 0, rise: randRange(this.rng, 22, 36), big: this.rng() < 0.4, phase: this.rng() * 6 });
+        a.spawnIn = randRange(this.rng, 120, 280);
+        this.bubbles.push({ x: a.x + randInt(this.rng, -5, 5), y: a.y, age: 0, rise: randRange(this.rng, 28, 44), big: this.rng() < 0.4, phase: this.rng() * 6 });
       }
       a.nextSound -= dtMs;
       if (a.nextSound <= 0) {
@@ -557,13 +562,9 @@ export class MomentsView {
       const x = Math.round(b.x + Math.sin(b.phase + t * 7) * 2);
       const y = Math.round(b.y - b.rise * ease(t));
       const al = (t > 0.8 ? (1 - t) / 0.2 : 1) * alpha;
-      this.fx.fillStyle(multiply(PAL.foam, tint), al);
-      if (b.big) {
-        for (const [dx, dy] of [[-1, -2], [0, -2], [1, -2], [-2, -1], [2, -1], [-2, 0], [2, 0], [-2, 1], [2, 1], [-1, 2], [0, 2], [1, 2]]) this.fx.fillRect(x + dx, y + dy, 1, 1);
-        this.fx.fillStyle(multiply(PAL.white, tint), al).fillRect(x + 1, y - 1, 1, 1);
-      } else {
-        for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) this.fx.fillRect(x + dx, y + dy, 1, 1);
-      }
+      this.fx.fillStyle(multiply(PAL.foam, lift(tint)), Math.min(1, al * 1.3));
+      for (const [dx, dy] of b.big ? BUBBLE_BIG : BUBBLE_SMALL) this.fx.fillRect(x + dx, y + dy, 1, 1);
+      if (b.big) this.fx.fillStyle(multiply(PAL.white, lift(tint)), al).fillRect(x + BUBBLE_BIG_HIGHLIGHT[0], y + BUBBLE_BIG_HIGHLIGHT[1], 1, 1);
       if (t > 0.9) this.ring(x, y, 3 + (t - 0.9) * 40, 1 + (t - 0.9) * 12, (1 - t) * 5 * 0.5, tint);
     }
     this.bubbles = this.bubbles.filter((b) => b.age < RISE_MS);

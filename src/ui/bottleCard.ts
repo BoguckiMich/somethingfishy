@@ -8,9 +8,9 @@ import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
  */
 export function showBottleCard(contents: BottleContents, onClose: () => void): PanelHandle {
   const panel: PanelHandle = openPanel(
-    'Message in a bottle',
+    'Bottle note',
     (body) => {
-      body.append(el('div', `font-size:${FS.heading}px;line-height:${LINE};color:${COLORS.text};padding:4px 0 6px`, contents.text));
+      body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text};padding:4px 0 6px`, contents.text));
       if (contents.worms > 0) {
         body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.gold};margin-top:6px`, `A few worms were tucked inside (+${contents.worms})`));
       }
