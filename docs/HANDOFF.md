@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 14 lake moments + bigger catch-bar fish merged, not pushed; user will phone-test and may want fixes)._
+_Last updated: 2026-11-23 (slice 15a + update-toast fix merged, not pushed; user will phone-test. Next: shop icons, then 15b baits, then 16 car/bedtime — specs in GAME_DESIGN §3)._
 
 ## Current state
 
@@ -29,7 +29,8 @@ _Last updated: 2026-11-23 (slice 14 lake moments + bigger catch-bar fish merged,
 | 13b | Daily quests: 3/day, notice-board button, claim, reroll | merged (user skipped the phone play-test) |
 | 13c | Catch-bar fish marker 2x bigger (75% of the large sprite, 18-34 px), bar 36 px wide (playtesters: too small) | merged |
 | 14 | Lake moments: duck, frog, jumping fish, shooting star, bottle note, uncanny bubbles / dark shape (GAME_DESIGN §3 → Slice 14) | merged before the phone play-test (user may want fixes after testing) |
-| 15a | Prices by rarity, braided/fluoro lines + smooth/pro reels, time-of-day in the clock label, Pajkel's speech bubble (GAME_DESIGN §3 → Slice 15a) | on branch `slice/15a-prices-gear`, awaiting review |
+| 15a | Prices by rarity, braided/fluoro lines + smooth/pro reels, time-of-day in the clock label, Pajkel's speech bubble (GAME_DESIGN §3 → Slice 15a) | merged before the phone play-test (reels help little in the bot sim: sloppy bot 85% → 87% with the Pro reel vs 97% with fluoro line; may raise the reel numbers) |
+| fix | Update toast: reload ~1.5 s after the tap if the service-worker hand-over never fires (GAME_DESIGN §3 → Fix: update toast) | merged, not seen on a phone |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
