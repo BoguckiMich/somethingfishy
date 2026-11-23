@@ -8,6 +8,7 @@ import { newDaily, type DailyState } from './daily/daily';
 import { DAILY_BOX } from './data/daily';
 import { QUEST_TUNING } from './data/quests';
 import { speciesCaught, type FishLog } from './fishLog';
+import { normalizeNotes } from './moments/moments';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
 /**
@@ -121,6 +122,7 @@ function normalizePlayer(v: unknown): PlayerState {
     log: normalizeLog(p.log),
     daily: normalizeDaily(p.daily),
     quests: normalizeQuests(p.quests),
+    notes: normalizeNotes(p.notes),
   };
 }
 

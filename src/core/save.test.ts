@@ -58,7 +58,7 @@ describe('normalizeSave', () => {
   it('keeps a good save as is', () => {
     const s: SaveData = {
       version: 1,
-      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } }, daily: { lastBoxDate: '2026-11-22', streakTier: 3 }, quests: { date: '2026-11-23', rerollUsed: true, list: [{ kind: 'catchSpecies', params: { target: 3, speciesId: 'roach' }, progress: 3, done: true, claimed: false, reward: { coins: 25, worms: 3 } }, { kind: 'catchAtTime', params: { target: 2, timeOfDay: 'dusk' }, progress: 1, done: false, claimed: false, reward: { coins: 30, worms: 4 } }] } },
+      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } }, daily: { lastBoxDate: '2026-11-22', streakTier: 3 }, quests: { date: '2026-11-23', rerollUsed: true, list: [{ kind: 'catchSpecies', params: { target: 3, speciesId: 'roach' }, progress: 3, done: true, claimed: false, reward: { coins: 25, worms: 3 } }, { kind: 'catchAtTime', params: { target: 2, timeOfDay: 'dusk' }, progress: 1, done: false, claimed: false, reward: { coins: 30, worms: 4 } }] }, notes: { read: ['recipe', 'raft'] } },
       clock: { day: 4, minute: 123.5 },
     };
     expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
@@ -239,5 +239,17 @@ describe('normalizeSave: quests', () => {
     const odd = quests({ date: '2026-11-23', list: [{ ...good, progress: 99, claimed: true, reward: { coins: -5, worms: 'x' } }, { ...good, progress: -2, claimed: true, params: { target: 3.9, speciesId: 'roach' } }] })!.list;
     expect(odd[0]).toMatchObject({ progress: 3, done: true, claimed: true, reward: { coins: 0, worms: 0 } });
     expect(odd[1]).toMatchObject({ progress: 0, done: false, claimed: false, params: { target: 3 } }); // a claim needs a finished quest
+  });
+});
+
+describe('normalizeSave: notes', () => {
+  const notes = (n: unknown) => normalizeSave({ version: 1, player: { notes: n } }).player.notes;
+  it('defaults to nothing read when missing or broken (an old save has no notes)', () => {
+    expect(notes(undefined)).toEqual({ read: [] });
+    expect(notes('x')).toEqual({ read: [] });
+    expect(notes({ read: 'x' })).toEqual({ read: [] });
+  });
+  it('drops unknown ids, non-strings and duplicates', () => {
+    expect(notes({ read: ['recipe', 'nope', 7, 'recipe', 'raft'] })).toEqual({ read: ['recipe', 'raft'] });
   });
 });

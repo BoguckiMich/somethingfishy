@@ -16,6 +16,10 @@ export const SFX_NAMES = [
   'coin',
   'tap',
   'boof',
+  'quack',
+  'sparkle',
+  'clink',
+  'bubbles',
 ] as const;
 export type SfxName = (typeof SFX_NAMES)[number];
 
@@ -115,6 +119,42 @@ const PLAYERS: Record<SfxName, Player> = {
   boof: (g, out, t, v) => {
     tone(g, out, t, { type: 'triangle', f0: 230 * v.pitch, f1: 105 * v.pitch, dur: 0.17, attack: 0.012, peak: 0.38 * v.volume });
     burst(g, out, t, { filter: 'lowpass', f0: 700 * v.pitch, f1: 300, q: 0.9, dur: 0.14, attack: 0.012, peak: 0.2 * v.volume });
+  },
+  // A duck's "quack-quack": each is a buzzy saw voice (~460 Hz bending down to ~330) with its octave
+  // above and a nasal band of noise around 1.7 kHz; the second is a touch lower and softer.
+  quack: (g, out, t, v) => {
+    const one = (at: number, hz: number, k: number) => {
+      tone(g, out, t, { type: 'sawtooth', f0: hz * v.pitch, f1: hz * 0.7 * v.pitch, at, dur: 0.12, attack: 0.014, peak: 0.085 * k * v.volume });
+      tone(g, out, t, { type: 'sawtooth', f0: hz * 2 * v.pitch, f1: hz * 1.4 * v.pitch, at, dur: 0.1, attack: 0.014, peak: 0.03 * k * v.volume });
+      burst(g, out, t, { filter: 'bandpass', f0: 1700 * v.pitch, q: 3, at, dur: 0.1, attack: 0.012, peak: 0.06 * k * v.volume });
+    };
+    one(0, 460, 1);
+    one(0.17, 420, 0.75);
+  },
+  // A wish coming true: a quick rising run of tiny high bells.
+  sparkle: (g, out, t, v) => {
+    const run = [note(22), note(26), note(29), note(34), note(38)];
+    run.forEach((hz, i) => {
+      tone(g, out, t, { f0: hz * v.pitch, at: i * 0.055, dur: 0.22, attack: 0.004, peak: (0.1 + i * 0.012) * v.volume });
+    });
+    tone(g, out, t, { f0: note(41) * v.pitch, at: 0.28, dur: 0.5, attack: 0.004, peak: 0.07 * v.volume });
+  },
+  // Glass on glass: a bright short ping (~2.9 kHz plus an inharmonic partial), then a second, softer one.
+  clink: (g, out, t, v) => {
+    const ping = (at: number, hz: number, k: number) => {
+      tone(g, out, t, { f0: hz * v.pitch, at, dur: 0.22, attack: 0.002, peak: 0.13 * k * v.volume });
+      tone(g, out, t, { f0: hz * 1.5 * v.pitch, at, dur: 0.12, attack: 0.002, peak: 0.06 * k * v.volume });
+    };
+    ping(0, 2900, 1);
+    ping(0.11, 3400, 0.45);
+    burst(g, out, t, { filter: 'highpass', f0: 3500, q: 0.7, dur: 0.02, attack: 0.002, peak: 0.05 * v.volume });
+  },
+  // A handful of little bloops rising from below.
+  bubbles: (g, out, t, v) => {
+    const bloops: [number, number, number][] = [[0, 320, 0.2], [0.09, 420, 0.16], [0.19, 360, 0.2], [0.3, 520, 0.14], [0.4, 440, 0.12]];
+    for (const [at, hz, peak] of bloops) {
+      tone(g, out, t, { f0: hz * v.pitch, f1: hz * 2.1 * v.pitch, at, dur: 0.08, attack: 0.006, peak: peak * v.volume });
+    }
   },
 };
 

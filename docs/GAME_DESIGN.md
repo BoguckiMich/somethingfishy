@@ -370,6 +370,34 @@ be tweaked without touching logic.
 - The Pale One never appears in quests.
 - Dev flag `?debug=quests` opens the panel.
 
+**Slice 14: lake moments (decided 2026-11-23)** — small random ambient scenes on the lake. Art,
+timing and taps only; no log and no quests tied to them.
+
+- **Moments** (game-clock windows):
+  - *duck* paddles across the far water (06–19). Bestia boofs at it once.
+  - *frog* on a lily pad, sits a while (18–23).
+  - *fish jump*: a fish leaps and leaves a ring of ripples (any time).
+  - *shooting star* streaks across the night sky (21–04).
+  - *bottle* drifts to the dock and bobs there until tapped, or drifts off after ~60 s (any time).
+  - *uncanny*, only 01–05, rare (about 1 night in 3): *bubbles* rising where nobody cast; a dark
+    *shape* under the water. The crickets dip while one is on screen.
+- **Timing:** on average one moment every ~3 real minutes (random 90–270 s gap), one at a time. The
+  gap only counts down while she is idle or the bobber waits: never during a fight, the show-off,
+  an open panel or card, or the Pale One's fight.
+- **Taps** (tap areas ≥ 40 px; a tap on a moment never casts):
+  - duck quacks and paddles off faster
+  - frog plops into the water
+  - fish jump: no tap
+  - shooting star: "Make a wish!" float, a sparkle and 5–15 coins
+  - bottle: opens a wood note card; ~1 in 4 also has 2–5 worms inside
+  - bubbles stop / the shape sinks, with a quiet "…" float; no reward
+- **Bottle notes:** a pool of short notes (lake lore and whimsy, plus 2 eerie ones that only come at
+  night 22–05). Shuffled, no repeats until every note was read (`PlayerState.notes`, optional,
+  normalised when missing; no save version bump). Personal notes from Pajkel to Alex: later.
+- **Sound:** a small synthesised effect each (quack, plop, sparkle, glass clink, bubbles).
+- Pure rules in `src/core/moments/`, tunables + note texts in `src/core/data/moments.ts`.
+- Dev flag `?debug=moment=<name>` spawns that moment right away.
+
 ---
 
 ## 4. Roadmap
@@ -425,13 +453,8 @@ be tweaked without touching logic.
 - **Livelier companion reactions in the fight** — Pajkel leans in or cheers during the fight,
   Bestia watches the line. Slice 5 only adds small reactions on a catch or loss.
 
-- **Lake moments** (cheap, near-term candidate after slice 13) — small random ambient scenes, art +
-  timing only, no new systems: a duck paddles past, a frog on a lily pad, a shooting star at night
-  (tap it for a few coins?), a bottle washes up with a short note. Rarely, late at night, a moment
-  is *uncanny*: bubbles rising where nobody cast, a shape under the water that's gone when you look.
-  Those quietly foreshadow the eldritch thread below.
-  Open questions: how often (per in-game hour?), are they tappable, do any give rewards, and is
-  there a log of moments seen?
+- **Lake moments** — scheduled as slice 14 (see §3 → Slice 14). Later: personal bottle notes from
+  Pajkel to Alex, and maybe a "Notes" page in the fish log to reread them.
 
 - **Eldritch thread (Cthulhu-like events)** — far future. A slow, cozy-creepy mystery under the
   lake, told through rare events and eventually a quest line. Seeds can be planted early:
@@ -539,4 +562,4 @@ come once the v2 bait and lure systems provide more interesting rewards.
 13. Daily bait box + daily quests (§5; details in §3 → Slice 13) ✅
     - 13a. Daily bait box ✅
     - 13b. Daily quests ✅
-14. Lake moments (see Ideas) — candidate ← *next*
+14. Lake moments (details in §3 → Slice 14) ← *next*

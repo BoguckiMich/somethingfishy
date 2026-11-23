@@ -1,5 +1,6 @@
 import { ambientMix } from '../core/ambientMix';
 import { eerieMix, type EerieLevel } from '../core/eerie';
+import { dipCrickets } from '../core/moments/moments';
 import { advanceReel, REEL_PRIMED } from '../core/reelClicks';
 import { DEFAULT_SOUND_SETTINGS, loadSoundSettings, normalizeSoundSettings, saveSoundSettings, volumeGain, type SoundSettings } from '../core/soundSettings';
 import { vary } from '../core/variation';
@@ -27,6 +28,7 @@ class Sound {
   private solo: ReadonlySet<AmbientLayer> | null = null;
   private reelAcc = REEL_PRIMED;
   private eerie: EerieLevel = 0;
+  private uncanny = false;
 
   /**
    * Call once at startup: loads the settings and hooks the first-tap unlock and the page
@@ -93,6 +95,13 @@ class Sound {
     this.applyMix();
   }
 
+  /** An uncanny lake moment (bubbles, a dark shape) is on screen: the crickets dip while it is. */
+  setUncanny(on: boolean): void {
+    if (on === this.uncanny) return;
+    this.uncanny = on;
+    this.applyMix();
+  }
+
   // ---- Dev sound board -------------------------------------------------------------------
 
   /** Dev: pins the ambient time of day (null follows the game clock again). */
@@ -109,7 +118,7 @@ class Sound {
 
   private applyMix(): void {
     if (!this.bed) return;
-    const mix = eerieMix(ambientMix(this.debugMinute ?? this.minute), this.eerie);
+    const mix = dipCrickets(eerieMix(ambientMix(this.debugMinute ?? this.minute), this.eerie), this.uncanny);
     const gains = {} as LayerGains;
     for (const l of AMBIENT_LAYERS) gains[l] = this.solo ? (this.solo.has(l) ? 1 : 0) : mix[l];
     this.bed.setTargets(gains);
