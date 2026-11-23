@@ -112,6 +112,24 @@ The game stars the two of them and their dog. Reference photos live untracked in
      - *Not in v1:* treasure chests, line snap, tension.
 4. **Result** — each catch rolls a size/weight. The fish log keeps personal bests per species
    (a star when a record is beaten).
+   - **Details (decided for slice 8):**
+     - *What counts:* every won fight, on `fishCaught`, before the bag decision (so a fish released
+       at bag-full or sold later still counts). Lost fights, nibbles and missed bites don't.
+     - *Record:* the longest fish per species, shown as "54 cm · 1.9 kg" (weight follows length,
+       so longest = heaviest). Only strictly longer beats it; a tie doesn't.
+     - *Log panel:* DOM wood panel like Bag/Shop, opened from the bottom-bar "Log" button, only
+       while idle. Header "7/12 species". A 3×4 grid of tiles in roster order (shallow, then deep).
+       Caught: fish art + name. Not caught: dark silhouette, "???" and a where/when hint
+       (e.g. "Deep water · night"). Tapping a caught tile opens a detail card: art, name, record,
+       "Caught ×N", the fun fact, where/when it bites. The legendary tile joins in slice 12 (/13).
+     - *Catch screen:* first of a species → **"New species!"** (no star; a first catch is
+       trivially a record) plus the species' fun fact; that screen stays up longer (tap after
+       0.4 s, auto-dismiss ~8 s). Beating the best → **"★ New record!"** with "was 41 cm".
+       Ordinary catches unchanged. Pajkel and Bestia react a bit bigger on both moments.
+     - *Facts:* v1 shows the fact on the first catch and in the log. Rotating facts (and maybe a
+       fact on every catch) wait for the polish pass.
+     - *Data:* `PlayerState.log` inside the single serialisable player object; resets on reload
+       until slice 9. Dev flags `?debug=log` (log open, ~half the species filled) and `?log=all`.
 5. **Bag & shop** — caught fish go into a 10-slot bag. Shop: sell fish (sell all / keep),
    buy worms, buy 2 rod upgrades (each: more cast distance + bigger catch zone).
    - **Details (decided for slice 7):**
@@ -233,8 +251,8 @@ be tweaked without touching logic.
   rod upgrades.
 
 - **Fun facts on catch** — a short real fact about the species when caught (or in the fish log).
-  Each species already has one `fact` in the data (slice 6). Open: show it on the catch screen or
-  only in the log? One fact or a rotating pool per species?
+  Each species already has one `fact` in the data (slice 6). Slice 8 shows it on the first catch
+  and in the log. Polish pass: a rotating pool per species, then maybe a fact on every catch.
 
 - **Livelier companion reactions in the fight** — Pajkel leans in or cheers during the fight,
   Bestia watches the line. Slice 5 only adds small reactions on a catch or loss.
