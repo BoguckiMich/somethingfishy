@@ -567,6 +567,18 @@ open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5
   Open questions: what achievements, rewards or just badges, and how to count weight for catches
   made before it existed (saves only keep counts and records).
 
+- **Tournaments and leaderboards** (user, 2026-11-23; *far* future) — friends of the user want to
+  play too. Two steps:
+  - *NPC tournaments* (offline): a timed event (e.g. "biggest bream before 18:00", "most fish in
+    one in-game day") against a few named NPC anglers with scripted results; a cup or a cosmetic
+    for winning. Grows from the "weekly tournament vs her own records" idea in §5.
+  - *Online leaderboards* between players: needs a backend, accounts or nicknames, and cheat
+    resistance (the game is fully client-side today, so any score can be faked). Ties into cloud
+    sync (parked).
+  Open questions: does the gift version stay single-player with a separate "friends" build, which
+  records are fair to compare (biggest fish per species? weekly totals?), and where it would be
+  hosted (GitHub Pages is static only).
+
 ### Parked on purpose
 Weather & seasons · cloud sync · landscape/walkable world · music.
 
