@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { W } from '../art/layout';
 import { PAL } from '../art/palette';
 import { TEX } from '../art/textures';
-import { FONT, FS } from '../font';
+import { FONT, FS, textPad } from '../font';
 import { drawFrame } from './frameDraw';
 
 export type BarButton = 'bag' | 'shop' | 'log' | 'settings';
@@ -39,7 +39,7 @@ export class BottomBar {
     this.labels = ORDER.map((_, i) => {
       const r = rectOf(i);
       return scene.add
-        .text(r.centerX, r.centerY, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: '#fff6e4' })
+        .text(r.centerX, r.centerY, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: '#fff6e4', padding: textPad(0, 2) })
         .setOrigin(0.5)
         .setDepth(depth);
     });

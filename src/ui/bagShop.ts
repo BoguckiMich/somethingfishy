@@ -1,4 +1,4 @@
-import { FONT, FS } from '../font';
+import { FONT, FS, LINE } from '../font';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
 import { RODS } from '../core/data/rods';
@@ -26,7 +26,7 @@ export const fishName = (f: BagFish): string => speciesById(f.speciesId)?.name ?
 const sizeText = (f: BagFish): string => `${f.lengthCm} cm`;
 
 const sectionTitle = (text: string) =>
-  el('div', `font:${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
+  el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
 function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
   const row = el('div', `display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid ${COLORS.woodLight}`);
@@ -47,7 +47,7 @@ export function openBagPanel(store: PlayerStore, onClose: () => void): PanelHand
       const { bag } = store.get();
       if (bag.length === 0) body.append(emptyNote('The bag is empty. Go catch something!'));
       for (const f of bag) body.append(fishRow(f));
-      body.append(el('div', `margin-top:10px;font:${FS.body}px ${FONT};color:${COLORS.gold};text-align:right`, `Total value: ${bagValue(bag)} coins`));
+      body.append(el('div', `margin-top:10px;font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};text-align:right`, `Total value: ${bagValue(bag)} coins`));
     },
     onClose,
   );

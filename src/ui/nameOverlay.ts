@@ -1,4 +1,4 @@
-import { FONT, FS } from '../font';
+import { FONT, FS, LINE } from '../font';
 import { installFrameStyles } from './frames';
 import { DEFAULT_PROFILE, MAX_NAME_LENGTH, normalizeProfile, type Profile } from '../core/profile';
 
@@ -43,7 +43,7 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
   title.style.cssText = `font-size:${FS.heading}px;color:#ffd35a;text-align:center;margin-bottom:4px`;
   const sub = document.createElement('div');
   sub.textContent = firstLaunch ? 'Who is fishing today? (stored on this device only)' : 'Change who is who';
-  sub.style.cssText = `font-size:${FS.body}px;color:#f3e3bf;text-align:center;margin-bottom:14px;line-height:1.35`;
+  sub.style.cssText = `font-size:${FS.body}px;color:#f3e3bf;text-align:center;margin-bottom:14px;line-height:${LINE}`;
   card.append(title, sub);
 
   const inputs: Record<string, HTMLInputElement> = {};
@@ -65,7 +65,7 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
       'width:100%',
       'margin-top:4px',
       'padding:10px 10px',
-      `font:${FS.heading}px ${FONT}`, // at least 16px stops iOS from zooming on focus
+      `font:${FS.body}px/${LINE} ${FONT}`, // at least 16px stops iOS from zooming on focus
       'color:#fff8e8',
       'background:#241a2e',
       'border:2px solid #84582f',
@@ -88,7 +88,7 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
     'width:100%',
     'margin-top:6px',
     'padding:10px',
-    `font:${FS.heading}px ${FONT}`,
+    `font:${FS.body}px/${LINE} ${FONT}`,
     'color:#3a2318',
   ].join(';');
   card.append(button);
