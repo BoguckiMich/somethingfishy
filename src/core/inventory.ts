@@ -8,6 +8,7 @@ import type { Rod } from './gear';
 import type { Rng } from './random';
 import { newDaily, type DailyState } from './daily/daily';
 import { newQuests, questsOf, questsOnSale, type QuestsState } from './quests/quests';
+import { newNotes, type NotesState } from './moments/moments';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -33,10 +34,12 @@ export interface PlayerState {
   daily?: DailyState;
   /** Today's three quests (slice 13b); missing in older saves, read with questsOf(). */
   quests?: QuestsState;
+  /** Which bottle notes were read this round (slice 14); missing in older saves, read with notesOf(). */
+  notes?: NotesState;
 }
 
 export function newPlayer(): PlayerState {
-  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog(), daily: newDaily(), quests: newQuests() };
+  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog(), daily: newDaily(), quests: newQuests(), notes: newNotes() };
 }
 
 export function equippedRod(p: PlayerState): Rod {
