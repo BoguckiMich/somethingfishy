@@ -10,11 +10,11 @@ import type { Line, Reel } from '../gear';
  * Both were checked with the catch-bar bots (catchBar.test.ts, "tackle"): see the numbers there.
  */
 export const LINES: Line[] = [
-  { id: 'braided', name: 'Braided line', price: 600, drain: 0.85, effect: 'progress drains 15% slower' },
-  { id: 'fluoro', name: 'Fluoro line', price: 2000, drain: 0.7, effect: 'progress drains 30% slower' },
+  { id: 'braided', name: 'Braided line', price: 600, drain: 0.85, effect: 'Progress drains 15% slower' },
+  { id: 'fluoro', name: 'Fluoro line', price: 2000, drain: 0.7, effect: 'Progress drains 30% slower' },
 ];
 
 export const REELS: Reel[] = [
-  { id: 'smooth', name: 'Smooth reel', price: 1000, response: 1.2, effect: 'the zone follows your thumb 20% faster' },
-  { id: 'pro', name: 'Pro reel', price: 3500, response: 1.4, effect: 'the zone follows your thumb 40% faster' },
+  { id: 'smooth', name: 'Smooth reel', price: 1000, response: 1.2, effect: 'The zone follows your thumb 20% faster' },
+  { id: 'pro', name: 'Pro reel', price: 3500, response: 1.4, effect: 'The zone follows your thumb 40% faster' },
 ];
