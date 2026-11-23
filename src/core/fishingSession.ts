@@ -47,6 +47,8 @@ export interface SessionContext {
   rng: Rng;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
   timeOfDay: () => TimeOfDay;
+  /** The in-game minute of the day; the legendary's clock window needs it. Absent means no legendary. */
+  minute?: () => number;
   /** Dev flag: forces the bar profile (pattern and difficulty) instead of the species' own. */
   fishOverride?: FishProfile;
   /** How long the show-off lasts (default FIGHT_TUNING.showOffMs); the scene lengthens it for a new species. */
@@ -106,7 +108,13 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
     case 'casting':
       if (input.type !== 'landed') return same(state);
       // The fish is chosen as the bobber lands: its species shapes the wait (shy fish nibble more).
-      const hooked = rollHookedFish(state.zone, ctx.timeOfDay(), ctx.rng, ctx.speciesOverride);
+      const hooked = rollHookedFish(
+        state.zone,
+        ctx.timeOfDay(),
+        ctx.rng,
+        ctx.speciesOverride,
+        ctx.minute ? { distanceM: state.distanceM, minute: ctx.minute() } : undefined,
+      );
       return same({
         kind: 'waiting',
         distanceM: state.distanceM,

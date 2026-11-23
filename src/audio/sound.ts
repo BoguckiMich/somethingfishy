@@ -1,4 +1,5 @@
 import { ambientMix } from '../core/ambientMix';
+import { eerieMix, type EerieLevel } from '../core/eerie';
 import { advanceReel, REEL_PRIMED } from '../core/reelClicks';
 import { DEFAULT_SOUND_SETTINGS, loadSoundSettings, normalizeSoundSettings, saveSoundSettings, volumeGain, type SoundSettings } from '../core/soundSettings';
 import { vary } from '../core/variation';
@@ -25,6 +26,7 @@ class Sound {
   private debugMinute: number | null = null;
   private solo: ReadonlySet<AmbientLayer> | null = null;
   private reelAcc = REEL_PRIMED;
+  private eerie: EerieLevel = 0;
 
   /**
    * Call once at startup: loads the settings and hooks the first-tap unlock and the page
@@ -84,6 +86,13 @@ class Sound {
     this.applyMix();
   }
 
+  /** How eerie the lake is (0 normal, 1 the Pale One's window, 2 its fight): quiets the crickets, then the whole ambience, and brings the drone in. */
+  setEerie(level: EerieLevel): void {
+    if (level === this.eerie) return;
+    this.eerie = level;
+    this.applyMix();
+  }
+
   // ---- Dev sound board -------------------------------------------------------------------
 
   /** Dev: pins the ambient time of day (null follows the game clock again). */
@@ -100,7 +109,7 @@ class Sound {
 
   private applyMix(): void {
     if (!this.bed) return;
-    const mix = ambientMix(this.debugMinute ?? this.minute);
+    const mix = eerieMix(ambientMix(this.debugMinute ?? this.minute), this.eerie);
     const gains = {} as LayerGains;
     for (const l of AMBIENT_LAYERS) gains[l] = this.solo ? (this.solo.has(l) ? 1 : 0) : mix[l];
     this.bed.setTargets(gains);

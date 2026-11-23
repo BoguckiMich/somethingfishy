@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
-import { FISH_SIZE_CLASSES, fishIconKey, fishIconSprite, fishKey, fishSprite } from './fishArt';
+import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
 import { SPECIES } from '../core/data/fish';
 import { FAR_SHORE_Y, W } from './layout';
 import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
@@ -121,6 +121,7 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   for (const sp of SPECIES) {
     for (const cls of FISH_SIZE_CLASSES) addRaster(scene, fishKey(sp.id, cls), Raster.fromSprite(fishSprite(sp.id, cls)));
     addRaster(scene, fishIconKey(sp.id), Raster.fromSprite(fishIconSprite(sp.id)));
+    if (isHugged(sp.id)) addRaster(scene, fishHugKey(sp.id), Raster.fromSprite(fishHugSprite(sp.id)));
   }
   for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));

@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 11b merged, not pushed)._
+_Last updated: 2026-11-23 (slice 12 merged, not pushed)._
 
 ## Current state
 
@@ -24,7 +24,8 @@ _Last updated: 2026-11-23 (slice 11b merged, not pushed)._
 | 10b | Art pass: Tiny5 font, code-drawn pixel frames, icons, 12 fish sprites, show-off at chest, Pajkel, dog spin (GAME_DESIGN §3 item 9) | merged |
 | 11 | PWA (offline precache, update toast), app icon, GitHub Pages deploy via Actions, renamed Something Fishy (GAME_DESIGN §3 item 10) | merged |
 | 11b | Readability: whole canvas renders at device resolution (K×, `src/renderScale.ts`), font → VT323 on its 12.5 px grid, update toast above the bar, `/dev/font-sheet.html` | merged |
-| 12 | Legendary fish (first eldritch hint) | next (not grilled yet) |
+| 12 | Legendary: The Pale One (≥30 m, 02–04 h, 25%), abyssal fight, eerie window (still lake, murky tint, drone), hug show-off, log tile 13 | merged |
+| 13 | Daily bait box + daily quests (GAME_DESIGN §5) | next (not grilled yet) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -62,6 +63,11 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   HUD row. Icon (`src/art/appIconArt.ts`, `npm run icons`) is chunky with a stray pixel under the
   belly. `npm audit` flags dev-only build deps (untouched). Phone test needs the Pages site: the
   LAN dev server is plain http, so no install/offline there, and PWA is off in dev.
+- The Pale One (slice 12): tunables in `src/core/data/legendary.ts` (spawn + `EERIE_TUNING`); pure rules
+  in `core/legendary.ts`, `core/eerie.ts`; drone is a 5th ambient layer. Seen only as stills: dives in
+  motion, the drone and cricket dip (never heard by a reviewer), the full cast→fight→release flow and
+  the "slips back" line. Hug pose covers Alex from the chin down (may read as a fish standing in front
+  of her). Window tint is very subtle. Extra eye only on the large sprite. `?debug=fight` uses 25 m.
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.

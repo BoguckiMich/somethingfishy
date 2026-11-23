@@ -80,13 +80,13 @@ describe('sprites', () => {
     expect(Array.from(a.pixels)).toContain(PAL.white);
   });
 
-  it('every species has fish frames in every size class, not wider than 46 px', () => {
+  it('every species has fish frames in every size class, not wider than 46 px (the legendary 54)', () => {
     const seen = new Set<string>();
     for (const sp of SPECIES) {
       let prevW = 0;
       for (const cls of FISH_SIZE_CLASSES) {
         const f = fishSprite(sp.id, cls);
-        expect(f.width, `${sp.id} ${cls}`).toBeLessThanOrEqual(46);
+        expect(f.width, `${sp.id} ${cls}`).toBeLessThanOrEqual(sp.rarity === 'legendary' ? 54 : 46);
         expect(f.width, `${sp.id} grows with size`).toBeGreaterThan(prevW);
         prevW = f.width;
         expect(f.pixels.some((c) => c !== TRANSPARENT)).toBe(true);

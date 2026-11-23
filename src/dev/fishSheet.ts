@@ -1,4 +1,5 @@
 import { SPECIES } from '../core/data/fish';
+import { fishHugSprite, isHugged } from '../art/fishArt';
 import { fishIcon, fishSilhouette, fishVariant } from '../art/fishVariants';
 import { PAL } from '../art/palette';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
@@ -74,6 +75,7 @@ for (const sp of SPECIES) {
       cell('large x2 water', large, 2, PAL.shallow1),
       cell('large x2 wood', large, 2, PAL.woodDark),
     );
+    if (isHugged(sp.id)) row.append(cell('hug pose', fishHugSprite(sp.id), 4, PAL.woodDark));
   }
   const name = document.createElement('div');
   name.className = 'name';
