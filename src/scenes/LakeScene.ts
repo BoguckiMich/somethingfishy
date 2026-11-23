@@ -468,7 +468,8 @@ export class LakeScene extends Phaser.Scene {
     // The kit owner who opens the game between 02:00 and 05:00 finds them already asleep in the car.
     if (hasNightKit(this.player) && inSleepWindow(this.clock.minute)) startInCar(this.companions.state);
     if (params.get('debug') === 'afk') {
-      // Dev-only: jump into the grass play and fast-forward to a fetch in progress.
+      // Dev-only: jump into the grass play and fast-forward to a fetch in progress. &giveback=1 makes every round end with the stick given back.
+      if (params.get('giveback') === '1') this.companions.state.giveBackChance = 1;
       startPlayNow(this.companions.state);
       for (let t = 0; t < 1500; t += 50) tickCompanions(this.companions.state, 50, { fishing: 'idle', night: false });
     }
@@ -764,7 +765,7 @@ export class LakeScene extends Phaser.Scene {
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
-    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'spin')) sound.play('boof');
+    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'dodge' || phase === 'spin')) sound.play('boof');
     this.lastPlayPhase = phase;
     // Bedtime: Bestia boofs when called, and the car door thunks shut (going in and coming out).
     const bp = play.mode === 'bed' ? (play.bed?.phase ?? null) : null;

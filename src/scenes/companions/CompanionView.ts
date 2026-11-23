@@ -10,6 +10,7 @@ import {
   createCompanions,
   dogView,
   dogVisible,
+  groundStickAlpha,
   pajStretchHigh,
   pajVisible,
   pajSay,
@@ -37,6 +38,8 @@ export class CompanionView {
   private paj: Phaser.GameObjects.Image;
   private dog: Phaser.GameObjects.Image;
   private stick: Phaser.GameObjects.Image;
+  /** Sticks lying on the grass (old ones and the spare), one image each, reused. */
+  private ground: Phaser.GameObjects.Image[] = [];
   private zs: Phaser.GameObjects.Image[] = [];
   private hearts: { img: Phaser.GameObjects.Image; age: number }[] = [];
   private bubbleGfx: Phaser.GameObjects.Graphics;
@@ -142,6 +145,7 @@ export class CompanionView {
         : p.shape === 'carry' ? (['carry0', 'carry1', 'carry2', 'carry3'] as const)[s.paj.path.length === 0 ? 1 : frame]
         : p.shape === 'stretch' ? (pajStretchHigh(s) ? 'stretch1' : 'stretch0')
         : p.shape === 'throw' ? 'throw'
+        : p.shape === 'bend' ? 'bend'
         : 'stand';
       this.paj.setTexture(pajWalkKey(key)).setOrigin(0.5, 50 / PAJ_WALK_SIZE.h).setFlipX(p.face < 0);
     }
@@ -151,7 +155,7 @@ export class CompanionView {
     const v = dogView(s);
     const frame: DogFrame = {
       shape: v.shape,
-      tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' ? v.tail % 2 : 0,
+      tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' || v.shape === 'bow' ? v.tail % 2 : 0,
       perked: v.shape === 'lie' || v.shape === 'sit' || v.shape === 'stand' ? v.perked : false,
       step: v.shape === 'run' ? v.step : 0,
       carry: v.shape === 'run' && v.carry,
@@ -186,6 +190,14 @@ export class CompanionView {
       .setFlipX(carried && d.face < 0)
       .setPosition(Math.round(st.x), Math.round(st.y))
       .setTint(tint);
+
+    // Sticks lying on the grass: under the characters, fading in and out.
+    while (this.ground.length < s.sticks.length) this.ground.push(this.scene.add.image(0, 0, TEX.stick).setDepth(DEPTH - 0.5));
+    this.ground.forEach((img, i) => {
+      const g = s.sticks[i];
+      img.setVisible(g !== undefined);
+      if (g) img.setPosition(Math.round(g.x), Math.round(g.y)).setAlpha(groundStickAlpha(g)).setTint(tint);
+    });
 
     this.drawBubble();
 

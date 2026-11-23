@@ -3,6 +3,7 @@
  * `tickCompanions(dt)`, game events and player presses, then draws whatever it reports.
  * Positions are screen coordinates; sprites are anchored at their feet (bottom centre).
  */
+import { GIVE_BACK_LINE, GIVE_UP_LINES } from '../../core/data/pajkelLines';
 import type { Rng } from '../../core/random';
 
 export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
@@ -20,8 +21,6 @@ const PAJ_PATH_DOWN: Point[] = [{ x: 148, y: 440 }, { x: 148, y: 484 }];
 const DOG_PATH_DOWN: Point[] = [{ x: 178, y: 444 }, { x: 178, y: 486 }];
 export const PLAY_PAJ: Point = { x: 112, y: 540 };
 const PLAY_DOG: Point = { x: 140, y: 548 };
-const THROW_X: [number, number] = [200, 320];
-const THROW_Y: [number, number] = [508, 572];
 
 export const IDLE_BEFORE_PLAY_MS = 25_000;
 /** The happy spin after the last fetch: the dog flips to face the other way this many times over this long. */
@@ -30,6 +29,8 @@ export const SPIN_FLIPS = 4;
 const SPIN_HOP = 4;
 /** Where the stick sits when carried: this far in front of the dog's feet and this high (before the bounce). */
 export const DOG_MOUTH = { x: 15, y: 14 };
+/** The same in the play-bow, where her head is low. */
+export const DOG_MOUTH_BOW = { x: 14, y: 4 };
 /** Pajkel's walk cycle advances one frame per this many pixels travelled. */
 export const PAJ_STRIDE_PX = 6;
 const PAJ_WALK_SPEED = 46;
@@ -54,10 +55,16 @@ export interface Bubble {
   ageMs: number;
 }
 
-export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
-export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch';
+export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
+export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed';
-type PlayPhase = 'throw' | 'chase' | 'bring' | 'drop' | 'spin' | 'rest';
+/**
+ * One round of "no take, only throw" (slice 17): he throws, she fetches (`throw`), trots back (`bring`)
+ * and stops out of reach, he steps in (`tease`), she dodges (`dodge`) and runs off with it (`keepAway`),
+ * he gives up (`giveUp`), walks to a spare stick (`toStick`), picks it up (`bend`) and throws again.
+ * Rarely she gives it back instead (`drop`). After a few rounds: the happy `spin`, then `rest`.
+ */
+type PlayPhase = 'throw' | 'bring' | 'tease' | 'dodge' | 'keepAway' | 'giveUp' | 'toStick' | 'bend' | 'drop' | 'spin' | 'rest';
 
 interface Actor extends Point {
   /** 1 = facing right, -1 = left. */
@@ -68,6 +75,66 @@ interface Actor extends Point {
 export interface Stick extends Point {
   state: 'hidden' | 'flying' | 'ground' | 'carried';
 }
+
+/**
+ * A stick lying on the grass: an `old` one she dropped, or the `spare` he is about to pick up.
+ * `fadeMs` counts down once the oldest is pushed out by the cap (null = not fading).
+ */
+export interface GroundStick extends Point {
+  kind: 'old' | 'spare';
+  ageMs: number;
+  fadeMs: number | null;
+}
+
+export const STICK_TUNING = {
+  /** Old sticks lying on the grass at once; the oldest fades out when a fourth would land. */
+  maxOld: 3,
+  fadeInMs: 300,
+  fadeOutMs: 1500,
+};
+
+/** Where the companions play: the grass between the car (left), the dock (top), the right bushes and the hint line (bottom). */
+export const PLAY_AREA = { x0: 100, x1: 322, y0: 508, y1: 564 };
+
+export const PLAY_TUNING = {
+  /** A round ends with her bringing it back and dropping it at his feet this often. */
+  giveBackChance: 1 / 6,
+  /** She stops this far from him with the stick (out of reach); he has her when he is this close. */
+  keepDist: 44,
+  reachDist: 18,
+  /** Closest he gets while chasing: she is never caught. */
+  minGap: 14,
+  teaseMaxMs: 2500,
+  pajTeaseSpeed: 40,
+  dodgeBowMs: 420,
+  dodgeHopMs: 260,
+  dodgeHopHeight: 9,
+  dodgeSide: 38,
+  /** How long the chase lasts (random in this range). */
+  chaseMs: [7000, 11000] as [number, number],
+  dogSpeed: 98,
+  /** Now and then she slows for a moment so he nearly catches her. */
+  dogSlowSpeed: 38,
+  nearMissMs: 800,
+  nearMissEveryMs: [2200, 3600] as [number, number],
+  pajBaseSpeed: 82,
+  /** He speeds up by this much per px of gap beyond 40, up to pajMaxSpeed, so she stays only a little ahead. */
+  pajCatchUp: 1.5,
+  pajMaxSpeed: 125,
+  giveUpMs: 1700,
+  /** He walks to the spare stick at this speed and stops this far short of it. */
+  pajToStickSpeed: 62,
+  stickStop: 8,
+  bendMs: 800,
+  /** The stick leaves the grass at this moment of the bend. */
+  bendTakeMs: 400,
+  dropMs: 1700,
+  /** The spare stick lies this far from him (min, max), and sticks keep this far apart. */
+  spareDist: [44, 90] as [number, number],
+  stickGap: 22,
+  /** A throw lands this far from him (min, max). */
+  throwDist: [95, 190] as [number, number],
+};
 
 // ---- Bedtime, naps and the car (slice 16) ---------------------------------------------------
 
@@ -158,7 +225,54 @@ export interface Companions {
   stick: Stick;
   /** What Pajkel is saying right now, or null. Only one at a time: a new line replaces the old. */
   bubble: Bubble | null;
-  play: { phase: PlayPhase; phaseMs: number; fetches: number; target: Point; /** Which way the dog faced when the spin began. */ spinFace: 1 | -1 };
+  /** Sticks lying on the grass (old ones and the spare), drawn by the view; cleared when they go back to the dock. */
+  sticks: GroundStick[];
+  /** Chance that a round ends with her giving the stick back (a dev flag raises it). */
+  giveBackChance: number;
+  play: PlayState;
+}
+
+export interface PlayState {
+  phase: PlayPhase;
+  phaseMs: number;
+  /** Rounds played since the last spin. */
+  fetches: number;
+  target: Point;
+  /** Which way the dog faced when the spin began. */
+  spinFace: 1 | -1;
+  /** Throw phase: the target is picked / the stick has left his hand. */
+  targeted: boolean;
+  thrown: boolean;
+  /** This round she brings it back (decided when she picks the stick up). */
+  giveBack: boolean;
+  /** This round is the last before the happy spin. */
+  finalRound: boolean;
+  /** The chase: how long it lasts, ms of slow-down left (a near miss) and until the next one. */
+  chaseMs: number;
+  nearMs: number;
+  nearIn: number;
+  /** The dodge hop. */
+  hopFrom: Point;
+  hopTo: Point;
+}
+
+function newPlay(): PlayState {
+  return {
+    phase: 'throw',
+    phaseMs: 0,
+    fetches: 0,
+    target: { x: 250, y: 540 },
+    spinFace: 1,
+    targeted: false,
+    thrown: false,
+    giveBack: false,
+    finalRound: false,
+    chaseMs: 0,
+    nearMs: 0,
+    nearIn: 0,
+    hopFrom: { x: 0, y: 0 },
+    hopTo: { x: 0, y: 0 },
+  };
 }
 
 export interface CompanionContext {
@@ -194,7 +308,9 @@ export function createCompanions(rng: Rng = Math.random): Companions {
     paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
     stick: { x: 0, y: 0, state: 'hidden' },
     bubble: null,
-    play: { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 },
+    sticks: [],
+    giveBackChance: PLAY_TUNING.giveBackChance,
+    play: newPlay(),
   };
 }
 
@@ -274,13 +390,15 @@ export function startPlayNow(s: Companions): void {
   s.mode = 'play';
   Object.assign(s.paj, PLAY_PAJ, { shape: 'stand', path: [], face: 1 });
   Object.assign(s.dog, PLAY_DOG, { shape: 'sit', path: [], face: 1, reaction: 'none' });
-  s.play = { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 };
+  s.play = newPlay();
+  s.sticks = [];
   s.stick.state = 'hidden';
 }
 
 function beginBed(s: Companions, kind: BedKind, phase: BedPhase): BedState {
   s.mode = 'bed';
   s.stick.state = 'hidden';
+  s.sticks = [];
   s.dog.reaction = 'none';
   s.dog.hop = 0;
   s.dog.wagMs = 0;
@@ -369,6 +487,7 @@ function setReaction(s: Companions, r: Companions['dog']['reaction']): void {
 function beginReturn(s: Companions): void {
   s.mode = 'returning';
   s.stick.state = 'hidden';
+  s.sticks = [];
   s.paj.path = [{ x: PAJ_PATH_DOWN[1].x, y: PAJ_PATH_DOWN[1].y }, PAJ_PATH_DOWN[0], PAJ_SPOT];
   s.dog.path = [DOG_PATH_DOWN[1], DOG_PATH_DOWN[0], DOG_SPOT];
   s.dog.reaction = 'none';
@@ -447,6 +566,7 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
   else s.idleMs += dtMs;
 
   if (s.dog.petMs > 0) s.dog.petMs = Math.max(0, s.dog.petMs - dtMs);
+  tickSticks(s, dtMs);
   if (s.bubble) s.bubble = s.bubble.ageMs + dtMs >= BUBBLE_MS ? null : { ...s.bubble, ageMs: s.bubble.ageMs + dtMs };
 
   if (s.mode === 'dock') {
@@ -459,7 +579,8 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
     if (pDone) s.paj.shape = 'stand';
     if (pDone && dDone) {
       s.mode = 'play';
-      s.play = { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 };
+      s.play = newPlay();
+      s.sticks = [];
     }
   } else if (s.mode === 'play') {
     tickPlay(s, dtMs, rng);
@@ -753,28 +874,168 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
   }
 }
 
-function pickTarget(rng: Rng): Point {
-  return { x: rand(rng, THROW_X[0], THROW_X[1]), y: rand(rng, THROW_Y[0], THROW_Y[1]) };
+// ---- The fetch game: "no take, only throw" (slice 17) ----------------------------------------
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+const inArea = (p: Point) => p.x >= PLAY_AREA.x0 && p.x <= PLAY_AREA.x1 && p.y >= PLAY_AREA.y0 && p.y <= PLAY_AREA.y1;
+const clampArea = (p: Point): Point => ({ x: clamp(p.x, PLAY_AREA.x0, PLAY_AREA.x1), y: clamp(p.y, PLAY_AREA.y0, PLAY_AREA.y1) });
+
+/** A stick's opacity: it fades in when it appears and out when the cap pushes it off the grass. */
+export function groundStickAlpha(g: GroundStick): number {
+  const fadeIn = clamp(g.ageMs / STICK_TUNING.fadeInMs, 0, 1);
+  const fadeOut = g.fadeMs === null ? 1 : clamp(g.fadeMs / STICK_TUNING.fadeOutMs, 0, 1);
+  return fadeIn * fadeOut;
+}
+
+function tickSticks(s: Companions, dtMs: number): void {
+  if (s.sticks.length === 0) return;
+  for (const g of s.sticks) {
+    g.ageMs += dtMs;
+    if (g.fadeMs !== null) g.fadeMs -= dtMs;
+  }
+  s.sticks = s.sticks.filter((g) => g.fadeMs === null || g.fadeMs > 0);
+}
+
+/** Old sticks still lying on the grass (not fading out). */
+export const oldSticks = (s: Companions): GroundStick[] => s.sticks.filter((g) => g.kind === 'old' && g.fadeMs === null);
+
+/** Puts a stick on the grass; more than the cap of old ones makes the oldest start fading. */
+function layStick(s: Companions, at: Point, kind: GroundStick['kind']): GroundStick {
+  const g: GroundStick = { x: at.x, y: at.y, kind, ageMs: 0, fadeMs: null };
+  s.sticks.push(g);
+  const old = oldSticks(s);
+  for (let i = 0; i < old.length - STICK_TUNING.maxOld; i++) old[i].fadeMs = STICK_TUNING.fadeOutMs;
+  return g;
+}
+
+/** A spare stick he has not picked up yet becomes an old one (the game moves on without it). */
+function settleSpares(s: Companions): void {
+  for (const g of [...s.sticks]) {
+    if (g.kind !== 'spare') continue;
+    s.sticks = s.sticks.filter((k) => k !== g);
+    layStick(s, g, 'old');
+  }
+}
+
+/** Where the carried stick sits: at the snout of whatever pose she is in. */
+function holdStick(s: Companions): void {
+  const d = s.dog;
+  const m = d.shape === 'bow' ? DOG_MOUTH_BOW : DOG_MOUTH;
+  s.stick.state = 'carried';
+  s.stick.x = d.x + d.face * m.x;
+  s.stick.y = d.y - d.hop - m.y;
+}
+
+/** She lets go of the stick she carries: it lies on the grass as an old one. */
+function dropCarried(s: Companions): void {
+  if (s.stick.state !== 'carried') return;
+  layStick(s, clampArea({ x: s.dog.x + s.dog.face * 10, y: s.dog.y }), 'old');
+  s.stick.state = 'hidden';
+}
+
+/** A spot for a stick: `lo`..`hi` px from `from`, on the grass and clear of the other sticks and Bestia. */
+function pickSpot(s: Companions, from: Point, range: [number, number], rng: Rng): Point {
+  let spot: Point = from;
+  for (let i = 0; i < 10; i++) {
+    const ang = rng() * Math.PI * 2;
+    const r = rand(rng, range[0], range[1]);
+    spot = { x: from.x + Math.cos(ang) * r, y: from.y + Math.sin(ang) * r * 0.55 };
+    if (inArea(spot) && s.sticks.every((g) => dist(g, spot) >= PLAY_TUNING.stickGap) && dist(s.dog, spot) >= PLAY_TUNING.stickGap) return spot;
+  }
+  // Nothing fitted (a cramped corner): a spot to the roomier side.
+  const dx = from.x < (PLAY_AREA.x0 + PLAY_AREA.x1) / 2 ? range[0] : -range[0];
+  return clampArea({ x: from.x + dx, y: spot.y });
+}
+
+/** Where a throw lands: `throwDist` from him, on the grass, away from the sticks already lying there. */
+function pickTarget(s: Companions, rng: Rng): Point {
+  const p = s.paj;
+  const [lo, hi] = PLAY_TUNING.throwDist;
+  let t: Point = p;
+  for (let i = 0; i < 40; i++) {
+    t = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
+    const dd = dist(t, p);
+    if (dd >= lo && dd <= hi && dist(t, s.dog) >= 2 * PLAY_TUNING.stickGap && s.sticks.every((g) => dist(g, t) >= PLAY_TUNING.stickGap)) return t;
+  }
+  return clampArea({ x: p.x + (p.x < (PLAY_AREA.x0 + PLAY_AREA.x1) / 2 ? lo + 15 : -(lo + 15)), y: t.y });
+}
+
+/** Shortest distance from `p` to the segment a-b. */
+function segDist(p: Point, a: Point, b: Point): number {
+  const vx = b.x - a.x;
+  const vy = b.y - a.y;
+  const len2 = vx * vx + vy * vy;
+  const t = len2 === 0 ? 0 : clamp(((p.x - a.x) * vx + (p.y - a.y) * vy) / len2, 0, 1);
+  return Math.hypot(p.x - (a.x + vx * t), p.y - (a.y + vy * t));
+}
+
+/**
+ * Where she runs next: a far point on the grass, away from him, on a line that does not run past
+ * his nose (she is never caught). Several are tried and the best-scoring one is taken.
+ */
+function chaseWaypoint(from: Point, chaser: Point, heading: Point, rng: Rng): Point {
+  let best: Point = from;
+  let bestScore = -Infinity;
+  for (let i = 0; i < 10; i++) {
+    const wp = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
+    // No sharp reversals: she turns, she does not run back past him.
+    const reverses = (wp.x - from.x) * heading.x + (wp.y - from.y) * heading.y < 0;
+    const score = dist(wp, chaser) + 0.6 * dist(wp, from) - (segDist(chaser, from, wp) < 30 ? 200 : 0) - (reverses ? 300 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = wp;
+    }
+  }
+  return best;
+}
+
+function go(pl: PlayState, phase: PlayPhase): void {
+  pl.phase = phase;
+  pl.phaseMs = 0;
+}
+
+/** Starts a throw: he winds up; the target and the stick follow. */
+function enterThrow(pl: PlayState): void {
+  go(pl, 'throw');
+  pl.targeted = false;
+  pl.thrown = false;
+}
+
+/** A round is over: count it, and say whether it was the last before the happy spin. */
+function endRound(s: Companions, rng: Rng): void {
+  const pl = s.play;
+  pl.fetches++;
+  pl.finalRound = pl.fetches >= 2 + Math.floor(rng() * 2);
 }
 
 function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
   const pl = s.play;
   const p = s.paj;
   const d = s.dog;
+  const T = PLAY_TUNING;
   pl.phaseMs += dtMs;
   switch (pl.phase) {
     case 'throw': {
       p.shape = 'throw';
-      p.face = 1;
-      if (s.stick.state === 'hidden' && pl.phaseMs > 350) {
-        pl.target = pickTarget(rng);
+      if (!pl.targeted) {
+        pl.targeted = true;
+        pl.target = pickTarget(s, rng);
+        p.face = pl.target.x >= p.x ? 1 : -1;
+      }
+      // The moment the new stick leaves his hand she lets the old one go and races for it.
+      if (!pl.thrown && pl.phaseMs > 350) {
+        pl.thrown = true;
+        dropCarried(s);
+        d.hop = 0;
         s.stick.state = 'flying';
-        s.stick.x = p.x + 6;
+        s.stick.x = p.x + p.face * 6;
         s.stick.y = p.y - 44;
       }
       if (s.stick.state === 'flying') {
         const t = Math.min(1, (pl.phaseMs - 350) / 900);
-        s.stick.x = p.x + 6 + (pl.target.x - p.x - 6) * t;
+        const x0 = p.x + p.face * 6;
+        s.stick.x = x0 + (pl.target.x - x0) * t;
         s.stick.y = p.y - 44 + (pl.target.y - (p.y - 44)) * t - Math.sin(Math.PI * t) * 46;
         if (t >= 1) {
           s.stick.state = 'ground';
@@ -785,50 +1046,189 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       }
       if (pl.phaseMs > 700) p.shape = 'stand';
       follow(d, DOG_RUN_SPEED, dtMs);
-      d.shape = d.path.length > 0 ? 'run' : 'sit';
-      if (s.stick.state === 'ground' && d.path.length === 0 && Math.hypot(d.x - pl.target.x, d.y - pl.target.y) < 4) {
-        pl.phase = 'bring';
-        pl.phaseMs = 0;
-        s.stick.state = 'carried';
-        s.stick.x = d.x + d.face * DOG_MOUTH.x;
-        s.stick.y = d.y - DOG_MOUTH.y;
-        d.path = [{ x: p.x + 26, y: p.y + 4 }];
+      if (s.stick.state === 'carried') {
+        d.shape = 'stand'; // still holding the old one until the new one leaves his hand
+        holdStick(s);
+      } else d.shape = d.path.length > 0 ? 'run' : 'sit';
+      if (s.stick.state === 'ground' && d.path.length === 0 && dist(d, pl.target) < 4) {
+        go(pl, 'bring');
+        pl.giveBack = rng() < s.giveBackChance;
+        holdStick(s);
       }
       break;
     }
     case 'bring': {
-      s.stick.state = 'carried';
-      const done = follow(d, DOG_RUN_SPEED, dtMs);
-      d.shape = done ? 'sit' : 'run';
-      // A proud trot: a slight bounce in time with the strides, the stick held at the snout.
+      // A proud trot, a slight bounce in time with the strides, the stick held at the snout. She
+      // stops just out of his reach (or right at his feet in the rare round she gives it back).
+      const done = pursue(d, p, DOG_RUN_SPEED, dtMs, pl.giveBack ? 14 : T.keepDist);
+      d.shape = done ? 'stand' : 'run';
       d.hop = done ? 0 : Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2;
-      s.stick.x = d.x + d.face * DOG_MOUTH.x;
-      s.stick.y = d.y - d.hop - DOG_MOUTH.y;
       p.shape = 'stand';
-      p.face = 1;
+      p.face = d.x >= p.x ? 1 : -1;
+      holdStick(s);
       if (done) {
-        d.hop = 0;
-        s.stick.state = 'ground';
-        s.stick.x = d.x;
-        s.stick.y = d.y;
-        pl.phase = 'drop';
-        pl.phaseMs = 0;
-        pl.fetches++;
+        if (pl.giveBack) {
+          // She drops it at his feet; he is so surprised he says thank you.
+          layStick(s, { x: d.x + d.face * 10, y: d.y }, 'spare');
+          s.stick.state = 'hidden';
+          endRound(s, rng);
+          pajSay(s, GIVE_BACK_LINE);
+          d.shape = 'sit';
+          go(pl, 'drop');
+        } else {
+          go(pl, 'tease');
+        }
       }
       break;
     }
+    case 'tease': {
+      // She stands there with the stick, tail going; he steps up to her.
+      d.shape = 'stand';
+      d.wagMs = 1 + pl.phaseMs;
+      holdStick(s);
+      const close = pursue(p, d, T.pajTeaseSpeed, dtMs, T.reachDist);
+      p.shape = close ? 'stand' : 'walk';
+      if (close || pl.phaseMs > T.teaseMaxMs) {
+        // She dodges to the side, away from him: first the bow, then the hop.
+        const vx = d.x - p.x;
+        const vy = d.y - p.y;
+        const len = Math.hypot(vx, vy) || 1;
+        const px = -vy / len;
+        const py = vx / len;
+        const sign = rng() < 0.5 ? 1 : -1;
+        const make = (sg: number): Point => ({ x: d.x + (px * sg * T.dodgeSide + (vx / len) * 10), y: d.y + (py * sg * T.dodgeSide) * 0.6 });
+        let to = make(sign);
+        if (!inArea(to)) to = make(-sign);
+        pl.hopFrom = { x: d.x, y: d.y };
+        pl.hopTo = clampArea(to);
+        pl.chaseMs = rand(rng, T.chaseMs[0], T.chaseMs[1]);
+        d.wagMs = 0;
+        go(pl, 'dodge');
+      }
+      break;
+    }
+    case 'dodge': {
+      // Play-bow (front down, rump up), then a hop sideways with the stick; he lunges at where she was.
+      const bow = T.dodgeBowMs;
+      p.shape = 'walk';
+      pursue(p, pl.hopFrom, 70, dtMs, 8);
+      if (pl.phaseMs < bow) {
+        d.shape = 'bow';
+        d.wagMs = 1 + pl.phaseMs;
+        d.hop = 0;
+        holdStick(s);
+      } else {
+        const t = Math.min(1, (pl.phaseMs - bow) / T.dodgeHopMs);
+        d.wagMs = 0;
+        d.shape = 'run';
+        d.face = pl.hopTo.x >= pl.hopFrom.x ? 1 : -1;
+        d.x = pl.hopFrom.x + (pl.hopTo.x - pl.hopFrom.x) * t;
+        d.y = pl.hopFrom.y + (pl.hopTo.y - pl.hopFrom.y) * t;
+        d.hop = Math.sin(Math.PI * t) * T.dodgeHopHeight;
+        holdStick(s);
+        if (t >= 1) {
+          d.hop = 0;
+          d.path = [chaseWaypoint(d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
+          pl.nearMs = 0;
+          pl.nearIn = rand(rng, T.nearMissEveryMs[0], T.nearMissEveryMs[1]);
+          go(pl, 'keepAway');
+        }
+      }
+      break;
+    }
+    case 'keepAway': {
+      // She trots around the grass with the stick, a little ahead of him; now and then she slows and he nearly has her.
+      if (pl.nearMs > 0) pl.nearMs = Math.max(0, pl.nearMs - dtMs);
+      else {
+        pl.nearIn -= dtMs;
+        if (pl.nearIn <= 0) {
+          pl.nearMs = T.nearMissMs;
+          pl.nearIn = rand(rng, T.nearMissEveryMs[0], T.nearMissEveryMs[1]);
+        }
+      }
+      // The next turn is chosen before she gets to the corner, so she curves instead of stopping.
+      if (d.path.length === 0) d.path = [chaseWaypoint(d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
+      else if (d.path.length === 1 && dist(d, d.path[0]) < 45) d.path.push(chaseWaypoint(d.path[0], p, { x: d.path[0].x - d.x, y: d.path[0].y - d.y }, rng));
+      follow(d, pl.nearMs > 0 ? T.dogSlowSpeed : T.dogSpeed, dtMs);
+      d.shape = 'run';
+      d.hop = Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2;
+      holdStick(s);
+      const gap = dist(p, d);
+      const speed = Math.min(T.pajMaxSpeed, T.pajBaseSpeed + Math.max(0, gap - 40) * T.pajCatchUp);
+      pursue(p, d, speed, dtMs, T.minGap);
+      p.shape = 'walk';
+      // She is never caught: if she runs past him she slips away to the edge of his reach.
+      const g2 = dist(p, d);
+      if (g2 < T.minGap && g2 > 0) {
+        const away = clampArea({ x: p.x + ((d.x - p.x) / g2) * T.minGap, y: p.y + ((d.y - p.y) / g2) * T.minGap });
+        d.x = away.x;
+        d.y = away.y;
+      }
+      if (pl.phaseMs >= pl.chaseMs) {
+        d.path = [];
+        d.hop = 0;
+        d.shape = 'stand';
+        p.shape = 'stand';
+        endRound(s, rng);
+        pajSay(s, pickLine(GIVE_UP_LINES, rng));
+        // Another round: a spare stick lies on the grass for him to pick up.
+        if (!pl.finalRound) layStick(s, pickSpot(s, p, T.spareDist, rng), 'spare');
+        go(pl, 'giveUp');
+      }
+      break;
+    }
+    case 'giveUp': {
+      // He stops, shrugs and speaks; she stands off, looking pleased with herself.
+      p.shape = 'stand';
+      p.face = d.x >= p.x ? 1 : -1;
+      d.shape = 'stand';
+      d.face = p.x >= d.x ? 1 : -1;
+      d.wagMs = 1 + pl.phaseMs;
+      holdStick(s);
+      if (pl.phaseMs >= T.giveUpMs) {
+        d.wagMs = 0;
+        if (pl.finalRound) {
+          dropCarried(s);
+          go(pl, 'spin');
+        } else go(pl, 'toStick');
+      }
+      break;
+    }
+    case 'toStick': {
+      const spare = s.sticks.find((g) => g.kind === 'spare');
+      d.shape = 'stand';
+      holdStick(s);
+      if (!spare) {
+        go(pl, 'bend');
+        break;
+      }
+      const there = pursue(p, spare, T.pajToStickSpeed, dtMs, T.stickStop);
+      p.shape = there ? 'stand' : 'walk';
+      if (there) go(pl, 'bend');
+      break;
+    }
+    case 'bend': {
+      // A short bend to the grass; the stick is in his hand at the end.
+      p.shape = 'bend';
+      if (s.stick.state === 'carried') {
+        d.shape = 'stand';
+        holdStick(s);
+      } else d.shape = 'sit';
+      if (pl.phaseMs - dtMs < T.bendTakeMs && pl.phaseMs >= T.bendTakeMs) {
+        const spare = s.sticks.filter((g) => g.kind === 'spare').sort((a, b) => dist(a, p) - dist(b, p))[0];
+        if (spare) s.sticks = s.sticks.filter((g) => g !== spare);
+      }
+      if (pl.phaseMs >= T.bendMs) enterThrow(pl);
+      break;
+    }
     case 'drop': {
+      // She sits at his feet; the stick lies between them; he says thank you.
       d.shape = 'sit';
       p.shape = 'stand';
-      if (pl.phaseMs > 1300) {
-        if (pl.fetches >= 2 + Math.floor(rng() * 2)) {
-          pl.phase = 'spin';
-          s.stick.state = 'hidden';
-        } else {
-          pl.phase = 'throw';
-          s.stick.state = 'hidden';
-        }
-        pl.phaseMs = 0;
+      p.face = d.x >= p.x ? 1 : -1;
+      if (pl.phaseMs >= T.dropMs) {
+        if (pl.finalRound) go(pl, 'spin');
+        else go(pl, 'bend');
       }
       break;
     }
@@ -836,7 +1236,10 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       // Happy spin on the spot: the dog flips to face the other way SPIN_FLIPS times (two turns
       // around), hopping a little on each, tail wagging.
       p.shape = 'stand';
-      if (pl.phaseMs <= dtMs) pl.spinFace = d.face; // (first tick of the phase)
+      if (pl.phaseMs <= dtMs) {
+        pl.spinFace = d.face; // (first tick of the phase)
+        settleSpares(s);
+      }
       const slot = SPIN_MS / SPIN_FLIPS;
       const flips = Math.min(SPIN_FLIPS, Math.floor(pl.phaseMs / slot) + 1); // the first flip is immediate
       d.face = (flips % 2 === 0 ? pl.spinFace : -pl.spinFace) as 1 | -1;
@@ -849,9 +1252,8 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         d.hop = 0;
         d.wagMs = 0;
         d.reaction = 'none';
-        pl.phase = 'rest';
-        pl.phaseMs = 0;
-        d.path = [{ x: p.x + 30, y: p.y + 4 }];
+        go(pl, 'rest');
+        d.path = [{ x: p.x + 30, y: clamp(p.y + 4, PLAY_AREA.y0, PLAY_AREA.y1) }];
       }
       break;
     }
@@ -860,10 +1262,12 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       const done = follow(d, DOG_RUN_SPEED * 0.6, dtMs);
       d.shape = done ? 'sit' : 'run';
       if (pl.phaseMs > 4200) {
-        pl.phase = 'throw';
-        pl.phaseMs = 0;
+        // A fresh game: he finds a stick on the grass, bends, throws.
         pl.fetches = 0;
+        pl.finalRound = false;
         s.stick.state = 'hidden';
+        layStick(s, pickSpot(s, p, T.spareDist, rng), 'spare');
+        go(pl, 'toStick');
       }
       break;
     }
