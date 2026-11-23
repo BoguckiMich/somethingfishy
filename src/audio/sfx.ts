@@ -16,6 +16,10 @@ export const SFX_NAMES = [
   'coin',
   'tap',
   'boof',
+  'quack',
+  'sparkle',
+  'clink',
+  'bubbles',
 ] as const;
 export type SfxName = (typeof SFX_NAMES)[number];
 
@@ -115,6 +119,36 @@ const PLAYERS: Record<SfxName, Player> = {
   boof: (g, out, t, v) => {
     tone(g, out, t, { type: 'triangle', f0: 230 * v.pitch, f1: 105 * v.pitch, dur: 0.17, attack: 0.012, peak: 0.38 * v.volume });
     burst(g, out, t, { filter: 'lowpass', f0: 700 * v.pitch, f1: 300, q: 0.9, dur: 0.14, attack: 0.012, peak: 0.2 * v.volume });
+  },
+  // A duck's "quack": a nasal buzzy honk, a short one after it.
+  quack: (g, out, t, v) => {
+    tone(g, out, t, { type: 'sawtooth', f0: 560 * v.pitch, f1: 330 * v.pitch, dur: 0.13, attack: 0.012, peak: 0.1 * v.volume });
+    tone(g, out, t, { type: 'square', f0: 280 * v.pitch, f1: 210 * v.pitch, dur: 0.11, attack: 0.012, peak: 0.07 * v.volume });
+    burst(g, out, t, { filter: 'bandpass', f0: 1500 * v.pitch, q: 2, dur: 0.1, attack: 0.01, peak: 0.07 * v.volume });
+    tone(g, out, t, { type: 'sawtooth', f0: 480 * v.pitch, f1: 300 * v.pitch, at: 0.17, dur: 0.1, attack: 0.012, peak: 0.08 * v.volume });
+    burst(g, out, t, { filter: 'bandpass', f0: 1400 * v.pitch, q: 2, at: 0.17, dur: 0.08, attack: 0.01, peak: 0.05 * v.volume });
+  },
+  // A wish coming true: a quick rising run of tiny high bells.
+  sparkle: (g, out, t, v) => {
+    const run = [note(22), note(26), note(29), note(34), note(38)];
+    run.forEach((hz, i) => {
+      tone(g, out, t, { f0: hz * v.pitch, at: i * 0.055, dur: 0.22, attack: 0.004, peak: (0.1 + i * 0.012) * v.volume });
+    });
+    tone(g, out, t, { f0: note(41) * v.pitch, at: 0.28, dur: 0.5, attack: 0.004, peak: 0.07 * v.volume });
+  },
+  // Glass on glass: two ringing inharmonic partials and a tick.
+  clink: (g, out, t, v) => {
+    tone(g, out, t, { f0: 2350 * v.pitch, dur: 0.45, attack: 0.002, peak: 0.16 * v.volume });
+    tone(g, out, t, { f0: 3480 * v.pitch, at: 0.004, dur: 0.3, attack: 0.002, peak: 0.1 * v.volume });
+    tone(g, out, t, { f0: 5600 * v.pitch, at: 0.004, dur: 0.12, attack: 0.002, peak: 0.04 * v.volume });
+    burst(g, out, t, { filter: 'highpass', f0: 3000, q: 0.7, dur: 0.03, attack: 0.002, peak: 0.12 * v.volume });
+  },
+  // A handful of little bloops rising from below.
+  bubbles: (g, out, t, v) => {
+    const bloops: [number, number, number][] = [[0, 320, 0.2], [0.09, 420, 0.16], [0.19, 360, 0.2], [0.3, 520, 0.14], [0.4, 440, 0.12]];
+    for (const [at, hz, peak] of bloops) {
+      tone(g, out, t, { f0: hz * v.pitch, f1: hz * 2.1 * v.pitch, at, dur: 0.08, attack: 0.006, peak: peak * v.volume });
+    }
   },
 };
 

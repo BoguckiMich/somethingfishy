@@ -5,6 +5,7 @@ import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSpri
 import { SPECIES } from '../core/data/fish';
 import { FAR_SHORE_Y, W } from './layout';
 import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
+import { MOMENT_SPRITES } from './momentArt';
 import { Raster } from './raster';
 import {
   BOBBER,
@@ -58,6 +59,9 @@ export const TEX = {
   zBig: 'zBig',
 } as const;
 
+/** Texture key of a lake-moment sprite (a key of MOMENT_SPRITES). */
+export const momentKey = (name: string) => `moment:${name}`;
+
 /** Uploads a pure Raster as a Phaser canvas texture (once). */
 function addRaster(scene: Phaser.Scene, key: string, r: Raster): void {
   if (scene.textures.exists(key)) return;
@@ -95,6 +99,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.post, Raster.fromSprite(POST));
   addRaster(scene, TEX.crate, Raster.fromSprite(CRATE));
   addRaster(scene, TEX.board, Raster.fromSprite(NOTICE_BOARD));
+  for (const [name, s] of Object.entries(MOMENT_SPRITES)) addRaster(scene, momentKey(name), Raster.fromSprite(s));
   addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
   addRaster(scene, TEX.stripFrame, Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
   if (!scene.textures.exists(TEX.sky)) {
