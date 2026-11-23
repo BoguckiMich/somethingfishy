@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
 import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
 import { BAITS } from '../core/data/baits';
@@ -143,7 +143,7 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
   }
-  for (const pose of ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw'] as PajWalkPose[]) {
+  for (const pose of PAJ_WALK_POSES) {
     addRaster(scene, pajWalkKey(pose), Raster.fromSprite(pajkelWalkSprite(pose)));
   }
   for (const f of allDogFrames()) addRaster(scene, dogKey(f), Raster.fromSprite(dogSprite(f)));

@@ -149,6 +149,8 @@ function normalizePlayer(v: unknown): PlayerState {
     daily: normalizeDaily(p.daily),
     quests: normalizeQuests(p.quests),
     notes: normalizeNotes(p.notes),
+    // The night kit: stored only when owned (older saves have no key).
+    ...(p.nightKit === true ? { nightKit: true } : {}),
   };
 }
 

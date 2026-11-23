@@ -10,6 +10,9 @@ import {
   applyEvent,
   bagValue,
   buyLine,
+  buyNightKit,
+  hasNightKit,
+  nightKitForSale,
   buyReel,
   buyRod,
   buyWorms,
@@ -269,5 +272,36 @@ describe('applyEvent (worm use)', () => {
   });
   it('never goes below zero worms', () => {
     expect(applyEvent({ ...newPlayer(), worms: 0 }, caught, () => 0).state.worms).toBe(0);
+  });
+});
+
+describe('the night kit', () => {
+  const rich = (rodId: string, extra: Partial<PlayerState> = {}): PlayerState => ({ ...newPlayer(), coins: 3000, rodId, ...extra });
+
+  it('is for sale once the fiberglass rod, or a better one, is owned', () => {
+    expect(nightKitForSale(rich('bamboo'))).toBe(false);
+    expect(nightKitForSale(rich('fiberglass'))).toBe(true);
+    expect(nightKitForSale(rich('carbon'))).toBe(true);
+  });
+
+  it('costs 2500 coins and is owned afterwards', () => {
+    const r = buyNightKit(rich('fiberglass'));
+    expect(r.ok).toBe(true);
+    expect(r.state.coins).toBe(500);
+    expect(hasNightKit(r.state)).toBe(true);
+    expect(hasNightKit(newPlayer())).toBe(false);
+  });
+
+  it('says how many coins are missing', () => {
+    const r = buyNightKit(rich('fiberglass', { coins: 2000 }));
+    expect(r).toMatchObject({ ok: false, error: 'needCoins', missing: 500 });
+    expect(r.state.nightKit).toBeUndefined();
+  });
+
+  it('is refused with the bamboo rod, and only once', () => {
+    expect(buyNightKit(rich('bamboo'))).toMatchObject({ ok: false, error: 'needRod' });
+    const bought = buyNightKit(rich('carbon')).state;
+    expect(buyNightKit(bought)).toMatchObject({ ok: false, error: 'owned' });
+    expect(bought.coins).toBe(500);
   });
 });

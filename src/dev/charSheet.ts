@@ -13,7 +13,7 @@ import {
   STICK_CARRY_SIZE,
   DOG_SIZE,
   type PajPose,
-  type PajWalkPose,
+  PAJ_WALK_POSES,
 } from '../art/characters';
 import { DOG_MOUTH } from '../scenes/companions/behaviour';
 import { fishVariant } from '../art/fishVariants';
@@ -111,7 +111,7 @@ if (mode === 'all' || mode === 'paj') {
       [0, 1].map((b) => [`${pose}${b}`, pajkelSittingSprite(pose, b as 0 | 1), PAL.woodLight] as [string, Sprite, number?]),
     ),
   );
-  row((['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw'] as PajWalkPose[]).map((p): [string, Sprite, number?] => [p, pajkelWalkSprite(p), PAL.grass1]));
+  row(PAJ_WALK_POSES.map((p): [string, Sprite, number?] => [p, pajkelWalkSprite(p), PAL.grass1]));
 }
 
 if (mode === 'all' || mode === 'dog') {

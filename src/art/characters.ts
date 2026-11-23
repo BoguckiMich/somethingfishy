@@ -430,14 +430,60 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
 
 // Standing / walking side view, facing right (flip for left).
 export const PAJ_WALK_SIZE = { w: 32, h: 52 };
-export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw';
-/** Number of frames in the walk cycle (walk0..walkN-1). */
+export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1';
+/** Number of frames in the walk cycle (walk0..walkN-1; carry0..carryN-1 is the same cycle with Bestia in his arms). */
 export const PAJ_WALK_FRAMES = 4;
+/** Every standing / walking pose, in the order the textures are baked. */
+export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1'];
+
+/**
+ * Bestia held in Pajkel's arms (slice 16), painted into his walking sprite: her body lies across the
+ * crook of his arm in front of his chest, head forward over his forearm, the harness showing, paws
+ * and tail hanging. Drawn before his head so his beard falls over her back.
+ */
+function paintCarriedDog(p: Pix, bob: number): void {
+  const fur = (x: number, y: number) => (noise(x, y) > 0.8 ? PAL.gingerLight : noise(x, y) < 0.12 ? PAL.gingerDark : PAL.ginger);
+  // Upper arm hanging from the shoulder to the elbow.
+  for (let dx = 0; dx < 4; dx++) p.line(15 + dx, 21 + bob, 14 + dx, 29 + bob, dx === 3 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
+  // The dog: body across his front, a hind leg and a tail hanging behind, the head out over his forearm.
+  p.ell(18, 27 + bob, 6.8, 3.6, fur);
+  p.rect(12, 29 + bob, 2, 4, PAL.ginger); // hind leg dangling
+  p.line(11, 26 + bob, 10, 31 + bob, PAL.ginger); // tail
+  p.rect(21, 23 + bob, 2, 8, PAL.harness); // harness band
+  p.set(21, 23 + bob, PAL.harnessDark);
+  p.ell(26, 24 + bob, 3.6, 3.2, fur); // head
+  p.rect(28, 24 + bob, 3, 2, PAL.gingerLight); // snout
+  p.set(31, 24 + bob, PAL.outline); // nose
+  p.set(27, 23 + bob, PAL.outline); // eye
+  p.rect(23, 21 + bob, 2, 4, PAL.gingerDark); // a folded ear
+  // His forearm under her chest and belly, the hand cupped under the front legs.
+  p.rect(14, 29 + bob, 12, 4, PAL.jacket);
+  p.rect(14, 32 + bob, 12, 1, PAL.jacketDark);
+  p.rect(25, 29 + bob, 4, 4, PAL.skin);
+  p.rect(25, 32 + bob, 4, 1, PAL.skinShade);
+  p.rect(27, 28 + bob, 2, 1, PAL.gingerLight); // her front paws over his hand
+}
+
+/** Both arms stretched up: `high` = straight overhead, else out and up like a yawn. */
+function paintStretchArms(p: Pix, high: boolean): void {
+  const arm = (sx: number, ex: number, ey: number, c: number, edge: number) => {
+    for (let dx = 0; dx < 4; dx++) p.line(sx + dx, 21, ex + dx, ey, dx === 3 ? edge : c);
+  };
+  // The far arm (darker, behind) and the near arm; the fists end in skin.
+  arm(8, high ? 2 : 4, high ? 4 : 10, PAL.jacketDark, PAL.jacketDark);
+  arm(17, high ? 25 : 24, high ? 3 : 8, PAL.jacket, PAL.jacketDark);
+  for (const [x, y] of high ? [[2, 0], [25, 0]] : [[4, 7], [24, 5]]) {
+    p.rect(x, y, 4, 4, PAL.skin);
+    p.rect(x + 3, y, 1, 4, PAL.skinShade);
+  }
+}
 
 export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const p = new Pix(32, 52);
-  const walking = pose.startsWith('walk');
-  const f = walking ? Number(pose[4]) : 0;
+  const carry = pose.startsWith('carry');
+  const stretch = pose.startsWith('stretch');
+  const walking = pose.startsWith('walk') || carry;
+  const f = walking ? Number(pose.slice(-1)) : 0;
   // Stride: legs apart in frames 0 and 2 (opposite ways), passing under the body in 1 and 3.
   const swing = walking ? [-5, 0, 5, 0][f] : 0;
   const passing = walking && f % 2 === 1;
@@ -466,7 +512,9 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   }
   p.line(8, 34, 24, 34, PAL.jacketDark); // hem
   // Near arm: sleeve from the shoulder, swinging opposite the near leg, hand at the end.
-  if (pose !== 'throw') {
+  if (carry) paintCarriedDog(p, bob);
+  else if (stretch) paintStretchArms(p, pose === 'stretch1');
+  else if (pose !== 'throw') {
     const hx = Math.round(16 - swing * 0.9);
     const sx = 15;
     for (let dx = 0; dx < 5; dx++) p.line(sx + dx, 21 + bob, hx + dx, 27 + bob, dx === 4 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
