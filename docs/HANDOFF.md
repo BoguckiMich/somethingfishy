@@ -4,7 +4,7 @@ Rybki is a cozy pixel-art fishing game (PWA, portrait) made by the developer (Pa
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-22._
+_Last updated: 2026-11-23._
 
 ## Current state
 
@@ -17,7 +17,8 @@ _Last updated: 2026-11-22._
 | 4b | Standing Alex: slimmer, clearer hair, glances around (GAME_DESIGN §2b) | merged |
 | 5 | Catch bar fight + show-off pose (GAME_DESIGN §3); user: "ok for now, perfect later" | merged |
 | 6 | Fish data (12 species), spawn rules, sizes, catch result | merged |
-| 7 | Bag, shop, coins, worms, rod upgrades | built, awaiting review |
+| 7 | Bag, shop, coins, worms, rod upgrades | merged |
+| 8 | Fish log + personal bests (needs a grilling round) | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -32,6 +33,10 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   (bream/tench ~8.3 s vs 8 s floor, pike 13.7 s vs 15 s ceiling); shallow is still ~100% for a
   sloppy bot despite drain 0.13/s, user may want shallow actually losable. Per-species fish art
   is procedural placeholder (`src/art/fishArt.ts`) until slice 10.
+- Shop (slice 7): real catch→bag→bag-full flow and the "−1 worm" float were not exercised end to
+  end by the reviewer; worm/coin icons are tiny; the bottom bar covers the dog's lowest 40 px;
+  panels only checked at desktop width; bream needed difficulty 0.66 (sinker pattern barely
+  responds to difficulty — fragile).
 - Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
 - AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
 - Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
