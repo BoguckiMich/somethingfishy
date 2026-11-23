@@ -1,0 +1,188 @@
+import { describe, expect, it } from 'vitest';
+import { NEW_GAME_CLOCK } from './clock';
+import { SHOP } from './data/shop';
+import { newPlayer } from './inventory';
+import {
+  CURRENT_VERSION,
+  SAVE_BACKUP_KEY,
+  SAVE_BROKEN_KEY,
+  SAVE_KEY,
+  backupSave,
+  clearSave,
+  isSandbox,
+  loadSave,
+  newSave,
+  normalizeSave,
+  parseSave,
+  saveSummary,
+  startOver,
+  writeSave,
+  type SaveData,
+} from './save';
+
+function memoryStorage(initial: Record<string, string> = {}) {
+  const data = { ...initial };
+  return {
+    data,
+    getItem: (k: string) => (k in data ? data[k] : null),
+    setItem: (k: string, v: string) => void (data[k] = v),
+    removeItem: (k: string) => void delete data[k],
+  };
+}
+
+const throwing = {
+  getItem: (): string | null => {
+    throw new Error('blocked');
+  },
+  setItem: (): void => {
+    throw new Error('quota');
+  },
+  removeItem: (): void => {
+    throw new Error('blocked');
+  },
+};
+
+const fish = { speciesId: 'perch', lengthCm: 20, weightG: 150, price: 12 };
+
+describe('newSave / startOver', () => {
+  it('is a fresh player at the new-game clock', () => {
+    expect(newSave()).toEqual({ version: 1, player: newPlayer(), clock: NEW_GAME_CLOCK });
+  });
+  it('resets everything', () => {
+    const s: SaveData = { version: 1, player: { ...newPlayer(), coins: 99, bag: [fish] }, clock: { day: 5, minute: 700 } };
+    expect(startOver(s)).toEqual(newSave());
+  });
+});
+
+describe('normalizeSave', () => {
+  it('keeps a good save as is', () => {
+    const s: SaveData = {
+      version: 1,
+      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } } },
+      clock: { day: 4, minute: 123.5 },
+    };
+    expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+  it('fixes numbers and unknown rods', () => {
+    const r = normalizeSave({ version: 1, player: { coins: -5.7, worms: 'x', rodId: 'laser' }, clock: {} });
+    expect(r.player.coins).toBe(0);
+    expect(r.player.worms).toBe(SHOP.startWorms);
+    expect(r.player.rodId).toBe('bamboo');
+    const f = normalizeSave({ version: 1, player: { coins: 12.9, worms: 4.2 } });
+    expect(f.player.coins).toBe(12);
+    expect(f.player.worms).toBe(4);
+  });
+  it('drops bad bag and log entries and caps the bag', () => {
+    const bag = [fish, { ...fish, speciesId: 'dragon' }, { ...fish, lengthCm: 'x' }, null, 5, { ...fish, weightG: 0 }];
+    const many = Array.from({ length: 15 }, () => fish);
+    expect(normalizeSave({ player: { bag } }).player.bag).toEqual([fish]);
+    expect(normalizeSave({ player: { bag: many } }).player.bag).toHaveLength(SHOP.bagSlots);
+    const log = {
+      perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 },
+      dragon: { count: 1, bestLengthCm: 1, bestWeightG: 1 },
+      roach: { count: 0, bestLengthCm: 10, bestWeightG: 10 },
+      rudd: { count: 1, bestLengthCm: -3, bestWeightG: 10 },
+      bleak: 'nope',
+    };
+    expect(Object.keys(normalizeSave({ player: { log } }).player.log)).toEqual(['perch']);
+  });
+  it('clamps the clock', () => {
+    expect(normalizeSave({ clock: { day: 0, minute: -4 } }).clock).toEqual({ day: 1, minute: 0 });
+    expect(normalizeSave({ clock: { day: 3.9, minute: 99999 } }).clock.day).toBe(3);
+    expect(normalizeSave({ clock: { day: 3, minute: 99999 } }).clock.minute).toBeLessThan(1440);
+    expect(normalizeSave('junk').clock).toEqual(NEW_GAME_CLOCK);
+  });
+});
+
+describe('parseSave', () => {
+  it('reads a valid save', () => {
+    expect(parseSave(JSON.stringify(newSave()))).toEqual({ ok: true, save: newSave() });
+  });
+  it('rejects junk and non-objects', () => {
+    expect(parseSave('{nope')).toEqual({ ok: false, reason: 'unreadable' });
+    expect(parseSave('[1]')).toEqual({ ok: false, reason: 'unreadable' });
+    expect(parseSave('{"player":{}}')).toEqual({ ok: false, reason: 'unreadable' });
+  });
+  it('rejects a newer version', () => {
+    expect(parseSave(JSON.stringify({ ...newSave(), version: CURRENT_VERSION + 1 }))).toEqual({ ok: false, reason: 'tooNew' });
+  });
+  it('applies the migration chain in order', () => {
+    const migrations = {
+      0: (o: unknown) => ({ ...(o as object), version: 1, player: { coins: 7 } }),
+      1: (o: unknown) => ({ ...(o as object), version: 2, player: { ...(o as { player: object }).player, worms: 8 } }),
+    };
+    const r = parseSave(JSON.stringify({ version: 0 }), { migrations, currentVersion: 2 });
+    expect(r.ok && r.save.player.coins).toBe(7);
+    expect(r.ok && r.save.player.worms).toBe(8);
+  });
+  it('fails when a migration step is missing or throws', () => {
+    expect(parseSave(JSON.stringify({ version: 0 }), { migrations: {}, currentVersion: 1 })).toEqual({ ok: false, reason: 'unreadable' });
+    const bad = {
+      0: () => {
+        throw new Error('x');
+      },
+    };
+    expect(parseSave(JSON.stringify({ version: 0 }), { migrations: bad, currentVersion: 1 })).toEqual({ ok: false, reason: 'unreadable' });
+  });
+});
+
+describe('storage', () => {
+  it('fresh when nothing is stored', () => {
+    expect(loadSave(memoryStorage())).toEqual({ save: newSave(), status: 'fresh' });
+  });
+  it('write then load round-trips (save, reload, same state)', () => {
+    const s = memoryStorage();
+    const save: SaveData = { version: 1, player: { ...newPlayer(), coins: 77, bag: [fish] }, clock: { day: 3, minute: 800 } };
+    expect(writeSave(s, save)).toBe(true);
+    expect(loadSave(s)).toEqual({ save, status: 'loaded' });
+  });
+  it('keeps a broken save aside and starts fresh', () => {
+    const s = memoryStorage({ [SAVE_KEY]: '{oops' });
+    expect(loadSave(s)).toEqual({ save: newSave(), status: 'broken' });
+    expect(s.data[SAVE_BROKEN_KEY]).toBe('{oops');
+  });
+  it('treats a too-new save as broken', () => {
+    const text = JSON.stringify({ ...newSave(), version: 9 });
+    const s = memoryStorage({ [SAVE_KEY]: text });
+    expect(loadSave(s).status).toBe('broken');
+    expect(s.data[SAVE_BROKEN_KEY]).toBe(text);
+  });
+  it('never throws on bad storage', () => {
+    expect(loadSave(throwing)).toEqual({ save: newSave(), status: 'fresh' });
+    expect(loadSave(undefined).status).toBe('fresh');
+    expect(writeSave(throwing, newSave())).toBe(false);
+    expect(writeSave(undefined, newSave())).toBe(false);
+    expect(() => clearSave(throwing)).not.toThrow();
+    expect(() => backupSave(throwing)).not.toThrow();
+  });
+  it('clears and backs up', () => {
+    const s = memoryStorage();
+    writeSave(s, newSave());
+    const raw = s.data[SAVE_KEY];
+    backupSave(s);
+    expect(s.data[SAVE_BACKUP_KEY]).toBe(raw);
+    clearSave(s);
+    expect(SAVE_KEY in s.data).toBe(false);
+    backupSave(s);
+    expect(s.data[SAVE_BACKUP_KEY]).toBe(raw); // nothing to copy: the old backup stays
+  });
+});
+
+describe('isSandbox', () => {
+  it('is false for no params, skipnames and reset', () => {
+    expect(isSandbox([])).toBe(false);
+    expect(isSandbox(['skipnames'])).toBe(false);
+    expect(isSandbox(['skipnames', 'reset'])).toBe(false);
+  });
+  it('is true for any other param', () => {
+    expect(isSandbox(['time'])).toBe(true);
+    expect(isSandbox(['skipnames', 'debug'])).toBe(true);
+  });
+});
+
+describe('saveSummary', () => {
+  it('counts species and coins', () => {
+    const save: SaveData = { ...newSave(), player: { ...newPlayer(), coins: 340, log: { perch: { count: 1, bestLengthCm: 1, bestWeightG: 1 } } } };
+    expect(saveSummary(save)).toEqual({ species: 1, coins: 340 });
+  });
+});

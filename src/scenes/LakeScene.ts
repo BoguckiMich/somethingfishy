@@ -46,7 +46,10 @@ import { showBagFullCard } from '../ui/bagFullCard';
 import { openBagPanel, openShopPanel } from '../ui/bagShop';
 import { openLogPanel } from '../ui/logPanel';
 import { recordCatch, type CatchOutcome, type FishLog } from '../core/fishLog';
+import { backupSave, clearSave, isSandbox, loadSave, startOver, writeSave, type SaveData } from '../core/save';
+import { encodeSaveCode } from '../core/saveCode';
 import { showNameOverlay } from '../ui/nameOverlay';
+import { openSettingsPanel } from '../ui/settingsPanel';
 import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar } from './BottomBar';
 import { CatchBarView } from './CatchBarView';
@@ -59,6 +62,8 @@ const TOAST_MS = 1800;
 /** The show-off of a first-of-its-kind catch stays up longer (tap works after the usual guard). */
 const NEW_SPECIES_SHOW_OFF_MS = 8000;
 const RIPPLE_MS = 1200;
+/** The clock is saved this often (real ms of play) besides every player change. */
+const CLOCK_SAVE_MS = 10_000;
 
 const TEXT = '#fff6e4';
 const ALERT = '#ffd35a';
@@ -145,7 +150,7 @@ function hash01(n: number): number {
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
-  /** Coins, worms, bag and rod: one plain object (slice 9 will save it). */
+  /** Coins, worms, bag, rod and log: one plain object, saved on every change via setPlayer. */
   private player: PlayerState = newPlayer();
   private ctx: SessionContext = {
     location: QUIET_LAKE,
@@ -163,6 +168,12 @@ export class LakeScene extends Phaser.Scene {
   private wormCue!: Phaser.GameObjects.Text;
   private wormCueAge = Infinity;
   private clock: GameClock = NEW_GAME_CLOCK;
+  /** Dev flags in the URL: nothing is loaded or saved (see isSandbox). */
+  private sandbox = false;
+  /** The last write to storage failed (the settings panel says so). */
+  private saveFailed = false;
+  private sinceClockSave = 0;
+  private devTag!: Phaser.GameObjects.Text;
 
   // Scenery images (tinted by the day cycle).
   private sunImg!: Phaser.GameObjects.Image;
@@ -234,6 +245,8 @@ export class LakeScene extends Phaser.Scene {
   create(): void {
     // Dev helper: ?time=22 starts the clock at 22:00, to check night/dawn without waiting.
     const params = new URLSearchParams(location.search);
+    this.sandbox = isSandbox([...params.keys()]);
+    const saveStatus = this.setupSave(params);
     const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && location.search.includes('time=')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
@@ -258,13 +271,13 @@ export class LakeScene extends Phaser.Scene {
     if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
     const rod = RODS.find((r) => r.id === params.get('rod'));
-    if (rod) this.player = { ...this.player, rodId: rod.id };
+    if (rod) this.setPlayer({ ...this.player, rodId: rod.id });
     const coinsParam = Number(params.get('coins'));
-    if (params.has('coins') && Number.isFinite(coinsParam)) this.player = { ...this.player, coins: Math.max(0, Math.floor(coinsParam)) };
+    if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
-    if (params.has('worms') && Number.isFinite(wormsParam)) this.player = { ...this.player, worms: Math.max(0, Math.floor(wormsParam)) };
-    if (dbg === 'log') this.player = { ...this.player, log: debugLog('half') };
-    if (params.get('log') === 'all') this.player = { ...this.player, log: debugLog('all') };
+    if (params.has('worms') && Number.isFinite(wormsParam)) this.setPlayer({ ...this.player, worms: Math.max(0, Math.floor(wormsParam)) });
+    if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
+    if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
     this.syncRod();
     if (dbg === 'fight' || dbg === 'caught') {
       // The forced species (default perch) at a rolled size, in its own zone.
@@ -282,6 +295,7 @@ export class LakeScene extends Phaser.Scene {
     }
     this.buildScenery();
     this.buildUi();
+    if (saveStatus === 'broken') this.showToast("Your save couldn't be read, starting fresh");
 
     this.setupProfile(params);
     this.setupDebugPanels(dbg);
@@ -321,10 +335,59 @@ export class LakeScene extends Phaser.Scene {
     this.render();
   }
 
+  /**
+   * Loads the saved game (unless sandboxed), asks the browser to keep the storage, and hooks the
+   * "leaving the page" events that save the clock. Returns the load status for a toast.
+   */
+  private setupSave(params: URLSearchParams): 'fresh' | 'loaded' | 'broken' | 'sandbox' {
+    const store = this.safeStorage();
+    if (params.get('reset') === 'save') clearSave(store);
+    try {
+      void navigator.storage?.persist?.()?.catch(() => undefined);
+    } catch {
+      // ignore: persistence is a nicety
+    }
+    if (this.sandbox) return 'sandbox';
+    const loaded = loadSave(store);
+    this.player = loaded.save.player;
+    this.clock = loaded.save.clock;
+    this.persist();
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') this.persist();
+    };
+    const onPageHide = () => this.persist();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onPageHide);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onPageHide);
+    });
+    return loaded.status;
+  }
+
+  private currentSave(): SaveData {
+    return { version: 1, player: this.player, clock: this.clock };
+  }
+
+  /** Writes the game to storage (a no-op in the dev sandbox) and remembers whether it worked. */
+  private persist(): void {
+    if (this.sandbox) return;
+    this.sinceClockSave = 0;
+    this.saveFailed = !writeSave(this.safeStorage(), this.currentSave());
+  }
+
+  /** The one way the player state changes: it is saved right after. */
+  private setPlayer(p: PlayerState): void {
+    this.player = p;
+    this.persist();
+  }
+
   update(_time: number, deltaMs: number): void {
     this.elapsed += deltaMs;
     this.stateAge += deltaMs;
     this.clock = advanceClock(this.clock, deltaMs);
+    this.sinceClockSave += deltaMs;
+    if (this.sinceClockSave >= CLOCK_SAVE_MS) this.persist();
     if (!(this.freezeCaught && this.state.kind === 'caught')) this.send({ type: 'tick', dtMs: deltaMs });
 
     if (this.state.kind === 'casting' || this.state.kind === 'retrieving') {
@@ -375,7 +438,7 @@ export class LakeScene extends Phaser.Scene {
    */
   private noteCatch(hooked: HookedFish, celebrate: boolean): void {
     const r = recordCatch(this.player.log, hooked);
-    this.player = { ...this.player, log: r.log };
+    this.setPlayer({ ...this.player, log: r.log });
     this.catchOutcome = r.outcome;
     this.ctx = { ...this.ctx, showOffMs: r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined };
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
@@ -384,7 +447,7 @@ export class LakeScene extends Phaser.Scene {
   /** The player's side of a game event: bait use. */
   private applyToPlayer(e: GameEvent): void {
     const r = applyEvent(this.player, e, this.ctx.rng);
-    this.player = r.state;
+    this.setPlayer(r.state);
     if (r.wormUsed) this.wormCueAge = 0;
   }
 
@@ -397,7 +460,7 @@ export class LakeScene extends Phaser.Scene {
   private stowCatch(hooked: HookedFish): void {
     const r = addCatch(this.player, hooked);
     if (r.result === 'added') {
-      this.player = r.state;
+      this.setPlayer(r.state);
       this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);
       return;
     }
@@ -411,25 +474,25 @@ export class LakeScene extends Phaser.Scene {
       fish,
       cheapest,
       () => {
-        this.player = releasePending(this.player);
+        this.setPlayer(releasePending(this.player));
         this.panel = null;
         this.showToast('Released it back into the lake');
       },
       () => {
-        this.player = swapForCheapest(this.player, fish).state;
+        this.setPlayer(swapForCheapest(this.player, fish).state);
         this.panel = null;
         this.showToast('Swapped');
       },
     );
   }
 
-  private openPlayerPanel(kind: 'bag' | 'shop' | 'log', startWith?: string): void {
+  private openPlayerPanel(kind: 'bag' | 'shop' | 'log' | 'settings', startWith?: string): void {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
     const store = {
       get: () => this.player,
       set: (p: PlayerState) => {
-        this.player = p;
+        this.setPlayer(p);
         this.syncRod();
       },
     };
@@ -437,14 +500,52 @@ export class LakeScene extends Phaser.Scene {
     this.panel =
       kind === 'bag' ? openBagPanel(store, onClose)
       : kind === 'shop' ? openShopPanel(store, onClose)
+      : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
       : openLogPanel(() => this.player.log, onClose, startWith);
+  }
+
+  /** What the settings panel may ask of the scene. */
+  private settingsStore() {
+    return {
+      exportCode: () => encodeSaveCode(this.currentSave(), this.profile),
+      applyImport: (save: SaveData, profile: Profile) => this.loadGame(save, profile),
+      startOver: () => this.startNewGame(),
+      openNames: () => this.openNames(),
+      canSave: () => !this.saveFailed && this.safeStorage() !== undefined,
+      sandbox: this.sandbox,
+    };
+  }
+
+  /** Replaces the running game with an imported one (the old save is kept as a backup). */
+  private loadGame(save: SaveData, profile: Profile): void {
+    if (!this.sandbox) backupSave(this.safeStorage());
+    this.clock = save.clock;
+    this.setPlayer(save.player);
+    this.syncRod();
+    this.profile = profile;
+    if (!this.sandbox) saveProfile(this.safeStorage(), profile);
+    this.showToast('Game loaded');
+  }
+
+  /** Start over: everything but the names resets (the old save is kept as a backup). */
+  private startNewGame(): void {
+    if (!this.sandbox) backupSave(this.safeStorage());
+    const fresh = startOver(this.currentSave());
+    this.clock = fresh.clock;
+    this.setPlayer(fresh.player);
+    this.syncRod();
+    this.showToast('A fresh start');
+  }
+
+  private openNames(): void {
+    showNameOverlay(this.profile, false, (p) => this.applyProfile(p));
   }
 
   /** A press while out of worms: the soft-lock guard may help, otherwise point to the shop. */
   private blockedCast(): void {
     const guard = freeWormsIfStuck(this.player);
     if (guard.granted) {
-      this.player = guard.state;
+      this.setPlayer(guard.state);
       this.showToast('The bait shop owner slips you a few worms');
     } else {
       this.showToast('Out of worms, visit the shop');
@@ -453,6 +554,10 @@ export class LakeScene extends Phaser.Scene {
 
   /** Dev-only: ?debug=log|shop|bag|bagfull open the panels with a filled bag (screenshots). */
   private setupDebugPanels(dbg: string): void {
+    if (dbg === 'settings') {
+      this.openPlayerPanel('settings');
+      return;
+    }
     if (dbg === 'log') {
       this.openPlayerPanel('log', new URLSearchParams(location.search).get('species') ?? undefined);
       return;
@@ -465,7 +570,7 @@ export class LakeScene extends Phaser.Scene {
     };
     const ids = ['roach', 'perch', 'bleak', 'crucian', 'eel', 'bream', 'tench', 'carp', 'pike', 'rudd'];
     const count = dbg === 'bag' ? 7 : dbg === 'shop' ? 5 : SHOP.bagSlots;
-    this.player = { ...this.player, bag: ids.slice(0, count).map((id, i) => mid(id, 0.2 + ((i * 37) % 70) / 100)) };
+    this.setPlayer({ ...this.player, bag: ids.slice(0, count).map((id, i) => mid(id, 0.2 + ((i * 37) % 70) / 100)) });
     if (dbg === 'bagfull') this.askBagFull(mid('catfish', 0.5));
     else this.openPlayerPanel(dbg);
   }
@@ -530,7 +635,7 @@ export class LakeScene extends Phaser.Scene {
       return true;
     }
     if (PENCIL.contains(x, y)) {
-      showNameOverlay(this.profile, false, (p) => this.applyProfile(p));
+      this.openNames();
       return true;
     }
     const dog = this.companions.dogRect();
@@ -708,6 +813,11 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
+    this.devTag = this.add
+      .text(W - 8, 38, 'DEV · not saving', { fontFamily: 'monospace', fontSize: '11px', color: ALERT, padding: { x: 5, y: 3 } })
+      .setOrigin(1, 0)
+      .setDepth(Z.uiText)
+      .setVisible(this.sandbox);
     this.zoneLabel = this.add
       .text(W / 2, 84, '', { ...textStyle, ...pad, fontSize: '16px' })
       .setOrigin(0.5)
@@ -1239,6 +1349,7 @@ export class LakeScene extends Phaser.Scene {
     panel(this.zoneLabel);
     panel(this.toast);
     panel(this.hint);
+    panel(this.devTag);
     for (const t of this.tags) {
       t.age += 16;
       t.text.setVisible(t.age < 2400);

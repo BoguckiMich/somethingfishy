@@ -1,14 +1,20 @@
 import Phaser from 'phaser';
 import { W } from '../art/layout';
 import { PAL } from '../art/palette';
+import { TEX } from '../art/textures';
 
-export type BarButton = 'bag' | 'shop' | 'log';
+export type BarButton = 'bag' | 'shop' | 'log' | 'settings';
 
-const BTN = { y: 602, w: 108, h: 30, gap: 8 };
-const X0 = Math.round((W - (BTN.w * 3 + BTN.gap * 2)) / 2);
-const ORDER: BarButton[] = ['bag', 'shop', 'log'];
+const BTN = { y: 602, h: 30, gap: 8 };
+const ORDER: BarButton[] = ['bag', 'shop', 'log', 'settings'];
+/** Widths in ORDER; the gear is square. Together with the gaps they span 340 of the 360 px. */
+const WIDTHS = [95, 95, 96, 30];
+const X0 = Math.round((W - (WIDTHS.reduce((a, b) => a + b, 0) + BTN.gap * (WIDTHS.length - 1))) / 2);
 
-const rectOf = (i: number) => new Phaser.Geom.Rectangle(X0 + i * (BTN.w + BTN.gap), BTN.y, BTN.w, BTN.h);
+const rectOf = (i: number) => {
+  const x = X0 + WIDTHS.slice(0, i).reduce((a, b) => a + b + BTN.gap, 0);
+  return new Phaser.Geom.Rectangle(x, BTN.y, WIDTHS[i], BTN.h);
+};
 
 /** Top edge of the bar, so the hint can sit just above it. */
 export const BAR_TOP = BTN.y;
@@ -20,11 +26,14 @@ export interface BarView {
   bagSlots: number;
 }
 
-/** The bottom bar: Bag (n/10), Shop and Log. Drawn with Phaser; taps come from the scene. */
+/** The bottom bar: Bag (n/10), Shop, Log and the gear (settings). Drawn with Phaser; taps come from the scene. */
 export class BottomBar {
   private labels: Phaser.GameObjects.Text[];
+  private gear: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, depth: number) {
+    const gearRect = rectOf(ORDER.indexOf('settings'));
+    this.gear = scene.add.image(gearRect.centerX, gearRect.centerY, TEX.gear).setDepth(depth);
     this.labels = ORDER.map((_, i) => {
       const r = rectOf(i);
       return scene.add
@@ -55,7 +64,8 @@ export class BottomBar {
       g.fillStyle(PAL.woodDark, 0.9 * a).fillRect(r.x + 1, r.y + 1, r.width - 2, 1);
       const label = this.labels[i];
       const full = id === 'bag' && v.bagCount >= v.bagSlots;
-      label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : 'Log');
+      label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : id === 'log' ? 'Log' : '');
+      if (id === 'settings') this.gear.setAlpha(a);
       label.setColor(full ? '#ffb347' : '#fff6e4');
       label.setAlpha(a);
     });

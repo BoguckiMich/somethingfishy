@@ -8,6 +8,7 @@ import { Raster } from './raster';
 import {
   BOBBER,
   BOBBER_UNDER,
+  GEAR,
   LILY_A,
   LILY_B,
   POST,
@@ -45,6 +46,7 @@ export const TEX = {
   post: 'post',
   barFrame: 'barFrame',
   stripFrame: 'stripFrame',
+  gear: 'gear',
 } as const;
 
 /** Uploads a pure Raster as a Phaser canvas texture (once). */
@@ -72,6 +74,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.moon, moonRaster());
   addRaster(scene, TEX.bobber, Raster.fromSprite(BOBBER));
   addRaster(scene, TEX.bobberUnder, Raster.fromSprite(BOBBER_UNDER));
+  addRaster(scene, TEX.gear, Raster.fromSprite(GEAR));
   createCharacterTextures(scene);
   addRaster(scene, TEX.lilyA, Raster.fromSprite(LILY_A));
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));
