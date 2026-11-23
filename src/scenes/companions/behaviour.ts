@@ -32,6 +32,9 @@ export const CLAP_MS = 2000;
 const CLAP_FLIP_MS = 150;
 /** Bestia hops for a catch this long. */
 export const HOP_MS = 1500;
+/** A new species or a record: a longer clap and a longer, higher hop. */
+export const CLAP_BIG_MS = 3600;
+export const HOP_BIG_MS = 2800;
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
 export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw';
@@ -63,6 +66,9 @@ export interface Companions {
     nextWagIn: number;
     petMs: number;
     hop: number;
+    /** How long and how high the current 'hop' reaction goes. */
+    hopTotalMs: number;
+    hopHeight: number;
     /** Dock rest time since last reaction (to lie back down). */
     restMs: number;
     sleeping: boolean;
@@ -74,6 +80,8 @@ export interface Companions {
     walkMs: number;
     /** Time left clapping (alternating the cheer and sit frames). */
     clapMs: number;
+    /** How long this clap started with (a big moment claps longer). */
+    clapTotalMs: number;
   };
   stick: Stick;
   play: { phase: PlayPhase; phaseMs: number; fetches: number; target: Point; angle: number };
@@ -103,10 +111,12 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       nextWagIn: rand(rng, 2000, 4500),
       petMs: 0,
       hop: 0,
+      hopTotalMs: HOP_MS,
+      hopHeight: 7,
       restMs: 0,
       sleeping: false,
     },
-    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkMs: 0, clapMs: 0 },
+    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkMs: 0, clapMs: 0, clapTotalMs: CLAP_MS },
     stick: { x: 0, y: 0, state: 'hidden' },
     play: { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, angle: 0 },
   };
@@ -120,7 +130,8 @@ export function companionPress(s: Companions): void {
   if (s.mode === 'play' || s.mode === 'leaving') beginReturn(s);
 }
 
-export function companionEvent(s: Companions, e: GameEventKind): void {
+/** `big` (a new species or record) makes the catch reaction longer and bigger. */
+export function companionEvent(s: Companions, e: GameEventKind, big = false): void {
   const d = s.dog;
   s.idleMs = 0;
   if (e === 'bite' && (s.mode === 'play' || s.mode === 'leaving')) beginReturn(s);
@@ -142,7 +153,10 @@ export function companionEvent(s: Companions, e: GameEventKind): void {
     if (s.paj.shape === 'look' || s.paj.shape === 'cheer') s.paj.shape = 'sit';
   } else if (e === 'fishCaught') {
     setReaction(s, 'hop');
-    s.paj.clapMs = CLAP_MS;
+    d.hopTotalMs = big ? HOP_BIG_MS : HOP_MS;
+    d.hopHeight = big ? 12 : 7;
+    s.paj.clapTotalMs = big ? CLAP_BIG_MS : CLAP_MS;
+    s.paj.clapMs = s.paj.clapTotalMs;
     s.paj.shape = 'cheer';
     s.paj.reactMs = 0;
   } else if (e === 'fishLost') {
@@ -296,8 +310,8 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
       break;
     case 'hop':
       d.shape = 'stand';
-      d.hop = Math.abs(Math.sin(d.reactMs / 110)) * 7;
-      if (d.reactMs > HOP_MS) setReaction(s, 'sit');
+      d.hop = Math.abs(Math.sin(d.reactMs / 110)) * d.hopHeight;
+      if (d.reactMs > d.hopTotalMs) setReaction(s, 'sit');
       break;
     case 'sit':
       d.shape = 'sit';
@@ -333,7 +347,7 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
   p.reactMs += dtMs;
   if (p.clapMs > 0) {
     // Clapping: the cheer and sit frames alternate quickly.
-    const elapsed = CLAP_MS - p.clapMs;
+    const elapsed = p.clapTotalMs - p.clapMs;
     p.clapMs = Math.max(0, p.clapMs - dtMs);
     if (p.clapMs === 0) {
       p.shape = 'sit';

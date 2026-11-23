@@ -44,6 +44,8 @@ import { INITIAL_STATE, step, type FishingInput, type FishingState, type Session
 import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
 import { showBagFullCard } from '../ui/bagFullCard';
 import { openBagPanel, openShopPanel } from '../ui/bagShop';
+import { openLogPanel } from '../ui/logPanel';
+import { recordCatch, type CatchOutcome, type FishLog } from '../core/fishLog';
 import { showNameOverlay } from '../ui/nameOverlay';
 import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar } from './BottomBar';
@@ -54,6 +56,8 @@ import { HAPTICS, vibrate } from './haptics';
 
 const NIBBLE_ANIM_MS = 260;
 const TOAST_MS = 1800;
+/** The show-off of a first-of-its-kind catch stays up longer (tap works after the usual guard). */
+const NEW_SPECIES_SHOW_OFF_MS = 8000;
 const RIPPLE_MS = 1200;
 
 const TEXT = '#fff6e4';
@@ -122,6 +126,17 @@ function pixelEllipse(g: Phaser.GameObjects.Graphics, cx: number, cy: number, rx
   }
 }
 
+/** Dev-only: a made-up log for ?debug=log (about half the species) and ?log=all. */
+function debugLog(which: 'half' | 'all'): FishLog {
+  const log: FishLog = {};
+  SPECIES.forEach((sp, i) => {
+    if (which === 'half' && i % 2 === 1) return;
+    const lengthCm = Math.round(sp.lengthCm[0] + (sp.lengthCm[1] - sp.lengthCm[0]) * (0.25 + ((i * 37) % 70) / 100));
+    log[sp.id] = { count: 1 + ((i * 5) % 9), bestLengthCm: lengthCm, bestWeightG: Math.round(sp.bodyFactor * lengthCm ** 3) };
+  });
+  return log;
+}
+
 function hash01(n: number): number {
   const h = Math.sin(n * 12.9898) * 43758.5453;
   return h - Math.floor(h);
@@ -174,6 +189,10 @@ export class LakeScene extends Phaser.Scene {
   private fightBend = 8;
   /** Dev-only ?debug=caught: the show-off never times out or gets dismissed. */
   private freezeCaught = false;
+  /** What the current show-off means for the log (set on fishCaught, shown on the catch screen). */
+  private catchOutcome: CatchOutcome = { kind: 'normal' };
+  private caughtBadge!: Phaser.GameObjects.Text;
+  private caughtNote!: Phaser.GameObjects.Text;
 
   // Per-frame graphics layers.
   private stars!: Phaser.GameObjects.Graphics;
@@ -244,6 +263,8 @@ export class LakeScene extends Phaser.Scene {
     if (params.has('coins') && Number.isFinite(coinsParam)) this.player = { ...this.player, coins: Math.max(0, Math.floor(coinsParam)) };
     const wormsParam = Number(params.get('worms'));
     if (params.has('worms') && Number.isFinite(wormsParam)) this.player = { ...this.player, worms: Math.max(0, Math.floor(wormsParam)) };
+    if (dbg === 'log') this.player = { ...this.player, log: debugLog('half') };
+    if (params.get('log') === 'all') this.player = { ...this.player, log: debugLog('all') };
     this.syncRod();
     if (dbg === 'fight' || dbg === 'caught') {
       // The forced species (default perch) at a rolled size, in its own zone.
@@ -256,6 +277,7 @@ export class LakeScene extends Phaser.Scene {
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
+        this.noteCatch(hooked, false); // the dev catch goes through the log like a real one
       }
     }
     this.buildScenery();
@@ -347,6 +369,18 @@ export class LakeScene extends Phaser.Scene {
     if (prev.kind === 'caught' && next.kind === 'idle') this.stowCatch(prev.hooked);
   }
 
+  /**
+   * A won fight goes in the log before the bag decision. A new species gets the longer show-off;
+   * a new species or record makes the companions react bigger.
+   */
+  private noteCatch(hooked: HookedFish, celebrate: boolean): void {
+    const r = recordCatch(this.player.log, hooked);
+    this.player = { ...this.player, log: r.log };
+    this.catchOutcome = r.outcome;
+    this.ctx = { ...this.ctx, showOffMs: r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined };
+    if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
+  }
+
   /** The player's side of a game event: bait use. */
   private applyToPlayer(e: GameEvent): void {
     const r = applyEvent(this.player, e, this.ctx.rng);
@@ -389,7 +423,7 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
-  private openPlayerPanel(kind: 'bag' | 'shop'): void {
+  private openPlayerPanel(kind: 'bag' | 'shop' | 'log', startWith?: string): void {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
     const store = {
@@ -400,7 +434,10 @@ export class LakeScene extends Phaser.Scene {
       },
     };
     const onClose = () => (this.panel = null);
-    this.panel = kind === 'bag' ? openBagPanel(store, onClose) : openShopPanel(store, onClose);
+    this.panel =
+      kind === 'bag' ? openBagPanel(store, onClose)
+      : kind === 'shop' ? openShopPanel(store, onClose)
+      : openLogPanel(() => this.player.log, onClose, startWith);
   }
 
   /** A press while out of worms: the soft-lock guard may help, otherwise point to the shop. */
@@ -414,8 +451,12 @@ export class LakeScene extends Phaser.Scene {
     }
   }
 
-  /** Dev-only: ?debug=shop|bag|bagfull open the panels with a filled bag (screenshots). */
+  /** Dev-only: ?debug=log|shop|bag|bagfull open the panels with a filled bag (screenshots). */
   private setupDebugPanels(dbg: string): void {
+    if (dbg === 'log') {
+      this.openPlayerPanel('log', new URLSearchParams(location.search).get('species') ?? undefined);
+      return;
+    }
     if (dbg !== 'shop' && dbg !== 'bag' && dbg !== 'bagfull') return;
     const mid = (id: string, share: number): BagFish => {
       const sp = SPECIES.find((x) => x.id === id)!;
@@ -432,7 +473,7 @@ export class LakeScene extends Phaser.Scene {
   /** Feedback for things the core reports: ripples, haptics, messages. */
   private onEvent(e: GameEvent): void {
     this.applyToPlayer(e);
-    companionEvent(this.companions.state, e.type);
+    companionEvent(this.companions.state, e.type, false);
     lookEvent(this.look, e.type, Math.random);
     const s = this.state;
     const distanceM = 'distanceM' in s ? s.distanceM : 0;
@@ -456,6 +497,7 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'fishCaught':
         vibrate(HAPTICS.caught);
+        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, true);
         break;
       case 'fishLost':
         this.showToast('It got away…');
@@ -484,7 +526,7 @@ export class LakeScene extends Phaser.Scene {
     // The bottom bar: its buttons work only while idle, and a tap there never casts.
     if (this.state.kind === 'idle' && this.bottomBar.covers(x, y)) {
       const hit = this.bottomBar.hit(x, y);
-      if (hit === 'bag' || hit === 'shop') this.openPlayerPanel(hit);
+      if (hit) this.openPlayerPanel(hit);
       return true;
     }
     if (PENCIL.contains(x, y)) {
@@ -691,6 +733,19 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
+    this.caughtBadge = this.add
+      .text(W / 2, 274, '', { fontFamily: 'monospace', fontSize: '22px', fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
+    this.caughtNote = this.add
+      .text(W / 2, 296, '', {
+        fontFamily: 'monospace', fontSize: '13px', color: TEXT, align: 'center', stroke: '#241a2e', strokeThickness: 4,
+        wordWrap: { width: W - 48 },
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.hint = this.add.text(W / 2, BAR_TOP - 18, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     for (let i = 0; i < 3; i++) {
       const text = this.add
@@ -765,7 +820,14 @@ export class LakeScene extends Phaser.Scene {
     if (s.kind === 'caught') {
       this.caughtText.setText(speciesById(s.hooked.speciesId)?.name ?? 'Caught!');
       this.caughtSub.setText(formatCatchSize(s.hooked.lengthCm, s.hooked.weightG));
+      const o = this.catchOutcome;
+      this.caughtBadge.setText(o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '');
+      this.caughtNote.setText(
+        o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
+      );
     }
+    this.caughtBadge.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal').setScale(popScale);
+    this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 
     // Labels.
     this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)}`);

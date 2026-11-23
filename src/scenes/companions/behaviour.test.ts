@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CLAP_BIG_MS,
   CLAP_MS,
   DOG_SPOT,
+  HOP_BIG_MS,
   HOP_MS,
   IDLE_BEFORE_PLAY_MS,
   companionEvent,
@@ -184,6 +186,30 @@ describe('reactions to the fight result', () => {
     run(s, 300, { fishing: 'caught', night: false });
     expect(dogView(s).shape).toBe('sit');
     expect(s.dog.hop).toBe(0);
+  });
+
+  it('a big moment (new species or record) makes Pajkel clap and Bestia hop longer and higher', () => {
+    const s = createCompanions(rng);
+    companionEvent(s, 'fishCaught', true);
+    let peak = 0;
+    for (let t = 0; t < HOP_BIG_MS - 100; t += 50) {
+      tickCompanions(s, 50, { fishing: 'caught', night: false }, rng);
+      expect(dogView(s).shape).toBe('stand');
+      peak = Math.max(peak, s.dog.hop);
+    }
+    expect(HOP_BIG_MS).toBeGreaterThan(HOP_MS);
+    expect(peak).toBeGreaterThan(7);
+    expect(s.paj.clapMs).toBeGreaterThan(0);
+    const seen = new Set<string>();
+    for (let t = HOP_BIG_MS - 100; t < CLAP_BIG_MS - 100; t += 50) {
+      tickCompanions(s, 50, { fishing: 'caught', night: false }, rng);
+      seen.add(s.paj.shape);
+    }
+    expect(CLAP_BIG_MS).toBeGreaterThan(CLAP_MS);
+    expect([...seen].sort()).toEqual(['cheer', 'sit']);
+    run(s, 400, { fishing: 'caught', night: false });
+    expect(s.paj.clapMs).toBe(0);
+    expect(dogView(s).shape).toBe('sit');
   });
 
   it('a lost fish gets small reactions: Pajkel looks, Bestia sits; a catch also stops any clap on loss', () => {

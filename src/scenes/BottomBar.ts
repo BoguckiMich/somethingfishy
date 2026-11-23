@@ -20,7 +20,7 @@ export interface BarView {
   bagSlots: number;
 }
 
-/** The bottom bar: Bag (n/10), Shop and Log (not yet). Drawn with Phaser; taps come from the scene. */
+/** The bottom bar: Bag (n/10), Shop and Log. Drawn with Phaser; taps come from the scene. */
 export class BottomBar {
   private labels: Phaser.GameObjects.Text[];
 
@@ -34,7 +34,7 @@ export class BottomBar {
     });
   }
 
-  /** Which button is under (x, y), or null. Log counts as a hit so the tap never casts. */
+  /** Which button is under (x, y), or null. Every button counts as a hit so the tap never casts. */
   hit(x: number, y: number): BarButton | null {
     const i = ORDER.findIndex((_, k) => rectOf(k).contains(x, y));
     return i < 0 ? null : ORDER[i];
@@ -48,8 +48,7 @@ export class BottomBar {
   draw(g: Phaser.GameObjects.Graphics, v: BarView): void {
     ORDER.forEach((id, i) => {
       const r = rectOf(i);
-      const live = v.enabled && id !== 'log';
-      const a = live ? 1 : id === 'log' ? 0.5 : 0.6;
+      const a = v.enabled ? 1 : 0.6;
       g.fillStyle(PAL.outline, a).fillRect(r.x - 1, r.y, r.width + 2, r.height).fillRect(r.x, r.y - 1, r.width, r.height + 2);
       g.fillStyle(PAL.woodLight, a).fillRect(r.x, r.y, r.width, r.height);
       g.fillStyle(PAL.woodDeep, 0.92 * a).fillRect(r.x + 1, r.y + 1, r.width - 2, r.height - 2);
@@ -59,7 +58,6 @@ export class BottomBar {
       label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : 'Log');
       label.setColor(full ? '#ffb347' : '#fff6e4');
       label.setAlpha(a);
-      if (id === 'log') label.setText('Log (soon)').setFontSize(12);
     });
   }
 }

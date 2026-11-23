@@ -254,6 +254,13 @@ describe('the fight', () => {
     expect(run([{ type: 'tick', dtMs: 3900 }, { type: 'tick', dtMs: 200 }], ctx, caught).state).toEqual(INITIAL_STATE);
   });
 
+  it('a longer show-off (ctx.showOffMs) stays up past 4 s and ends at its own time', () => {
+    const ctx = { ...ctxWith(), showOffMs: 8000 };
+    const caught: FishingState = { kind: 'caught', distanceM: 10, zone: 'shallow', hooked: PERCH, fish: EASY, shownMs: 0 };
+    expect(run([{ type: 'tick', dtMs: 7900 }], ctx, caught).state.kind).toBe('caught');
+    expect(run([{ type: 'tick', dtMs: 7900 }, { type: 'tick', dtMs: 200 }], ctx, caught).state).toEqual(INITIAL_STATE);
+  });
+
   it('an empty bar loses the fish: slack line, a fishLost event, presses ignored, then the reel-in', () => {
     const ctx = { ...ctxWith(), fishOverride: { pattern: 'floater', difficulty: 0.2 } satisfies FishProfile };
     const { state, events } = fightUntil(ctx, (s) => s.kind === 'lost', 'idle');
