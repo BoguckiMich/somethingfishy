@@ -3,6 +3,7 @@ import { RODS } from './data/rods';
 import { SHOP } from './data/shop';
 import type { GameEvent } from './events';
 import { sizeShare, type HookedFish } from './fish';
+import { newFishLog, type FishLog } from './fishLog';
 import type { Rod } from './gear';
 import type { Rng } from './random';
 
@@ -24,10 +25,12 @@ export interface PlayerState {
   worms: number;
   bag: BagFish[];
   rodId: string;
+  /** The fish log: counts and records per species. */
+  log: FishLog;
 }
 
 export function newPlayer(): PlayerState {
-  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id };
+  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog() };
 }
 
 export function equippedRod(p: PlayerState): Rod {

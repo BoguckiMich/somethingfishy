@@ -49,6 +49,8 @@ export interface SessionContext {
   timeOfDay: () => TimeOfDay;
   /** Dev flag: forces the bar profile (pattern and difficulty) instead of the species' own. */
   fishOverride?: FishProfile;
+  /** How long the show-off lasts (default FIGHT_TUNING.showOffMs); the scene lengthens it for a new species. */
+  showOffMs?: number;
   /** Dev flag: forces the species that bites. */
   speciesOverride?: string;
 }
@@ -199,7 +201,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (input.type === 'press' && state.shownMs >= FIGHT_TUNING.showOffGuardMs) return same(INITIAL_STATE);
       if (input.type !== 'tick') return same(state);
       const shownMs = state.shownMs + input.dtMs;
-      return same(shownMs >= FIGHT_TUNING.showOffMs ? INITIAL_STATE : { ...state, shownMs });
+      return same(shownMs >= (ctx.showOffMs ?? FIGHT_TUNING.showOffMs) ? INITIAL_STATE : { ...state, shownMs });
     }
 
     case 'lost': {
