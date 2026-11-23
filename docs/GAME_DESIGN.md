@@ -325,6 +325,51 @@ rematches are possible for personal-best size records.
 Tuning (prices, spawn weights, difficulty) lives in data files under `src/core/data/` so it can
 be tweaked without touching logic.
 
+**Slice 13: daily bait box + daily quests (decided 2026-11-23)** — split into 13a (box) and 13b
+(quests); each gets its own play-test.
+
+*Shared (built in 13a):*
+- The day is the **real local date** of the device (`YYYY-MM-DD`), not the game clock. Changes at
+  local midnight.
+- Clock-change guard: the save keeps the last date a box was opened. A box opens only when today is
+  *later* than that date; setting the clock back never grants twice. Setting it forward does grant
+  (harmless).
+- Stored inside the save (`PlayerState.daily`, optional, normalised to defaults when missing; no
+  save version bump).
+- Pure logic in `src/core/daily/`, tunables in `src/core/data/daily.ts`. The real date is injected
+  (`today: string`), never read inside core.
+- Dev flag `?date=YYYY-MM-DD` fakes the real date (sandbox, like every flag).
+
+*13a Daily bait box:*
+- Whenever today's box is unopened, a small wooden **crate sprite sits on the dock**. Tapping it
+  while idle opens a wood card: "The bait shop left a package on the dock", the contents, the
+  streak, and an "Open"/"Take it" button. Taking it adds the contents to the purse and the crate
+  disappears until tomorrow. The very first box is available on the first day.
+- Bestia sniffs at the crate now and then while it is unopened (small touch, can be cut).
+- Contents (only worms and coins until v2): always worms (5–10), usually coins (15–40), and a ~5%
+  **lucky box** with ~3× everything and a sparkle.
+- **Streak:** 5 tiers. Each consecutive day moves up one tier (max 5); higher tiers fill the box
+  more (×1 at tier 1 up to ×2 at tier 5). A missed day (or more) drops **one** tier, never to zero.
+  The card shows "Day-in-a-row: N" with 5 pips.
+- Dev flag `?debug=box` opens the card.
+
+*13b Daily quests:*
+- **3 quests a day**, rolled from a pool with a seed made from the date. Kinds: catch N of a species ·
+  catch N fish of any kind · catch a fish at dawn / dusk / night (game clock) · catch something in
+  deep water · sell N coins' worth of fish · beat a personal best.
+- Only quests she can do with her current gear: no deep-water quests (or deep species) with the
+  bamboo rod. Targets sized so all 3 take ~20–40 min of play (one game day = 20 real min, so every
+  time of day comes round).
+- Progress comes from game events (`fishCaught`, a sale event, records).
+- **Rewards:** coins + worms per quest. On completion: a small "Quest done!" toast and a "!" badge.
+  She taps **Claim** in the quest panel. Done-but-unclaimed rewards are paid automatically at the
+  next day change, so nothing earned is ever lost. No all-3 bonus for now.
+- **UI:** a small notice-board button at the top right, beside the pencil, carrying the "!" badge;
+  it opens a wood panel with the 3 quests, progress bars and Claim buttons.
+- **One free reroll per day** for one unfinished quest; it swaps in a quest of a different kind.
+- The Pale One never appears in quests.
+- Dev flag `?debug=quests` opens the panel.
+
 ---
 
 ## 4. Roadmap
@@ -405,6 +450,16 @@ be tweaked without touching logic.
   between locations (map screen vs walking), whether each location has its own fish log page,
   and whether rods/gear are per method.
 
+- **Fish prices by rarity** (user, 2026-11-23) — small fish like bleak sell for almost nothing
+  (price = `basePrice` × size position, bleak `basePrice` 4 → 2–6 coins). Proposal: rarity adds to
+  the price (e.g. a multiplier per rarity tier), so an uncommon or rare catch always feels worth it.
+  Open questions: multiplier values, does it re-balance the rod prices (250 / 1200), and does size
+  still matter as much?
+
+- **Baits that raise the chance of rare fish** (user, 2026-11-23) — ties into v2b hook bait: special
+  baits shift the spawn weights toward rarer species (or one species). Open questions: per-species or
+  per-rarity boost, how strong, and do baits come from the shop, the daily box, or crafting?
+
 ### Parked on purpose
 Weather & seasons · cloud sync · landscape/walkable world · music.
 
@@ -481,5 +536,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
 11. PWA + GitHub Pages deploy (details in §3 item 10) ✅
 11b. Readability polish (device-resolution canvas, VT323 font, update-toast position) ✅
 12. Legendary fish: The Pale One (details in §3 → Slice 12) ✅
-13. Daily bait box + daily quests (§5) ← *next*
+13. Daily bait box + daily quests (§5; details in §3 → Slice 13)
+    - 13a. Daily bait box ← *next*
+    - 13b. Daily quests
 14. Lake moments (see Ideas) — candidate

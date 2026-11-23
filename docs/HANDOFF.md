@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 12 merged, not pushed)._
+_Last updated: 2026-11-23 (slice 13 grilled and split into 13a/13b; 13a in progress)._
 
 ## Current state
 
@@ -25,7 +25,8 @@ _Last updated: 2026-11-23 (slice 12 merged, not pushed)._
 | 11 | PWA (offline precache, update toast), app icon, GitHub Pages deploy via Actions, renamed Something Fishy (GAME_DESIGN §3 item 10) | merged |
 | 11b | Readability: whole canvas renders at device resolution (K×, `src/renderScale.ts`), font → VT323 on its 12.5 px grid, update toast above the bar, `/dev/font-sheet.html` | merged |
 | 12 | Legendary: The Pale One (≥30 m, 02–04 h, 25%), abyssal fight, eerie window (still lake, murky tint, drone), hug show-off, log tile 13 | merged |
-| 13 | Daily bait box + daily quests (GAME_DESIGN §5) | next (not grilled yet) |
+| 13a | Daily bait box: crate on the dock, real-date day, streak tiers (GAME_DESIGN §3 → Slice 13) | in progress on `slice/13a-bait-box` |
+| 13b | Daily quests: 3/day, notice-board button, claim, reroll | next (spec decided) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
