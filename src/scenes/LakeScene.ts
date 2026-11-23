@@ -14,7 +14,7 @@ import {
   W,
 } from '../art/layout';
 import { PAL } from '../art/palette';
-import { FONT, FS } from '../font';
+import { FONT, FS, textPad } from '../font';
 import { applyCameraZoom, sharpenTexts } from '../renderScale';
 import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
@@ -111,6 +111,12 @@ const POST_BASES: [number, number][] = [
 ];
 
 /** She stands near the dock's far end, feet on the planks. */
+/** Catch screen text stack (game px): title, size line, badge, note; the note's bottom must stay above Alex's head. */
+const CATCH_TITLE_Y = 206;
+const CATCH_SUB_Y = 240;
+const CATCH_BADGE_Y = 274;
+const CATCH_NOTE_Y = 296;
+const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
@@ -846,10 +852,10 @@ export class LakeScene extends Phaser.Scene {
 
   private buildUi(): void {
     const textStyle = { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT };
-    const pad = { padding: { x: 9, y: 5 } };
+    const pad = { padding: textPad(9, 5) };
     this.ui = this.add.graphics().setDepth(Z.uiPanel);
     this.clockLabel = this.add.text(8, 8, '', { ...textStyle, ...pad }).setDepth(Z.uiText);
-    const statStyle = { ...textStyle, padding: { left: 27, right: 8, top: 4, bottom: 4 } };
+    const statStyle = { ...textStyle, padding: { ...textPad(8, 4), left: 27 } };
     this.wormLabel = this.add.text(8, 40, '', statStyle).setDepth(Z.uiText);
     this.coinLabel = this.add.text(70, 40, '', statStyle).setDepth(Z.uiText);
     this.wormIcon = this.add.image(0, 0, TEX.worm).setOrigin(0, 0).setDepth(Z.uiText);
@@ -861,12 +867,12 @@ export class LakeScene extends Phaser.Scene {
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
     this.devTag = this.add
-      .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: { x: 5, y: 3 } })
+      .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
       .setOrigin(1, 0)
       .setDepth(Z.uiText)
       .setVisible(this.sandbox);
     this.zoneLabel = this.add
-      .text(W / 2, 84, '', { ...textStyle, ...pad })
+      .text(W / 2, 92, '', { ...textStyle, ...pad })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
@@ -881,24 +887,24 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.alert)
       .setVisible(false);
     this.caughtText = this.add
-      .text(W / 2, 206, 'Caught!', { fontFamily: FONT, fontSize: `${FS.title}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 6 })
+      .text(W / 2, CATCH_TITLE_Y, 'Caught!', { fontFamily: FONT, fontSize: `${FS.title}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 6 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtSub = this.add
-      .text(W / 2, 240, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, CATCH_SUB_Y, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtBadge = this.add
-      .text(W / 2, 274, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, CATCH_BADGE_Y, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtNote = this.add
-      .text(W / 2, 296, '', {
+      .text(W / 2, CATCH_NOTE_Y, '', {
         fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, align: 'center', stroke: '#241a2e', strokeThickness: 4,
-        wordWrap: { width: W - 48 },
+        wordWrap: { width: W - 16 }, lineSpacing: -2,
       })
       .setOrigin(0.5, 0)
       .setDepth(Z.uiText)
@@ -906,7 +912,7 @@ export class LakeScene extends Phaser.Scene {
     this.hint = this.add.text(W / 2, BAR_TOP - 18, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     for (let i = 0; i < 3; i++) {
       const text = this.add
-        .text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, padding: { x: 6, y: 3 } })
+        .text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, padding: textPad(6, 3) })
         .setOrigin(0.5, 1)
         .setDepth(Z.uiText)
         .setVisible(false);
@@ -990,6 +996,16 @@ export class LakeScene extends Phaser.Scene {
       this.caughtNote.setText(
         o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
       );
+    }
+    if (s.kind === 'caught') {
+      // A long fact (up to 3 lines at VT323 25 px) would run into Alex's head: lift the whole text stack so the
+      // fact ends CATCH_TEXT_LIMIT, the stack's bottom limit (her head top).
+      const noteBottom = CATCH_NOTE_Y + this.caughtNote.height;
+      const lift = this.caughtNote.text ? Math.min(0, CATCH_TEXT_LIMIT - noteBottom) : 0;
+      this.caughtText.setY(CATCH_TITLE_Y + lift);
+      this.caughtSub.setY(CATCH_SUB_Y + lift);
+      this.caughtBadge.setY(CATCH_BADGE_Y + lift);
+      this.caughtNote.setY(CATCH_NOTE_Y + lift);
     }
     this.caughtBadge.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal').setScale(popScale);
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');

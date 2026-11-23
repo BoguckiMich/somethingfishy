@@ -1,4 +1,4 @@
-import { FONT, FS } from '../font';
+import { FONT, FS, LINE } from '../font';
 import { sound } from '../audio/sound';
 import type { Profile } from '../core/profile';
 import type { SoundSettings } from '../core/soundSettings';
@@ -34,9 +34,9 @@ const IMPORT_ERRORS: Record<Extract<DecodeResult, { ok: false }>['reason'], stri
 };
 
 const sectionTitle = (text: string) =>
-  el('div', `font:${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
+  el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
-const note = (text: string, color: string = COLORS.cream) => el('div', `font-size:${FS.body}px;line-height:1.35;color:${color};padding:3px 0`, text);
+const note = (text: string, color: string = COLORS.cream) => el('div', `font-size:${FS.body}px;line-height:${LINE};color:${color};padding:3px 0`, text);
 
 const textArea = (readOnly: boolean): HTMLTextAreaElement => {
   const t = el(
@@ -47,7 +47,7 @@ const textArea = (readOnly: boolean): HTMLTextAreaElement => {
       'height:64px',
       'resize:none',
       'padding:6px',
-      `font:${FS.small}px ${FONT}`,
+      `font:${FS.small}px/${LINE} ${FONT}`,
       `color:${COLORS.text}`,
       'background:#2a1a12',
       'word-break:break-all',

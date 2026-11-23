@@ -3,7 +3,7 @@
  * pixel-framed toast when an update is waiting. It never reloads by itself, so no fight gets cut off.
  */
 import { registerSW } from 'virtual:pwa-register';
-import { FONT, FS } from '../font';
+import { FONT, FS, LINE } from '../font';
 import { H } from '../art/layout';
 import { BAR_TOP } from '../scenes/BottomBar';
 import { installFrameStyles } from './frames';
@@ -39,7 +39,7 @@ function buildToast(onTap: () => void): HTMLButtonElement {
     'display:none', // hidden: takes no taps from the game
     'padding:6px 10px',
     'max-width:calc(100vw - 16px)',
-    `font:${FS.body}px ${FONT}`,
+    `font:${FS.body}px/${LINE} ${FONT}`,
     'color:#241a2e',
     'touch-action:manipulation',
     '-webkit-user-select:none',

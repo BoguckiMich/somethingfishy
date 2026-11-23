@@ -1,4 +1,4 @@
-import { FONT, FS } from '../font';
+import { FONT, FS, LINE } from '../font';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { fishSilhouette } from '../art/fishVariants';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
@@ -33,13 +33,13 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     'flex-direction:column',
     'align-items:center',
     'justify-content:flex-start',
-    'gap:4px',
+    'gap:2px',
     'padding:6px 3px',
-    'height:104px',
+    'min-height:112px',
     'min-width:0',
     `background:${entry ? COLORS.woodLight : '#2a1a12'}`,
     `color:${COLORS.text}`,
-    `font:${FS.small}px ${FONT}`,
+    `font:${FS.small}px/${LINE} ${FONT}`,
     'text-align:center',
   ].join(';');
   const t = el(entry ? 'button' : 'div', base + (entry ? ';cursor:pointer' : ''));
@@ -52,9 +52,9 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
   art.append(artOf(s, log, 66, 3));
   t.append(art);
   if (entry) {
-    t.append(el('div', 'line-height:1.15', s.name));
+    t.append(el('div', 'line-height:1', s.name));
   } else {
-    t.append(el('div', `color:${COLORS.dim}`, '???'));
+    t.append(el('div', `color:${COLORS.dim};line-height:0.8`, '???'));
     const [where, when] = whereWhen(s).split(' · ');
     const hint = `font-size:${FS.tiny}px;line-height:1.2;color:${COLORS.dim}`;
     t.append(el('div', hint, where), el('div', hint, when));
@@ -70,10 +70,10 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   art.append(artOf(s, log, 150, 6));
   col.append(
     art,
-    el('div', `font:${FS.heading}px ${FONT};color:${COLORS.text}`, s.name),
-    el('div', `font:${FS.body}px ${FONT};color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
-    el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Caught ×${entry.count}`),
-    el('div', `font-size:${FS.body}px;line-height:1.4;color:${COLORS.text}`, s.fact),
+    el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${COLORS.text}`, s.name),
+    el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
+    el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Caught x${entry.count}`),
+    el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, s.fact),
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
   );
   const back = woodButton('Back', onBack);

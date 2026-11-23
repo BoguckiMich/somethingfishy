@@ -18,13 +18,13 @@ interface Candidate {
 }
 
 const CANDIDATES: Candidate[] = [
-  { family: 'Tiny5', licence: 'OFL 1.1 (Tiny5 Project Authors)', grid: 10, note: 'current font; design pixel = 1/10 em' },
+  { family: 'Tiny5', licence: 'OFL 1.1 (Tiny5 Project Authors)', grid: 10, note: 'previous game font; design pixel = 1/10 em' },
   { family: 'Pixelify Sans', licence: 'OFL 1.1 (Pixelify Sans Project Authors)', grid: 11, note: 'previous font (restored from git 1fd59da); pixel assumed 1/11 em, as slice 10b used' },
   { family: 'Pixelify+Tiny5 digits', licence: 'OFL 1.1, both parents', grid: 11, note: 'Pixelify Sans with digits 0-9 and capital B from Tiny5 (size-adjust 91% so its 1/10-em pixel matches 1/11)' },
   { family: 'Silkscreen', licence: 'OFL 1.1 (Silkscreen Project Authors)', grid: 8, note: 'caps-style face; pixel assumed 1/8 em' },
   { family: 'Jersey 10', licence: 'OFL 1.1 (Jersey 10 Project Authors)', grid: 10, note: 'pixel assumed 1/10 em (named after its 10 px design)' },
   { family: 'Micro 5', licence: 'OFL 1.1 (Micro 5 Project Authors)', grid: 5, note: 'very small; pixel assumed 1/5 em, so sensible sizes start at 2x' },
-  { family: 'VT323', licence: 'OFL 1.1 (Peter Hull)', grid: 16, note: 'terminal face; pixel assumed 1/16 em' },
+  { family: 'VT323', licence: 'OFL 1.1 (Peter Hull)', grid: 12.5, note: 'CHOSEN for the game; measured: design pixel = 0.08 em (12.5 px per em-pixel), cap height 7 px, x-height 5 px' },
 ];
 
 interface Sample {
@@ -58,6 +58,7 @@ function sizesFor(c: Candidate): number[] {
   const set = new Set<number>();
   for (const k of [1, 2, 3]) if (c.grid * k >= 10 && c.grid * k <= 33) set.add(c.grid * k);
   set.add(15);
+  set.add(25);
   if (state.custom) set.add(state.custom);
   return [...set].sort((a, b) => a - b);
 }
@@ -81,7 +82,7 @@ function drawCanvas(family: string, size: number, sample: Sample, k: number, cls
   const font = `${size}px '${family}', monospace`;
   const probe = document.createElement('canvas').getContext('2d')!;
   probe.font = font;
-  const lines = sample.wrap ? wrapLines(probe, sample.text, WRAP_W) : [sample.text];
+  const lines = wrapLines(probe, sample.text, sample.wrap ? WRAP_W : GAME_W - 16);
   const lineH = Math.ceil(size * 1.3);
   const padY = 6 + state.thick;
   const hGame = lines.length * lineH + padY * 2;
@@ -109,7 +110,7 @@ function drawCanvas(family: string, size: number, sample: Sample, k: number, cls
 
 function domText(family: string, size: number, sample: Sample): HTMLElement {
   const d = document.createElement('div');
-  d.className = `dom${sample.wrap ? ' wrap' : ''}`;
+  d.className = 'dom wrap';
   d.textContent = sample.text;
   d.style.font = `${size}px/1.3 '${family}', monospace`;
   if (state.outline) {
@@ -139,7 +140,7 @@ function build(): void {
       const t = document.createElement('div');
       t.className = 'size';
       const mult = size / c.grid;
-      t.textContent = `${size}px` + (Number.isInteger(mult) ? ` (${mult}x grid)` : size === 15 ? ' (game body size, off-grid)' : ' (custom)');
+      t.textContent = `${size}px` + (Number.isInteger(mult) ? ` (${mult}x grid)` : size === 25 ? ' (game body size)' : size === 15 ? ' (old game body size, off-grid)' : ' (custom)');
       block.append(t);
       const variants: [string, boolean, (s: Sample) => HTMLElement][] = [
         ['DOM text', state.showDom, (s) => domText(c.family, size, s)],
