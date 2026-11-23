@@ -1,0 +1,188 @@
+import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
+import { speciesById } from './data/fish';
+import { RODS } from './data/rods';
+import { SHOP } from './data/shop';
+import { newPlayer, type BagFish, type PlayerState } from './inventory';
+import { speciesCaught, type FishLog } from './fishLog';
+
+/**
+ * Saving: the player's belongings and the clock, as one versioned JSON object. Pure: storage is
+ * injected, and loading always normalises, so a hand-edited or old save can never crash the game.
+ */
+export interface SaveData {
+  version: 1;
+  player: PlayerState;
+  clock: GameClock;
+}
+
+export const SAVE_KEY = 'rybki.save.v1';
+export const SAVE_BACKUP_KEY = 'rybki.save.backup';
+export const SAVE_BROKEN_KEY = 'rybki.save.broken';
+export const CURRENT_VERSION = 1;
+
+/** vN → vN+1 steps, keyed by N. Empty until the format first changes. */
+export const MIGRATIONS: Record<number, (old: unknown) => unknown> = {};
+
+export const newSave = (): SaveData => ({ version: 1, player: newPlayer(), clock: NEW_GAME_CLOCK });
+
+/** A fresh game; the names live elsewhere and are not touched. */
+export const startOver = (_save: SaveData): SaveData => newSave();
+
+/** Any URL parameter other than `skipnames` / `reset` makes a dev sandbox: no loading, no saving. */
+export function isSandbox(paramNames: readonly string[]): boolean {
+  return paramNames.some((n) => n !== 'skipnames' && n !== 'reset');
+}
+
+// ---- Normalising ----------------------------------------------------------------------------
+
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** Integer ≥ min, or the fallback for anything that is not a finite number. */
+const intAtLeast = (v: unknown, min: number, fallback: number): number => (isNum(v) ? Math.max(min, Math.floor(v)) : fallback);
+
+function normalizeBagFish(v: unknown): BagFish | null {
+  if (!isObj(v) || typeof v.speciesId !== 'string' || !speciesById(v.speciesId)) return null;
+  if (!isNum(v.lengthCm) || !isNum(v.weightG) || !isNum(v.price)) return null;
+  if (v.lengthCm <= 0 || v.weightG <= 0 || v.price < 0) return null;
+  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price };
+}
+
+function normalizeLog(v: unknown): FishLog {
+  const log: FishLog = {};
+  if (!isObj(v)) return log;
+  for (const [id, e] of Object.entries(v)) {
+    if (!speciesById(id) || !isObj(e)) continue;
+    if (!isNum(e.count) || !isNum(e.bestLengthCm) || !isNum(e.bestWeightG)) continue;
+    if (e.count < 1 || e.bestLengthCm <= 0 || e.bestWeightG <= 0) continue;
+    log[id] = { count: Math.floor(e.count), bestLengthCm: e.bestLengthCm, bestWeightG: e.bestWeightG };
+  }
+  return log;
+}
+
+function normalizePlayer(v: unknown): PlayerState {
+  const p = isObj(v) ? v : {};
+  const bag = Array.isArray(p.bag) ? p.bag.map(normalizeBagFish).filter((f): f is BagFish => f !== null) : [];
+  return {
+    coins: intAtLeast(p.coins, 0, SHOP.startCoins),
+    worms: intAtLeast(p.worms, 0, SHOP.startWorms),
+    bag: bag.slice(0, SHOP.bagSlots),
+    rodId: RODS.some((r) => r.id === p.rodId) ? (p.rodId as string) : RODS[0].id,
+    log: normalizeLog(p.log),
+  };
+}
+
+function normalizeClock(v: unknown): GameClock {
+  const c = isObj(v) ? v : {};
+  const minute = isNum(c.minute) ? c.minute : NEW_GAME_CLOCK.minute;
+  return { day: intAtLeast(c.day, 1, 1), minute: Math.min(Math.max(0, minute), MINUTES_PER_DAY - 0.001) };
+}
+
+/** Anything → a valid current-version save. Never throws. */
+export function normalizeSave(raw: unknown): SaveData {
+  const r = isObj(raw) ? raw : {};
+  return { version: 1, player: normalizePlayer(r.player), clock: normalizeClock(r.clock) };
+}
+
+// ---- Parsing --------------------------------------------------------------------------------
+
+export type ParseResult = { ok: true; save: SaveData } | { ok: false; reason: 'unreadable' | 'tooNew' };
+
+export interface MigrationSetup {
+  migrations: Record<number, (old: unknown) => unknown>;
+  currentVersion: number;
+}
+
+const DEFAULT_SETUP: MigrationSetup = { migrations: MIGRATIONS, currentVersion: CURRENT_VERSION };
+
+/** Migrates an already-parsed document up to the current version, then normalises it. */
+export function migrateAndNormalize(doc: unknown, setup: MigrationSetup = DEFAULT_SETUP): ParseResult {
+  if (!isObj(doc) || !isNum(doc.version)) return { ok: false, reason: 'unreadable' };
+  let version = Math.floor(doc.version);
+  if (version > setup.currentVersion) return { ok: false, reason: 'tooNew' };
+  let current: unknown = doc;
+  try {
+    while (version < setup.currentVersion) {
+      const step = setup.migrations[version];
+      if (!step) return { ok: false, reason: 'unreadable' };
+      current = step(current);
+      version++;
+    }
+  } catch {
+    return { ok: false, reason: 'unreadable' };
+  }
+  return { ok: true, save: normalizeSave(current) };
+}
+
+export function parseSave(text: string, setup?: MigrationSetup): ParseResult {
+  let doc: unknown;
+  try {
+    doc = JSON.parse(text);
+  } catch {
+    return { ok: false, reason: 'unreadable' };
+  }
+  return migrateAndNormalize(doc, setup);
+}
+
+// ---- Storage --------------------------------------------------------------------------------
+
+type ReadableStorage = Pick<Storage, 'getItem'>;
+type WritableStorage = Pick<Storage, 'setItem'>;
+type RemovableStorage = Pick<Storage, 'removeItem'>;
+
+export type LoadResult = { save: SaveData; status: 'fresh' | 'loaded' | 'broken' };
+
+/** Loads the save; a bad or too-new one is kept under SAVE_BROKEN_KEY and a fresh game starts. */
+export function loadSave(storage: (ReadableStorage & Partial<WritableStorage>) | undefined): LoadResult {
+  let text: string | null = null;
+  try {
+    text = storage?.getItem(SAVE_KEY) ?? null;
+  } catch {
+    return { save: newSave(), status: 'fresh' };
+  }
+  if (!text) return { save: newSave(), status: 'fresh' };
+  const r = parseSave(text);
+  if (r.ok) return { save: r.save, status: 'loaded' };
+  try {
+    storage?.setItem?.(SAVE_BROKEN_KEY, text);
+  } catch {
+    // ignore: nothing more we can do
+  }
+  return { save: newSave(), status: 'broken' };
+}
+
+/** Returns false when the save could not be stored (the game still works for this session). */
+export function writeSave(storage: WritableStorage | undefined, save: SaveData): boolean {
+  try {
+    if (!storage) return false;
+    storage.setItem(SAVE_KEY, JSON.stringify(save));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearSave(storage: RemovableStorage | undefined): void {
+  try {
+    storage?.removeItem(SAVE_KEY);
+  } catch {
+    // ignore: nothing to clear
+  }
+}
+
+/** Copies the current raw save to SAVE_BACKUP_KEY (a devtools rescue before import/start over). */
+export function backupSave(storage: (ReadableStorage & Partial<WritableStorage>) | undefined): void {
+  try {
+    const text = storage?.getItem(SAVE_KEY);
+    if (text) storage?.setItem?.(SAVE_BACKUP_KEY, text);
+  } catch {
+    // ignore: the backup is best effort
+  }
+}
+
+/** What the import confirm shows: "7/12 species, 340 coins". */
+export const saveSummary = (save: SaveData): { species: number; coins: number } => ({
+  species: speciesCaught(save.player.log),
+  coins: save.player.coins,
+});
