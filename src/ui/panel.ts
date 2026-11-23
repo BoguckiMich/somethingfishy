@@ -2,6 +2,8 @@
  * Shared look for the DOM panels (bag, shop, choice card): pixel-art wood, cream text, brown and
  * gold borders, monospace, in the same style as the name card.
  */
+import { sound, type SfxName } from '../audio/sound';
+
 export const COLORS = {
   backdrop: 'rgba(36,26,46,0.78)',
   wood: '#3a2318',
@@ -27,6 +29,8 @@ export interface ButtonOptions {
   /** Why the button is disabled (shown in place of the label); omit for an enabled button. */
   disabledReason?: string;
   small?: boolean;
+  /** Sound on press: a soft tap by default, null for none (a button that plays its own sound). */
+  sfx?: SfxName | null;
 }
 
 /** A chunky wooden/gold button. Disabled ones are dimmed and say why. */
@@ -47,7 +51,13 @@ export function woodButton(label: string, onClick: () => void, opts: ButtonOptio
     disabled ? 'opacity:0.75' : '',
     'text-align:center',
   ].join(';');
-  if (!disabled) b.addEventListener('click', onClick);
+  const sfx = opts.sfx === undefined ? 'tap' : opts.sfx;
+  if (!disabled) {
+    b.addEventListener('click', () => {
+      if (sfx) sound.play(sfx);
+      onClick();
+    });
+  }
   return b;
 }
 
@@ -115,15 +125,21 @@ export function openPanel(
     const x = el('button', `font:bold 16px monospace;width:30px;height:30px;color:${COLORS.cream};background:${COLORS.woodLight};border:2px solid ${COLORS.border};border-radius:2px;cursor:pointer`, 'X');
     x.type = 'button';
     x.setAttribute('aria-label', 'Close');
-    x.addEventListener('click', close);
+    x.addEventListener('click', () => {
+      sound.play('tap');
+      close();
+    });
     head.append(x);
     root.addEventListener('click', (e) => {
-      if (e.target === root) close();
+      if (e.target !== root) return;
+      sound.play('tap');
+      close();
     });
   }
   card.append(head, body);
   root.append(card);
   document.body.append(root);
+  sound.play('tap');
 
   const refresh = () => {
     body.replaceChildren();

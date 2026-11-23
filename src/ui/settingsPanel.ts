@@ -1,4 +1,6 @@
+import { sound } from '../audio/sound';
 import type { Profile } from '../core/profile';
+import type { SoundSettings } from '../core/soundSettings';
 import { saveSummary, type SaveData } from '../core/save';
 import { decodeSaveCode, type DecodeResult } from '../core/saveCode';
 import { SPECIES } from '../core/data/fish';
@@ -16,6 +18,9 @@ export interface SettingsStore {
   openNames(): void;
   /** False when the last write failed or storage is missing. */
   canSave(): boolean;
+  /** The Sounds / Ambience toggles (saved by the setter unless sandboxed). */
+  soundSettings(): SoundSettings;
+  setSoundSettings(s: SoundSettings): void;
   /** Dev sandbox: nothing here reaches storage. */
   sandbox: boolean;
 }
@@ -92,6 +97,30 @@ const row = (...kids: HTMLElement[]) => {
   return r;
 };
 
+/** A labelled on/off switch in the panel's wood style; flips itself and reports the new value. */
+const toggleRow = (label: string, initial: boolean, onChange: (on: boolean) => void): HTMLElement => {
+  let on = initial;
+  const r = el('div', 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px');
+  r.append(el('div', `font-size:13px;color:${COLORS.text}`, label));
+  const b = woodButton('', () => undefined, { small: true, sfx: null });
+  const paint = () => {
+    b.textContent = on ? 'ON' : 'OFF';
+    b.style.background = on ? COLORS.gold : '#4a3426';
+    b.style.color = on ? COLORS.wood : COLORS.dim;
+    b.style.borderBottomColor = on ? COLORS.goldShade : '#2a1c14';
+    b.setAttribute('aria-pressed', String(on));
+  };
+  b.style.width = '64px';
+  b.addEventListener('click', () => {
+    on = !on;
+    paint();
+    onChange(on);
+  });
+  paint();
+  r.append(b);
+  return r;
+};
+
 type Pending = { kind: 'import'; save: SaveData; profile: Profile } | { kind: 'startOver' };
 
 /** The ⚙ panel: export, import, change names, start over. */
@@ -144,6 +173,19 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
   function buildMain(body: HTMLElement): void {
     if (store.sandbox) body.append(note('DEV sandbox: changes here are not saved', COLORS.amber));
     else if (!store.canSave()) body.append(note("Can't save on this device; use Export to keep your progress.", COLORS.amber));
+
+    body.append(sectionTitle('Sound'));
+    const sounds = store.soundSettings();
+    body.append(
+      toggleRow('Sounds', sounds.sfx, (on) => {
+        store.setSoundSettings({ ...store.soundSettings(), sfx: on });
+        if (on) sound.play('tap');
+      }),
+      toggleRow('Ambience', sounds.ambience, (on) => {
+        store.setSoundSettings({ ...store.soundSettings(), ambience: on });
+        if (store.soundSettings().sfx) sound.play('tap');
+      }),
+    );
 
     body.append(sectionTitle('Export'));
     body.append(note('Copy this code to keep your game or move it to another device.'));
