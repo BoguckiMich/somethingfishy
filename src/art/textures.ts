@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, stickGroundSprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
 import { lanternSprite } from './lanternArt';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
@@ -48,6 +48,7 @@ export const TEX = {
   heart: 'heart',
   stick: 'stick',
   stickCarry: 'stickCarry',
+  stickGround: 'stickGround',
   lilyA: 'lilyA',
   lilyB: 'lilyB',
   reed: 'reed',
@@ -157,4 +158,5 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.heart, Raster.fromSprite(HEART));
   addRaster(scene, TEX.stick, Raster.fromSprite(STICK));
   addRaster(scene, TEX.stickCarry, Raster.fromSprite(stickCarrySprite()));
+  addRaster(scene, TEX.stickGround, Raster.fromSprite(stickGroundSprite()));
 }

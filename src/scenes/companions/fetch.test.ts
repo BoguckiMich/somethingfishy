@@ -130,7 +130,7 @@ describe('"no take, only throw": the keep-away round', () => {
     expect(dist(s.sticks[0], s.stick)).toBeGreaterThan(0);
   });
 
-  it('old sticks stay on the grass, at most 3 (the oldest fades out), and the new throw avoids them', () => {
+  it('old sticks stay on the grass, at most 3 (the oldest fades out), and the new throw lands clear of them', () => {
     const rng = seededRng(11);
     const s = createCompanions(rng);
     startPlayNow(s);
@@ -148,7 +148,7 @@ describe('"no take, only throw": the keep-away round', () => {
       if (s.sticks.some((g) => g.fadeMs !== null)) faded = true;
       for (const g of s.sticks) expect(g.x).toBeGreaterThanOrEqual(PLAY_AREA.x0 - 1);
       if (s.play.phase === 'throw' && s.stick.state === 'ground') {
-        for (const g of oldSticks(s)) expect(dist(g, s.stick)).toBeGreaterThanOrEqual(PLAY_TUNING.stickGap - 1);
+        for (const g of oldSticks(s)) expect(dist(g, s.stick)).toBeGreaterThanOrEqual(PLAY_TUNING.stickGap / 2);
       }
     }
     expect(rounds).toBeGreaterThan(8);

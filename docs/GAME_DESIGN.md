@@ -510,6 +510,7 @@ stick and throw that one. The fetch game (companions `play` mode) becomes that:
   he says "...thank you?" Keeps it from being fully predictable.
 - The round count and the happy spin at the end stay; a bite still sends them back to the dock.
 - Pure state in `companions/behaviour.ts`, unit-tested; uses the slice-15a speech bubble.
+- Built as: she stops ~52 px from him, he steps up (~22 px), she play-bows (new dog frame) and hops away, the chase runs 7-11 s inside the grass (x 100-322, y 508-558, clear of the car, dock, crate and hint line) with a near miss every 2-4 s, then he says one of the three lines, walks to a spare stick that appears on the grass, bends (new Pajkel pose) and throws; she drops the old stick where she stands. At most 3 old sticks (a 4th makes the oldest fade over 1.5 s); a bite, a press or bedtime clears them. Give-back chance 1/6, "...thank you?", he picks that stick up and throws it. Dev: `?debug=afk&giveback=1`.
 
 ---
 

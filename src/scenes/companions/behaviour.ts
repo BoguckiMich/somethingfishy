@@ -94,22 +94,26 @@ export const STICK_TUNING = {
 };
 
 /** Where the companions play: the grass between the car (left), the dock (top), the right bushes and the hint line (bottom). */
-export const PLAY_AREA = { x0: 100, x1: 322, y0: 508, y1: 564 };
+export const PLAY_AREA = { x0: 100, x1: 322, y0: 508, y1: 558 };
 
 export const PLAY_TUNING = {
   /** A round ends with her bringing it back and dropping it at his feet this often. */
   giveBackChance: 1 / 6,
   /** She stops this far from him with the stick (out of reach); he has her when he is this close. */
-  keepDist: 44,
-  reachDist: 18,
+  keepDist: 52,
+  reachDist: 22,
+  /** In the rare round she brings it back she stops this close (well within his reach). */
+  giveBackDist: 20,
   /** Closest he gets while chasing: she is never caught. */
-  minGap: 14,
+  minGap: 20,
   teaseMaxMs: 2500,
   pajTeaseSpeed: 40,
   dodgeBowMs: 420,
   dodgeHopMs: 260,
   dodgeHopHeight: 9,
-  dodgeSide: 38,
+  /** The hop sideways: this far straight away from him and this far to the side. */
+  dodgeAway: 26,
+  dodgeSide: 22,
   /** How long the chase lasts (random in this range). */
   chaseMs: [7000, 11000] as [number, number],
   dogSpeed: 98,
@@ -122,6 +126,8 @@ export const PLAY_TUNING = {
   pajCatchUp: 1.5,
   pajMaxSpeed: 125,
   giveUpMs: 1700,
+  /** She trots off to this far from him while he gives up. */
+  giveUpDist: 60,
   /** He walks to the spare stick at this speed and stops this far short of it. */
   pajToStickSpeed: 62,
   stickStop: 8,
@@ -133,7 +139,7 @@ export const PLAY_TUNING = {
   spareDist: [44, 90] as [number, number],
   stickGap: 22,
   /** A throw lands this far from him (min, max). */
-  throwDist: [95, 190] as [number, number],
+  throwDist: [80, 200] as [number, number],
 };
 
 // ---- Bedtime, naps and the car (slice 16) ---------------------------------------------------
@@ -254,6 +260,8 @@ export interface PlayState {
   /** The dodge hop. */
   hopFrom: Point;
   hopTo: Point;
+  /** Which side of the spare stick he stands on (-1 left, 1 right), so his reach lands on it. */
+  stickSide: 1 | -1;
 }
 
 function newPlay(): PlayState {
@@ -272,6 +280,7 @@ function newPlay(): PlayState {
     nearIn: 0,
     hopFrom: { x: 0, y: 0 },
     hopTo: { x: 0, y: 0 },
+    stickSide: 1,
   };
 }
 
@@ -948,17 +957,29 @@ function pickSpot(s: Companions, from: Point, range: [number, number], rng: Rng)
   return clampArea({ x: from.x + dx, y: spot.y });
 }
 
-/** Where a throw lands: `throwDist` from him, on the grass, away from the sticks already lying there. */
+/**
+ * Where a throw lands: `throwDist` from him, on the grass, as clear of the sticks already lying
+ * there (and of Bestia, who drops hers) as the best of a few tries allows.
+ */
 function pickTarget(s: Companions, rng: Rng): Point {
   const p = s.paj;
   const [lo, hi] = PLAY_TUNING.throwDist;
-  let t: Point = p;
+  let best: Point | null = null;
+  let bestClear = -1;
+  let farthest: Point = p;
   for (let i = 0; i < 40; i++) {
-    t = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
+    const t = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
     const dd = dist(t, p);
-    if (dd >= lo && dd <= hi && dist(t, s.dog) >= 2 * PLAY_TUNING.stickGap && s.sticks.every((g) => dist(g, t) >= PLAY_TUNING.stickGap)) return t;
+    if (dist(t, p) > dist(farthest, p)) farthest = t;
+    if (dd < lo || dd > hi) continue;
+    const clear = Math.min(dist(t, s.dog) / 2, ...s.sticks.map((g) => dist(g, t)));
+    if (clear >= PLAY_TUNING.stickGap) return t;
+    if (clear > bestClear) {
+      bestClear = clear;
+      best = t;
+    }
   }
-  return clampArea({ x: p.x + (p.x < (PLAY_AREA.x0 + PLAY_AREA.x1) / 2 ? lo + 15 : -(lo + 15)), y: t.y });
+  return best ?? farthest;
 }
 
 /** Shortest distance from `p` to the segment a-b. */
@@ -1060,7 +1081,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
     case 'bring': {
       // A proud trot, a slight bounce in time with the strides, the stick held at the snout. She
       // stops just out of his reach (or right at his feet in the rare round she gives it back).
-      const done = pursue(d, p, DOG_RUN_SPEED, dtMs, pl.giveBack ? 14 : T.keepDist);
+      const done = pursue(d, p, DOG_RUN_SPEED, dtMs, pl.giveBack ? T.giveBackDist : T.keepDist);
       d.shape = done ? 'stand' : 'run';
       d.hop = done ? 0 : Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2;
       p.shape = 'stand';
@@ -1069,7 +1090,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       if (done) {
         if (pl.giveBack) {
           // She drops it at his feet; he is so surprised he says thank you.
-          layStick(s, { x: d.x + d.face * 10, y: d.y }, 'spare');
+          layStick(s, { x: p.x + p.face * T.stickStop, y: p.y }, 'spare');
           s.stick.state = 'hidden';
           endRound(s, rng);
           pajSay(s, GIVE_BACK_LINE);
@@ -1096,7 +1117,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         const px = -vy / len;
         const py = vx / len;
         const sign = rng() < 0.5 ? 1 : -1;
-        const make = (sg: number): Point => ({ x: d.x + (px * sg * T.dodgeSide + (vx / len) * 10), y: d.y + (py * sg * T.dodgeSide) * 0.6 });
+        const make = (sg: number): Point => ({ x: d.x + (vx / len) * T.dodgeAway + px * sg * T.dodgeSide, y: d.y + ((vy / len) * T.dodgeAway + py * sg * T.dodgeSide) * 0.6 });
         let to = make(sign);
         if (!inArea(to)) to = make(-sign);
         pl.hopFrom = { x: d.x, y: d.y };
@@ -1110,8 +1131,10 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
     case 'dodge': {
       // Play-bow (front down, rump up), then a hop sideways with the stick; he lunges at where she was.
       const bow = T.dodgeBowMs;
-      p.shape = 'walk';
-      pursue(p, pl.hopFrom, 70, dtMs, 8);
+      if (pl.phaseMs >= bow) {
+        pursue(p, pl.hopFrom, 70, dtMs, 6); // he lunges at where she was
+        p.shape = 'walk';
+      } else p.shape = 'stand';
       if (pl.phaseMs < bow) {
         d.shape = 'bow';
         d.wagMs = 1 + pl.phaseMs;
@@ -1163,11 +1186,19 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         const away = clampArea({ x: p.x + ((d.x - p.x) / g2) * T.minGap, y: p.y + ((d.y - p.y) / g2) * T.minGap });
         d.x = away.x;
         d.y = away.y;
+        const g3 = dist(p, d);
+        if (g3 < T.minGap && g3 > 0) {
+          // She is cornered at the edge: he gives way a step.
+          p.x = d.x + ((p.x - d.x) / g3) * T.minGap;
+          p.y = d.y + ((p.y - d.y) / g3) * T.minGap;
+          Object.assign(p, clampArea(p));
+        }
       }
       if (pl.phaseMs >= pl.chaseMs) {
-        d.path = [];
+        // She trots off a few steps, pleased with herself.
+        const gap = dist(p, d) || 1;
+        d.path = [clampArea({ x: p.x + ((d.x - p.x) / gap) * T.giveUpDist, y: p.y + ((d.y - p.y) / gap) * T.giveUpDist })];
         d.hop = 0;
-        d.shape = 'stand';
         p.shape = 'stand';
         endRound(s, rng);
         pajSay(s, pickLine(GIVE_UP_LINES, rng));
@@ -1181,16 +1212,24 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       // He stops, shrugs and speaks; she stands off, looking pleased with herself.
       p.shape = 'stand';
       p.face = d.x >= p.x ? 1 : -1;
-      d.shape = 'stand';
-      d.face = p.x >= d.x ? 1 : -1;
-      d.wagMs = 1 + pl.phaseMs;
+      const trotting = !follow(d, DOG_RUN_SPEED * 0.6, dtMs);
+      d.shape = trotting ? 'run' : 'stand';
+      d.hop = trotting ? Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2 : 0;
+      if (!trotting) {
+        d.face = p.x >= d.x ? 1 : -1;
+        d.wagMs = 1 + pl.phaseMs;
+      }
       holdStick(s);
       if (pl.phaseMs >= T.giveUpMs) {
         d.wagMs = 0;
         if (pl.finalRound) {
           dropCarried(s);
           go(pl, 'spin');
-        } else go(pl, 'toStick');
+        } else {
+          const spare = s.sticks.find((g) => g.kind === 'spare');
+          pl.stickSide = spare && spare.x < p.x ? -1 : 1;
+          go(pl, 'toStick');
+        }
       }
       break;
     }
@@ -1202,9 +1241,12 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         go(pl, 'bend');
         break;
       }
-      const there = pursue(p, spare, T.pajToStickSpeed, dtMs, T.stickStop);
+      const there = pursue(p, { x: spare.x - pl.stickSide * T.stickStop, y: spare.y }, T.pajToStickSpeed, dtMs, 0);
       p.shape = there ? 'stand' : 'walk';
-      if (there) go(pl, 'bend');
+      if (there) {
+        p.face = pl.stickSide;
+        go(pl, 'bend');
+      }
       break;
     }
     case 'bend': {
@@ -1266,7 +1308,9 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         pl.fetches = 0;
         pl.finalRound = false;
         s.stick.state = 'hidden';
-        layStick(s, pickSpot(s, p, T.spareDist, rng), 'spare');
+        const spot = pickSpot(s, p, T.spareDist, rng);
+        layStick(s, spot, 'spare');
+        pl.stickSide = spot.x < p.x ? -1 : 1;
         go(pl, 'toStick');
       }
       break;

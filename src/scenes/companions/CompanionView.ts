@@ -168,6 +168,7 @@ export class CompanionView {
       .setFlipX(d.face < 0)
       .setPosition(Math.round(d.x) + wiggle, Math.round(d.y - d.hop))
       .setTint(tint)
+      .setDepth(d.y < p.y ? DEPTH - 0.1 : DEPTH + 0.1) // behind him while she is further up the screen
       .setVisible(dogVisible(s))
       .setAlpha(s.bed?.dogA ?? 1);
 
@@ -185,18 +186,19 @@ export class CompanionView {
     // Carried, it is a bigger, angled stick gripped at the snout and flipped with the dog.
     const carried = st.state === 'carried';
     this.stick
-      .setTexture(carried ? TEX.stickCarry : TEX.stick)
+      .setTexture(carried ? TEX.stickCarry : st.state === 'ground' ? TEX.stickGround : TEX.stick)
       .setVisible(st.state !== 'hidden')
       .setFlipX(carried && d.face < 0)
+      .setDepth(carried && d.y < p.y ? DEPTH - 0.05 : DEPTH + 1) // behind him when she is behind him
       .setPosition(Math.round(st.x), Math.round(st.y))
       .setTint(tint);
 
     // Sticks lying on the grass: under the characters, fading in and out.
-    while (this.ground.length < s.sticks.length) this.ground.push(this.scene.add.image(0, 0, TEX.stick).setDepth(DEPTH - 0.5));
+    while (this.ground.length < s.sticks.length) this.ground.push(this.scene.add.image(0, 0, TEX.stickGround).setDepth(DEPTH - 0.5));
     this.ground.forEach((img, i) => {
       const g = s.sticks[i];
       img.setVisible(g !== undefined);
-      if (g) img.setPosition(Math.round(g.x), Math.round(g.y)).setAlpha(groundStickAlpha(g)).setTint(tint);
+      if (g) img.setPosition(Math.round(g.x), Math.round(g.y)).setFlipX(Math.round(g.x) % 2 === 0).setAlpha(groundStickAlpha(g)).setTint(tint);
     });
 
     this.drawBubble();

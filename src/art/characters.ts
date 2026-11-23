@@ -117,6 +117,17 @@ export function stickCarrySprite(): Sprite {
   return p.outline().done();
 }
 
+/** A stick lying on the grass (slice 17): a bit bigger than the thrown one, slightly tilted, with a twig. */
+export const STICK_GROUND_SIZE = { w: 11, h: 5 };
+export function stickGroundSprite(): Sprite {
+  const p = new Pix(STICK_GROUND_SIZE.w, STICK_GROUND_SIZE.h);
+  p.line(1, 3, 9, 2, PAL.woodLight);
+  p.line(1, 2, 9, 1, PAL.woodHi);
+  p.line(6, 2, 8, 0, PAL.woodLight); // a twig
+  p.set(1, 3, PAL.wood);
+  return p.outline().done();
+}
+
 // ---- Alex (player): standing at the dock edge, ¾ back view, rod in her right hand ----------
 
 export const ALEX_SIZE = { w: 32, h: 56 };
