@@ -45,7 +45,7 @@ describe('fish variants', () => {
     }
   });
 
-  it('medium is about 75% and small about 55% of the large width, icon 9-15 wide', () => {
+  it('medium is about 75% and small about 55% of the large width, icon 18-34 wide', () => {
     for (const id of IDS) {
       const large = fishVariant(id, 2).width;
       expect(large).toBe(FISH_LARGE[id].width);

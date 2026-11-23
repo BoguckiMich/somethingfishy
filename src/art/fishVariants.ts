@@ -14,8 +14,8 @@ export const FISH_CLASSES: readonly FishClass[] = [0, 1, 2];
 
 /** Width of each class as a share of the large sprite. */
 const CLASS_SHARE: Record<FishClass, number> = { 0: 0.55, 1: 0.75, 2: 1 };
-/** Catch-bar icon width: a third of the large one, kept within these bounds. */
-export const FISH_ICON_WIDTH_RANGE: readonly [number, number] = [9, 15];
+/** Catch-bar icon width: 75% of the large one, kept within these bounds (playtesters found 9-15 px too small). */
+export const FISH_ICON_WIDTH_RANGE: readonly [number, number] = [18, 34];
 
 export type VariantName = 'small' | 'medium' | 'icon';
 
@@ -63,7 +63,7 @@ export function fishVariant(id: string, cls: FishClass): Sprite {
 export function fishIcon(id: string): Sprite {
   const large = art(id);
   const [lo, hi] = FISH_ICON_WIDTH_RANGE;
-  return variant(id, 'icon', Math.min(hi, Math.max(lo, Math.round(large.width / 3))));
+  return variant(id, 'icon', Math.min(hi, Math.max(lo, Math.round(large.width * 0.75))));
 }
 
 /** Flat dark shadow of the large sprite, for fish not caught yet in the log. */
