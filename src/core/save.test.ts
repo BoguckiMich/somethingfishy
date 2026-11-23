@@ -261,3 +261,14 @@ describe('normalizeSave: notes', () => {
     expect(notes({ read: ['recipe', 'nope', 7, 'recipe', 'raft'] })).toEqual({ read: ['recipe', 'raft'] });
   });
 });
+
+describe('normalizeSave: night kit', () => {
+  const kit = (v: unknown) => normalizeSave({ version: 1, player: { nightKit: v } }).player.nightKit;
+  it('is kept only when true; an old save has no key', () => {
+    expect(kit(true)).toBe(true);
+    expect(kit(false)).toBeUndefined();
+    expect(kit('yes')).toBeUndefined();
+    expect(kit(undefined)).toBeUndefined();
+    expect('nightKit' in normalizeSave({ version: 1, player: {} }).player).toBe(false);
+  });
+});

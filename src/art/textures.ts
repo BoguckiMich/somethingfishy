@@ -1,5 +1,7 @@
 import type Phaser from 'phaser';
-import { ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { CAR_VARIANTS, carKey, carSprite } from './carArt';
+import { lanternSprite } from './lanternArt';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
 import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
 import { BAITS } from '../core/data/baits';
@@ -64,6 +66,9 @@ export const TEX = {
 /** Texture key of a bait's 16 x 16 icon (the bottom-bar chip); worms use the plain worm icon. */
 export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `bait:${id}`);
 
+/** Texture key of the dock lantern (unlit / lit). */
+export const lanternKey = (lit: boolean) => `lantern:${lit ? 'on' : 'off'}`;
+
 /** Texture key of a lake-moment sprite (a key of MOMENT_SPRITES). */
 export const momentKey = (name: string) => `moment:${name}`;
 
@@ -105,6 +110,8 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.post, Raster.fromSprite(POST));
   addRaster(scene, TEX.crate, Raster.fromSprite(CRATE));
   addRaster(scene, TEX.board, Raster.fromSprite(NOTICE_BOARD));
+  for (const v of CAR_VARIANTS) addRaster(scene, carKey(v), Raster.fromSprite(carSprite(v)));
+  for (const lit of [false, true]) addRaster(scene, lanternKey(lit), Raster.fromSprite(lanternSprite(lit)));
   for (const [name, s] of Object.entries(MOMENT_SPRITES)) addRaster(scene, momentKey(name), Raster.fromSprite(s));
   addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
   addRaster(scene, TEX.stripFrame, Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
@@ -143,7 +150,7 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
   }
-  for (const pose of ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw'] as PajWalkPose[]) {
+  for (const pose of PAJ_WALK_POSES) {
     addRaster(scene, pajWalkKey(pose), Raster.fromSprite(pajkelWalkSprite(pose)));
   }
   for (const f of allDogFrames()) addRaster(scene, dogKey(f), Raster.fromSprite(dogSprite(f)));

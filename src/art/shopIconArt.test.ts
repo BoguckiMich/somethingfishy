@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BAITS } from '../core/data/baits';
 import { LINES, REELS } from '../core/data/tackle';
+import { NIGHT_KIT } from '../core/data/nightKit';
 import { RODS } from '../core/data/rods';
 import { PAL } from './palette';
 import { TRANSPARENT, type Sprite } from './pixelGrid';
@@ -16,6 +17,7 @@ const GROUPS: Record<string, string[]> = {
   lines: LINES.map((l) => l.id),
   reels: REELS.map((r) => r.id),
   baits: BAITS.map((b) => b.id),
+  nightKit: [NIGHT_KIT.id],
 };
 
 describe('shop icons', () => {

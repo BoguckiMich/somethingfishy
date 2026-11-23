@@ -32,7 +32,12 @@ import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HANDS_KEY, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
-import { createTextures, repaintSky, TEX } from '../art/textures';
+import { createTextures, lanternKey, repaintSky, TEX } from '../art/textures';
+import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
+import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
+import { crossedBedtime, inSleepWindow, lanternGlow, morningClock, napWakeClock, wakeGreeting, type NapOption } from '../core/bedtime';
+import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/sleepFade';
+import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, TIME_OF_DAY_NAMES, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
@@ -57,6 +62,7 @@ import {
   effectiveBarGear,
   equippedRod,
   freeWormsIfStuck,
+  hasNightKit,
   totalBait,
   newPlayer,
   releasePending,
@@ -81,8 +87,8 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { companionEvent, companionPress, pickLine, startPlayNow, tickCompanions } from './companions/behaviour';
-import { RECORD_LINES } from '../core/data/pajkelLines';
+import { carVariant, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, tickCompanions, wakeUp } from './companions/behaviour';
+import { BEDTIME_LINES, RECORD_LINES } from '../core/data/pajkelLines';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
 
@@ -160,6 +166,22 @@ const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 20, CRATE_FEET.y - 30
 /** How often the device date is re-read (a game left open past midnight gets the new crate). */
 const DATE_CHECK_MS = 5000;
 const GLINT_N = 130;
+/**
+ * The car (slice 16): its front quarter peeks in from the LEFT screen edge, on the grass between the
+ * bushes and the bottom bar. Why there: the dock, the crate, the fetch area (x 112-320) and the right
+ * edge (bushes, the throw targets) are all busy, the HUD is at the top and the bar starts at y 602,
+ * while the lower left is only grass and a bush. Its wheels touch down at y 546, clear of the hint line
+ * (y 567-600) and the bar (y 602+).
+ */
+const CAR_POS = { x: 0, y: 500 };
+const CAR_HIT = new Phaser.Geom.Rectangle(0, 494, 84, 58);
+/** The dock lantern's feet, and the centre of its glow (between the lantern and Alex, near the dock end). */
+const LANTERN_FEET = { x: 180, y: 388 };
+const GLOW_CENTER = { x: 194, y: 374 };
+const GLOW_RX = 64;
+const GLOW_COLOR = 0xffa94a;
+/** A "Zzz..." from the car lasts this long. */
+const ZZZ_MS = 1500;
 
 /** Multiplies two 0xRRGGBB colours (what setTint does on the GPU). */
 function multiply(a: number, b: number): number {
@@ -266,6 +288,25 @@ export class LakeScene extends Phaser.Scene {
   /** ?debug=bubble: ms until Pajkel says a line (dev only), or null. */
   private debugBubbleInMs: number | null = null;
   private crateImg!: Phaser.GameObjects.Image;
+  // Slice 16: the car, the lantern, bedtime and naps.
+  private carImg!: Phaser.GameObjects.Image;
+  private carFx!: Phaser.GameObjects.Graphics;
+  private lanternImg!: Phaser.GameObjects.Image;
+  private lanternFx!: Phaser.GameObjects.Graphics;
+  private carZs: { img: Phaser.GameObjects.Image; age: number }[] = [];
+  private sinceAutoZ = 0;
+  private fadeGfx!: Phaser.GameObjects.Graphics;
+  private fadeText!: Phaser.GameObjects.Text;
+  /** The sleep fade while it runs (bedtime without the kit, or a nap), else null. */
+  private sleepFade: SleepFade | null = null;
+  private fadeWoke = false;
+  /** The nap's wake-up time, set when the nap starts. */
+  private napTarget: NapOption | null = null;
+  /** 02:00 passed and the sequence is waiting for a fight, the show-off or a panel to end. */
+  private bedPending = false;
+  /** After a nap that ends inside 02:00-05:00 (kit only) they stay up: no going back to the car until 05:00. */
+  private skipBedWindow = false;
+  private lastBedPhase: string | null = null;
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
   private catchBar!: CatchBarView;
@@ -339,6 +380,15 @@ export class LakeScene extends Phaser.Scene {
     const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
+    }
+
+    // Slice 16 dev flags: ?kit=1 owns the night kit, ?debug=bedtime starts the clock at 01:59:30,
+    // ?debug=incar starts with Pajkel and Bestia asleep in the car (at 03:00, with the kit).
+    if (params.get('kit') === '1') this.setPlayer({ ...this.player, nightKit: true });
+    if (params.get('debug') === 'bedtime') this.clock = { ...this.clock, minute: 119.5 };
+    if (params.get('debug') === 'incar') {
+      this.setPlayer({ ...this.player, nightKit: true });
+      if (!params.get('time')) this.clock = { ...this.clock, minute: 3 * 60 };
     }
 
     createTextures(this);
@@ -415,6 +465,8 @@ export class LakeScene extends Phaser.Scene {
     for (let t = 0; t < 2000; t += 50) {
       tickCompanions(this.companions.state, 50, { fishing: 'idle', night: timeOfDay(this.clock.minute) === 'night' });
     }
+    // The kit owner who opens the game between 02:00 and 05:00 finds them already asleep in the car.
+    if (hasNightKit(this.player) && inSleepWindow(this.clock.minute)) startInCar(this.companions.state);
     if (params.get('debug') === 'afk') {
       // Dev-only: jump into the grass play and fast-forward to a fetch in progress.
       startPlayNow(this.companions.state);
@@ -428,7 +480,7 @@ export class LakeScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => document.removeEventListener('visibilitychange', onVisible));
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.panel) return;
+      if (this.panel || this.sleepFade) return;
       if (this.handleTap(pointer.worldX, pointer.worldY)) {
         this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
         return;
@@ -470,6 +522,8 @@ export class LakeScene extends Phaser.Scene {
     const loaded = loadSave(store);
     this.player = loaded.save.player;
     this.clock = loaded.save.clock;
+    // A save loaded between 02:00 and 05:00 without the night kit wakes at 05:00 (no sequence).
+    if (!hasNightKit(this.player) && inSleepWindow(this.clock.minute)) this.clock = morningClock(this.clock);
     this.persist();
     const onHide = () => {
       if (document.visibilityState === 'hidden') this.persist();
@@ -504,6 +558,7 @@ export class LakeScene extends Phaser.Scene {
   update(_time: number, deltaMs: number): void {
     this.elapsed += deltaMs;
     this.stateAge += deltaMs;
+    const minuteBefore = this.clock.minute;
     this.clock = advanceClock(this.clock, deltaMs);
     this.sinceClockSave += deltaMs;
     this.sinceDateCheck += deltaMs;
@@ -533,6 +588,7 @@ export class LakeScene extends Phaser.Scene {
     this.slipNoteAge += deltaMs;
     this.updateEerie(deltaMs);
 
+    this.updateBedtime(deltaMs, minuteBefore);
     this.updateSound(deltaMs);
     this.updateMoments(deltaMs);
     if (this.debugBubbleInMs !== null && (this.debugBubbleInMs -= deltaMs) <= 0) {
@@ -546,6 +602,108 @@ export class LakeScene extends Phaser.Scene {
       dayLook(this.clock.minute).worldTint,
     );
     this.render(deltaMs);
+  }
+
+  // ---- Bedtime, naps and the sleep fade (slice 16) ----------------------------------------------
+
+  /** Calm enough for bedtime to start: nothing but an idle or waiting line, no panel or card, no fade. */
+  private calmForBed(): boolean {
+    return (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel && !this.sleepFade;
+  }
+
+  /**
+   * 02:00 starts the sequence (waiting out a fight, the show-off or a panel first); the kit owner's
+   * companions stay in the car until 05:00; without the kit the fade starts once they are in.
+   */
+  private updateBedtime(deltaMs: number, minuteBefore: number): void {
+    const c = this.companions.state;
+    const kit = hasNightKit(this.player);
+    const m = this.clock.minute;
+    if (crossedBedtime(minuteBefore, m)) this.bedPending = true;
+    if (!inSleepWindow(m)) {
+      this.bedPending = false;
+      this.skipBedWindow = false;
+    }
+    if (c.mode === 'bed') this.bedPending = false;
+    if (this.bedPending && c.mode !== 'bed' && this.calmForBed()) {
+      this.bedPending = false;
+      startBedtime(c, pickLine(BEDTIME_LINES));
+    }
+    // Bought (or loaded) with the kit inside the window: they simply start in the car.
+    if (kit && inSleepWindow(m) && c.mode === 'dock' && !this.bedPending && !this.skipBedWindow) startInCar(c);
+    // The kit owner's night: they wake at 05:00.
+    if (kit && c.mode === 'bed' && c.bed?.kind === 'night' && isInCar(c) && !inSleepWindow(m)) wakeUp(c);
+    // Asleep in the car without the kit (bedtime) or for a nap: the screen fades once Alex has nothing in hand.
+    if (isInCar(c) && !this.sleepFade && (c.bed?.kind === 'nap' || !kit) && this.calmForBed()) this.startSleepFade(c.bed?.kind === 'nap' ? 'nap' : 'night');
+    if (this.sleepFade) this.tickFade(deltaMs);
+  }
+
+  private startSleepFade(kind: 'night' | 'nap'): void {
+    // Nothing may be on the line while she sleeps: a waiting line is reeled in quietly.
+    if (this.state.kind === 'waiting') {
+      this.state = INITIAL_STATE;
+      this.stateAge = 0;
+    }
+    const kit = hasNightKit(this.player);
+    const wakeAt = kind === 'nap' && this.napTarget ? napWakeClock(this.clock, this.napTarget.minute, kit) : morningClock(this.clock);
+    this.sleepFade = newSleepFade(kind === 'nap' ? 'Nap time...' : 'Time for bed...', kind === 'nap' ? wakeGreeting(wakeAt.minute) : 'Good morning!');
+    this.fadeWoke = false;
+  }
+
+  private tickFade(deltaMs: number): void {
+    const f = this.sleepFade;
+    if (!f) return;
+    const r = tickSleepFade(f, deltaMs);
+    this.sleepFade = r.fade;
+    const c = this.companions.state;
+    if (r.jump) {
+      const kit = hasNightKit(this.player);
+      const nap = c.bed?.kind === 'nap' && this.napTarget;
+      this.clock = nap ? napWakeClock(this.clock, this.napTarget!.minute, kit) : morningClock(this.clock);
+      // A nap that ends in the kit owner's deep night: they stay up until 05:00.
+      this.skipBedWindow = inSleepWindow(this.clock.minute);
+      this.napTarget = null;
+      this.persist();
+    }
+    // They climb out while the screen clears.
+    if (!this.fadeWoke && r.fade.phase === 'in') {
+      this.fadeWoke = true;
+      wakeUp(c);
+    }
+    if (r.done) this.sleepFade = null;
+  }
+
+  /** The nap card: only from the dock, with Alex idle. */
+  private openNapCard(): void {
+    const c = this.companions.state;
+    if (this.state.kind !== 'idle' || this.panel || c.mode !== 'dock') return;
+    this.swallowUp = false;
+    this.panel = showNapCard(
+      hasNightKit(this.player),
+      (o) => {
+        this.napTarget = o;
+        startNap(this.companions.state);
+      },
+      () => (this.panel = null),
+    );
+  }
+
+  /** A tap on the car (never casts): asleep inside makes a "Zzz...", otherwise the nap card. */
+  private tapCar(): void {
+    const c = this.companions.state;
+    if (isInCar(c)) {
+      this.spawnZzz(true);
+      if (Math.random() < 1 / 3) sound.play('sleepyBoof');
+      return;
+    }
+    this.openNapCard();
+  }
+
+  private spawnZzz(big: boolean): void {
+    const img = this.add
+      .image(CAR_POS.x + CAR_PARTS.window.x + 12, CAR_POS.y + CAR_PARTS.window.y, big ? TEX.zBig : TEX.zSmall)
+      .setDepth(Z.angler + 1);
+    this.carZs.push({ img, age: 0 });
   }
 
   /**
@@ -608,6 +766,13 @@ export class LakeScene extends Phaser.Scene {
     const phase = play.mode === 'play' ? play.play.phase : null;
     if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'spin')) sound.play('boof');
     this.lastPlayPhase = phase;
+    // Bedtime: Bestia boofs when called, and the car door thunks shut (going in and coming out).
+    const bp = play.mode === 'bed' ? (play.bed?.phase ?? null) : null;
+    if (bp !== this.lastBedPhase) {
+      if (bp === 'call') sound.play('boof');
+      if (bp === 'doorShut' || bp === 'exitShut') sound.play('thunk');
+    }
+    this.lastBedPhase = bp;
   }
 
   private send(input: FishingInput): void {
@@ -786,6 +951,10 @@ export class LakeScene extends Phaser.Scene {
       this.openBaitBox();
       return;
     }
+    if (dbg === 'nap') {
+      this.openNapCard();
+      return;
+    }
     if (dbg === 'quests') {
       this.openQuests();
       return;
@@ -954,6 +1123,10 @@ export class LakeScene extends Phaser.Scene {
       this.openQuests(); // only opens while idle; the tap never casts
       return true;
     }
+    if (CAR_HIT.contains(x, y)) {
+      this.tapCar();
+      return true;
+    }
     if (this.state.kind === 'idle' && this.crateVisible() && CRATE_HIT.contains(x, y)) {
       this.openBaitBox();
       return true;
@@ -962,7 +1135,7 @@ export class LakeScene extends Phaser.Scene {
     const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
     if (momentOk && this.moments.tap(x, y, this.state.kind === 'idle')) return true;
     const dog = this.companions.dogRect();
-    if (dog.contains(x, y)) {
+    if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
       this.companions.pet();
       sound.play('boof');
       this.showTag(2, this.profile.dog, dog.centerX, dog.y - 14);
@@ -970,7 +1143,7 @@ export class LakeScene extends Phaser.Scene {
       return true;
     }
     const paj = this.companions.pajRect();
-    if (paj.contains(x, y)) {
+    if (pajVisible(this.companions.state) && this.companions.state.mode !== 'bed' && paj.contains(x, y)) {
       this.showTag(1, this.profile.companion, paj.centerX, paj.y - 2);
       return true;
     }
@@ -1091,6 +1264,12 @@ export class LakeScene extends Phaser.Scene {
     this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
     this.worldImgs.push(this.showOffHands);
     this.companions = new CompanionView(this);
+    // The car's shadow and picture, the lantern and its glow, the fade.
+    this.carFx = this.add.graphics().setDepth(Z.postFx - 0.2);
+    this.carImg = this.add.image(CAR_POS.x, CAR_POS.y, carKey('closed')).setOrigin(0, 0).setDepth(Z.postFx);
+    this.worldImgs.push(this.carImg);
+    this.lanternImg = this.add.image(LANTERN_FEET.x, LANTERN_FEET.y, lanternKey(false)).setOrigin(0.5, 1).setDepth(Z.angler - 0.1).setVisible(false);
+    this.lanternFx = this.add.graphics().setDepth(Z.angler + 0.4);
     this.crateImg = this.add.image(CRATE_FEET.x, CRATE_FEET.y, TEX.crate).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.crateImg);
     this.crateFx = this.add.graphics().setDepth(Z.angler - 0.1);
@@ -1165,6 +1344,12 @@ export class LakeScene extends Phaser.Scene {
       .text(W / 2, 150, 'Quest done!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: '#ffd35a', stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
+      .setVisible(false);
+    this.fadeGfx = this.add.graphics().setDepth(Z.uiText + 20);
+    this.fadeText = this.add
+      .text(W / 2, 640 / 2, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: TEXT, align: 'center', padding: textPad(9, 5) })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText + 21)
       .setVisible(false);
     this.devTag = this.add
       .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
@@ -1320,6 +1505,9 @@ export class LakeScene extends Phaser.Scene {
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 
     this.drawCrate();
+    this.drawCar(look, _deltaMs);
+    this.drawLantern(look);
+    this.drawFade();
 
     // Labels.
     this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)} · ${TIME_OF_DAY_NAMES[timeOfDay(this.clock.minute)]}`);
@@ -1363,6 +1551,84 @@ export class LakeScene extends Phaser.Scene {
     if (s.kind === 'idle' && this.slipNoteAge < SLIP_NOTE_MS) this.hint.setText(SLIP_NOTE);
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
     this.drawPanels();
+  }
+
+  /** The car (the variant follows the door and the interior light), its shadow, a dim LED at night, the "Zzz..." floats. */
+  private drawCar(look: DayLook, deltaMs: number): void {
+    const c = this.companions.state;
+    const variant = carVariant(c);
+    this.carImg.setTexture(carKey(variant));
+    const g = this.carFx;
+    g.clear();
+    // Soft shadow under the car.
+    g.fillStyle(PAL.outline, 0.22).fillRect(CAR_POS.x, CAR_POS.y + CAR_SIZE.h - 2, 70, 4);
+    g.fillStyle(PAL.outline, 0.12).fillRect(CAR_POS.x, CAR_POS.y + CAR_SIZE.h + 2, 62, 2);
+    const night = 1 - look.sunAlpha;
+    const led = CAR_PARTS.led;
+    // The headlight strip is dim at night: a faint pale glow over the LED, never a beam.
+    g.fillStyle(PAL.foam, 0.18 + 0.3 * Math.max(0, night)).fillRect(CAR_POS.x + led.x, CAR_POS.y + led.y - 1, led.w, 3);
+    if (variant === 'light') {
+      // Warm light spilling from the windows.
+      const w = CAR_PARTS.window;
+      g.fillStyle(PAL.gold, 0.1).fillRect(CAR_POS.x + w.x - 6, CAR_POS.y + w.y - 6, w.w + 12, w.h + 12);
+      g.fillStyle(PAL.gold, 0.16).fillRect(CAR_POS.x + w.x - 3, CAR_POS.y + w.y - 3, w.w + 6, w.h + 6);
+      g.fillStyle(PAL.strawLight, 0.3).fillRect(CAR_POS.x + w.x, CAR_POS.y + w.y, w.w - 4, w.h - 2);
+    }
+    // Zzz floats (from a tap, and now and then on their own while they sleep).
+    this.sinceAutoZ += deltaMs;
+    if (isInCar(c) && this.sinceAutoZ > 3200) {
+      this.sinceAutoZ = 0;
+      this.spawnZzz(false);
+    }
+    for (const z of this.carZs) {
+      z.age += deltaMs;
+      const t = z.age / ZZZ_MS;
+      z.img.setPosition(Math.round(CAR_POS.x + CAR_PARTS.window.x + 12 + t * 8), Math.round(CAR_POS.y + CAR_PARTS.window.y - t * 22)).setAlpha(Math.max(0, 1 - t));
+    }
+    this.carZs = this.carZs.filter((z) => {
+      if (z.age >= ZZZ_MS) z.img.destroy();
+      return z.age < ZZZ_MS;
+    });
+  }
+
+  /** The dock lantern (owned with the night kit) and its warm, stepped glow from 20:00 to 05:00. */
+  private drawLantern(look: DayLook): void {
+    const own = hasNightKit(this.player);
+    const glow = own ? lanternGlow(this.clock.minute) : 0;
+    this.lanternImg.setVisible(own).setTexture(lanternKey(glow > 0.02));
+    if (glow > 0.02) this.lanternImg.clearTint();
+    else this.lanternImg.setTint(look.worldTint);
+    const g = this.lanternFx;
+    g.clear();
+    if (glow <= 0.02) return;
+    // Concentric flat ellipses, each a little brighter towards the middle: reads as pixel-art light.
+    const flicker = 1 + 0.05 * Math.sin(this.elapsed / 170) + 0.03 * Math.sin(this.elapsed / 61);
+    const rings = 7;
+    for (let i = 0; i < rings; i++) {
+      const rx = (GLOW_RX * (rings - i)) / rings;
+      const ry = rx * 0.8;
+      g.fillStyle(GLOW_COLOR, 0.05 * glow * flicker);
+      for (let y = -Math.floor(ry); y < ry; y += 2) {
+        const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((y + 1) / ry) ** 2)));
+        if (half > 0) g.fillRect(GLOW_CENTER.x - half, GLOW_CENTER.y + y, half * 2, 2);
+      }
+    }
+    // The flame itself.
+    const fx = LANTERN_FEET.x - Math.floor(LANTERN_SIZE.w / 2) + LANTERN_FLAME.x;
+    const fy = LANTERN_FEET.y - LANTERN_SIZE.h + LANTERN_FLAME.y;
+    g.fillStyle(PAL.gold, 0.25 * glow).fillRect(fx - 3, fy - 3, 7, 7);
+  }
+
+  /** The black cover and the line of text while Alex sleeps. */
+  private drawFade(): void {
+    const g = this.fadeGfx;
+    g.clear();
+    const f = this.sleepFade;
+    this.fadeText.setVisible(f !== null);
+    if (!f) return;
+    const v = fadeView(f);
+    g.fillStyle(0x0a0e1e, v.alpha).fillRect(0, 0, W, 640);
+    this.fadeText.setText(v.text).setAlpha(v.textAlpha);
   }
 
   /** The crate shows while today's box is unopened, with a small twinkle to catch the eye. */

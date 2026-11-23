@@ -1,6 +1,7 @@
 import { speciesById, type Species } from './data/fish';
 import { BAITS, WORM_ID, baitById, type Bait } from './data/baits';
 import { RODS } from './data/rods';
+import { NIGHT_KIT } from './data/nightKit';
 import { LINES, REELS } from './data/tackle';
 import { RARITY_PRICE_MULT, SHOP } from './data/shop';
 import type { GameEvent } from './events';
@@ -45,6 +46,8 @@ export interface PlayerState {
   quests?: QuestsState;
   /** Which bottle notes were read this round (slice 14); missing in older saves, read with notesOf(). */
   notes?: NotesState;
+  /** Owns the night kit "Lantern & blanket" (slice 16); missing = no. */
+  nightKit?: boolean;
 }
 
 export function newPlayer(): PlayerState {
@@ -141,7 +144,7 @@ export function cheapestIndex(bag: BagFish[]): number {
   return best;
 }
 
-export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag' | 'notSold';
+export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag' | 'notSold' | 'needRod' | 'owned';
 export type Outcome =
   | { state: PlayerState; ok: true }
   | { state: PlayerState; ok: false; error: ShopError; /** Coins still missing, for 'needCoins'. */ missing?: number };
@@ -238,6 +241,24 @@ export function buyReel(state: PlayerState): Outcome {
   if (!reel) return fail(state, 'bestReel');
   if (state.coins < reel.price) return fail(state, 'needCoins', reel.price - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - reel.price, reelId: reel.id } };
+}
+
+// ---- The night kit (slice 16) ----------------------------------------------------------------
+
+export const hasNightKit = (p: PlayerState): boolean => p.nightKit === true;
+
+/** The shop shows the kit once the fiberglass rod, or a better one, is owned. */
+export function nightKitForSale(p: PlayerState): boolean {
+  const need = RODS.findIndex((r) => r.id === NIGHT_KIT.needsRodId);
+  return RODS.findIndex((r) => r.id === p.rodId) >= need;
+}
+
+/** Buys "Lantern & blanket": once only, and only when the rod requirement is met. */
+export function buyNightKit(state: PlayerState): Outcome {
+  if (hasNightKit(state)) return fail(state, 'owned');
+  if (!nightKitForSale(state)) return fail(state, 'needRod');
+  if (state.coins < NIGHT_KIT.price) return fail(state, 'needCoins', NIGHT_KIT.price - state.coins);
+  return { ok: true, state: { ...state, coins: state.coins - NIGHT_KIT.price, nightKit: true } };
 }
 
 /** What the catch bar really uses: the equipped rod's values with the line and reel multipliers on top. */

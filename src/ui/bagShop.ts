@@ -7,12 +7,16 @@ import { SHOP_BAITS } from '../core/data/baits';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
 import { RODS } from '../core/data/rods';
+import { NIGHT_KIT } from '../core/data/nightKit';
 import type { Line, Reel, Rod } from '../core/gear';
 import {
   bagValue,
   baitCount,
   buyBait,
   buyLine,
+  buyNightKit,
+  hasNightKit,
+  nightKitForSale,
   buyReel,
   buyRod,
   buyWorms,
@@ -277,6 +281,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         tackleEntry(rodNow, ''),
         tackleEntry(equippedLine(p), 'No line yet'),
         tackleEntry(equippedReel(p), 'No reel yet'),
+        ...(hasNightKit(p) ? [tackleEntry(NIGHT_KIT, '')] : []),
       );
 
       body.append(sectionTitle('Upgrades'));
@@ -314,6 +319,25 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
       });
       if (lineCard) body.append(lineCard);
       if (reelCard) body.append(reelCard);
+
+      // The night kit (slice 16): shown once the fiberglass rod (or better) is owned.
+      if (nightKitForSale(p)) {
+        body.append(
+          hasNightKit(p)
+            ? itemCard({ id: NIGHT_KIT.id, name: NIGHT_KIT.name, note: 'Owned', effect: NIGHT_KIT.effect, coins: p.coins })
+            : itemCard({
+                id: NIGHT_KIT.id,
+                name: NIGHT_KIT.name,
+                price: NIGHT_KIT.price,
+                effect: NIGHT_KIT.effect,
+                coins: p.coins,
+                buy: () => {
+                  apply(buyNightKit(store.get()), NIGHT_KIT.id);
+                  panel.refresh();
+                },
+              }),
+        );
+      }
     },
     onClose,
   );
