@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 15a + update-toast fix merged, not pushed; user will phone-test. Next: shop icons, then 15b baits, then 16 car/bedtime — specs in GAME_DESIGN §3)._
+_Last updated: 2026-11-23 (slice 15a + update-toast fix merged, not pushed; user will phone-test. Next: 15b shop icons, then 15c baits, then 16 car/bedtime — specs in GAME_DESIGN §3)._
 
 ## Current state
 

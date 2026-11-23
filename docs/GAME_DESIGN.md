@@ -403,7 +403,7 @@ species in 4 days. Loved: Bestia hopping on a bite, fetch, the Pale One. Asked f
 a record, the time of day next to the clock, total weight per species in the log (deferred to an
 achievements system), a way to skip hours while waiting for a time of day (→ naps in the car), and
 "tap to update" did nothing (→ fix below). Takeaway: coins need more to buy, and new items should
-not be cheap. Slices 15a, 15b and 16 answer this.
+not be cheap. Slices 15a, 15c and 16 answer this.
 
 **Fix: update toast (fix/update-toast).** Tapping "New version — tap to reload" did nothing on the
 playtester's phone. The reload waits for workbox-window's `controlling` event with `isUpdate`, which
@@ -433,7 +433,24 @@ open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5
   plain ASCII text (VT323 has no emoji). First use: on a new record he says one of
   "That's a beast... hehe", "New record!", "Look at the size of it!". Slice 16 reuses the bubble.
 
-**Slice 15b: baits (decided 2026-11-23).**
+**Slice 15b: shop icons (decided 2026-11-23).** The shop was all text; make it lively.
+- **Item cards:** each shop item (worm pack, rod, line, reel) is a small card: a framed wood icon
+  slot on the left, then name, price and effect, the Buy button underneath (side by side is too
+  tight at 360 px).
+- **Icons:** 16x16 code-drawn art in the `iconArt.ts` style (1 px outline), shown at 3x (48 px), crisp.
+  - worm pack: a little tin can with worms peeking out
+  - rods: a diagonal rod with a reel; bamboo tan with joints, fiberglass yellow, carbon dark with a red stripe
+  - lines: a spool; braided green, fluoro pale blue and see-through
+  - reels: smooth silver, pro gold
+- **Prices** use the coin icon + number instead of the word "coins"; an item she can't afford has
+  its icon dimmed a little.
+- **Sell list:** each bag fish shows its small sprite (reuse the fish-log sprites).
+- **"Your tackle" strip** at the top of the gear part: the owned rod, line and reel as icons with
+  names; replaces the "You have: ..." lines.
+- **Buying:** the icon does a small pop + sparkle. Effect texts start with a capital letter.
+- Later slices (baits, lantern) draw their icons in the same style.
+
+**Slice 15c: baits (decided 2026-11-23).**
 - **Kinds:** worms stay the default and catch everything as now. Special baits:
   - *Corn* — carp, tench, bream, crucian ×3 spawn weight.
   - *Maggots* — in shallow water the wait for a bite is ×0.6.
@@ -558,7 +575,7 @@ open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5
   Open questions: multiplier values, does it re-balance the rod prices (250 / 1200), and does size
   still matter as much?
 
-- **Baits that raise the chance of rare fish** (user, 2026-11-23) — scheduled as slice 15b. ties into v2b hook bait: special
+- **Baits that raise the chance of rare fish** (user, 2026-11-23) — scheduled as slice 15c. ties into v2b hook bait: special
   baits shift the spawn weights toward rarer species (or one species). Open questions: per-species or
   per-rarity boost, how strong, and do baits come from the shop, the daily box, or crafting?
 
@@ -661,7 +678,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 13a. Daily bait box ✅
     - 13b. Daily quests ✅
 14. Lake moments (details in §3 → Slice 14) ✅
-15. Progression (details in §3 → Slice 15a / 15b)
-    - 15a. Prices by rarity, lines and reels, clock label, Pajkel's speech bubble
-    - 15b. Baits
+15. Progression (details in §3 → Slice 15a / 15b / 15c)
+    - 15a. Prices by rarity, lines and reels, clock label, Pajkel's speech bubble ✅
+    - 15b. Shop icons
+    - 15c. Baits
 16. The car, bedtime, naps and the night kit (details in §3 → Slice 16)
