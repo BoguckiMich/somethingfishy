@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (15c baits merged overnight; 15a/15b merged, not pushed)._
+_Last updated: 2026-11-23 night. Overnight (user authorised merges up to 16): 15b, 15c, 16 merged into `main`, not pushed; 17 built on `slice/17-no-take-fetch`, NOT merged. See *Overnight summary* below._
 
 ## Current state
 
@@ -30,6 +30,7 @@ _Last updated: 2026-11-23 (15c baits merged overnight; 15a/15b merged, not pushe
 | 13c | Catch-bar fish marker 2x bigger (75% of the large sprite, 18-34 px), bar 36 px wide (playtesters: too small) | merged |
 | 14 | Lake moments: duck, frog, jumping fish, shooting star, bottle note, uncanny bubbles / dark shape (GAME_DESIGN §3 → Slice 14) | merged before the phone play-test (user may want fixes after testing) |
 | 16 | The car, bedtime at 02:00, naps, night kit "Lantern & blanket" (GAME_DESIGN §3 → Slice 16) | merged overnight by the main session (user authorised merges up to 16); not phone-tested. Main session fixed the wake day (Day N skipped). Car likeness, carry walk in motion, sounds by ear and the kit-owner 05:00 wake not seen |
+| 17 | "No take, only throw" fetch: keep-away, chase, give-up lines, spare stick, old sticks on the grass, rare give-back (GAME_DESIGN §3 → Slice 17) | on branch `slice/17-no-take-fetch`, awaiting the user's review — not merged (531 tests pass; seen only as stills) |
 | 15a | Prices by rarity, braided/fluoro lines + smooth/pro reels, time-of-day in the clock label, Pajkel's speech bubble (GAME_DESIGN §3 → Slice 15a) | merged before the phone play-test (reels help little in the bot sim: sloppy bot 85% → 87% with the Pro reel vs 97% with fluoro line; may raise the reel numbers) |
 | 15b | Shop icons: 16x16 icons for worm pack, rods, lines, reels; item cards, "Your tackle" strip, fish sprites + coin icon in sell lists, buy pop (GAME_DESIGN §3 → Slice 15b) | merged overnight by the main session (user authorised merges up to 16); not phone-tested. Rod icons are the weakest (reel reads as a grey blob on bamboo/fiberglass), pro reel looks a bit like a coin |
 | 15c | Baits: corn, maggots, fish strip, glow bait; bait chip + picker, shop Bait section, box/quest bait rewards (GAME_DESIGN §3 → Slice 15c) | merged overnight by the main session (user authorised merges up to 16); not phone-tested |
@@ -98,6 +99,24 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   slack tone are plain. Hidden-page silence and the first-tap unlock on Android were reasoned, not
   exercised. Settings are volumes 0–100 under `rybki.settings.v1` (old booleans read as 100/0).
   Opening any panel plays a tap; the dog "boofs" on petting and fetch bring/zoomies.
+
+## Overnight summary (2026-11-23) — what to check on the phone
+
+Merged into `main` overnight without the user's play-test, each reviewed by the main session (tsc,
+tests, build, screenshots). Not pushed, so the Pages site still has the old build.
+- **15b shop icons** — item cards, icons, "Your tackle", fish sprites in the sell list. Check: rod
+  icons (weakest), the buy pop (never seen running).
+- **15c baits** — corn / maggots / fish strip in the shop, glow bait from box and quests, bait chip
+  in the bottom bar, picker. Check: chip tap, "-1 corn" cue and "Out of corn, using ..." toast (never
+  seen live), prices 30/20/40 per 10 (guesses).
+- **16 car + bedtime** — DS4 at the left edge of the grass; at 02:00 Pajkel's line, Bestia runs,
+  he carries her to the car; "Time for bed..." fade to 05:00 without the kit; nap card on a car tap;
+  Lantern & blanket 2500 in the shop. Check: car likeness, carry walk in motion, thunk/sleepy boof by
+  ear, kit-owner wake at 05:00. Main session fixed: waking kept the day counter from skipping.
+  Agent deviations (in GAME_DESIGN under slice 16): the nap card opens any time she is idle, not
+  only by day; a kit owner's "Deep night" nap leaves them awake until 05:00.
+- **17 fetch** — on its branch only. Try it with `?debug=afk` (`&giveback=1` forces the rare round),
+  then merge if it feels right. Weak: the bend pose, the play-bow frame, chase speeds untested.
 
 ## How we work (user preferences — follow these)
 
