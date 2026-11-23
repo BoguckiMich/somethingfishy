@@ -480,6 +480,6 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel, dog fetch) ✅
 11. PWA + GitHub Pages deploy (details in §3 item 10) ✅
 11b. Readability polish (device-resolution canvas, VT323 font, update-toast position) ✅
-12. Legendary fish: The Pale One (details in §3 → Slice 12) ← *in progress*
-13. Daily bait box + daily quests (§5)
+12. Legendary fish: The Pale One (details in §3 → Slice 12) ✅
+13. Daily bait box + daily quests (§5) ← *next*
 14. Lake moments (see Ideas) — candidate
