@@ -6,7 +6,7 @@
  * dawn and dusk windows are only ~1.7 min each and night ~7.5 min; the day pool is ~9 min.
  * The three quests run in parallel (one catch can advance several), so the whole set should take
  * ~20-40 min of play:
- *  - catchAny 12-22: about 10-18 min of nothing but fishing, the long pole of an easy set.
+ *  - catchAny 8-15: about 7-13 min of fishing; kept modest so a cozy daily never feels like a grind.
  *  - catchSpecies: common 3-5 (a given common fish is ~20-25 % of the bites of its time slot, and
  *    most bite only in daylight, so this is ~15-30 min), uncommon 1-2 (rarer, ~10-30 % of a slot,
  *    some only at night), rare 1 (the catfish: ~7 % of night bites in deep water, so it may need
@@ -30,7 +30,7 @@ export const QUEST_TUNING = {
   speciesWeight: { common: 3, uncommon: 2, rare: 1, legendary: 0 },
   /** Target ranges (inclusive). */
   catchSpecies: { common: [3, 5], uncommon: [1, 2], rare: [1, 1] },
-  catchAny: [12, 22],
+  catchAny: [8, 15],
   catchAtTime: { dawn: [1, 2], dusk: [1, 2], night: [2, 3] },
   catchDeep: [2, 4],
   sellCoins: { shallowRod: [60, 120], deepRod: [150, 300] },
