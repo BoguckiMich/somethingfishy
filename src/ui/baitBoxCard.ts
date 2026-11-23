@@ -2,6 +2,9 @@ import { FS, LINE } from '../font';
 import { DAILY_BOX } from '../core/data/daily';
 import type { BoxContents } from '../core/daily/daily';
 import { sound } from '../audio/sound';
+import { baitById } from '../core/data/baits';
+import { shopIconSprite } from '../art/shopIconArt';
+import { spriteCanvas } from './spriteCanvas';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 /** Five pips, the first `filled` of them gold: the "Day-in-a-row" streak tier. */
@@ -48,6 +51,16 @@ export function showBaitBoxCard(tier: number, take: () => BoxContents | null, on
       }
       body.append(el('div', `font-size:${FS.heading}px;line-height:${LINE};color:${COLORS.text}`, `+${opened.worms} worms`));
       if (opened.coins > 0) body.append(el('div', `font-size:${FS.heading}px;line-height:${LINE};color:${COLORS.gold}`, `+${opened.coins} coins`));
+      // Special baits (slice 15c): a line each with the bait's icon.
+      for (const [id, n] of Object.entries(opened.baits)) {
+        const bait = baitById(id);
+        const icon = shopIconSprite(id);
+        if (!bait || n <= 0) continue;
+        const line = el('div', 'display:flex;align-items:center;gap:6px');
+        if (icon) line.append(spriteCanvas(icon, 32));
+        line.append(el('div', `font-size:${FS.heading}px;line-height:${LINE};color:${COLORS.text}`, `+${n} ${bait.name.toLowerCase()}`));
+        body.append(line);
+      }
       body.append(streakRow(opened.tier));
       const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:12px');
       col.append(woodButton('Close', () => panel.close()));

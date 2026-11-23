@@ -4,8 +4,8 @@ import { TRANSPARENT, sprite, type Sprite } from './pixelGrid';
 
 /**
  * Pure art for the shop icons (slice 15b): 16 x 16, a 1 px outline, chunky enough to read at 48 px.
- * Look them up by item id with `shopIconSprite(id)`; later slices add bait / lantern ids here.
- * Ids match core/data: the worm pack plus RODS, LINES and REELS (a test keeps them in step).
+ * Look them up by item id with `shopIconSprite(id)`; baits (slice 15c) and later the lantern add ids here.
+ * Ids match core/data: the worm pack plus RODS, LINES, REELS and BAITS (a test keeps them in step).
  */
 
 const INNER = ICON_SIZE - 2; // the icon grid minus the outline ring
@@ -161,6 +161,96 @@ function reelSprite(rim: number, face: number, spool: number, shine: number, rid
   return p.done();
 }
 
+/** A yellow corn cob with rows of kernels and a green husk at the bottom. */
+export function cornSprite(): Sprite {
+  return fromGrid(
+    `
+    .....sYYs.....
+    ....sYyYYs....
+    ....YyYyYy....
+    ....yYyYyY....
+    ....YyYyYy....
+    ....yYyYyY....
+    ....YyYyYy....
+    ...ggYyYygg...
+    ..gGggyyggGg..
+    ..gGGggggGGg..
+    ...gGGggGGg...
+    ....gGggGg....
+    .....gGGg.....
+    ......gg......
+    `,
+    { s: PAL.strawDark, Y: PAL.strawLight, y: PAL.straw, g: PAL.leaf, G: PAL.leafLight },
+  );
+}
+
+/** A little clay pot with a cream label, a heap of pale maggots on top. */
+export function maggotsSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ....c..c......
+    ..c.Cc.Cc.c...
+    ..cCcCcCcCcC..
+    .rrrrrrrrrrrr.
+    ..bbbbbbbbbb..
+    ..bhbbbbbbbd..
+    ..bhLLLLLLbd..
+    ..bhLmLmLLbd..
+    ..bhLLLLLLbd..
+    ..bhbbbbbbbd..
+    ..bbbbbbbbbd..
+    ..dddddddddd..
+    ..............
+    `,
+    { c: PAL.cream, C: PAL.white, r: PAL.shirtLight, b: PAL.shirt, h: PAL.shirtLight, d: PAL.shirtDark, L: PAL.cream, m: PAL.shirtDark },
+  );
+}
+
+/** A strip of fish: silver skin along the edges, pink flesh with a few pale fat lines, running up to the right. */
+export function stripSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ..............
+    ..........ssss
+    ........ssSSSs
+    ......ssSPPPps
+    ....ssSPPwPPps
+    ..ssSPPPwPPpps
+    .sSPPwPPPPppp.
+    .sPPPPPPpppp..
+    .ssPPPPpppss..
+    ..sssPPppss...
+    ....sssss.....
+    ..............
+    ..............
+    `,
+    { s: PAL.stone, S: PAL.stoneLight, P: PAL.pink, p: PINK_DARK, w: PINK_LIGHT },
+  );
+}
+
+/** A glowing green-yellow ball with a few light pixels around it. */
+export function glowSprite(): Sprite {
+  const p = painter();
+  for (let y = 0; y < INNER; y++) {
+    for (let x = 0; x < INNER; x++) {
+      const r = Math.hypot(x - 6.5, y - 6.5);
+      if (r > 4.6) continue;
+      p.set(x, y, r < 1.8 ? PAL.sun : r < 3 ? PAL.firefly : r < 4 ? PAL.fireflyGlow : PAL.leaf);
+    }
+  }
+  p.set(5, 5, PAL.white);
+  p.set(6, 5, PAL.white);
+  p.set(5, 6, PAL.white);
+  // A little plus of light up left, and two single sparks.
+  for (const [x, y] of [[2, 2], [1, 2], [3, 2], [2, 1], [2, 3]]) p.set(x, y, PAL.firefly);
+  p.set(2, 2, PAL.white);
+  p.set(11, 3, PAL.firefly);
+  p.set(11, 11, PAL.firefly);
+  return p.done();
+}
+
 const BUILDERS: Record<string, () => Sprite> = {
   worms: wormPackSprite,
   bamboo: () => rodSprite(ROD_ART.bamboo),
@@ -170,6 +260,11 @@ const BUILDERS: Record<string, () => Sprite> = {
   fluoro: () => spoolSprite({ a: 0xeaf6fa, b: PAL.foam, c: PAL.shallow3, woven: false, glass: true }),
   smooth: () => reelSprite(PAL.stoneLight, PAL.stone, PAL.stoneDark, PAL.white, false),
   pro: () => reelSprite(PAL.sun, PAL.gold, PAL.strawDark, PAL.white, true),
+  // Baits (slice 15c), ids as in core/data/baits.ts.
+  corn: cornSprite,
+  maggots: maggotsSprite,
+  strip: stripSprite,
+  glow: glowSprite,
 };
 
 /** Every item id that has a shop icon. */

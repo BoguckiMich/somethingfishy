@@ -1,4 +1,5 @@
 import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
+import { BAITS, baitById } from './data/baits';
 import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
 import { SHOP } from './data/shop';
@@ -101,7 +102,14 @@ function normalizeQuest(v: unknown): Quest | null {
     done,
     // A claim only counts for a finished quest.
     claimed: done && v.claimed === true,
-    reward: { coins: Math.min(1000, intAtLeast(v.reward.coins, 0, 0)), worms: Math.min(100, intAtLeast(v.reward.worms, 0, 0)) },
+    reward: {
+      coins: Math.min(1000, intAtLeast(v.reward.coins, 0, 0)),
+      worms: Math.min(100, intAtLeast(v.reward.worms, 0, 0)),
+      // A known bait with at least 1 piece, or no bait part at all.
+      ...(isObj(v.reward.bait) && baitById(v.reward.bait.id as string) && intAtLeast(v.reward.bait.n, 0, 0) > 0
+        ? { bait: { id: v.reward.bait.id as string, n: Math.min(20, intAtLeast(v.reward.bait.n, 0, 0)) } }
+        : {}),
+    },
   };
 }
 
@@ -112,12 +120,26 @@ function normalizeQuests(v: unknown): QuestsState {
   return { date: v.date, rerollUsed: v.rerollUsed === true, list };
 }
 
+/** Bait counts: only known special baits, whole numbers >= 1 (anything else counts as 0 and is dropped). */
+export function normalizeBaits(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!isObj(v)) return out;
+  for (const b of BAITS) {
+    const n = intAtLeast(v[b.id], 0, 0);
+    if (n > 0) out[b.id] = Math.min(n, 9999);
+  }
+  return out;
+}
+
 function normalizePlayer(v: unknown): PlayerState {
   const p = isObj(v) ? v : {};
   const bag = Array.isArray(p.bag) ? p.bag.map(normalizeBagFish).filter((f): f is BagFish => f !== null) : [];
   return {
     coins: intAtLeast(p.coins, 0, SHOP.startCoins),
     worms: intAtLeast(p.worms, 0, SHOP.startWorms),
+    // Special baits and the chosen one: nothing stored when there is nothing (older saves have neither key).
+    ...(Object.keys(normalizeBaits(p.baits)).length > 0 ? { baits: normalizeBaits(p.baits) } : {}),
+    ...(typeof p.baitId === 'string' && baitById(p.baitId) ? { baitId: p.baitId } : {}),
     bag: bag.slice(0, SHOP.bagSlots),
     rodId: RODS.some((r) => r.id === p.rodId) ? (p.rodId as string) : RODS[0].id,
     // Line and reel: only a known id is kept (an unknown one means none); no key at all when none.

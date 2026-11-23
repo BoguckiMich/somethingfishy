@@ -3,6 +3,7 @@ import { pageParams } from '../urlParams';
 import { todayLocal } from '../localDate';
 import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
+import { openBaitPicker } from '../ui/baitPicker';
 import { showQuestPanel } from '../ui/questPanel';
 import { showBottleCard } from '../ui/bottleCard';
 import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
@@ -48,11 +49,15 @@ import { fightProfile, formatCatchSize, rollHookedFish, type HookedFish } from '
 import {
   addCatch,
   applyEvent,
+  addBait,
+  baitCount,
   canCast,
+  chosenBait,
   cheapestIndex,
   effectiveBarGear,
   equippedRod,
   freeWormsIfStuck,
+  totalBait,
   newPlayer,
   releasePending,
   swapForCheapest,
@@ -73,7 +78,8 @@ import { encodeSaveCode } from '../core/saveCode';
 import { showNameOverlay } from '../ui/nameOverlay';
 import { openSettingsPanel } from '../ui/settingsPanel';
 import type { PanelHandle } from '../ui/panel';
-import { BAR_TOP, BottomBar } from './BottomBar';
+import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
+import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { companionEvent, companionPress, pickLine, startPlayNow, tickCompanions } from './companions/behaviour';
 import { RECORD_LINES } from '../core/data/pajkelLines';
@@ -206,11 +212,14 @@ export class LakeScene extends Phaser.Scene {
     timeOfDay: () => timeOfDay(this.clock.minute),
     minute: () => this.clock.minute,
     canCast: () => canCast(this.player),
+    baitId: () => chosenBait(this.player),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
   private panel: PanelHandle | null = null;
   private bottomBar!: BottomBar;
   private wormLabel!: Phaser.GameObjects.Text;
+  /** The "-1 bait" cue floats up from the bait chip instead of the worm counter. */
+  private cueAtChip = false;
   private coinLabel!: Phaser.GameObjects.Text;
   private wormIcon!: Phaser.GameObjects.Image;
   private coinIcon!: Phaser.GameObjects.Image;
@@ -360,6 +369,10 @@ export class LakeScene extends Phaser.Scene {
     if (line) this.setPlayer({ ...this.player, lineId: line.id });
     const reel = REELS.find((r) => r.id === params.get('reel'));
     if (reel) this.setPlayer({ ...this.player, reelId: reel.id });
+    // ?bait=<id> chooses that bait and gives 10; ?baits=all gives 10 of every special bait (sandboxed, never saved).
+    const baitParam = BAITS.find((b) => b.id === params.get('bait'));
+    if (baitParam) this.setPlayer({ ...addBait(this.player, baitParam.id, 10), baitId: baitParam.id });
+    if (params.get('baits') === 'all') for (const b of BAITS) this.setPlayer(addBait(this.player, b.id, 10));
     const coinsParam = Number(params.get('coins'));
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
@@ -635,9 +648,20 @@ export class LakeScene extends Phaser.Scene {
 
   /** The player's side of a game event: bait use. */
   private applyToPlayer(e: GameEvent): void {
+    const before = chosenBait(this.player);
     const r = applyEvent(this.player, e, this.ctx.rng);
     this.setPlayer(r.state);
-    if (r.wormUsed) this.wormCueAge = 0;
+    if (r.baitUsed) {
+      // The "-1" cue: next to the worm counter for worms, above the bait chip for a special bait.
+      this.wormCueAge = 0;
+      this.cueAtChip = r.baitUsed !== WORM_ID;
+      this.wormCue.setText(`-1 ${baitById(r.baitUsed)?.name.toLowerCase() ?? 'worm'}`);
+      const after = chosenBait(r.state);
+      if (after !== before && baitCount(r.state, before) <= 0) {
+        const name = (id: string) => baitById(id)?.name.toLowerCase() ?? 'worms';
+        this.showToast(after === WORM_ID && r.state.worms <= 0 ? `Out of ${name(before)}` : `Out of ${name(before)}, using ${name(after)}`);
+      }
+    }
   }
 
   /** Keeps the session's rod and catch-bar gear in step with the equipped rod, line and reel. */
@@ -679,7 +703,7 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
-  private openPlayerPanel(kind: 'bag' | 'shop' | 'log' | 'settings', startWith?: string): void {
+  private openPlayerPanel(kind: 'bag' | 'shop' | 'log' | 'bait' | 'settings', startWith?: string): void {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
     const store = {
@@ -693,6 +717,7 @@ export class LakeScene extends Phaser.Scene {
     this.panel =
       kind === 'bag' ? openBagPanel(store, onClose)
       : kind === 'shop' ? openShopPanel(store, onClose)
+      : kind === 'bait' ? openBaitPicker(store, onClose)
       : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
       : openLogPanel(() => this.player.log, onClose, startWith);
   }
@@ -747,7 +772,7 @@ export class LakeScene extends Phaser.Scene {
       this.setPlayer(guard.state);
       this.showToast('The bait shop owner slips you a few worms');
     } else {
-      this.showToast('Out of worms, visit the shop');
+      this.showToast(totalBait(this.player) > 0 ? 'Out of worms, choose another bait' : 'Out of worms, visit the shop');
     }
   }
 
@@ -763,6 +788,10 @@ export class LakeScene extends Phaser.Scene {
     }
     if (dbg === 'quests') {
       this.openQuests();
+      return;
+    }
+    if (dbg === 'baits') {
+      this.openPlayerPanel('bait');
       return;
     }
     if (dbg === 'settings') {
@@ -855,7 +884,10 @@ export class LakeScene extends Phaser.Scene {
     if (!r.rolled) return;
     this.setPlayer(r.player);
     this.seenDone = doneCount(questsOf(this.player));
-    if (r.paid) this.showToast(`Yesterday's quests paid: +${r.paid.coins} coins, +${r.paid.worms} worms`);
+    if (r.paid) {
+      const bait = Object.values(r.paid.baits).reduce((a, b) => a + b, 0);
+      this.showToast(`Yesterday's quests paid: +${r.paid.coins} coins, +${r.paid.worms} worms${bait > 0 ? `, +${bait} bait` : ''}`);
+    }
     this.questPanel?.refresh();
   }
 
@@ -891,6 +923,12 @@ export class LakeScene extends Phaser.Scene {
       tier,
       () => {
         const r = openBox(this.player, this.today, Math.random);
+        if (r.contents && pageParams().get('boxbait') === 'glow') {
+          // Dev-only: ?boxbait=glow forces 2 glow bait into the box (to see the card).
+          const forced = { ...r.contents, baits: { ...r.contents.baits, glow: 2 } };
+          this.setPlayer(addBait(r.player, 'glow', 2));
+          return forced;
+        }
         if (r.contents) this.setPlayer(r.player);
         return r.contents;
       },
@@ -1308,10 +1346,13 @@ export class LakeScene extends Phaser.Scene {
     this.wormCue
       .setVisible(this.wormCueAge < 1200)
       .setAlpha(Math.min(1, (1200 - this.wormCueAge) / 400))
-      .setPosition(this.wormLabel.x + this.wormLabel.width / 2, this.wormLabel.y + this.wormLabel.height + 2 - this.wormCueAge / 100);
+      .setPosition(
+        this.cueAtChip ? baitChipRect().centerX : this.wormLabel.x + this.wormLabel.width / 2,
+        this.cueAtChip ? baitChipRect().y - 16 - this.wormCueAge / 100 : this.wormLabel.y + this.wormLabel.height + 2 - this.wormCueAge / 100,
+      );
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.hint.setText(
-      s.kind === 'idle' ? (canCast(this.player) ? 'Hold to charge, release to cast' : 'Out of worms, visit the shop')
+      s.kind === 'idle' ? (canCast(this.player) ? 'Hold to charge, release to cast' : (totalBait(this.player) > 0 ? 'Out of worms, choose another bait' : 'Out of worms, visit the shop'))
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
@@ -1747,6 +1788,8 @@ export class LakeScene extends Phaser.Scene {
       enabled: this.state.kind === 'idle' && !this.panel,
       bagCount: this.player.bag.length,
       bagSlots: SHOP.bagSlots,
+      baitId: chosenBait(this.player),
+      baitCount: baitCount(this.player, chosenBait(this.player)),
     });
     // Notice-board button (daily quests), left of the pencil: dimmed unless a tap would open it.
     const boardOn = this.state.kind === 'idle' && !this.panel;

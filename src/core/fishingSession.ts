@@ -3,6 +3,7 @@ import { barResult, newCatchBar, tickCatchBar, type CatchBarState, type FishProf
 import type { TimeOfDay } from './clock';
 import { speciesById } from './data/fish';
 import type { GameEvent } from './events';
+import { baitById } from './data/baits';
 import { fightProfile, rollHookedFish, type HookedFish } from './fish';
 import type { BarGear, Rod } from './gear';
 import { zoneAt, type Location, type ZoneId } from './location';
@@ -45,6 +46,8 @@ export interface SessionContext {
   /** Asked before a cast starts charging (out of worms: no). Absent means always. */
   canCast?: () => boolean;
   rng: Rng;
+  /** The bait on the hook (slice 15c): undefined or 'worm' is the plain worm. Absent means worms. */
+  baitId?: () => string | undefined;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
   timeOfDay: () => TimeOfDay;
   /** The in-game minute of the day; the legendary's clock window needs it. Absent means no legendary. */
@@ -82,6 +85,12 @@ export interface StepResult {
   events: GameEvent[];
 }
 
+/** Maggots (slice 15c) shorten the first wait, in shallow water only; every other case is x1. */
+export function firstWaitFactor(baitId: string | undefined, zone: ZoneId): number {
+  const w = baitById(baitId)?.waitFactor;
+  return w && w.zone === zone ? w.factor : 1;
+}
+
 export const INITIAL_STATE: FishingState = { kind: 'idle' };
 
 const same = (state: FishingState): StepResult => ({ state, events: [] });
@@ -108,19 +117,21 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
     case 'casting':
       if (input.type !== 'landed') return same(state);
       // The fish is chosen as the bobber lands: its species shapes the wait (shy fish nibble more).
+      const bait = ctx.baitId?.();
       const hooked = rollHookedFish(
         state.zone,
         ctx.timeOfDay(),
         ctx.rng,
         ctx.speciesOverride,
         ctx.minute ? { distanceM: state.distanceM, minute: ctx.minute() } : undefined,
+        bait,
       );
       return same({
         kind: 'waiting',
         distanceM: state.distanceM,
         zone: state.zone,
         hooked,
-        untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs),
+        untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs) * firstWaitFactor(bait, state.zone),
         nibblesLeft: randInt(ctx.rng, ...speciesById(hooked.speciesId)!.nibbles),
         hadNibble: false,
       });

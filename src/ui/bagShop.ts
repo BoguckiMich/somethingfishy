@@ -3,12 +3,15 @@ import { fishIconSprite } from '../art/fishArt';
 import { coinSprite, wormSprite } from '../art/iconArt';
 import { shopIconSprite } from '../art/shopIconArt';
 import type { Sprite } from '../art/pixelGrid';
+import { SHOP_BAITS } from '../core/data/baits';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
 import { RODS } from '../core/data/rods';
 import type { Line, Reel, Rod } from '../core/gear';
 import {
   bagValue,
+  baitCount,
+  buyBait,
   buyLine,
   buyReel,
   buyRod,
@@ -234,7 +237,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         body.append(all);
       }
 
-      body.append(sectionTitle('Worms'));
+      body.append(sectionTitle('Bait'));
       body.append(
         itemCard({
           id: 'worms',
@@ -248,6 +251,24 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
           },
         }),
       );
+
+      // The special baits (slice 15c), packs of 10; glow bait is not sold.
+      for (const bait of SHOP_BAITS) {
+        const pack = bait.pack!;
+        body.append(
+          itemCard({
+            id: bait.id,
+            name: baitCount(p, bait.id) > 0 ? `${bait.name} (have ${baitCount(p, bait.id)})` : bait.name,
+            price: pack.price,
+            effect: `${pack.size} per pack. ${bait.effect}`,
+            coins: p.coins,
+            buy: () => {
+              apply(buyBait(store.get(), bait.id), bait.id);
+              panel.refresh();
+            },
+          }),
+        );
+      }
 
       // Your tackle: the rod, line and reel she owns (slice 15b), then the next upgrades as cards.
       body.append(sectionTitle('Your tackle'));

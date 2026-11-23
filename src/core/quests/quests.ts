@@ -4,7 +4,8 @@ import { POOL_SPECIES, speciesById, type Species } from '../data/fish';
 import { QUIET_LAKE } from '../data/locations';
 import { QUEST_TUNING as T } from '../data/quests';
 import { RODS } from '../data/rods';
-import type { PlayerState } from '../inventory';
+import { SHOP_BAITS, baitById } from '../data/baits';
+import { addBait, type PlayerState } from '../inventory';
 import type { ZoneId } from '../location';
 import { randInt, seededRng, type Rng } from '../random';
 import { speciesCaught } from '../fishLog';
@@ -22,6 +23,15 @@ export const QUEST_TIMES: readonly QuestTime[] = ['dawn', 'dusk', 'night'];
 export interface QuestReward {
   coins: number;
   worms: number;
+  /** Sometimes a few of a special bait too (slice 15c); missing in older saves. */
+  bait?: { id: string; n: number };
+}
+
+/** What a day change paid out for finished, unclaimed quests: coins, worms and the baits summed by id. */
+export interface QuestPaid {
+  coins: number;
+  worms: number;
+  baits: Record<string, number>;
 }
 
 export interface Quest {
@@ -154,26 +164,49 @@ function shuffle<A>(rng: Rng, items: A[]): A[] {
 export function rollDay(today: string, p: PlayerState): Quest[] {
   const rng = seededRng(hashString(today));
   const kinds = shuffle(rng, availableKinds(p)).slice(0, T.perDay);
-  return kinds.map((k) => rollQuest(k, p, rng));
+  // The bait part is rolled from its own seed per slot, so it never shifts the rolls above.
+  return kinds.map((k, i) => withBaitReward(rollQuest(k, p, rng), seededRng(hashString(`${today}bait${i}`))));
+}
+
+/** About 1 quest in 4 also pays 3-5 of a shop bait, and rarely 1 glow bait (tunables in data/quests.ts). */
+export function withBaitReward(quest: Quest, rng: Rng): Quest {
+  const B = T.baitReward;
+  if (rng() >= B.chance) return quest;
+  const glow = rng() < B.glowShare;
+  const shop = SHOP_BAITS[randInt(rng, 0, SHOP_BAITS.length - 1)];
+  const n = randInt(rng, B.shopN[0], B.shopN[1]);
+  return { ...quest, reward: { ...quest.reward, bait: glow ? { id: 'glow', n: 1 } : { id: shop.id, n } } };
+}
+
+/** Pays one reward into the purse: coins, worms and the bait. */
+export function payReward(p: PlayerState, r: QuestReward): PlayerState {
+  const paid = { ...p, coins: p.coins + r.coins, worms: p.worms + r.worms };
+  return r.bait && baitById(r.bait.id) ? addBait(paid, r.bait.id, r.bait.n) : paid;
 }
 
 // ---- Day change ------------------------------------------------------------------------------
 
-const payable = (list: Quest[]): QuestReward =>
-  list.reduce((sum, q) => (q.done && !q.claimed ? { coins: sum.coins + q.reward.coins, worms: sum.worms + q.reward.worms } : sum), { coins: 0, worms: 0 });
+const payable = (list: Quest[]): QuestPaid =>
+  list.reduce<QuestPaid>((sum, q) => {
+    if (!q.done || q.claimed) return sum;
+    const b = q.reward.bait;
+    const baits = b ? { ...sum.baits, [b.id]: (sum.baits[b.id] ?? 0) + b.n } : sum.baits;
+    return { coins: sum.coins + q.reward.coins, worms: sum.worms + q.reward.worms, baits };
+  }, { coins: 0, worms: 0, baits: {} });
 
 /**
  * Makes sure the stored quests are today's. On a later date: every done-but-unclaimed quest is
  * paid into the purse first (nothing earned is lost), then three new quests are rolled. On the
  * same day, an earlier date (the device clock was set back) or an invalid `today`, nothing changes.
  */
-export function syncQuests(player: PlayerState, today: string): { player: PlayerState; paid: QuestReward | null; rolled: boolean } {
+export function syncQuests(player: PlayerState, today: string): { player: PlayerState; paid: QuestPaid | null; rolled: boolean } {
   const q = questsOf(player);
   if (!isValidDate(today)) return { player, paid: null, rolled: false };
   if (q.date !== null && isValidDate(q.date) && today <= q.date) return { player, paid: null, rolled: false };
   const owed = payable(q.list);
-  const paid = owed.coins > 0 || owed.worms > 0 ? owed : null;
-  const paidPlayer = { ...player, coins: player.coins + owed.coins, worms: player.worms + owed.worms };
+  const paid = owed.coins > 0 || owed.worms > 0 || Object.keys(owed.baits).length > 0 ? owed : null;
+  let paidPlayer: PlayerState = { ...player, coins: player.coins + owed.coins, worms: player.worms + owed.worms };
+  for (const [id, n] of Object.entries(owed.baits)) paidPlayer = addBait(paidPlayer, id, n);
   return {
     player: { ...paidPlayer, quests: { date: today, rerollUsed: false, list: rollDay(today, paidPlayer) } },
     paid,
@@ -249,7 +282,7 @@ export function claimQuest(player: PlayerState, index: number): { player: Player
   const list = q.list.map((x, i) => (i === index ? { ...x, claimed: true } : x));
   return {
     paid: quest.reward,
-    player: { ...player, coins: player.coins + quest.reward.coins, worms: player.worms + quest.reward.worms, quests: { ...q, list } },
+    player: { ...payReward(player, quest.reward), quests: { ...q, list } },
   };
 }
 
@@ -275,7 +308,7 @@ export function rerollQuest(player: PlayerState, index: number, today: string): 
   if (kinds.length === 0) return { player, ok: false };
   const rng = seededRng(hashString(`${today}reroll${index}`));
   const kind = kinds[randInt(rng, 0, kinds.length - 1)];
-  const list = q.list.map((x, i) => (i === index ? rollQuest(kind, player, rng) : x));
+  const list = q.list.map((x, i) => (i === index ? withBaitReward(rollQuest(kind, player, rng), seededRng(hashString(`${today}rerollbait${index}`))) : x));
   return { player: { ...player, quests: { ...q, rerollUsed: true, list } }, ok: true };
 }
 
@@ -301,4 +334,7 @@ export function questText(quest: Quest): string {
   }
 }
 
-export const rewardText = (r: QuestReward): string => `+${r.coins} coins · +${r.worms} worms`;
+export const rewardText = (r: QuestReward): string => {
+  const bait = r.bait ? baitById(r.bait.id) : undefined;
+  return `+${r.coins} coins · +${r.worms} worms${bait && r.bait ? ` · +${r.bait.n} ${bait.name.toLowerCase()}` : ''}`;
+};

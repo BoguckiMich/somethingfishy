@@ -1,4 +1,5 @@
 import { speciesById, type Species } from './data/fish';
+import { BAITS, WORM_ID, baitById, type Bait } from './data/baits';
 import { RODS } from './data/rods';
 import { LINES, REELS } from './data/tackle';
 import { RARITY_PRICE_MULT, SHOP } from './data/shop';
@@ -27,6 +28,10 @@ export interface BagFish {
 export interface PlayerState {
   coins: number;
   worms: number;
+  /** Special baits owned, by bait id (slice 15c); worms stay in `worms`. Missing = none. Read with baitCount(). */
+  baits?: Record<string, number>;
+  /** The bait she chose; missing or 'worm' = worms. Read with chosenBait(), which also handles a used-up choice. */
+  baitId?: string;
   bag: BagFish[];
   rodId: string;
   /** The best line / reel owned (slice 15a); missing = none. Read with equippedLine() / equippedReel(). */
@@ -50,9 +55,69 @@ export function equippedRod(p: PlayerState): Rod {
   return RODS.find((r) => r.id === p.rodId) ?? RODS[0];
 }
 
-/** Can the player cast at all? (Out of worms: no.) */
+// ---- Baits (slice 15c) ------------------------------------------------------------------------
+
+/** How many of a bait she has (worms live in `worms`). */
+export function baitCount(p: PlayerState, id: string): number {
+  if (id === WORM_ID) return p.worms;
+  return Math.max(0, Math.floor(p.baits?.[id] ?? 0));
+}
+
+/**
+ * The bait that will really go on the hook: her choice while it has any left; else worms if any;
+ * else the special bait she has most of (ties: data order); with nothing at all, worms (count 0).
+ */
+export function chosenBait(p: PlayerState): string {
+  const id = p.baitId && (p.baitId === WORM_ID || baitById(p.baitId)) ? p.baitId : WORM_ID;
+  if (baitCount(p, id) > 0) return id;
+  if (p.worms > 0) return WORM_ID;
+  let best: string = WORM_ID;
+  let most = 0;
+  for (const b of BAITS) {
+    const n = baitCount(p, b.id);
+    if (n > most) {
+      best = b.id;
+      most = n;
+    }
+  }
+  return best;
+}
+
+/** Worms (always listed, even at 0), then every special bait she has any of, in shop order. */
+export function ownedBaits(p: PlayerState): { id: string; count: number }[] {
+  const out = [{ id: WORM_ID, count: p.worms }];
+  for (const b of BAITS) if (baitCount(p, b.id) > 0) out.push({ id: b.id, count: baitCount(p, b.id) });
+  return out;
+}
+
+/** All baits together, worms included (the soft-lock guard counts this). */
+export const totalBait = (p: PlayerState): number => BAITS.reduce((sum, b) => sum + baitCount(p, b.id), p.worms);
+
+/** Adds `n` of a special bait (worms: adds worms). Unknown ids and n <= 0 change nothing. */
+export function addBait(p: PlayerState, id: string, n: number): PlayerState {
+  if (n <= 0) return p;
+  if (id === WORM_ID) return { ...p, worms: p.worms + n };
+  if (!baitById(id)) return p;
+  return { ...p, baits: { ...p.baits, [id]: baitCount(p, id) + n } };
+}
+
+/** Chooses a bait she has (worms always, even at 0); anything else is refused. */
+export function chooseBait(p: PlayerState, id: string): { state: PlayerState; ok: boolean } {
+  if (id !== WORM_ID && (!baitById(id) || baitCount(p, id) <= 0)) return { state: p, ok: false };
+  return { state: { ...p, baitId: id }, ok: true };
+}
+
+/** Buys one shop pack of a bait. */
+export function buyBait(state: PlayerState, id: string): Outcome {
+  const bait: Bait | undefined = baitById(id);
+  if (!bait?.pack) return fail(state, 'notSold');
+  if (state.coins < bait.pack.price) return fail(state, 'needCoins', bait.pack.price - state.coins);
+  return { ok: true, state: addBait({ ...state, coins: state.coins - bait.pack.price }, id, bait.pack.size) };
+}
+
+/** Can the player cast at all? Needs some of the chosen bait, or worms as the fallback. */
 export function canCast(p: PlayerState): boolean {
-  return p.worms > 0;
+  return baitCount(p, chosenBait(p)) > 0;
 }
 
 /** basePrice x rarity multiplier x (0.7 + position of the length in the species range), rounded. */
@@ -76,7 +141,7 @@ export function cheapestIndex(bag: BagFish[]): number {
   return best;
 }
 
-export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag';
+export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag' | 'notSold';
 export type Outcome =
   | { state: PlayerState; ok: true }
   | { state: PlayerState; ok: false; error: ShopError; /** Coins still missing, for 'needCoins'. */ missing?: number };
@@ -190,7 +255,7 @@ export function effectiveBarGear(state: PlayerState): BarGear {
  * so the bait shop owner slips the player a few worms.
  */
 export function freeWormsIfStuck(state: PlayerState): { state: PlayerState; granted: boolean } {
-  const stuck = state.worms === 0 && state.coins < SHOP.wormPackPrice && state.bag.length === 0;
+  const stuck = totalBait(state) === 0 && state.coins < SHOP.wormPackPrice && state.bag.length === 0;
   if (!stuck) return { state, granted: false };
   return { state: { ...state, worms: SHOP.freeWorms }, granted: true };
 }
@@ -198,12 +263,19 @@ export function freeWormsIfStuck(state: PlayerState): { state: PlayerState; gran
 // ---- Worm use, driven by the session's events ----------------------------------------------
 
 /**
- * Updates the player from a game event. A caught fish always uses the worm; a fish lost in the
+ * Updates the player from a game event. A caught fish always uses the chosen bait (worm or special, slice 15c); a fish lost in the
  * fight uses it half the time (rolled through `rng`); scares and missed bites never cost one.
  */
-export function applyEvent(state: PlayerState, event: GameEvent, rng: Rng): { state: PlayerState; wormUsed: boolean } {
+export function applyEvent(state: PlayerState, event: GameEvent, rng: Rng): { state: PlayerState; wormUsed: boolean; baitUsed?: string } {
   const uses =
     event.type === 'fishCaught' || (event.type === 'fishLost' && rng() < SHOP.lostFightWormChance);
-  if (!uses || state.worms <= 0) return { state, wormUsed: false };
-  return { state: { ...state, worms: state.worms - 1 }, wormUsed: true };
+  const id = chosenBait(state);
+  if (!uses || baitCount(state, id) <= 0) return { state, wormUsed: false };
+  if (id === WORM_ID) return { state: { ...state, worms: state.worms - 1 }, wormUsed: true, baitUsed: id };
+  const left = baitCount(state, id) - 1;
+  const baits = { ...state.baits, [id]: left };
+  // The last one is gone: the choice falls back to worms (chosenBait would do it anyway; this keeps the save tidy).
+  const next: PlayerState = { ...state, baits };
+  if (left <= 0) delete next.baitId;
+  return { state: next, wormUsed: false, baitUsed: id };
 }

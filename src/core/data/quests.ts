@@ -37,6 +37,8 @@ export const QUEST_TUNING = {
   catchDeep: [2, 4],
   sellCoins: { shallowRod: [80, 160], deepRod: [200, 400] },
   /** Rewards: coins and worms, interpolated by where the target sits in its range (0 = easiest). */
+  /** Slice 15c: about 1 quest in 4 also pays bait: 3-5 of a shop bait, or (a share of those) 1 glow bait. */
+  baitReward: { chance: 0.25, shopN: [3, 5], glowShare: 0.15 },
   rewards: {
     'catchSpecies.common': { coins: [20, 30], worms: [3, 4] },
     'catchSpecies.uncommon': { coins: [30, 45], worms: [4, 5] },

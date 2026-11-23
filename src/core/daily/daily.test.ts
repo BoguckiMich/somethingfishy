@@ -91,8 +91,8 @@ describe('rollContents', () => {
     // rolls in order: luck, worms, coin chance, coins
     const plain = rollContents(1, seq(0.5, 0, 0, 0));
     const lucky = rollContents(1, seq(0.01, 0, 0, 0));
-    expect(plain).toEqual({ worms: 5, coins: 15, lucky: false, tier: 1 });
-    expect(lucky).toEqual({ worms: 15, coins: 45, lucky: true, tier: 1 });
+    expect(plain).toEqual({ worms: 5, coins: 15, baits: {}, lucky: false, tier: 1 });
+    expect(lucky).toEqual({ worms: 15, coins: 45, baits: {}, lucky: true, tier: 1 });
   });
   it('a missed coin roll gives no coins but keeps the worms', () => {
     const c = rollContents(1, seq(0.5, 0.99, 0.95, 0.5));
@@ -114,7 +114,7 @@ describe('openBox', () => {
   const rng = () => seq(0.5, 0, 0, 0);
   it('the first box adds the contents and records date and tier 1', () => {
     const r = openBox(newPlayer(), '2026-11-23', rng());
-    expect(r.contents).toEqual({ worms: 5, coins: 15, lucky: false, tier: 1 });
+    expect(r.contents).toEqual({ worms: 5, coins: 15, baits: {}, lucky: false, tier: 1 });
     expect(r.player.worms).toBe(newPlayer().worms + 5);
     expect(r.player.coins).toBe(newPlayer().coins + 15);
     expect(r.player.daily).toEqual({ lastBoxDate: '2026-11-23', streakTier: 1 });
