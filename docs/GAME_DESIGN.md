@@ -398,6 +398,84 @@ timing and taps only; no log and no quests tied to them.
 - Pure rules in `src/core/moments/`, tunables + note texts in `src/core/data/moments.ts`.
 - Dev flag `?debug=moment=<name>` spawns that moment right away.
 
+**Playtester feedback (2026-11-23, a friend, 4 days of play).** He had the carbon rod and every
+species in 4 days. Loved: Bestia hopping on a bite, fetch, the Pale One. Asked for: Pajkel praising
+a record, the time of day next to the clock, total weight per species in the log (deferred to an
+achievements system), a way to skip hours while waiting for a time of day (→ naps in the car), and
+"tap to update" did nothing (→ fix below). Takeaway: coins need more to buy, and new items should
+not be cheap. Slices 15a, 15b and 16 answer this.
+
+**Fix: update toast (fix/update-toast).** Tapping "New version — tap to reload" did nothing on the
+playtester's phone. The reload waits for workbox-window's `controlling` event with `isUpdate`, which
+never fires when the tab was first opened uncontrolled (first visit, no `clientsClaim`) and kept
+open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5 s later.
+
+**Slice 15a: prices, gear, clock label, Pajkel's speech bubble (decided 2026-11-23).**
+- **Prices by rarity:** sell price = `basePrice × rarityMult × (0.7 + size position)`; rarity
+  multiplier common ×1, uncommon ×1.3, rare ×2 (the Pale One is never sold). `priceMin` 0.5 → 0.7,
+  so a bleak sells for about 3–7. Prices are fixed at catch time, so fish already in the bag keep
+  theirs. Rod prices (250 / 1200) stay.
+- **Lines and reels:** two upgrade tracks in the shop, bought in order like rods, always on once
+  owned, and combined with the rod's catch-bar values (the rod still gives the zone size):
+
+  | Item | Price | Effect |
+  |---|---|---|
+  | Braided line | 600 | progress drains ×0.85 |
+  | Fluoro line | 2000 | progress drains ×0.7 |
+  | Smooth reel | 1000 | zone follows the thumb ×1.2 (`reelResponse`) |
+  | Pro reel | 3500 | ×1.4 |
+
+  Each upgrade must make fights easier (check `reelResponse` with the catch-bar sim; if a higher
+  value does not help, pick the knob that does). `PlayerState.lineId?` / `reelId?`, optional and
+  normalised, no save version bump.
+- **Clock label:** `Day 3  06:40 · Dawn` (Dawn / Day / Dusk / Night, the same names as the log).
+- **Pajkel's speech bubble:** a small pixel-framed bubble over his head for ~3 s, one at a time,
+  plain ASCII text (VT323 has no emoji). First use: on a new record he says one of
+  "That's a beast... hehe", "New record!", "Look at the size of it!". Slice 16 reuses the bubble.
+
+**Slice 15b: baits (decided 2026-11-23).**
+- **Kinds:** worms stay the default and catch everything as now. Special baits:
+  - *Corn* — carp, tench, bream, crucian ×3 spawn weight.
+  - *Maggots* — in shallow water the wait for a bite is ×0.6.
+  - *Fish strip* — pike, zander, eel, catfish ×3 spawn weight.
+  - *Glow bait* — rare species ×3 spawn weight. Not sold.
+  A bait only shifts weights among the species that can bite there and then (zone + time).
+- **Use:** like worms, one per caught fish and 50% when a fish gets away. When the chosen bait runs
+  out she falls back to worms; she can cast while she has any bait. The soft-lock guard counts all baits.
+- **Where from:** the shop sells corn, maggots and fish strip in packs of 10 (prices tuned against
+  slice 15a income). Glow bait comes only from the daily box (tier 2 and up, a chance) and
+  sometimes as a quest reward.
+- **Choosing:** a bait chip in the bottom bar shows the current bait and how many are left; a tap
+  opens a picker card. The choice is saved. `PlayerState.baits?` (counts) and `baitId?`, optional.
+- No new quest kinds.
+
+**Slice 16: the car, bedtime, naps and the night kit (decided 2026-11-23).**
+- **The car:** a white Citroën DS4 parked at the edge of the grass, always there. Only its front
+  quarter shows (headlight, part of the bonnet, the front door), peeking in from a screen edge. It
+  must not cover the HUD, the bottom bar, the bait crate or other tap areas.
+- **02:00, every night:** Pajkel says one line in his speech bubble ("I'm off to nap in the car.
+  Bestia, come!", "Too late for me... Bestia! Car!", "I need to change my socks" — an inside joke),
+  and calls Bestia. She boofs and runs away (a playful zigzag), Pajkel catches her, picks her up
+  and carries her to the car. Door sound, the interior light goes on, then off.
+  - *Without the night kit:* after they are in the car, a gentle "Time for bed..." fade, then
+    "Good morning!" and the clock jumps to **05:00 the next day** (keeps the whole dawn window).
+    If a fight, the show-off or a panel is open at 02:00, everything waits until it ends. Bag,
+    coins, quests and the daily box (real date) are untouched. A save loaded between 02:00 and
+    05:00 without the kit wakes at 05:00.
+  - *With the night kit:* Alex stays and fishes alone by lantern light; Pajkel and Bestia stay
+    asleep in the car until morning.
+- **05:00:** Pajkel and Bestia walk back to their spots; Pajkel stretches once.
+- **Tapping the car:** at night (they are inside) a "Zzz..." float, sometimes a sleepy boof. In the
+  daytime (she is idle, no line out) it opens a nap card: "Take a nap until... Dawn (05:00) / Day
+  (07:00) / Dusk (18:00) / Night (20:00)", plus "Deep night (02:00)" with the night kit. Pajkel and
+  Bestia walk to the car, fade, the clock jumps to the next such time, they walk back. Free.
+- **Night kit: "Lantern & blanket", 2500 coins,** in the shop once the fiberglass rod is owned. It
+  removes the bedtime, and from 20:00 a warm lantern glow sits around Alex and the dock end.
+  No tent (the car is where they sleep).
+- **No tiredness:** the "no energy" rule stays; staying up costs nothing.
+- **Consequence (intended):** the Pale One (02–04) and most uncanny moments (01–05) now need the
+  night kit; it is the kit's payoff.
+
 ---
 
 ## 4. Roadmap
@@ -425,7 +503,8 @@ timing and taps only; no log and no quests tied to them.
   Core impact: cast result becomes distance + angle (a 2D point), and "zone" lookup becomes a
   point-in-area check; keep that in mind when extending `Location`.
 
-- **Bedtime at 2 AM & night gear** — the angler has to sleep: at 02:00 the day ends and she wakes
+- **Bedtime at 2 AM & night gear** — scheduled as slice 16 (see §3 → Slice 16; decided: no tiredness,
+  Pajkel and Bestia sleep in the car). Original notes: the angler has to sleep: at 02:00 the day ends and she wakes
   up the next morning (Stardew-style). With *night equipment* bought in the shop (tent, lantern,
   headlamp…) she can stay out and fish all night, but the angler gets *tired*.
   Open questions (to grill before building):
@@ -442,7 +521,7 @@ timing and taps only; no log and no quests tied to them.
   Keeping it in the zone long enough grabs it as a bonus (coins, bait, cosmetics).
   Open questions: what can a chest hold, how often does one appear, and does missing it cost anything (it shouldn't)?
 
-- **More gear** — other bobbers, line types, reels and so on, each tweaking the catch bar
+- **More gear** — lines and reels scheduled in slice 15a. Still open: other bobbers, line types, reels and so on, each tweaking the catch bar
   (line → drain, reel → zone responsiveness, bobber → bite readability?). v1 has only the two
   rod upgrades.
 
@@ -473,15 +552,20 @@ timing and taps only; no log and no quests tied to them.
   between locations (map screen vs walking), whether each location has its own fish log page,
   and whether rods/gear are per method.
 
-- **Fish prices by rarity** (user, 2026-11-23) — small fish like bleak sell for almost nothing
+- **Fish prices by rarity** (user, 2026-11-23) — scheduled in slice 15a. small fish like bleak sell for almost nothing
   (price = `basePrice` × size position, bleak `basePrice` 4 → 2–6 coins). Proposal: rarity adds to
   the price (e.g. a multiplier per rarity tier), so an uncommon or rare catch always feels worth it.
   Open questions: multiplier values, does it re-balance the rod prices (250 / 1200), and does size
   still matter as much?
 
-- **Baits that raise the chance of rare fish** (user, 2026-11-23) — ties into v2b hook bait: special
+- **Baits that raise the chance of rare fish** (user, 2026-11-23) — scheduled as slice 15b. ties into v2b hook bait: special
   baits shift the spawn weights toward rarer species (or one species). Open questions: per-species or
   per-rarity boost, how strong, and do baits come from the shop, the daily box, or crafting?
+
+- **Achievements + total weight per species** (playtester, 2026-11-23) — the log could show the
+  total weight caught per species; the user wants it with an achievements system, not on its own.
+  Open questions: what achievements, rewards or just badges, and how to count weight for catches
+  made before it existed (saves only keep counts and records).
 
 ### Parked on purpose
 Weather & seasons · cloud sync · landscape/walkable world · music.
@@ -563,3 +647,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 13a. Daily bait box ✅
     - 13b. Daily quests ✅
 14. Lake moments (details in §3 → Slice 14) ✅
+15. Progression (details in §3 → Slice 15a / 15b)
+    - 15a. Prices by rarity, lines and reels, clock label, Pajkel's speech bubble
+    - 15b. Baits
+16. The car, bedtime, naps and the night kit (details in §3 → Slice 16)
