@@ -7,6 +7,7 @@ import { newFishLog, type FishLog } from './fishLog';
 import type { Rod } from './gear';
 import type { Rng } from './random';
 import { newDaily, type DailyState } from './daily/daily';
+import { newQuests, questsOf, questsOnSale, type QuestsState } from './quests/quests';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -30,10 +31,12 @@ export interface PlayerState {
   log: FishLog;
   /** The daily bait box (slice 13a); missing in older saves, read with dailyOf(). */
   daily?: DailyState;
+  /** Today's three quests (slice 13b); missing in older saves, read with questsOf(). */
+  quests?: QuestsState;
 }
 
 export function newPlayer(): PlayerState {
-  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog(), daily: newDaily() };
+  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog(), daily: newDaily(), quests: newQuests() };
 }
 
 export function equippedRod(p: PlayerState): Rod {
@@ -100,15 +103,22 @@ export function swapForCheapest(state: PlayerState, fish: BagFish): { state: Pla
 
 // ---- The shop -----------------------------------------------------------------------------
 
+/** Adds the coins of a sale to the sell-coins quests (a no-op without quests). */
+function withSale(state: PlayerState, coins: number): PlayerState {
+  if (!state.quests) return state;
+  const r = questsOnSale(questsOf(state), coins);
+  return r.quests === state.quests ? state : { ...state, quests: r.quests };
+}
+
 export function sellOne(state: PlayerState, index: number): Outcome {
   const fish = state.bag[index];
   if (!fish) return fail(state, 'badIndex');
-  return { ok: true, state: { ...state, coins: state.coins + fish.price, bag: state.bag.filter((_, i) => i !== index) } };
+  return { ok: true, state: withSale({ ...state, coins: state.coins + fish.price, bag: state.bag.filter((_, i) => i !== index) }, fish.price) };
 }
 
 export function sellAll(state: PlayerState): Outcome {
   if (state.bag.length === 0) return fail(state, 'emptyBag');
-  return { ok: true, state: { ...state, coins: state.coins + bagValue(state.bag), bag: [] } };
+  return { ok: true, state: withSale({ ...state, coins: state.coins + bagValue(state.bag), bag: [] }, bagValue(state.bag)) };
 }
 
 export function buyWorms(state: PlayerState): Outcome {

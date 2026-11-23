@@ -3,6 +3,9 @@ import { pageParams } from '../urlParams';
 import { todayLocal } from '../localDate';
 import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
+import { showQuestPanel } from '../ui/questPanel';
+import { applyCatchToPlayer, claimableCount, doneCount, questsOf, syncQuests } from '../core/quests/quests';
+import type { ZoneId } from '../core/location';
 import { sound } from '../audio/sound';
 import { dayLook, lerpColor, moonArc, sunArc, type DayLook } from '../art/dayCycle';
 import {
@@ -135,6 +138,9 @@ const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
+/** The notice-board (daily quests) button: same size as the pencil, just left of it. */
+const BOARD = new Phaser.Geom.Rectangle(292, 4, 30, 26);
+const QUEST_CUE_MS = 1800;
 /** The crate from the bait shop: feet position on the dock, and a finger-sized (~40 px) tap area around it. */
 const CRATE_FEET = { x: 214, y: 458 };
 const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 20, CRATE_FEET.y - 30, 40, 40);
@@ -229,6 +235,13 @@ export class LakeScene extends Phaser.Scene {
   /** Today's date on the device (YYYY-MM-DD), re-read every few seconds. */
   private today = todayLocal();
   private sinceDateCheck = 0;
+  /** Number of finished quests last time we looked: a rise means "Quest done!" once back at idle. */
+  private seenDone = 0;
+  private questCue!: Phaser.GameObjects.Text;
+  private questCueAge = Infinity;
+  private boardImg!: Phaser.GameObjects.Image;
+  /** The open quest panel, so a day change can refresh it. */
+  private questPanel: PanelHandle | null = null;
   private crateImg!: Phaser.GameObjects.Image;
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
@@ -332,6 +345,16 @@ export class LakeScene extends Phaser.Scene {
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
     this.syncRod();
+    this.syncQuestsNow();
+    // Dev-only: ?qdone=1 finishes the first quest (see the Claim button).
+    if (params.get('qdone') === '1') {
+      const q = questsOf(this.player);
+      if (q.list.length > 0) {
+        const list = q.list.map((x, i) => (i === 0 ? { ...x, progress: x.params.target, done: true } : x));
+        this.setPlayer({ ...this.player, quests: { ...q, list } });
+      }
+    }
+    this.seenDone = doneCount(questsOf(this.player));
     if (dbg === 'fight' || dbg === 'caught') {
       // The forced species (default perch) at a rolled size, in its own zone.
       const hooked = rollHookedFish('shallow', timeOfDay(this.clock.minute), this.ctx.rng, this.ctx.speciesOverride ?? 'perch');
@@ -343,7 +366,7 @@ export class LakeScene extends Phaser.Scene {
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
-        this.noteCatch(hooked, false); // the dev catch goes through the log like a real one
+        this.noteCatch(hooked, species.zone, false); // the dev catch goes through the log like a real one
       }
     }
     this.buildScenery();
@@ -526,9 +549,16 @@ export class LakeScene extends Phaser.Scene {
    * A won fight goes in the log before the bag decision. A new species gets the longer show-off;
    * a new species or record makes the companions react bigger.
    */
-  private noteCatch(hooked: HookedFish, celebrate: boolean): void {
+  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean): void {
     const r = recordCatch(this.player.log, hooked);
-    this.setPlayer({ ...this.player, log: r.log });
+    // The catch also moves today's quests (the game clock gives the time of day, the log the record).
+    const q = applyCatchToPlayer({ ...this.player, log: r.log }, {
+      speciesId: hooked.speciesId,
+      zone,
+      timeOfDay: timeOfDay(this.clock.minute),
+      isRecord: r.outcome.kind === 'newRecord',
+    });
+    this.setPlayer(q.player);
     this.catchOutcome = r.outcome;
     const showOffMs = slipsAway(hooked.speciesId) ? PALE_ONE.showOffMs : r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined;
     this.ctx = { ...this.ctx, showOffMs };
@@ -620,6 +650,8 @@ export class LakeScene extends Phaser.Scene {
     this.clock = save.clock;
     this.setPlayer(save.player);
     this.syncRod();
+    this.syncQuestsNow();
+    this.seenDone = doneCount(questsOf(this.player));
     this.profile = profile;
     if (!this.sandbox) saveProfile(this.safeStorage(), profile);
     this.showToast('Game loaded');
@@ -632,6 +664,8 @@ export class LakeScene extends Phaser.Scene {
     this.clock = fresh.clock;
     this.setPlayer(fresh.player);
     this.syncRod();
+    this.syncQuestsNow();
+    this.seenDone = doneCount(questsOf(this.player));
     this.showToast('A fresh start');
   }
 
@@ -658,6 +692,10 @@ export class LakeScene extends Phaser.Scene {
     }
     if (dbg === 'box') {
       this.openBaitBox();
+      return;
+    }
+    if (dbg === 'quests') {
+      this.openQuests();
       return;
     }
     if (dbg === 'settings') {
@@ -712,7 +750,7 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'fishCaught':
         vibrate(HAPTICS.caught);
-        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, true);
+        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true);
         sound.play(this.catchOutcome.kind === 'normal' && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
         break;
       case 'fishLost':
@@ -741,6 +779,36 @@ export class LakeScene extends Phaser.Scene {
   private refreshDate(): void {
     this.sinceDateCheck = 0;
     this.today = todayLocal();
+    this.syncQuestsNow();
+  }
+
+  /** Makes the stored quests today's: a new day pays what was finished and rolls three new ones. */
+  private syncQuestsNow(): void {
+    const r = syncQuests(this.player, this.today);
+    if (!r.rolled) return;
+    this.setPlayer(r.player);
+    this.seenDone = doneCount(questsOf(this.player));
+    if (r.paid) this.showToast(`Yesterday's quests paid: +${r.paid.coins} coins, +${r.paid.worms} worms`);
+    this.questPanel?.refresh();
+  }
+
+  /** The quest panel from the notice-board button. Only while idle. */
+  private openQuests(): void {
+    if (this.state.kind !== 'idle' || this.panel) return;
+    this.swallowUp = false;
+    const handle = showQuestPanel(
+      {
+        get: () => this.player,
+        set: (p) => this.setPlayer(p),
+        today: () => this.today,
+      },
+      () => {
+        this.panel = null;
+        this.questPanel = null;
+      },
+    );
+    this.panel = handle;
+    this.questPanel = handle;
   }
 
   private crateVisible(): boolean {
@@ -775,6 +843,10 @@ export class LakeScene extends Phaser.Scene {
     }
     if (PENCIL.contains(x, y)) {
       this.openNames();
+      return true;
+    }
+    if (BOARD.contains(x, y)) {
+      this.openQuests(); // only opens while idle; the tap never casts
       return true;
     }
     if (this.state.kind === 'idle' && this.crateVisible() && CRATE_HIT.contains(x, y)) {
@@ -967,6 +1039,12 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
+    this.boardImg = this.add.image(BOARD.centerX, BOARD.centerY, TEX.board).setDepth(Z.uiText);
+    this.questCue = this.add
+      .text(W / 2, 150, 'Quest done!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: '#ffd35a', stroke: '#241a2e', strokeThickness: 4 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.devTag = this.add
       .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
       .setOrigin(1, 0)
@@ -1131,6 +1209,17 @@ export class LakeScene extends Phaser.Scene {
     }
     this.wormLabel.setText(String(this.player.worms));
     this.coinLabel.setText(String(this.player.coins)).setX(this.wormLabel.x + this.wormLabel.width + 4);
+    // "Quest done!": shown once back at idle with no panel open, after the fight and show-off.
+    const doneNow = doneCount(questsOf(this.player));
+    if (s.kind === 'idle' && !this.panel) {
+      if (doneNow > this.seenDone) this.questCueAge = 0;
+      this.seenDone = doneNow;
+    }
+    this.questCueAge += _deltaMs;
+    this.questCue
+      .setVisible(this.questCueAge < QUEST_CUE_MS)
+      .setAlpha(Math.min(1, (QUEST_CUE_MS - this.questCueAge) / 500))
+      .setY(150 - this.questCueAge / 80);
     this.wormCueAge += _deltaMs;
     this.wormCue
       .setVisible(this.wormCueAge < 1200)
@@ -1575,6 +1664,18 @@ export class LakeScene extends Phaser.Scene {
       bagCount: this.player.bag.length,
       bagSlots: SHOP.bagSlots,
     });
+    // Notice-board button (daily quests), left of the pencil: dimmed unless a tap would open it.
+    const boardOn = this.state.kind === 'idle' && !this.panel;
+    drawFrame(g, BOARD.x, BOARD.y, BOARD.width, BOARD.height, 'buttonWood', boardOn ? 1 : 0.6);
+    this.boardImg.setAlpha(boardOn ? 1 : 0.6);
+    if (claimableCount(questsOf(this.player)) > 0) {
+      // A small "!" badge on the corner.
+      const bx = BOARD.right - 8;
+      const by = BOARD.y - 3;
+      g.fillStyle(PAL.outline).fillRect(bx, by, 9, 11);
+      g.fillStyle(PAL.red).fillRect(bx + 1, by + 1, 7, 9);
+      g.fillStyle(PAL.white).fillRect(bx + 4, by + 2, 1, 4).fillRect(bx + 4, by + 7, 1, 2);
+    }
     // Pencil button (rename), top right.
     drawFrame(g, PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height, 'buttonWood');
     for (let i = 0; i < 9; i++) {

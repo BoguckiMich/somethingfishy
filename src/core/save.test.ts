@@ -58,7 +58,7 @@ describe('normalizeSave', () => {
   it('keeps a good save as is', () => {
     const s: SaveData = {
       version: 1,
-      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } }, daily: { lastBoxDate: '2026-11-22', streakTier: 3 } },
+      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } }, daily: { lastBoxDate: '2026-11-22', streakTier: 3 }, quests: { date: '2026-11-23', rerollUsed: true, list: [{ kind: 'catchSpecies', params: { target: 3, speciesId: 'roach' }, progress: 3, done: true, claimed: false, reward: { coins: 25, worms: 3 } }, { kind: 'catchAtTime', params: { target: 2, timeOfDay: 'dusk' }, progress: 1, done: false, claimed: false, reward: { coins: 30, worms: 4 } }] } },
       clock: { day: 4, minute: 123.5 },
     };
     expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
@@ -204,5 +204,40 @@ describe('normalizeSave: daily box', () => {
     expect(daily({ lastBoxDate: '2026-11-22', streakTier: -4 })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 1 });
     expect(daily({ lastBoxDate: '2026-11-22', streakTier: 'x' })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 1 });
     expect(daily({ lastBoxDate: '2026-11-22', streakTier: 2.9 })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 2 });
+  });
+});
+
+describe('normalizeSave: quests', () => {
+  const good = { kind: 'catchSpecies', params: { target: 3, speciesId: 'roach' }, progress: 1, done: false, claimed: false, reward: { coins: 25, worms: 3 } };
+  const quests = (q: unknown) => normalizeSave({ version: 1, player: { quests: q } }).player.quests;
+  const empty = { date: null, rerollUsed: false, list: [] };
+  it('defaults when missing, broken or without a valid date', () => {
+    expect(quests(undefined)).toEqual(empty);
+    expect(quests('x')).toEqual(empty);
+    expect(quests({ date: '2026-02-30', list: [good] })).toEqual(empty);
+    expect(quests({ date: '2026-11-23', list: 'x' })).toEqual(empty);
+  });
+  it('rolls afresh when no quest is usable', () => {
+    expect(quests({ date: '2026-11-23', list: [{ ...good, kind: 'fly' }] })).toEqual(empty);
+  });
+  it('drops bad quests: unknown kind or species, the legendary, bad target, bad time', () => {
+    const list = [
+      good,
+      { ...good, kind: 'nonsense' },
+      { ...good, params: { target: 3, speciesId: 'dragon' } },
+      { ...good, params: { target: 1, speciesId: 'pale' } },
+      { ...good, params: { target: 0, speciesId: 'roach' } },
+      { kind: 'catchAtTime', params: { target: 1, timeOfDay: 'day' }, progress: 0, reward: { coins: 1, worms: 1 } },
+      'x',
+    ];
+    expect(quests({ date: '2026-11-23', list })!.list).toEqual([good]);
+  });
+  it('keeps at most three and clamps the numbers', () => {
+    const q = quests({ date: '2026-11-23', rerollUsed: 1, list: [good, good, good, good] })!;
+    expect(q.list).toHaveLength(3);
+    expect(q.rerollUsed).toBe(false); // only a real true counts
+    const odd = quests({ date: '2026-11-23', list: [{ ...good, progress: 99, claimed: true, reward: { coins: -5, worms: 'x' } }, { ...good, progress: -2, claimed: true, params: { target: 3.9, speciesId: 'roach' } }] })!.list;
+    expect(odd[0]).toMatchObject({ progress: 3, done: true, claimed: true, reward: { coins: 0, worms: 0 } });
+    expect(odd[1]).toMatchObject({ progress: 0, done: false, claimed: false, params: { target: 3 } }); // a claim needs a finished quest
   });
 });

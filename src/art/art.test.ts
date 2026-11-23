@@ -7,7 +7,7 @@ import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, ref
 import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffHandsSprite, alexShowOffSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
 import { SPECIES } from '../core/data/fish';
 import { FISH_SIZE_CLASSES, fishIconSprite, fishSizeClass, fishSprite } from './fishArt';
-import { BOBBER, CRATE, PINE_A, PINE_TALL, REED } from './sprites';
+import { BOBBER, CRATE, NOTICE_BOARD, PINE_A, PINE_TALL, REED } from './sprites';
 
 describe('palette', () => {
   it('has 32-60 unique colours', () => {
@@ -25,6 +25,7 @@ describe('sprites', () => {
     expect(PINE_TALL.height).toBeGreaterThan(PINE_A.height * 1.8);
     expect(REED.width).toBe(11);
     expect([CRATE.width, CRATE.height]).toEqual([16, 12]);
+    expect([NOTICE_BOARD.width, NOTICE_BOARD.height]).toEqual([16, 16]);
   });
 
   it('characters have the intended sizes and breathing frames', () => {

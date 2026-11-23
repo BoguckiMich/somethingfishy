@@ -6,7 +6,9 @@ import { newPlayer, type BagFish, type PlayerState } from './inventory';
 import { isValidDate } from './daily/dates';
 import { newDaily, type DailyState } from './daily/daily';
 import { DAILY_BOX } from './data/daily';
+import { QUEST_TUNING } from './data/quests';
 import { speciesCaught, type FishLog } from './fishLog';
+import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
 /**
  * Saving: the player's belongings and the clock, as one versioned JSON object. Pure: storage is
@@ -72,6 +74,42 @@ function normalizeDaily(v: unknown): DailyState {
   return date === null ? newDaily() : { lastBoxDate: date, streakTier: Math.max(1, tier) };
 }
 
+/** A saved quest, or null when it cannot be trusted (unknown kind or species, bad numbers). */
+function normalizeQuest(v: unknown): Quest | null {
+  if (!isObj(v) || !QUEST_KINDS.includes(v.kind as Quest['kind']) || !isObj(v.params) || !isObj(v.reward)) return null;
+  const kind = v.kind as Quest['kind'];
+  if (!isNum(v.params.target) || v.params.target < 1) return null;
+  const target = Math.floor(v.params.target);
+  const params: Quest['params'] = { target };
+  if (kind === 'catchSpecies') {
+    const sp = typeof v.params.speciesId === 'string' ? speciesById(v.params.speciesId) : undefined;
+    if (!sp || sp.rarity === 'legendary') return null;
+    params.speciesId = sp.id;
+  }
+  if (kind === 'catchAtTime') {
+    if (!QUEST_TIMES.includes(v.params.timeOfDay as never)) return null;
+    params.timeOfDay = v.params.timeOfDay as Quest['params']['timeOfDay'];
+  }
+  const progress = isNum(v.progress) ? Math.min(target, Math.max(0, Math.floor(v.progress))) : 0;
+  const done = progress >= target;
+  return {
+    kind,
+    params,
+    progress,
+    done,
+    // A claim only counts for a finished quest.
+    claimed: done && v.claimed === true,
+    reward: { coins: Math.min(1000, intAtLeast(v.reward.coins, 0, 0)), worms: Math.min(100, intAtLeast(v.reward.worms, 0, 0)) },
+  };
+}
+
+function normalizeQuests(v: unknown): QuestsState {
+  if (!isObj(v) || !isValidDate(v.date) || !Array.isArray(v.list)) return newQuests();
+  const list = v.list.map(normalizeQuest).filter((q): q is Quest => q !== null).slice(0, QUEST_TUNING.perDay);
+  if (list.length === 0) return newQuests(); // nothing usable left: roll afresh today
+  return { date: v.date, rerollUsed: v.rerollUsed === true, list };
+}
+
 function normalizePlayer(v: unknown): PlayerState {
   const p = isObj(v) ? v : {};
   const bag = Array.isArray(p.bag) ? p.bag.map(normalizeBagFish).filter((f): f is BagFish => f !== null) : [];
@@ -82,6 +120,7 @@ function normalizePlayer(v: unknown): PlayerState {
     rodId: RODS.some((r) => r.id === p.rodId) ? (p.rodId as string) : RODS[0].id,
     log: normalizeLog(p.log),
     daily: normalizeDaily(p.daily),
+    quests: normalizeQuests(p.quests),
   };
 }
 
