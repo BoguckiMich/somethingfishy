@@ -10,6 +10,9 @@ import { installFrameStyles } from './frames';
 
 export const UPDATE_TOAST_TEXT = 'New version — tap to reload';
 
+/** If the service worker hand-over has not reloaded the page by then, reload it ourselves. */
+const RELOAD_FALLBACK_MS = 1500;
+
 /**
  * Sits the toast centred just above the bottom bar and its hint line, measured from the canvas's own
  * on-screen rect, so it covers neither the top HUD nor the bar. Safe-area insets keep it clear of notches.
@@ -56,7 +59,14 @@ export function setupUpdateToast(): void {
   let toast: HTMLButtonElement | undefined;
   const updateSW = registerSW({
     onNeedRefresh() {
-      toast ??= buildToast(() => void updateSW(true));
+      toast ??= buildToast(() => {
+        // updateSW(true) asks the waiting worker to take over and reloads on workbox's `controlling`
+        // event, but that event never comes for a tab first opened uncontrolled (first visit, no
+        // clientsClaim) and kept open: the tap then did nothing. So reload anyway shortly after;
+        // the new worker is active by then, or the network serves the new build.
+        void updateSW(true);
+        window.setTimeout(() => window.location.reload(), RELOAD_FALLBACK_MS);
+      });
       toast.style.display = 'block';
       placeAboveBar(toast);
       window.addEventListener('resize', () => toast && placeAboveBar(toast));
