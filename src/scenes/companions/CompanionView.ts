@@ -19,7 +19,7 @@ export class CompanionView {
   private paj: Phaser.GameObjects.Image;
   private dog: Phaser.GameObjects.Image;
   private stick: Phaser.GameObjects.Image;
-  private zs: Phaser.GameObjects.Text[] = [];
+  private zs: Phaser.GameObjects.Image[] = [];
   private hearts: { img: Phaser.GameObjects.Image; age: number }[] = [];
 
   constructor(
@@ -30,13 +30,8 @@ export class CompanionView {
     this.paj = scene.add.image(0, 0, pajSitKey('sit', 0)).setDepth(DEPTH);
     this.dog = scene.add.image(0, 0, dogKey({ shape: 'lie', tail: 0, perked: false, step: 0 })).setDepth(DEPTH);
     this.stick = scene.add.image(0, 0, TEX.stick).setDepth(DEPTH + 1).setVisible(false);
-    for (const ch of ['z', 'Z']) {
-      this.zs.push(
-        scene.add
-          .text(0, 0, ch, { fontFamily: 'monospace', fontSize: ch === 'z' ? '10px' : '13px', fontStyle: 'bold', color: '#fff8e8', stroke: '#241a2e', strokeThickness: 3 })
-          .setDepth(DEPTH + 3)
-          .setVisible(false),
-      );
+    for (const key of [TEX.zSmall, TEX.zBig]) {
+      this.zs.push(scene.add.image(0, 0, key).setDepth(DEPTH + 3).setVisible(false));
     }
   }
 

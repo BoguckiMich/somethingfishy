@@ -4,11 +4,11 @@ import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
 import { FISH_SIZE_CLASSES, fishIconKey, fishIconSprite, fishKey, fishSprite } from './fishArt';
 import { SPECIES } from '../core/data/fish';
 import { FAR_SHORE_Y, W } from './layout';
+import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
 import { Raster } from './raster';
 import {
   BOBBER,
   BOBBER_UNDER,
-  GEAR,
   LILY_A,
   LILY_B,
   POST,
@@ -47,6 +47,10 @@ export const TEX = {
   barFrame: 'barFrame',
   stripFrame: 'stripFrame',
   gear: 'gear',
+  worm: 'worm',
+  coin: 'coin',
+  zSmall: 'zSmall',
+  zBig: 'zBig',
 } as const;
 
 /** Uploads a pure Raster as a Phaser canvas texture (once). */
@@ -74,7 +78,11 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.moon, moonRaster());
   addRaster(scene, TEX.bobber, Raster.fromSprite(BOBBER));
   addRaster(scene, TEX.bobberUnder, Raster.fromSprite(BOBBER_UNDER));
-  addRaster(scene, TEX.gear, Raster.fromSprite(GEAR));
+  addRaster(scene, TEX.gear, Raster.fromSprite(gearSprite()));
+  addRaster(scene, TEX.worm, Raster.fromSprite(wormSprite()));
+  addRaster(scene, TEX.coin, Raster.fromSprite(coinSprite()));
+  addRaster(scene, TEX.zSmall, Raster.fromSprite(zSprite(false)));
+  addRaster(scene, TEX.zBig, Raster.fromSprite(zSprite(true)));
   createCharacterTextures(scene);
   addRaster(scene, TEX.lilyA, Raster.fromSprite(LILY_A));
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));

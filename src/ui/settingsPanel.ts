@@ -1,3 +1,4 @@
+import { FONT, FS } from '../font';
 import { sound } from '../audio/sound';
 import type { Profile } from '../core/profile';
 import type { SoundSettings } from '../core/soundSettings';
@@ -33,9 +34,9 @@ const IMPORT_ERRORS: Record<Extract<DecodeResult, { ok: false }>['reason'], stri
 };
 
 const sectionTitle = (text: string) =>
-  el('div', `font:bold 13px monospace;color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
+  el('div', `font:bold ${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
-const note = (text: string, color: string = COLORS.cream) => el('div', `font-size:12px;line-height:1.35;color:${color};padding:3px 0`, text);
+const note = (text: string, color: string = COLORS.cream) => el('div', `font-size:${FS.body}px;line-height:1.35;color:${color};padding:3px 0`, text);
 
 const textArea = (readOnly: boolean): HTMLTextAreaElement => {
   const t = el(
@@ -46,11 +47,9 @@ const textArea = (readOnly: boolean): HTMLTextAreaElement => {
       'height:64px',
       'resize:none',
       'padding:6px',
-      'font:11px monospace',
+      `font:${FS.small}px ${FONT}`,
       `color:${COLORS.text}`,
       'background:#2a1a12',
-      `border:2px solid ${COLORS.woodLight}`,
-      'border-radius:2px',
       'word-break:break-all',
       // body is user-select:none (game input); the code boxes must stay selectable for long-press.
       'user-select:text',
@@ -58,6 +57,7 @@ const textArea = (readOnly: boolean): HTMLTextAreaElement => {
       '-webkit-touch-callout:default',
     ].join(';'),
   );
+  t.className = 'rb-box';
   t.readOnly = readOnly;
   t.spellcheck = false;
   t.autocapitalize = 'off';
@@ -103,7 +103,7 @@ const row = (...kids: HTMLElement[]) => {
  */
 const volumeRow = (label: string, initial: number, onInput: (v: number) => void, onRelease: (v: number) => void): HTMLElement => {
   const r = el('div', 'display:flex;align-items:center;gap:10px;margin-top:8px');
-  r.append(el('div', `font-size:13px;color:${COLORS.text};width:76px;flex:none`, label));
+  r.append(el('div', `font-size:${FS.body}px;color:${COLORS.text};width:76px;flex:none`, label));
   const slider = el('input', `flex:1;min-width:0;margin:0;accent-color:${COLORS.gold};height:24px`);
   slider.type = 'range';
   slider.min = '0';
@@ -111,7 +111,7 @@ const volumeRow = (label: string, initial: number, onInput: (v: number) => void,
   slider.step = '5';
   slider.value = String(initial);
   slider.setAttribute('aria-label', `${label} volume`);
-  const value = el('div', `font-size:12px;color:${COLORS.cream};width:44px;flex:none;text-align:right;padding-right:4px;box-sizing:border-box`);
+  const value = el('div', `font-size:${FS.body}px;color:${COLORS.cream};width:44px;flex:none;text-align:right;padding-right:4px;box-sizing:border-box`);
   const paint = () => (value.textContent = Number(slider.value) === 0 ? 'Off' : `${slider.value}%`);
   slider.addEventListener('input', () => {
     paint();

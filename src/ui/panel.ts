@@ -1,8 +1,10 @@
 /**
  * Shared look for the DOM panels (bag, shop, choice card): pixel-art wood, cream text, brown and
- * gold borders, monospace, in the same style as the name card.
+ * gold borders and a pixel frame drawn in code (see frames.ts), in the same style as the name card.
  */
 import { sound, type SfxName } from '../audio/sound';
+import { FONT, FS } from '../font';
+import { installFrameStyles } from './frames';
 
 export const COLORS = {
   backdrop: 'rgba(36,26,46,0.78)',
@@ -39,17 +41,12 @@ export function woodButton(label: string, onClick: () => void, opts: ButtonOptio
   const b = el('button', '', disabled ? `${label} (${opts.disabledReason})` : label);
   b.type = 'button';
   b.disabled = disabled;
+  installFrameStyles();
+  b.className = `rb-btn ${disabled ? 'rb-off' : 'rb-gold'}`;
   b.style.cssText = [
-    'font:bold ' + (opts.small ? '12px' : '14px') + ' monospace',
-    `padding:${opts.small ? '6px 8px' : '10px 10px'}`,
-    'border:0',
-    'border-radius:2px',
-    'border-bottom:3px solid ' + (disabled ? '#2a1c14' : COLORS.goldShade),
+    `font:bold ${FS.body}px ${FONT}`,
+    `padding:${opts.small ? '4px 6px' : '8px 8px'}`,
     `color:${disabled ? COLORS.dim : COLORS.wood}`,
-    `background:${disabled ? '#4a3426' : COLORS.gold}`,
-    `cursor:${disabled ? 'default' : 'pointer'}`,
-    disabled ? 'opacity:0.75' : '',
-    'text-align:center',
   ].join(';');
   const sfx = opts.sfx === undefined ? 'tap' : opts.sfx;
   if (!disabled) {
@@ -78,6 +75,7 @@ export function openPanel(
   onClose: () => void,
   dismissable = true,
 ): PanelHandle {
+  installFrameStyles();
   const root = el(
     'div',
     [
@@ -89,7 +87,7 @@ export function openPanel(
       'justify-content:center',
       'padding:12px',
       `background:${COLORS.backdrop}`,
-      'font-family:monospace',
+      `font-family:${FONT}`,
       `color:${COLORS.text}`,
       'touch-action:manipulation',
     ].join(';'),
@@ -97,21 +95,17 @@ export function openPanel(
   const card = el(
     'div',
     [
-      'box-sizing:border-box',
       'width:100%',
       'max-width:340px',
       'max-height:92vh',
       'display:flex',
       'flex-direction:column',
-      'padding:12px 12px 12px',
-      `background:${COLORS.wood}`,
-      `border:3px solid ${COLORS.border}`,
-      `box-shadow:0 0 0 3px ${COLORS.outline}, 0 8px 0 3px ${COLORS.outline}`,
-      'border-radius:2px',
+      'padding:6px 8px 8px',
     ].join(';'),
   );
+  card.className = 'rb-panel';
   const head = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px');
-  head.append(el('div', `font:bold 18px monospace;color:${COLORS.gold}`, title));
+  head.append(el('div', `font:bold ${FS.heading}px ${FONT};color:${COLORS.gold}`, title));
   const body = el('div', 'overflow-y:auto;min-height:0');
 
   let closed = false;
@@ -122,7 +116,8 @@ export function openPanel(
     onClose();
   };
   if (dismissable) {
-    const x = el('button', `font:bold 16px monospace;width:30px;height:30px;color:${COLORS.cream};background:${COLORS.woodLight};border:2px solid ${COLORS.border};border-radius:2px;cursor:pointer`, 'X');
+    const x = el('button', `font:bold ${FS.heading}px ${FONT};line-height:1;width:34px;height:34px;padding:0;color:${COLORS.cream}`, 'X');
+    x.className = 'rb-btn rb-wood';
     x.type = 'button';
     x.setAttribute('aria-label', 'Close');
     x.addEventListener('click', () => {

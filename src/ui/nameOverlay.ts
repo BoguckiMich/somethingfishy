@@ -1,3 +1,5 @@
+import { FONT, FS } from '../font';
+import { installFrameStyles } from './frames';
 import { DEFAULT_PROFILE, MAX_NAME_LENGTH, normalizeProfile, type Profile } from '../core/profile';
 
 /**
@@ -5,6 +7,7 @@ import { DEFAULT_PROFILE, MAX_NAME_LENGTH, normalizeProfile, type Profile } from
  * Styled with the game's brown and cream palette. Returns a function that closes it.
  */
 export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: (p: Profile) => void): () => void {
+  installFrameStyles();
   const root = document.createElement('div');
   root.setAttribute('data-name-overlay', '');
   root.style.cssText = [
@@ -17,7 +20,7 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
     'padding:16px',
     'overflow:auto',
     'background:rgba(36,26,46,0.84)',
-    'font-family:monospace',
+    `font-family:${FONT}`,
     'color:#fff8e8',
   ].join(';');
 
@@ -28,29 +31,25 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
   ];
 
   const card = document.createElement('form');
+  card.className = 'rb-panel';
   card.style.cssText = [
-    'box-sizing:border-box',
     'width:100%',
     'max-width:320px',
-    'padding:18px 16px 16px',
-    'background:#3a2318',
-    'border:3px solid #cb9c5a',
-    'box-shadow:0 0 0 3px #241a2e, 0 8px 0 3px #241a2e',
-    'border-radius:2px',
+    'padding:10px 8px 8px',
   ].join(';');
 
   const title = document.createElement('div');
   title.textContent = firstLaunch ? 'Welcome to the lake' : 'Names';
-  title.style.cssText = 'font-size:20px;font-weight:bold;color:#ffd35a;text-align:center;margin-bottom:4px';
+  title.style.cssText = `font-size:${FS.heading}px;font-weight:bold;color:#ffd35a;text-align:center;margin-bottom:4px`;
   const sub = document.createElement('div');
   sub.textContent = firstLaunch ? 'Who is fishing today? (stored on this device only)' : 'Change who is who';
-  sub.style.cssText = 'font-size:12px;color:#f3e3bf;text-align:center;margin-bottom:14px;line-height:1.35';
+  sub.style.cssText = `font-size:${FS.body}px;color:#f3e3bf;text-align:center;margin-bottom:14px;line-height:1.35`;
   card.append(title, sub);
 
   const inputs: Record<string, HTMLInputElement> = {};
   for (const f of fields) {
     const label = document.createElement('label');
-    label.style.cssText = 'display:block;margin-bottom:12px;font-size:13px;color:#f3e3bf';
+    label.style.cssText = `display:block;margin-bottom:12px;font-size:${FS.body}px;color:#f3e3bf`;
     label.textContent = f.label;
     const input = document.createElement('input');
     input.type = 'text';
@@ -66,11 +65,11 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
       'width:100%',
       'margin-top:4px',
       'padding:10px 10px',
-      'font:16px monospace', // 16px stops iOS from zooming on focus
+      `font:${FS.heading}px ${FONT}`, // at least 16px stops iOS from zooming on focus
       'color:#fff8e8',
       'background:#241a2e',
       'border:2px solid #84582f',
-      'border-radius:2px',
+      'border-radius:0',
       'outline:none',
     ].join(';');
     input.addEventListener('focus', () => (input.style.borderColor = '#ffd35a'));
@@ -83,18 +82,14 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
   const button = document.createElement('button');
   button.type = 'submit';
   button.textContent = "Let's fish!";
+  button.className = 'rb-btn rb-gold';
   button.style.cssText = [
     'display:block',
     'width:100%',
     'margin-top:6px',
-    'padding:12px',
-    'font:bold 18px monospace',
+    'padding:10px',
+    `font:bold ${FS.heading}px ${FONT}`,
     'color:#3a2318',
-    'background:#ffd35a',
-    'border:0',
-    'border-bottom:4px solid #b78837',
-    'border-radius:2px',
-    'cursor:pointer',
   ].join(';');
   card.append(button);
 

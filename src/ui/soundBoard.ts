@@ -1,9 +1,10 @@
+import { FONT, FS } from '../font';
 import { AMBIENT_LAYERS, SFX_NAMES, sound, type AmbientLayer } from '../audio/sound';
 import { formatClock } from '../core/clock';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 const sectionTitle = (text: string) =>
-  el('div', `font:bold 13px monospace;color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
+  el('div', `font:bold ${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
 /**
  * Dev-only (?debug=sounds): a button per sound effect, a solo switch per ambient layer and a
@@ -18,7 +19,7 @@ export function openSoundBoard(startMinute: number, onClose: () => void): PanelH
     (body) => {
       const settings = sound.current;
       if (!settings.sfx || !settings.ambience) {
-        body.append(el('div', `font-size:12px;color:${COLORS.amber};padding:3px 0`, 'A volume is at 0 in Settings: those sounds stay silent.'));
+        body.append(el('div', `font-size:${FS.body}px;color:${COLORS.amber};padding:3px 0`, 'A volume is at 0 in Settings: those sounds stay silent.'));
       }
 
       body.append(sectionTitle('Effects'));
@@ -47,10 +48,10 @@ export function openSoundBoard(startMinute: number, onClose: () => void): PanelH
         layers.append(b);
       }
       body.append(layers);
-      body.append(el('div', `font-size:11px;color:${COLORS.cream};padding-top:4px`, solo.size > 0 ? 'Solo: only the ticked layers play.' : 'No solo: the time slider decides the mix.'));
+      body.append(el('div', `font-size:${FS.small}px;color:${COLORS.cream};padding-top:4px`, solo.size > 0 ? 'Solo: only the ticked layers play.' : 'No solo: the time slider decides the mix.'));
 
       body.append(sectionTitle('Time of day'));
-      const label = el('div', `font:bold 16px monospace;color:${COLORS.text};text-align:center`, formatClock(minute));
+      const label = el('div', `font:bold ${FS.heading}px ${FONT};color:${COLORS.text};text-align:center`, formatClock(minute));
       const slider = el('input', 'display:block;width:100%;box-sizing:border-box;margin:6px 0 0');
       slider.type = 'range';
       slider.min = '0';

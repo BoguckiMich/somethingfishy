@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { W } from '../art/layout';
 import { PAL } from '../art/palette';
 import { TEX } from '../art/textures';
+import { FONT, FS } from '../font';
+import { drawFrame } from './frameDraw';
 
 export type BarButton = 'bag' | 'shop' | 'log' | 'settings';
 
@@ -37,7 +39,7 @@ export class BottomBar {
     this.labels = ORDER.map((_, i) => {
       const r = rectOf(i);
       return scene.add
-        .text(r.centerX, r.centerY, '', { fontFamily: 'monospace', fontSize: '14px', fontStyle: 'bold', color: '#fff6e4' })
+        .text(r.centerX, r.centerY, '', { fontFamily: FONT, fontSize: `${FS.body}px`, fontStyle: 'bold', color: '#fff6e4' })
         .setOrigin(0.5)
         .setDepth(depth);
     });
@@ -58,10 +60,9 @@ export class BottomBar {
     ORDER.forEach((id, i) => {
       const r = rectOf(i);
       const a = v.enabled ? 1 : 0.6;
-      g.fillStyle(PAL.outline, a).fillRect(r.x - 1, r.y, r.width + 2, r.height).fillRect(r.x, r.y - 1, r.width, r.height + 2);
-      g.fillStyle(PAL.woodLight, a).fillRect(r.x, r.y, r.width, r.height);
-      g.fillStyle(PAL.woodDeep, 0.92 * a).fillRect(r.x + 1, r.y + 1, r.width - 2, r.height - 2);
-      g.fillStyle(PAL.woodDark, 0.9 * a).fillRect(r.x + 1, r.y + 1, r.width - 2, 1);
+      // Always opaque (a see-through frame lets the grass show through as stains); disabled = shaded.
+      drawFrame(g, r.x, r.y, r.width, r.height, 'buttonWood');
+      if (!v.enabled) g.fillStyle(PAL.outline, 0.45).fillRect(r.x + 1, r.y + 1, r.width - 2, r.height - 2);
       const label = this.labels[i];
       const full = id === 'bag' && v.bagCount >= v.bagSlots;
       label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : id === 'log' ? 'Log' : '');

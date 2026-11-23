@@ -1,3 +1,4 @@
+import { FONT, FS } from '../font';
 import { fishIconSprite, fishSizeClass, fishSprite } from '../art/fishArt';
 import { spriteToRgba, TRANSPARENT, type Sprite } from '../art/pixelGrid';
 import { SPECIES, type Species } from '../core/data/fish';
@@ -46,13 +47,12 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     'height:104px',
     'min-width:0',
     `background:${entry ? COLORS.woodLight : '#2a1a12'}`,
-    `border:2px solid ${entry ? COLORS.border : COLORS.woodLight}`,
-    'border-radius:2px',
     `color:${COLORS.text}`,
-    'font:11px monospace',
+    `font:${FS.small}px ${FONT}`,
     'text-align:center',
   ].join(';');
   const t = el(entry ? 'button' : 'div', base + (entry ? ';cursor:pointer' : ''));
+  t.className = 'rb-box';
   if (t instanceof HTMLButtonElement) {
     t.type = 'button';
     t.addEventListener('click', () => onOpen(s.id));
@@ -65,7 +65,7 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
   } else {
     t.append(el('div', `font-weight:bold;color:${COLORS.dim}`, '???'));
     const [where, when] = whereWhen(s).split(' · ');
-    const hint = `font-size:9px;line-height:1.2;color:${COLORS.dim}`;
+    const hint = `font-size:${FS.small}px;line-height:1.2;color:${COLORS.dim}`;
     t.append(el('div', hint, where), el('div', hint, when));
   }
   return t;
@@ -74,15 +74,16 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
 function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   const entry = log[s.id]!;
   const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
-  const art = el('div', `box-sizing:border-box;width:100%;height:96px;display:flex;align-items:center;justify-content:center;background:${COLORS.woodLight};border:2px solid ${COLORS.border}`);
+  const art = el('div', `box-sizing:border-box;width:100%;height:96px;display:flex;align-items:center;justify-content:center;background:${COLORS.woodLight}`);
+  art.className = 'rb-box';
   art.append(artOf(s, log, 150, 6));
   col.append(
     art,
-    el('div', `font:bold 18px monospace;color:${COLORS.text}`, s.name),
-    el('div', `font:bold 14px monospace;color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
-    el('div', `font-size:13px;color:${COLORS.cream}`, `Caught ×${entry.count}`),
-    el('div', `font-size:12px;line-height:1.4;color:${COLORS.text}`, s.fact),
-    el('div', `font-size:11px;color:${COLORS.cream}`, whereWhen(s)),
+    el('div', `font:bold ${FS.heading}px ${FONT};color:${COLORS.text}`, s.name),
+    el('div', `font:bold ${FS.body}px ${FONT};color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
+    el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Caught ×${entry.count}`),
+    el('div', `font-size:${FS.body}px;line-height:1.4;color:${COLORS.text}`, s.fact),
+    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
   );
   const back = woodButton('Back', onBack);
   back.style.cssText += ';width:100%;margin-top:4px';
