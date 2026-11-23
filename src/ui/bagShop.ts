@@ -26,7 +26,7 @@ export const fishName = (f: BagFish): string => speciesById(f.speciesId)?.name ?
 const sizeText = (f: BagFish): string => `${f.lengthCm} cm`;
 
 const sectionTitle = (text: string) =>
-  el('div', `font:bold ${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
+  el('div', `font:${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
 function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
   const row = el('div', `display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid ${COLORS.woodLight}`);
@@ -47,7 +47,7 @@ export function openBagPanel(store: PlayerStore, onClose: () => void): PanelHand
       const { bag } = store.get();
       if (bag.length === 0) body.append(emptyNote('The bag is empty. Go catch something!'));
       for (const f of bag) body.append(fishRow(f));
-      body.append(el('div', `margin-top:10px;font:bold ${FS.body}px ${FONT};color:${COLORS.gold};text-align:right`, `Total value: ${bagValue(bag)} coins`));
+      body.append(el('div', `margin-top:10px;font:${FS.body}px ${FONT};color:${COLORS.gold};text-align:right`, `Total value: ${bagValue(bag)} coins`));
     },
     onClose,
   );
@@ -94,7 +94,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
 
       body.append(sectionTitle('Worms'));
       const wormLine = el('div', 'display:flex;align-items:center;gap:8px');
-      wormLine.append(el('div', 'flex:1;font-size:${FS.body}px', `${SHOP.wormPackSize} worms, ${SHOP.wormPackPrice} coins`));
+      wormLine.append(el('div', `flex:1;font-size:${FS.body}px`, `${SHOP.wormPackSize} worms, ${SHOP.wormPackPrice} coins`));
       const missing = p.coins < SHOP.wormPackPrice ? SHOP.wormPackPrice - p.coins : 0;
       wormLine.append(
         woodButton('Buy', () => {

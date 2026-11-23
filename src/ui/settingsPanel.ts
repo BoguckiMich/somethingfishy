@@ -34,7 +34,7 @@ const IMPORT_ERRORS: Record<Extract<DecodeResult, { ok: false }>['reason'], stri
 };
 
 const sectionTitle = (text: string) =>
-  el('div', `font:bold ${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
+  el('div', `font:${FS.body}px ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
 const note = (text: string, color: string = COLORS.cream) => el('div', `font-size:${FS.body}px;line-height:1.35;color:${color};padding:3px 0`, text);
 

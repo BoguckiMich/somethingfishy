@@ -40,7 +40,7 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
 
   const title = document.createElement('div');
   title.textContent = firstLaunch ? 'Welcome to the lake' : 'Names';
-  title.style.cssText = `font-size:${FS.heading}px;font-weight:bold;color:#ffd35a;text-align:center;margin-bottom:4px`;
+  title.style.cssText = `font-size:${FS.heading}px;color:#ffd35a;text-align:center;margin-bottom:4px`;
   const sub = document.createElement('div');
   sub.textContent = firstLaunch ? 'Who is fishing today? (stored on this device only)' : 'Change who is who';
   sub.style.cssText = `font-size:${FS.body}px;color:#f3e3bf;text-align:center;margin-bottom:14px;line-height:1.35`;
@@ -88,7 +88,7 @@ export function showNameOverlay(initial: Profile, firstLaunch: boolean, onDone: 
     'width:100%',
     'margin-top:6px',
     'padding:10px',
-    `font:bold ${FS.heading}px ${FONT}`,
+    `font:${FS.heading}px ${FONT}`,
     'color:#3a2318',
   ].join(';');
   card.append(button);

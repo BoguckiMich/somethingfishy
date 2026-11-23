@@ -61,11 +61,11 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
   art.append(artOf(s, log, 66, 3));
   t.append(art);
   if (entry) {
-    t.append(el('div', 'font-weight:bold;line-height:1.15', s.name));
+    t.append(el('div', 'line-height:1.15', s.name));
   } else {
-    t.append(el('div', `font-weight:bold;color:${COLORS.dim}`, '???'));
+    t.append(el('div', `color:${COLORS.dim}`, '???'));
     const [where, when] = whereWhen(s).split(' · ');
-    const hint = `font-size:${FS.small}px;line-height:1.2;color:${COLORS.dim}`;
+    const hint = `font-size:${FS.tiny}px;line-height:1.2;color:${COLORS.dim}`;
     t.append(el('div', hint, where), el('div', hint, when));
   }
   return t;
@@ -79,8 +79,8 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   art.append(artOf(s, log, 150, 6));
   col.append(
     art,
-    el('div', `font:bold ${FS.heading}px ${FONT};color:${COLORS.text}`, s.name),
-    el('div', `font:bold ${FS.body}px ${FONT};color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
+    el('div', `font:${FS.heading}px ${FONT};color:${COLORS.text}`, s.name),
+    el('div', `font:${FS.body}px ${FONT};color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
     el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Caught ×${entry.count}`),
     el('div', `font-size:${FS.body}px;line-height:1.4;color:${COLORS.text}`, s.fact),
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),

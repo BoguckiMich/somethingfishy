@@ -44,7 +44,7 @@ export function woodButton(label: string, onClick: () => void, opts: ButtonOptio
   installFrameStyles();
   b.className = `rb-btn ${disabled ? 'rb-off' : 'rb-gold'}`;
   b.style.cssText = [
-    `font:bold ${FS.body}px ${FONT}`,
+    `font:${FS.body}px ${FONT}`,
     `padding:${opts.small ? '4px 6px' : '8px 8px'}`,
     `color:${disabled ? COLORS.dim : COLORS.wood}`,
   ].join(';');
@@ -105,7 +105,7 @@ export function openPanel(
   );
   card.className = 'rb-panel';
   const head = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px');
-  head.append(el('div', `font:bold ${FS.heading}px ${FONT};color:${COLORS.gold}`, title));
+  head.append(el('div', `font:${FS.heading}px ${FONT};color:${COLORS.gold}`, title));
   const body = el('div', 'overflow-y:auto;min-height:0');
 
   let closed = false;
@@ -116,7 +116,7 @@ export function openPanel(
     onClose();
   };
   if (dismissable) {
-    const x = el('button', `font:bold ${FS.heading}px ${FONT};line-height:1;width:34px;height:34px;padding:0;color:${COLORS.cream}`, 'X');
+    const x = el('button', `font:${FS.heading}px ${FONT};line-height:1;width:34px;height:34px;padding:0;color:${COLORS.cream}`, 'X');
     x.className = 'rb-btn rb-wood';
     x.type = 'button';
     x.setAttribute('aria-label', 'Close');

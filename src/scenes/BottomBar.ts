@@ -39,7 +39,7 @@ export class BottomBar {
     this.labels = ORDER.map((_, i) => {
       const r = rectOf(i);
       return scene.add
-        .text(r.centerX, r.centerY, '', { fontFamily: FONT, fontSize: `${FS.body}px`, fontStyle: 'bold', color: '#fff6e4' })
+        .text(r.centerX, r.centerY, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: '#fff6e4' })
         .setOrigin(0.5)
         .setDepth(depth);
     });

@@ -213,8 +213,11 @@ The game stars the two of them and their dog. Reference photos live untracked in
    - **10b Art pass:**
      - *Font:* a bundled OFL pixel font (self-hosted woff2, Latin Extended for Polish names),
        replacing `monospace` everywhere (Phaser text and DOM), sizes snapped to its pixel grid.
-       Chosen by eye from sample screens of Pixelify Sans, Silkscreen and VT323: **Pixelify Sans**
-       (rounded, mixed case, real bold; Silkscreen shouted in all caps, VT323 felt like a terminal).
+       Chosen by eye from sample screens of Pixelify Sans, Silkscreen and VT323: first Pixelify Sans,
+       then switched to **Tiny5** because Pixelify's "5" reads as S/8 and "B" as G ("15 coins" looked
+       like "18"). Tiny5 has one weight (no bold anywhere; emphasis by colour/size). Sizes: 15 px for
+       all real text (off-grid but clean on phones), 20 headings, 30 title, 10 only for log-tile hints
+       and the dev tag.
      - *Fish:* one hand-authored grid per species (12) at its large size, realistic enough that a
        Polish angler recognises it; medium/small via a code shrink, hand-touched if mushy. Feeds
        the bar icon, catch screen, show-off and log; log silhouettes are the sprite in flat

@@ -846,13 +846,13 @@ export class LakeScene extends Phaser.Scene {
     this.wormIcon = this.add.image(0, 0, TEX.worm).setOrigin(0, 0).setDepth(Z.uiText);
     this.coinIcon = this.add.image(0, 0, TEX.coin).setOrigin(0, 0).setDepth(Z.uiText);
     this.wormCue = this.add
-      .text(0, 0, '-1 worm', { fontFamily: FONT, fontSize: `${FS.body}px`, fontStyle: 'bold', color: '#ffb0a0', stroke: '#241a2e', strokeThickness: 3 })
+      .text(0, 0, '-1 worm', { fontFamily: FONT, fontSize: `${FS.body}px`, color: '#ffb0a0', stroke: '#241a2e', strokeThickness: 3 })
       .setOrigin(0.5, 0)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
     this.devTag = this.add
-      .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.small}px`, color: ALERT, padding: { x: 5, y: 3 } })
+      .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: { x: 5, y: 3 } })
       .setOrigin(1, 0)
       .setDepth(Z.uiText)
       .setVisible(this.sandbox);
@@ -862,27 +862,27 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     this.toast = this.add
-      .text(W / 2, 120, '', { ...textStyle, ...pad, fontStyle: 'bold', color: ALERT })
+      .text(W / 2, 120, '', { ...textStyle, ...pad, color: ALERT })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.alertMark = this.add
-      .text(0, 0, '!', { fontFamily: FONT, fontSize: `${FS.heading}px`, fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 4 })
+      .text(0, 0, '!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5, 1)
       .setDepth(Z.alert)
       .setVisible(false);
     this.caughtText = this.add
-      .text(W / 2, 206, 'Caught!', { fontFamily: FONT, fontSize: `${FS.title}px`, fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 6 })
+      .text(W / 2, 206, 'Caught!', { fontFamily: FONT, fontSize: `${FS.title}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 6 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtSub = this.add
-      .text(W / 2, 240, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, fontStyle: 'bold', color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, 240, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtBadge = this.add
-      .text(W / 2, 274, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, 274, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
