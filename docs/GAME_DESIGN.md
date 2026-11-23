@@ -493,6 +493,23 @@ open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5
 - **Consequence (intended):** the Pale One (02–04) and most uncanny moments (01–05) now need the
   night kit; it is the kit's payoff.
 
+**Slice 17: "no take, only throw" fetch (user, 2026-11-23; details picked by Claude overnight, to
+review).** The real Bestia never gives the stick back: they chase her until bored, find another
+stick and throw that one. The fetch game (companions `play` mode) becomes that:
+- Pajkel throws, Bestia runs for the stick as now, trots back proudly, but stops just out of reach.
+- Pajkel steps towards her; she dodges (a hop sideways, play-bow) and trots off with the stick.
+  He chases her around the grass for a while (zigzag, she always a little ahead), sometimes nearly
+  catching her.
+- He gives up: his bubble says a line ("Bestia, give!", "No take, only throw?", "Fine. Keep it."),
+  he picks a new stick from the grass and throws it. She drops the old stick (it stays lying on the
+  grass) and races for the new one. Repeat.
+- Old sticks lie on the grass (at most ~3; the oldest fades out) until the companions return to the
+  dock, then they are cleared.
+- Rarely (about 1 round in 6) she does bring it back and drops it at his feet; he is so surprised
+  he says "...thank you?" Keeps it from being fully predictable.
+- The round count and the happy spin at the end stay; a bite still sends them back to the dock.
+- Pure state in `companions/behaviour.ts`, unit-tested; uses the slice-15a speech bubble.
+
 ---
 
 ## 4. Roadmap
@@ -683,3 +700,4 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 15b. Shop icons
     - 15c. Baits
 16. The car, bedtime, naps and the night kit (details in §3 → Slice 16)
+17. "No take, only throw" fetch (details in §3 → Slice 17)
