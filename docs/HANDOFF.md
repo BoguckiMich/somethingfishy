@@ -26,8 +26,8 @@ _Last updated: 2026-11-23 (slice 14 lake moments + bigger catch-bar fish merged,
 | 11b | Readability: whole canvas renders at device resolution (K×, `src/renderScale.ts`), font → VT323 on its 12.5 px grid, update toast above the bar, `/dev/font-sheet.html` | merged |
 | 12 | Legendary: The Pale One (≥30 m, 02–04 h, 25%), abyssal fight, eerie window (still lake, murky tint, drone), hug show-off, log tile 13 | merged |
 | 13a | Daily bait box: crate on the dock, real-date day, streak tiers (GAME_DESIGN §3 → Slice 13) | merged |
-| 13c | Catch-bar fish marker 2x bigger (75% of the large sprite, 18-34 px), bar 36 px wide (playtesters: too small) | merged |
 | 13b | Daily quests: 3/day, notice-board button, claim, reroll | merged (user skipped the phone play-test) |
+| 13c | Catch-bar fish marker 2x bigger (75% of the large sprite, 18-34 px), bar 36 px wide (playtesters: too small) | merged |
 | 14 | Lake moments: duck, frog, jumping fish, shooting star, bottle note, uncanny bubbles / dark shape (GAME_DESIGN §3 → Slice 14) | merged before the phone play-test (user may want fixes after testing) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
