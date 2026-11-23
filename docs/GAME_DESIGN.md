@@ -128,8 +128,8 @@ The game stars the two of them and their dog. Reference photos live untracked in
        Ordinary catches unchanged. Pajkel and Bestia react a bit bigger on both moments.
      - *Facts:* v1 shows the fact on the first catch and in the log. Rotating facts (and maybe a
        fact on every catch) wait for the polish pass.
-     - *Data:* `PlayerState.log` inside the single serialisable player object; resets on reload
-       until slice 9. Dev flags `?debug=log` (log open, ~half the species filled) and `?log=all`.
+     - *Data:* `PlayerState.log` inside the single serialisable player object; saved from slice 9.
+       Dev flags `?debug=log` (log open, ~half the species filled) and `?log=all`.
 5. **Bag & shop** — caught fish go into a 10-slot bag. Shop: sell fish (sell all / keep),
    buy worms, buy 2 rod upgrades (each: more cast distance + bigger catch zone).
    - **Details (decided for slice 7):**
@@ -153,11 +153,42 @@ The game stars the two of them and their dog. Reference photos live untracked in
      - *When:* panels open only while idle; the clock and companions keep running.
      - *Shop:* Sell (tap a fish or "Sell all"; keeping = not selling), Worms (10-pack),
        Rods (the next upgrade). No lock/favourite yet.
-     - *Before saving (slice 9):* everything resets on reload. Dev flags `?coins=N`, `?worms=N`;
+     - *Dev flags:* `?coins=N`, `?worms=N`;
        `?rod=` also counts as the owned rod.
 6. **Screens** — the lake is always the main screen; Bag / Shop / Fish log open as overlay panels
    from a bottom bar.
 7. **Which fish bites** — v1: time of day + depth zone. (Bait type in v2; weather/seasons later.)
+8. **Saving** — local autosave + an export code to move a game between devices.
+   - **Details (decided for slice 9):**
+     - *What:* `{ version, player, clock }` under localStorage `rybki.save.v1`: the whole
+       `PlayerState` (coins, worms, bag, rod, log) and the clock (day + minute; she comes back at
+       the same time of day). Names stay under `rybki.profile.v1` but travel in the export code.
+       Not saved: the fishing session, companions, RNG.
+     - *When:* right after every `PlayerState` change (catch logged, worm used, bag, sell, buy,
+       free worms), the clock every ~10 s of play, and on `visibilitychange→hidden` / `pagehide`.
+       Silent, no "Saving…" indicator.
+     - *Reload mid-action:* always resumes idle with the line reeled in. A fight in progress just
+       vanishes (no worm cost); a catch waiting on the bag-full choice counts as released (it is
+       already in the log).
+     - *Versions:* `version: 1`; core has a chain of `migrate[n]` (vN → vN+1), empty for now.
+       Loading normalises: coins/worms integers ≥ 0, unknown rod → bamboo, unknown species dropped
+       from bag and log, bag capped at 10, clock clamped. Unreadable JSON or a newer version than
+       the code → raw text copied to `rybki.save.broken`, then a fresh game (never silently lost).
+     - *Export code:* `RYBKI1-` + base64url of the JSON `{ save, profile }` + a short checksum, so a
+       truncated paste says "That code looks incomplete". No compression, no encryption (~1–2 KB).
+       Imports go through the same migrate + normalise path.
+     - *UI:* a square ⚙ button (pixel-art gear) at the end of the bottom bar opens a wood panel
+       (idle only, like the others): **Export** (read-only code + Copy, text pre-selected as
+       fallback), **Import** (paste box + Load, then "This replaces your current game (7/12
+       species, 340 coins). Continue?"), **Change names** (reopens the name card), **Start over**.
+     - *Safety:* import and start over first copy the current save to `rybki.save.backup` (no UI;
+       a devtools rescue). Start over has a two-step confirm, keeps the names, resets everything
+       else incl. the clock (Day 1, 06:00).
+     - *Dev flags:* any URL parameter except `?skipnames` = sandbox: the save is neither loaded nor
+       written, and a small "DEV · not saving" tag shows. `?reset=save` wipes the save.
+     - *Storage trouble:* `navigator.storage.persist()` on start. If writing fails the game keeps
+       working and the ⚙ panel says "Can't save on this device; use Export to keep your
+       progress." No other nag. (She plays on Android.)
 
 ### v1 fish roster (decided for slice 6)
 
@@ -326,7 +357,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
 6. Fish data, spawn rules, sizes, catch result ✅
 7. Bag, shop, coins, rod upgrades ✅
 8. Fish log + personal bests ✅
-9. Saving (local + export code) ← *current*
+9. Saving (local + export code, ⚙ panel; details in §3 item 8) ← *current*
 10. Sound + second art pass (UI panels, fish sprites, pixel font)
 11. PWA + GitHub Pages deploy
 12. Legendary fish
