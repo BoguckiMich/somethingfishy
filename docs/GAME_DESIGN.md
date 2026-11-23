@@ -562,4 +562,4 @@ come once the v2 bait and lure systems provide more interesting rewards.
 13. Daily bait box + daily quests (§5; details in §3 → Slice 13) ✅
     - 13a. Daily bait box ✅
     - 13b. Daily quests ✅
-14. Lake moments (details in §3 → Slice 14) ← *next*
+14. Lake moments (details in §3 → Slice 14) ✅
