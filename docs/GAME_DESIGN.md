@@ -325,8 +325,8 @@ come once the v2 bait and lure systems provide more interesting rewards.
 5. Catch bar fight + front-facing "show off the catch" pose (details in §3) ✅
 6. Fish data, spawn rules, sizes, catch result ✅
 7. Bag, shop, coins, rod upgrades ✅
-8. Fish log + personal bests ← *current*
-9. Saving (local + export code)
+8. Fish log + personal bests ✅
+9. Saving (local + export code) ← *current*
 10. Sound + second art pass (UI panels, fish sprites, pixel font)
 11. PWA + GitHub Pages deploy
 12. Legendary fish

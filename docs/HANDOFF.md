@@ -18,7 +18,8 @@ _Last updated: 2026-11-23._
 | 5 | Catch bar fight + show-off pose (GAME_DESIGN §3); user: "ok for now, perfect later" | merged |
 | 6 | Fish data (12 species), spawn rules, sizes, catch result | merged |
 | 7 | Bag, shop, coins, worms, rod upgrades | merged |
-| 8 | Fish log + personal bests (needs a grilling round) | next |
+| 8 | Fish log + personal bests, "New species!" / record moments | merged |
+| 9 | Saving (local + export code; needs a grilling round) | next |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -37,6 +38,10 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   end by the reviewer; worm/coin icons are tiny; the bottom bar covers the dog's lowest 40 px;
   panels only checked at desktop width; bream needed difficulty 0.66 (sinker pattern barely
   responds to difficulty — fragile).
+- Fish log (slice 8): panels/catch screen only seen at 560 px wide (headless limit), not at a
+  real 360 px phone; real fight→log flow, bag-full release still counting, the 8 s new-species
+  show-off and the bigger clap/hop not seen in motion (unit-tested); a long fact (eel) wraps to 3
+  lines on the catch screen, unchecked; silhouettes are dark placeholder icons until slice 10.
 - Alex's head turns (left/right) are subtle by design (user found big profiles "a monstrosity"). Right head is a mirror of left. Seated Pajkel still reads as a dark blob from behind.
 - AFK fetch play was only seen as a single frame in a screenshot (logic is unit-tested).
 - Walking Pajkel is a thin, simple side view. The sleep "z" stroke looks like a dark box.
