@@ -656,7 +656,11 @@ export class LakeScene extends Phaser.Scene {
       this.wormCueAge = 0;
       this.cueAtChip = r.baitUsed !== WORM_ID;
       this.wormCue.setText(`-1 ${baitById(r.baitUsed)?.name.toLowerCase() ?? 'worm'}`);
-      if (before !== WORM_ID && chosenBait(r.state) === WORM_ID) this.showToast(`Out of ${baitById(before)?.name.toLowerCase()}, back to worms`);
+      const after = chosenBait(r.state);
+      if (after !== before && baitCount(r.state, before) <= 0) {
+        const name = (id: string) => baitById(id)?.name.toLowerCase() ?? 'worms';
+        this.showToast(after === WORM_ID && r.state.worms <= 0 ? `Out of ${name(before)}` : `Out of ${name(before)}, using ${name(after)}`);
+      }
     }
   }
 

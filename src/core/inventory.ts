@@ -63,10 +63,24 @@ export function baitCount(p: PlayerState, id: string): number {
   return Math.max(0, Math.floor(p.baits?.[id] ?? 0));
 }
 
-/** The bait that will go on the hook: her choice while she has any left, otherwise worms (the fallback). */
+/**
+ * The bait that will really go on the hook: her choice while it has any left; else worms if any;
+ * else the special bait she has most of (ties: data order); with nothing at all, worms (count 0).
+ */
 export function chosenBait(p: PlayerState): string {
-  const id = p.baitId;
-  return id && id !== WORM_ID && baitById(id) && baitCount(p, id) > 0 ? id : WORM_ID;
+  const id = p.baitId && (p.baitId === WORM_ID || baitById(p.baitId)) ? p.baitId : WORM_ID;
+  if (baitCount(p, id) > 0) return id;
+  if (p.worms > 0) return WORM_ID;
+  let best: string = WORM_ID;
+  let most = 0;
+  for (const b of BAITS) {
+    const n = baitCount(p, b.id);
+    if (n > most) {
+      best = b.id;
+      most = n;
+    }
+  }
+  return best;
 }
 
 /** Worms (always listed, even at 0), then every special bait she has any of, in shop order. */

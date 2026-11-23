@@ -203,6 +203,20 @@ describe('inventory: choosing and using baits', () => {
     expect(chosenBait(withBaits({ corn: 0 }, 'corn'))).toBe(WORM_ID);
   });
 
+  it('worms chosen but none left: the bait with the most pieces is used (ties: data order)', () => {
+    const p = withBaits({ corn: 2, strip: 5, maggots: 5 }, undefined, { worms: 0 });
+    expect(chosenBait(p)).toBe('maggots');
+    const r = applyEvent(withBaits({ corn: 2 }, undefined, { worms: 0 }), caught, seededRng(1));
+    expect(r.baitUsed).toBe('corn');
+    expect(r.state.baits?.corn).toBe(1);
+    expect(chosenBait(withBaits({}, undefined, { worms: 0 }))).toBe(WORM_ID);
+  });
+
+  it('a chosen bait that ran out falls back to worms first, then to the biggest stock', () => {
+    expect(chosenBait(withBaits({ corn: 0, strip: 9 }, 'corn', { worms: 3 }))).toBe(WORM_ID);
+    expect(chosenBait(withBaits({ corn: 0, strip: 9 }, 'corn', { worms: 0 }))).toBe('strip');
+  });
+
   it('worms are used as before when worms are chosen', () => {
     const r = applyEvent(withBaits({ corn: 3 }), caught, seededRng(1));
     expect(r.wormUsed).toBe(true);
@@ -212,7 +226,7 @@ describe('inventory: choosing and using baits', () => {
 
   it('canCast: chosen bait or worms; nothing at all is no', () => {
     expect(canCast(withBaits({ corn: 2 }, 'corn', { worms: 0 }))).toBe(true);
-    expect(canCast(withBaits({ corn: 2 }, undefined, { worms: 0 }))).toBe(false); // worms chosen, none left
+    expect(canCast(withBaits({ corn: 2 }, undefined, { worms: 0 }))).toBe(true); // worms chosen, none left: corn is used
     expect(canCast(withBaits({}, undefined, { worms: 0 }))).toBe(false);
     expect(canCast(withBaits({ corn: 0 }, 'corn', { worms: 3 }))).toBe(true); // falls back to worms
   });
