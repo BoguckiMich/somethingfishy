@@ -40,8 +40,10 @@ export class AmbientBed {
       this.layers[l] = node;
     }
     this.frogFilter = ctx.createBiquadFilter();
-    this.frogFilter.type = 'lowpass';
-    this.frogFilter.frequency.value = 650;
+    // A throaty formant: the buzz of the pulses rings around 1 kHz instead of a dull low "boing".
+    this.frogFilter.type = 'bandpass';
+    this.frogFilter.frequency.value = 1000;
+    this.frogFilter.Q.value = 1.4;
     this.frogFilter.connect(this.layers.frogs);
 
     this.buildWater();
@@ -137,8 +139,9 @@ export class AmbientBed {
       carrier.start();
       this.sources.push(carrier);
     };
-    voice(4300, 17, 1.1, 0.6);
-    voice(3850, 13, 0.8, 0.5);
+    // Lowered from ~4 kHz (it read as a whine on a phone speaker) to a softer tree-cricket range.
+    voice(2150, 24, 1.2, 0.6);
+    voice(1880, 20, 0.85, 0.45);
   }
 
   private schedule(kind: CallKind): void {
@@ -167,11 +170,20 @@ export class AmbientBed {
         at += dur + 0.03 + this.rng() * 0.05;
       }
     } else {
-      const pulses = 2 + Math.floor(this.rng() * 2);
-      const base = (150 + this.rng() * 70) * v.pitch;
-      for (let i = 0; i < pulses; i++) {
-        tone(this.g, this.frogFilter, t, { type: 'triangle', f0: base, f1: base * 1.45, at: i * 0.15, dur: 0.12, attack: 0.02, peak: 0.45 * v.volume });
-        tone(this.g, this.frogFilter, t, { type: 'sine', f0: base * 2.03, f1: base * 2.9, at: i * 0.15, dur: 0.1, attack: 0.02, peak: 0.12 * v.volume });
+      // "Rib-bit": two raspy syllables, each a fast train of tiny buzzy pulses (the rasp is the
+      // ~80 Hz pulse rate), the second a little higher. One or two ribbits per call.
+      const ribbits = this.rng() < 0.65 ? 1 : 2;
+      const base = (260 + this.rng() * 90) * v.pitch;
+      const gap = 0.0125;
+      const syllable = (start: number, f: number, pulses: number, peak: number): void => {
+        for (let i = 0; i < pulses; i++) {
+          tone(this.g, this.frogFilter, t, { type: 'sawtooth', f0: f, f1: f * 1.04, at: start + i * gap, dur: 0.011, attack: 0.004, peak });
+        }
+      };
+      for (let r = 0; r < ribbits; r++) {
+        const at = r * 0.42;
+        syllable(at, base, 7, 0.3 * v.volume);
+        syllable(at + 0.15, base * 1.22, 6, 0.26 * v.volume);
       }
     }
   }

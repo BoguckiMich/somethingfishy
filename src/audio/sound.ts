@@ -1,6 +1,6 @@
 import { ambientMix } from '../core/ambientMix';
 import { advanceReel, REEL_PRIMED } from '../core/reelClicks';
-import { DEFAULT_SOUND_SETTINGS, loadSoundSettings, saveSoundSettings, type SoundSettings } from '../core/soundSettings';
+import { DEFAULT_SOUND_SETTINGS, loadSoundSettings, normalizeSoundSettings, saveSoundSettings, volumeGain, type SoundSettings } from '../core/soundSettings';
 import { vary } from '../core/variation';
 import { AMBIENT_LAYERS, AmbientBed, type AmbientLayer, type LayerGains } from './ambient';
 import { AudioEngine } from './AudioEngine';
@@ -34,7 +34,7 @@ class Sound {
     this.storage = storage;
     this.persist = persist;
     this.settings = loadSoundSettings(storage);
-    this.engine.setBuses(this.settings.sfx, this.settings.ambience);
+    this.engine.setBuses(volumeGain(this.settings.sfx), volumeGain(this.settings.ambience));
     this.engine.onReady = (g) => {
       this.bed = new AmbientBed(g);
       this.applyMix();
@@ -46,15 +46,15 @@ class Sound {
     return { ...this.settings };
   }
 
-  /** The Sounds / Ambience toggles; saved at once unless sandboxed. */
+  /** The Sounds / Ambience volumes (0..100); saved at once unless sandboxed. */
   set(settings: SoundSettings): void {
-    this.settings = { ...settings };
-    this.engine.setBuses(settings.sfx, settings.ambience);
+    this.settings = normalizeSoundSettings(settings);
+    this.engine.setBuses(volumeGain(this.settings.sfx), volumeGain(this.settings.ambience));
     if (this.persist) saveSoundSettings(this.storage, this.settings);
   }
 
   play(name: SfxName, opts: SfxOptions = {}): void {
-    if (!this.settings.sfx) return;
+    if (this.settings.sfx <= 0) return;
     const g = this.engine.ready;
     if (!g) return;
     try {

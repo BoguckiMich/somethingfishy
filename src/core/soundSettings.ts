@@ -3,22 +3,34 @@
  * their own key and storage is injected (same pattern as profile.ts).
  */
 export interface SoundSettings {
-  /** Sound effects (casting, bites, jingles, UI taps...). */
-  sfx: boolean;
-  /** Ambient bed (water, birds, frogs, crickets). */
-  ambience: boolean;
+  /** Sound effects volume, 0..100 % (casting, bites, jingles, UI taps...). 0 = off. */
+  sfx: number;
+  /** Ambient bed volume, 0..100 % (water, birds, frogs, crickets). 0 = off. */
+  ambience: number;
 }
 
-export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: true, ambience: true };
+export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: 100, ambience: 100 };
 
 export const SOUND_SETTINGS_KEY = 'rybki.settings.v1';
 
-/** Any junk becomes the default (on) for that field. */
+/** One field: whole percent 0..100; the early on/off booleans read as 100 / 0; junk → the default. */
+function volume(raw: unknown, fallback: number): number {
+  if (typeof raw === 'boolean') return raw ? 100 : 0;
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(raw)));
+}
+
 export function normalizeSoundSettings(raw: Partial<Record<keyof SoundSettings, unknown>> | null | undefined): SoundSettings {
   return {
-    sfx: typeof raw?.sfx === 'boolean' ? raw.sfx : DEFAULT_SOUND_SETTINGS.sfx,
-    ambience: typeof raw?.ambience === 'boolean' ? raw.ambience : DEFAULT_SOUND_SETTINGS.ambience,
+    sfx: volume(raw?.sfx, DEFAULT_SOUND_SETTINGS.sfx),
+    ambience: volume(raw?.ambience, DEFAULT_SOUND_SETTINGS.ambience),
   };
+}
+
+/** Slider percent → bus gain, squared so the slider feels even to the ear. */
+export function volumeGain(percent: number): number {
+  const v = Math.min(100, Math.max(0, percent)) / 100;
+  return v * v;
 }
 
 type ReadableStorage = Pick<Storage, 'getItem'>;

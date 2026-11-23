@@ -31,8 +31,8 @@ export class AudioEngine {
   private failed = false;
   private paused = false;
   private started = false;
-  private sfxOn = true;
-  private ambOn = true;
+  private sfxGain = 1;
+  private ambGain = 1;
   /** Called once when the graph exists (the ambient bed starts here). */
   onReady: (g: AudioGraph) => void = () => undefined;
 
@@ -72,8 +72,8 @@ export class AudioEngine {
         master.connect(ctx.destination);
         const sfxBus = ctx.createGain();
         const ambBus = ctx.createGain();
-        sfxBus.gain.value = this.sfxOn ? 1 : 0;
-        ambBus.gain.value = this.ambOn ? 1 : 0;
+        sfxBus.gain.value = this.sfxGain;
+        ambBus.gain.value = this.ambGain;
         sfxBus.connect(master);
         ambBus.connect(master);
         this.graph = { ctx, master, sfxBus, ambBus, noise: makeNoise(ctx) };
@@ -113,15 +113,15 @@ export class AudioEngine {
     }
   }
 
-  /** Ramps a bus to on/off (no click). Remembered for when the context is created. */
-  setBuses(sfx: boolean, ambience: boolean): void {
-    this.sfxOn = sfx;
-    this.ambOn = ambience;
+  /** Ramps the buses to these gains, 0..1 (no click). Remembered for when the context is created. */
+  setBuses(sfx: number, ambience: number): void {
+    this.sfxGain = sfx;
+    this.ambGain = ambience;
     const g = this.graph;
     if (!g) return;
     try {
-      g.sfxBus.gain.setTargetAtTime(sfx ? 1 : 0, g.ctx.currentTime, BUS_TIME_CONSTANT);
-      g.ambBus.gain.setTargetAtTime(ambience ? 1 : 0, g.ctx.currentTime, BUS_TIME_CONSTANT);
+      g.sfxBus.gain.setTargetAtTime(sfx, g.ctx.currentTime, BUS_TIME_CONSTANT);
+      g.ambBus.gain.setTargetAtTime(ambience, g.ctx.currentTime, BUS_TIME_CONSTANT);
     } catch {
       // ignore
     }

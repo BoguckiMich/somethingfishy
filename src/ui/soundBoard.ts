@@ -18,7 +18,7 @@ export function openSoundBoard(startMinute: number, onClose: () => void): PanelH
     (body) => {
       const settings = sound.current;
       if (!settings.sfx || !settings.ambience) {
-        body.append(el('div', `font-size:12px;color:${COLORS.amber};padding:3px 0`, 'A switch is off in Settings: those sounds stay silent.'));
+        body.append(el('div', `font-size:12px;color:${COLORS.amber};padding:3px 0`, 'A volume is at 0 in Settings: those sounds stay silent.'));
       }
 
       body.append(sectionTitle('Effects'));

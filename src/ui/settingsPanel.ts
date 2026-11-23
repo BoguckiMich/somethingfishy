@@ -18,7 +18,7 @@ export interface SettingsStore {
   openNames(): void;
   /** False when the last write failed or storage is missing. */
   canSave(): boolean;
-  /** The Sounds / Ambience toggles (saved by the setter unless sandboxed). */
+  /** The Sounds / Ambience volumes, 0..100 (saved by the setter unless sandboxed). */
   soundSettings(): SoundSettings;
   setSoundSettings(s: SoundSettings): void;
   /** Dev sandbox: nothing here reaches storage. */
@@ -97,27 +97,29 @@ const row = (...kids: HTMLElement[]) => {
   return r;
 };
 
-/** A labelled on/off switch in the panel's wood style; flips itself and reports the new value. */
-const toggleRow = (label: string, initial: boolean, onChange: (on: boolean) => void): HTMLElement => {
-  let on = initial;
-  const r = el('div', 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px');
-  r.append(el('div', `font-size:13px;color:${COLORS.text}`, label));
-  const b = woodButton('', () => undefined, { small: true, sfx: null });
-  const paint = () => {
-    b.textContent = on ? 'ON' : 'OFF';
-    b.style.background = on ? COLORS.gold : '#4a3426';
-    b.style.color = on ? COLORS.wood : COLORS.dim;
-    b.style.borderBottomColor = on ? COLORS.goldShade : '#2a1c14';
-    b.setAttribute('aria-pressed', String(on));
-  };
-  b.style.width = '64px';
-  b.addEventListener('click', () => {
-    on = !on;
+/**
+ * A labelled volume slider (0..100 %, 0 reads "Off"). `onInput` fires while dragging,
+ * `onRelease` once the thumb is let go (to play a sample at the new level).
+ */
+const volumeRow = (label: string, initial: number, onInput: (v: number) => void, onRelease: (v: number) => void): HTMLElement => {
+  const r = el('div', 'display:flex;align-items:center;gap:10px;margin-top:8px');
+  r.append(el('div', `font-size:13px;color:${COLORS.text};width:76px;flex:none`, label));
+  const slider = el('input', `flex:1;min-width:0;margin:0;accent-color:${COLORS.gold};height:24px`);
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = '100';
+  slider.step = '5';
+  slider.value = String(initial);
+  slider.setAttribute('aria-label', `${label} volume`);
+  const value = el('div', `font-size:12px;color:${COLORS.cream};width:44px;flex:none;text-align:right;padding-right:4px;box-sizing:border-box`);
+  const paint = () => (value.textContent = Number(slider.value) === 0 ? 'Off' : `${slider.value}%`);
+  slider.addEventListener('input', () => {
     paint();
-    onChange(on);
+    onInput(Number(slider.value));
   });
+  slider.addEventListener('change', () => onRelease(Number(slider.value)));
   paint();
-  r.append(b);
+  r.append(slider, value);
   return r;
 };
 
@@ -177,14 +179,18 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
     body.append(sectionTitle('Sound'));
     const sounds = store.soundSettings();
     body.append(
-      toggleRow('Sounds', sounds.sfx, (on) => {
-        store.setSoundSettings({ ...store.soundSettings(), sfx: on });
-        if (on) sound.play('tap');
-      }),
-      toggleRow('Ambience', sounds.ambience, (on) => {
-        store.setSoundSettings({ ...store.soundSettings(), ambience: on });
-        if (store.soundSettings().sfx) sound.play('tap');
-      }),
+      volumeRow(
+        'Sounds',
+        sounds.sfx,
+        (v) => store.setSoundSettings({ ...store.soundSettings(), sfx: v }),
+        () => sound.play('coin'), // a sample at the new level
+      ),
+      volumeRow(
+        'Ambience',
+        sounds.ambience,
+        (v) => store.setSoundSettings({ ...store.soundSettings(), ambience: v }),
+        () => undefined, // the ambience itself is the sample
+      ),
     );
 
     body.append(sectionTitle('Export'));
