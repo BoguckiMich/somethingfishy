@@ -3,6 +3,9 @@ import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
 import { SHOP } from './data/shop';
 import { newPlayer, type BagFish, type PlayerState } from './inventory';
+import { isValidDate } from './daily/dates';
+import { newDaily, type DailyState } from './daily/daily';
+import { DAILY_BOX } from './data/daily';
 import { speciesCaught, type FishLog } from './fishLog';
 
 /**
@@ -61,6 +64,14 @@ function normalizeLog(v: unknown): FishLog {
   return log;
 }
 
+function normalizeDaily(v: unknown): DailyState {
+  if (!isObj(v)) return newDaily();
+  const date = isValidDate(v.lastBoxDate) ? v.lastBoxDate : null;
+  // A box date needs a tier of at least 1; no date means no box yet.
+  const tier = isNum(v.streakTier) ? Math.min(DAILY_BOX.maxTier, Math.max(0, Math.floor(v.streakTier))) : 0;
+  return date === null ? newDaily() : { lastBoxDate: date, streakTier: Math.max(1, tier) };
+}
+
 function normalizePlayer(v: unknown): PlayerState {
   const p = isObj(v) ? v : {};
   const bag = Array.isArray(p.bag) ? p.bag.map(normalizeBagFish).filter((f): f is BagFish => f !== null) : [];
@@ -70,6 +81,7 @@ function normalizePlayer(v: unknown): PlayerState {
     bag: bag.slice(0, SHOP.bagSlots),
     rodId: RODS.some((r) => r.id === p.rodId) ? (p.rodId as string) : RODS[0].id,
     log: normalizeLog(p.log),
+    daily: normalizeDaily(p.daily),
   };
 }
 

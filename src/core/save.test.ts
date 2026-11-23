@@ -58,7 +58,7 @@ describe('normalizeSave', () => {
   it('keeps a good save as is', () => {
     const s: SaveData = {
       version: 1,
-      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } } },
+      player: { coins: 40, worms: 3, bag: [fish], rodId: 'carbon', log: { perch: { count: 2, bestLengthCm: 22, bestWeightG: 200 } }, daily: { lastBoxDate: '2026-11-22', streakTier: 3 } },
       clock: { day: 4, minute: 123.5 },
     };
     expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
@@ -184,5 +184,25 @@ describe('saveSummary', () => {
   it('counts species and coins', () => {
     const save: SaveData = { ...newSave(), player: { ...newPlayer(), coins: 340, log: { perch: { count: 1, bestLengthCm: 1, bestWeightG: 1 } } } };
     expect(saveSummary(save)).toEqual({ species: 1, coins: 340 });
+  });
+});
+
+describe('normalizeSave: daily box', () => {
+  const daily = (d: unknown) => normalizeSave({ version: 1, player: { daily: d } }).player.daily;
+  it('defaults when missing or not an object', () => {
+    expect(daily(undefined)).toEqual({ lastBoxDate: null, streakTier: 0 });
+    expect(daily('x')).toEqual({ lastBoxDate: null, streakTier: 0 });
+    expect(daily([1])).toEqual({ lastBoxDate: null, streakTier: 0 });
+  });
+  it('drops a malformed or impossible date', () => {
+    expect(daily({ lastBoxDate: '2026-1-5', streakTier: 3 })).toEqual({ lastBoxDate: null, streakTier: 0 });
+    expect(daily({ lastBoxDate: '2026-13-01', streakTier: 3 })).toEqual({ lastBoxDate: null, streakTier: 0 });
+    expect(daily({ lastBoxDate: 20261123, streakTier: 3 })).toEqual({ lastBoxDate: null, streakTier: 0 });
+  });
+  it('clamps the tier to 1..5 when there is a date', () => {
+    expect(daily({ lastBoxDate: '2026-11-22', streakTier: 99 })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 5 });
+    expect(daily({ lastBoxDate: '2026-11-22', streakTier: -4 })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 1 });
+    expect(daily({ lastBoxDate: '2026-11-22', streakTier: 'x' })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 1 });
+    expect(daily({ lastBoxDate: '2026-11-22', streakTier: 2.9 })).toEqual({ lastBoxDate: '2026-11-22', streakTier: 2 });
   });
 });

@@ -6,6 +6,7 @@ import { sizeShare, type HookedFish } from './fish';
 import { newFishLog, type FishLog } from './fishLog';
 import type { Rod } from './gear';
 import type { Rng } from './random';
+import { newDaily, type DailyState } from './daily/daily';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -27,10 +28,12 @@ export interface PlayerState {
   rodId: string;
   /** The fish log: counts and records per species. */
   log: FishLog;
+  /** The daily bait box (slice 13a); missing in older saves, read with dailyOf(). */
+  daily?: DailyState;
 }
 
 export function newPlayer(): PlayerState {
-  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog() };
+  return { coins: SHOP.startCoins, worms: SHOP.startWorms, bag: [], rodId: RODS[0].id, log: newFishLog(), daily: newDaily() };
 }
 
 export function equippedRod(p: PlayerState): Rod {

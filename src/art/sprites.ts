@@ -404,3 +404,24 @@ export const POST = sprite(
 `,
   { o: PAL.outline, H: PAL.woodHi, L: PAL.woodLight, w: PAL.wood, d: PAL.woodDark, D: PAL.woodDeep },
 );
+
+// ---- The daily bait box (a crate the bait shop leaves on the dock) --------------------------
+
+/** 16 x 12: a small wooden crate tied with gold twine, with a cream tag. */
+export const CRATE = sprite(
+  `
+  .oooooooooooooo.
+  .ohhhhhhhhhhhho.
+  .ollllllllllllo.
+  .owwwwwwwwwwwwo.
+  .oDDDDDDDDDDDDo.
+  .olwwdlggwdlwwo.
+  .olwwdlggwdlwwo.
+  .olwwdlcrwdlwwo.
+  .olwwdlggwdlwdo.
+  .olwwdlggwdlwdo.
+  .oddddddddddddo.
+  .oooooooooooooo.
+`,
+  { o: PAL.outline, h: PAL.woodHi, l: PAL.woodLight, w: PAL.wood, d: PAL.woodDark, D: PAL.woodDeep, g: PAL.gold, c: PAL.cream, r: PAL.red },
+);
