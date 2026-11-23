@@ -10,8 +10,9 @@ describe('moment art', () => {
     }
   });
   it('the frog frames and the duck have the intended sizes', () => {
-    expect([MOMENT_SPRITES.frogIdle.width, MOMENT_SPRITES.frogIdle.height]).toEqual([14, 10]);
-    expect([MOMENT_SPRITES.frogPuff.width, MOMENT_SPRITES.frogPuff.height]).toEqual([14, 10]);
+    expect([MOMENT_SPRITES.frogIdle.width, MOMENT_SPRITES.frogIdle.height]).toEqual([14, 5]);
+    expect([MOMENT_SPRITES.frogPuff.width, MOMENT_SPRITES.frogPuff.height]).toEqual([14, 5]);
+    expect([MOMENT_SPRITES.frogPad.width, MOMENT_SPRITES.frogPad.height]).toEqual([14, 5]);
     expect([MOMENT_SPRITES.duck.width, MOMENT_SPRITES.duck.height]).toEqual([14, 9]);
   });
   it('a ring has no repeated pixels and spans the radii', () => {

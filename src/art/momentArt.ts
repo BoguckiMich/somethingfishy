@@ -22,16 +22,9 @@ export const DUCK = sprite(
   { o: PAL.outline, g: PAL.leafLight, G: PAL.leaf, k: PAL.outline, y: PAL.gold, Y: PAL.strawDark, w: PAL.white, b: PAL.wood, B: PAL.woodLight, d: PAL.woodDark },
 );
 
-const PAD_ROWS = `
-  ...oooooooo...
-  .ooLLLLLLLLoo.
-  oLLLLLLLLLLLlo
-  .oollllllllloo
-  ...oooooooo...
-`;
 const FROG_COLORS = { o: PAL.outline, F: PAL.leafHi, f: PAL.leaf, k: PAL.outline, c: PAL.cream, L: PAL.lily, l: PAL.lilyDark };
 
-/** 14 x 10: a frog sitting on a lily pad, mouth closed. */
+/** 14 x 5: a frog sitting, mouth closed (it sits on the lily pad, which is its own 14 x 5 sprite below it). */
 export const FROG_IDLE = sprite(
   `
   ....oo..oo....
@@ -39,7 +32,6 @@ export const FROG_IDLE = sprite(
   ...oFFFFFFo...
   ..oFFFFFFFFo..
   ..oFfFFFFfFo..
-${PAD_ROWS}
 `,
   FROG_COLORS,
 );
@@ -52,7 +44,18 @@ export const FROG_PUFF = sprite(
   ...oFFFFFFo...
   ..oFFFccFFFo..
   ..oFfcccccFo..
-${PAD_ROWS}
+`,
+  FROG_COLORS,
+);
+
+/** 14 x 5: the lily pad the frog sits on (stays a moment after the frog plops in). */
+export const FROG_PAD = sprite(
+  `
+  ...oooooooo...
+  .ooLLLLLLLLoo.
+  oLLLLLLLLLLLlo
+  .oollllllllloo
+  ...oooooooo...
 `,
   FROG_COLORS,
 );
@@ -156,6 +159,7 @@ export const MOMENT_SPRITES: Record<string, Sprite> = {
   duck: DUCK,
   frogIdle: FROG_IDLE,
   frogPuff: FROG_PUFF,
+  frogPad: FROG_PAD,
   jumpFish: JUMP_FISH,
   starHead: STAR_HEAD,
   bottle: BOTTLE,

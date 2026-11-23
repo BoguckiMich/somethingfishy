@@ -4,6 +4,10 @@ import { todayLocal } from '../localDate';
 import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { showQuestPanel } from '../ui/questPanel';
+import { showBottleCard } from '../ui/bottleCard';
+import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
+import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
+import { MomentsView } from './MomentsView';
 import { applyCatchToPlayer, claimableCount, doneCount, questsOf, syncQuests } from '../core/quests/quests';
 import type { ZoneId } from '../core/location';
 import { sound } from '../audio/sound';
@@ -242,6 +246,11 @@ export class LakeScene extends Phaser.Scene {
   private boardImg!: Phaser.GameObjects.Image;
   /** The open quest panel, so a day change can refresh it. */
   private questPanel: PanelHandle | null = null;
+  /** Lake moments (slice 14): the next-one timer, the one on screen, and the dev spawn flag. */
+  private moments!: MomentsView;
+  private momentGap: Scheduler = newScheduler(Math.random);
+  private lastMoment: MomentKind | null = null;
+  private debugMoment: { kind: MomentKind; inMs: number } | null = null;
   private crateImg!: Phaser.GameObjects.Image;
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
@@ -324,6 +333,8 @@ export class LakeScene extends Phaser.Scene {
       this.state = { kind: 'waiting', distanceM: 10, zone: 'shallow', hooked: { speciesId: 'perch', lengthCm: 20, weightG: 150 }, untilMs: 1e9, nibblesLeft: 0, hadNibble: false };
     }
     const dbg = params.get('debug') ?? '';
+    const debugKind = dbg.startsWith('moment=') ? MOMENT_KINDS.find((k) => k === dbg.slice(7)) : undefined;
+    if (debugKind) this.debugMoment = { kind: debugKind, inMs: 1000 };
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
     // Dev-only: ?fish=<pattern>&diff=<0..1> forces the fish; ?debug=fight / ?debug=caught jump into those states.
     if (params.has('fish') || params.has('diff')) {
@@ -499,6 +510,7 @@ export class LakeScene extends Phaser.Scene {
     this.updateEerie(deltaMs);
 
     this.updateSound(deltaMs);
+    this.updateMoments(deltaMs);
     this.companions.update(
       deltaMs,
       { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
@@ -506,6 +518,45 @@ export class LakeScene extends Phaser.Scene {
       dayLook(this.clock.minute).worldTint,
     );
     this.render(deltaMs);
+  }
+
+  /**
+   * Lake moments: the gap counts down only while she is idle or the bobber waits (no panel); a
+   * fight or the show-off fades a moment on screen out quickly. Which one comes is core/moments.
+   */
+  private updateMoments(deltaMs: number): void {
+    const kind = this.state.kind;
+    const calm = (kind === 'idle' || kind === 'waiting') && !this.panel;
+    if (kind === 'fighting' || kind === 'caught') this.moments.fadeOut();
+    if (this.moments.kind === null) {
+      if (this.debugMoment) {
+        this.debugMoment.inMs -= deltaMs;
+        if (this.debugMoment.inMs <= 0) {
+          this.startMoment(this.debugMoment.kind);
+          this.debugMoment = null;
+        }
+      } else {
+        const r = tickScheduler(this.momentGap, deltaMs, calm, Math.random);
+        this.momentGap = r.scheduler;
+        if (r.due) this.startMoment(pickMoment(this.clock.minute, Math.random, this.lastMoment));
+      }
+    }
+    sound.setUncanny(this.moments.uncanny);
+  }
+
+  private startMoment(kind: MomentKind): void {
+    this.lastMoment = kind;
+    this.moments.spawn(kind);
+    if (kind === 'duck') sound.play('boof'); // Bestia sees the duck
+  }
+
+  /** The bottle's note card (the worms inside are granted at once). Only while idle. */
+  private openBottleCard(): void {
+    if (this.state.kind !== 'idle' || this.panel) return;
+    this.swallowUp = false;
+    const r = openBottle(this.player, this.clock.minute, Math.random);
+    this.setPlayer(r.player);
+    this.panel = showBottleCard(r.contents, () => (this.panel = null));
   }
 
   /** How eerie the lake is right now (pure rule in core/eerie): eases the picture and tells the sound. */
@@ -853,6 +904,9 @@ export class LakeScene extends Phaser.Scene {
       this.openBaitBox();
       return true;
     }
+    // A moment on the lake: a tap on it never starts a cast. The bottle opens a card, so only while idle.
+    const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
+    if (momentOk && this.moments.tap(x, y, this.state.kind === 'idle')) return true;
     const dog = this.companions.dogRect();
     if (dog.contains(x, y)) {
       this.companions.pet();
@@ -991,6 +1045,19 @@ export class LakeScene extends Phaser.Scene {
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
     this.fireflies = this.add.graphics().setDepth(Z.fireflies);
     this.catchBar = new CatchBarView(this);
+    this.moments = new MomentsView(
+      this,
+      {
+        sfx: (name) => sound.play(name),
+        claimStar: () => {
+          const r = claimStar(this.player, Math.random);
+          this.setPlayer(r.player);
+          return r.coins;
+        },
+        openBottle: () => this.openBottleCard(),
+      },
+      Math.random,
+    );
 
     // Fixed random layouts for stars, sparkles and fireflies.
     const rnd = mulberry32(77);
@@ -1108,6 +1175,7 @@ export class LakeScene extends Phaser.Scene {
     this.drawEerie();
     this.drawPosts(look);
     this.drawFireflies(look);
+    this.moments.update(_deltaMs, look.worldTint);
 
     // Angler: 2-frame breathing, and the head turns when she glances around.
     const breath = (Math.floor(this.elapsed / 900) % 2) as 0 | 1;
