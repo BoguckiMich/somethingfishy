@@ -1,7 +1,7 @@
-# Rybki — Game Design
+# Something Fishy (Rybki) — Game Design
 
 A cozy, fishing-only game in the spirit of Stardew Valley / Terraria. Made as a gift.
-Working title: **Rybki** (to be renamed later).
+Title: **Something Fishy** (working title was Rybki, still used in code and storage keys).
 
 This doc records decisions. When a decision changes, update it here.
 
@@ -15,7 +15,7 @@ This doc records decisions. When a decision changes, update it here.
 | Engine | Phaser 4 + TypeScript, bundled with Vite |
 | Tests | Vitest, for pure game logic |
 | PWA | `vite-plugin-pwa` (added in the deploy slice) |
-| Hosting | GitHub Pages |
+| Hosting | GitHub Pages: `BoguckiMich/somethingfishy`, deployed by GitHub Actions (§3 item 10) |
 | Orientation | Portrait for now (base resolution 360×640, scaled to fit) |
 | Language | English first; text kept in one place so translations (e.g. Polish) are easy to add |
 | Saving | Local (localStorage) + export/import save code. Cloud sync later, maybe. |
@@ -233,6 +233,32 @@ The game stars the two of them and their dog. Reference photos live untracked in
        last fetch the dog does a happy in-place spin and tail wag, then rests. The bring-back
        graphics get polished (stick clearly in the mouth, proud trot).
 
+10. **PWA + deploy** — decided for slice 11 (2026-11-23).
+    - *Name:* the game is now **Something Fishy** (manifest `name`; `short_name` "Fishy" so the
+      Android home-screen label isn't cut off). User-visible text and `<title>` say Something Fishy.
+      Code, storage keys (`rybki.*`) and the save-code format keep "rybki" so existing saves
+      still load.
+    - *Repo + hosting:* `github.com/BoguckiMich/somethingfishy` (public), served by GitHub Pages
+      at `/somethingfishy/`. Vite `base: './'`, manifest `scope`/`start_url` relative.
+    - *Deploy:* GitHub Actions workflow on push to `main`: install, tsc, tests, build, deploy to
+      Pages. A failing test means nothing goes live. The user sets Pages source to "GitHub Actions".
+    - *Offline:* `vite-plugin-pwa` (Workbox `generateSW`) precaches the whole build (JS, HTML,
+      fonts, `OFL.txt`, icons). Art and sound are code, so the game is fully offline after the
+      first visit. `dev/*.html` sheets are not in the build.
+    - *Updates:* `registerType: 'prompt'`. The app checks for an update at launch (and when it
+      comes back to the foreground); when one is waiting, a small pixel-framed toast says
+      "New version — tap to reload". It never reloads on its own (no fight gets cut off).
+    - *Manifest:* portrait, `display: standalone`, theme and background `#1b2b3a`.
+      Icon: a pixel-art fish on the night-lake blue, drawn in code like everything else, rendered
+      by a script to committed PNGs (192, 512, maskable 512, 180 apple-touch-icon).
+    - *Install:* no in-game install button; target phone is Android, where Chrome offers install
+      on its own.
+    - *Moving a save:* the LAN dev save does not carry over (different origin); use the slice 9
+      export/import code. No new code.
+    - *Dev flags:* the URL flags (`?debug=`, `?coins=`, `?time=`…) were live in production builds.
+      In a production build all URL parameters are ignored (no sandbox, no flags); they keep
+      working on the dev server.
+
 ### v1 fish roster (decided for slice 6)
 
 | Fish | Zone | Time | Rarity | Pattern | Difficulty | Length | Nibbles |
@@ -404,6 +430,6 @@ come once the v2 bait and lure systems provide more interesting rewards.
 10. Sound + second art pass (details in §3 item 9)
     - 10a. Sound ✅
     - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel, dog fetch) ✅
-11. PWA + GitHub Pages deploy ← *next*
+11. PWA + GitHub Pages deploy (details in §3 item 10) ← *in progress*
 12. Legendary fish
 13. Daily bait box + daily quests (§5)
