@@ -47,6 +47,10 @@ const textArea = (readOnly: boolean): HTMLTextAreaElement => {
       `border:2px solid ${COLORS.woodLight}`,
       'border-radius:2px',
       'word-break:break-all',
+      // body is user-select:none (game input); the code boxes must stay selectable for long-press.
+      'user-select:text',
+      '-webkit-user-select:text',
+      '-webkit-touch-callout:default',
     ].join(';'),
   );
   t.readOnly = readOnly;
@@ -59,6 +63,24 @@ const selectAll = (t: HTMLTextAreaElement) => {
   t.focus();
   t.select();
   t.setSelectionRange(0, t.value.length);
+};
+
+/**
+ * Old-school copy for insecure contexts (the LAN dev server is plain http, where
+ * navigator.clipboard does not exist). Needs an editable, selected textarea.
+ */
+const execCopy = (t: HTMLTextAreaElement): boolean => {
+  const wasReadOnly = t.readOnly;
+  try {
+    t.readOnly = false;
+    selectAll(t);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    t.readOnly = wasReadOnly;
+    t.blur();
+  }
 };
 
 const row = (...kids: HTMLElement[]) => {
@@ -128,24 +150,22 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
     const code = store.exportCode();
     const out = textArea(true);
     out.value = code;
-    out.addEventListener('focus', () => selectAll(out));
-    out.addEventListener('click', () => selectAll(out));
     body.append(out);
+    const copied = () => {
+      copyBtn.textContent = 'Copied!';
+      status.textContent = '';
+    };
     const copyBtn = woodButton('Copy', () => {
-      const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
-      const fallback = () => {
+      // Last resort: select the text so a long-press shows the system Copy menu.
+      const manual = () => {
         selectAll(out);
-        copyNote = 'Press and hold to copy';
+        copyNote = 'Press and hold the code, then Copy';
         status.textContent = copyNote;
       };
-      if (!clip?.writeText) return fallback();
-      clip.writeText(code).then(
-        () => {
-          copyBtn.textContent = 'Copied!';
-          status.textContent = '';
-        },
-        fallback,
-      );
+      const legacy = () => (execCopy(out) ? copied() : manual());
+      const clip = window.isSecureContext ? navigator.clipboard : undefined;
+      if (!clip?.writeText) return legacy();
+      clip.writeText(code).then(copied, legacy);
     });
     const status = note(copyNote, COLORS.gold);
     body.append(row(copyBtn), status);
