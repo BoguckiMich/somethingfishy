@@ -24,7 +24,8 @@ export function crossedBedtime(prev: number, now: number): boolean {
 
 /** Morning after a night's sleep: 05:00, one day on (the spec: "05:00 the next day"). */
 export function morningClock(clock: GameClock): GameClock {
-  return { day: clock.day + 1, minute: WAKE_MINUTE };
+  // Bedtime is after midnight, so the day already turned: wake the same day. (Past 05:00, the next day.)
+  return { day: clock.minute < WAKE_MINUTE ? clock.day : clock.day + 1, minute: WAKE_MINUTE };
 }
 
 /** The next time the clock shows `minuteOfDay` (strictly later than now: tomorrow if it is that time or past it). */

@@ -22,8 +22,9 @@ describe('the sleep window', () => {
 });
 
 describe('morningClock', () => {
-  it('is 05:00 on the next day', () => {
-    expect(morningClock({ day: 2, minute: 125 })).toEqual({ day: 3, minute: 300 });
+  it('is 05:00 the same day after midnight, the next day before it', () => {
+    expect(morningClock({ day: 2, minute: 125 })).toEqual({ day: 2, minute: 300 });
+    expect(morningClock({ day: 2, minute: 23 * 60 })).toEqual({ day: 3, minute: 300 });
   });
 });
 
