@@ -1,8 +1,12 @@
 import { FONT, FS, LINE } from '../font';
+import { fishIconSprite } from '../art/fishArt';
+import { coinSprite, wormSprite } from '../art/iconArt';
+import { shopIconSprite } from '../art/shopIconArt';
+import type { Sprite } from '../art/pixelGrid';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
 import { RODS } from '../core/data/rods';
-import type { Line, Reel } from '../core/gear';
+import type { Line, Reel, Rod } from '../core/gear';
 import {
   bagValue,
   buyLine,
@@ -21,7 +25,10 @@ import {
   type Outcome,
   type PlayerState,
 } from '../core/inventory';
+import { fishCanvas } from './logPanel';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
+import { installFrameStyles } from './frames';
+import { spriteCanvas } from './spriteCanvas';
 
 /** The player state lives in the scene; panels read it and write it back through this. */
 export interface PlayerStore {
@@ -35,48 +42,134 @@ const sizeText = (f: BagFish): string => `${f.lengthCm} cm`;
 const sectionTitle = (text: string) =>
   el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
+/** A number with the small coin icon in front (prices, purse, totals). */
+function coinAmount(n: number | string, color: string = COLORS.gold): HTMLElement {
+  const box = el('span', `display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:${FS.body}px;color:${color}`);
+  box.append(spriteCanvas(coinSprite(), 16), el('span', '', String(n)));
+  return box;
+}
+
+/** Puts "prefix <coin> amount" on a button (woodButton only takes plain text). */
+function coinButtonLabel(button: HTMLButtonElement, prefix: string, n: number): void {
+  button.style.cssText += ';display:inline-flex;align-items:center;justify-content:center;gap:4px';
+  button.replaceChildren(prefix, spriteCanvas(coinSprite(), 16), String(n));
+}
+
 function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
-  const row = el('div', `display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid ${COLORS.woodLight}`);
+  const row = el('div', `display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid ${COLORS.woodLight}`);
+  const pic = el('div', 'flex:none;width:34px;height:28px;display:flex;align-items:center;justify-content:center');
+  pic.append(fishCanvas(fishIconSprite(f.speciesId), 36, 2));
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
-  info.append(el('div', `color:${COLORS.text}`, fishName(f)), el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `${sizeText(f)} · ${f.weightG} g`));
-  row.append(info, el('div', `font-size:${FS.body}px;color:${COLORS.gold};white-space:nowrap`, `${f.price} coins`));
+  info.append(el('div', `color:${COLORS.text}`, fishName(f)), el('div', `font-size:${FS.small}px;color:${COLORS.cream};white-space:nowrap`, `${sizeText(f)} · ${f.weightG}g`));
+  row.append(pic, info, coinAmount(f.price));
   if (action) row.append(action);
   return row;
 }
 
-/** A shop row for a line or reel: what she has, the next one with its price and effect, and a Buy button. */
-function tackleRow(
-  kind: 'Line' | 'Reel',
+// ---- Icons, cards, the tackle strip ---------------------------------------------------------
+
+/** The item that just got bought: its icon pops the next time it is drawn (consumed on use). */
+let popId: string | undefined;
+
+const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** A small pop (scale up and back, ~250 ms) with a few sparkle pixels flying out. Skipped for reduced motion. */
+function popIcon(slot: HTMLElement): void {
+  if (reducedMotion() || typeof slot.animate !== 'function') return;
+  slot.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 250, easing: 'ease-out' });
+  const dirs: [number, number][] = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1.4], [1.4, 0]];
+  dirs.forEach(([dx, dy], i) => {
+    const spark = el('div', `position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;pointer-events:none;background:${i % 2 ? COLORS.gold : COLORS.text}`);
+    slot.append(spark);
+    const a = spark.animate(
+      [{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${dx * 30}px,${dy * 30}px)`, opacity: 0 }],
+      { duration: 400, easing: 'ease-out' },
+    );
+    a.onfinish = () => spark.remove();
+  });
+}
+
+/** A framed wood slot holding a shop icon (`px` is the icon size, a multiple of 16). `dim` greys it a little. */
+function iconSlot(id: string, px: number, dim = false): HTMLElement {
+  installFrameStyles();
+  const slot = el('div', `position:relative;flex:none;box-sizing:border-box;width:${px + 8}px;height:${px + 8}px;display:flex;align-items:center;justify-content:center;background:${COLORS.woodLight}`);
+  slot.className = 'rb-box';
+  slot.dataset.itemId = id;
+  const sprite: Sprite | undefined = shopIconSprite(id);
+  if (sprite) {
+    const c = spriteCanvas(sprite, px);
+    if (dim) c.style.cssText += ';opacity:0.65';
+    slot.append(c);
+  }
+  if (popId === id) {
+    popId = undefined;
+    requestAnimationFrame(() => popIcon(slot));
+  }
+  return slot;
+}
+
+interface CardOptions {
+  id: string;
+  name: string;
+  /** Price in coins; omit for an item that is already owned. */
+  price?: number;
+  effect: string;
+  /** What is shown in place of the Buy button (e.g. "Best owned"). */
+  note?: string;
+  coins: number;
+  buy?: () => void;
+}
+
+/** A shop card: icon slot on the left, name + price + effect beside it, the Buy button underneath. */
+function itemCard(o: CardOptions): HTMLElement {
+  const missing = o.price === undefined ? 0 : Math.max(0, o.price - o.coins);
+  const card = el('div', `display:flex;flex-direction:column;gap:6px;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight}`);
+  const top = el('div', 'display:flex;gap:8px;align-items:flex-start');
+  const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
+  info.append(el('div', `color:${COLORS.text}`, o.name));
+  if (o.price !== undefined) info.append(coinAmount(o.price));
+  if (o.note) info.append(el('div', `color:${COLORS.gold}`, o.note));
+  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream};margin-top:2px`, o.effect));
+  top.append(iconSlot(o.id, 48, missing > 0), info);
+  card.append(top);
+  if (o.buy) {
+    const buy = o.buy;
+    const b = woodButton('Buy', buy, { disabledReason: missing ? `need ${missing} more` : undefined, sfx: 'coin' });
+    b.style.cssText += ';width:100%';
+    card.append(b);
+  }
+  return card;
+}
+
+/** One entry of "Your tackle": a small icon and the item's name, or a dim empty slot. */
+function tackleEntry(owned: { id: string; name: string } | undefined, emptyText: string): HTMLElement {
+  const row = el('div', 'display:flex;align-items:center;gap:8px;padding:2px 0');
+  if (owned) {
+    row.append(iconSlot(owned.id, 32), el('div', `font-size:${FS.body}px;color:${COLORS.text}`, owned.name));
+  } else {
+    const empty = el('div', 'flex:none;box-sizing:border-box;width:40px;height:40px;background:#2a1a12');
+    empty.className = 'rb-box';
+    row.append(empty, el('div', `font-size:${FS.body}px;color:${COLORS.dim}`, emptyText));
+  }
+  return row;
+}
+
+const rodEffect = (current: Rod, next: Rod): string =>
+  `Reach ${current.maxCastM} to ${next.maxCastM} m${next.maxCastM > 15 && current.maxCastM <= 15 ? ' (deep water)' : ''}, catch zone ${Math.round(current.barGear.zoneSize * 100)}% to ${Math.round(next.barGear.zoneSize * 100)}%`;
+
+/** A card for a line or reel: the next one up with price and effect, or the best one owned. */
+function tackleCard(
   owned: Line | Reel | undefined,
   next: Line | Reel | undefined,
   coins: number,
   buy: () => void,
-  refresh: () => void,
-): HTMLElement {
-  const row = el('div', `display:flex;flex-direction:column;gap:6px;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight}`);
-  const have = owned ? owned.name : `No ${kind.toLowerCase()} yet`;
-  if (!next) {
-    row.append(el('div', `font-size:${FS.body}px;color:${COLORS.gold}`, `${have} (best owned)`));
-    return row;
-  }
-  const info = el('div', `font-size:${FS.body}px`);
-  info.append(
-    el('div', '', `${next.name}, ${next.price} coins`),
-    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `${next.effect}.`),
-    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `You have: ${have}`),
-  );
-  const missing = Math.max(0, next.price - coins);
-  row.append(
-    info,
-    woodButton('Buy', () => {
-      buy();
-      refresh();
-    }, { disabledReason: missing ? `need ${missing} more` : undefined, sfx: 'coin' }),
-  );
-  return row;
+): HTMLElement | undefined {
+  if (next) return itemCard({ id: next.id, name: next.name, price: next.price, effect: next.effect, coins, buy });
+  if (owned) return itemCard({ id: owned.id, name: owned.name, note: 'Best owned', effect: owned.effect, coins });
+  return undefined;
 }
 
-const emptyNote =(text: string) => el('div', `font-size:${FS.body}px;color:${COLORS.cream};padding:6px 0`, text);
+const emptyNote = (text: string) => el('div', `font-size:${FS.body}px;color:${COLORS.cream};padding:6px 0`, text);
 
 /** The bag: what she caught, its size and price, and the total value. */
 export function openBagPanel(store: PlayerStore, onClose: () => void): PanelHandle {
@@ -86,16 +179,21 @@ export function openBagPanel(store: PlayerStore, onClose: () => void): PanelHand
       const { bag } = store.get();
       if (bag.length === 0) body.append(emptyNote('The bag is empty. Go catch something!'));
       for (const f of bag) body.append(fishRow(f));
-      body.append(el('div', `margin-top:10px;font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};text-align:right`, `Total value: ${bagValue(bag)} coins`));
+      const total = el('div', `margin-top:10px;font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};display:flex;justify-content:flex-end;align-items:center;gap:6px`, 'Total value:');
+      total.append(coinAmount(bagValue(bag)));
+      body.append(total);
     },
     onClose,
   );
 }
 
-/** The shop: sell fish, buy worms, buy the next rod. */
+/** The shop: sell fish, buy worms, buy the next rod, line and reel. */
 export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHandle {
   let ownerNote = '';
-  const apply = (r: Outcome) => store.set(r.state);
+  const apply = (r: Outcome, boughtId?: string) => {
+    store.set(r.state);
+    if (r.ok && boughtId) popId = boughtId;
+  };
   const panel: PanelHandle = openPanel(
     'Shop',
     (body) => {
@@ -106,7 +204,11 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         ownerNote = 'The bait shop owner slips you a few worms';
       }
       const p = store.get();
-      body.append(el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Coins: ${p.coins}   Worms: ${p.worms}`));
+      const purse = el('div', `display:flex;align-items:center;gap:14px;font-size:${FS.body}px;color:${COLORS.cream}`);
+      const worms = el('span', 'display:inline-flex;align-items:center;gap:4px');
+      worms.append(spriteCanvas(wormSprite(), 16), el('span', '', String(p.worms)));
+      purse.append(coinAmount(p.coins, COLORS.cream), worms);
+      body.append(purse);
       if (ownerNote) body.append(el('div', `font-size:${FS.body}px;color:${COLORS.gold};margin-top:6px`, ownerNote));
 
       body.append(sectionTitle('Sell'));
@@ -123,56 +225,74 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
         );
       });
       if (p.bag.length > 0) {
-        const all = woodButton(`Sell all (+${bagValue(p.bag)} coins)`, () => {
+        const all = woodButton('Sell all', () => {
           apply(sellAll(store.get()));
           panel.refresh();
         }, { sfx: 'coin' });
+        coinButtonLabel(all, 'Sell all +', bagValue(p.bag));
         all.style.cssText += ';width:100%;margin-top:8px';
         body.append(all);
       }
 
       body.append(sectionTitle('Worms'));
-      const wormLine = el('div', 'display:flex;align-items:center;gap:8px');
-      wormLine.append(el('div', `flex:1;font-size:${FS.body}px`, `${SHOP.wormPackSize} worms, ${SHOP.wormPackPrice} coins`));
-      const missing = p.coins < SHOP.wormPackPrice ? SHOP.wormPackPrice - p.coins : 0;
-      wormLine.append(
-        woodButton('Buy', () => {
-          apply(buyWorms(store.get()));
-          panel.refresh();
-        }, { disabledReason: missing ? `need ${missing} more` : undefined, sfx: 'coin' }),
-      );
-      body.append(wormLine);
-
-      body.append(sectionTitle('Rods'));
-      const rod = nextRod(p);
-      const current = RODS.find((r) => r.id === p.rodId) ?? RODS[0];
-      body.append(el('div', `font-size:${FS.small}px;color:${COLORS.cream};margin-bottom:4px`, `You have: ${current.name} (${current.maxCastM} m, zone ${Math.round(current.barGear.zoneSize * 100)}%)`));
-      if (!rod) {
-        body.append(el('div', `font-size:${FS.body}px;color:${COLORS.gold}`, 'Best rod owned'));
-      } else {
-        const line = el('div', 'display:flex;flex-direction:column;gap:8px');
-        const info = el('div', `font-size:${FS.body}px`);
-        info.append(
-          el('div', '', `${rod.name}, ${rod.price} coins`),
-          el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, `Reach ${current.maxCastM} to ${rod.maxCastM} m${rod.maxCastM > 15 && current.maxCastM <= 15 ? ' (deep water)' : ''}, catch zone ${Math.round(current.barGear.zoneSize * 100)}% to ${Math.round(rod.barGear.zoneSize * 100)}%`),
-        );
-        const rodMissing = Math.max(0, rod.price - p.coins);
-        line.append(
-          info,
-          woodButton('Buy', () => {
-            apply(buyRod(store.get()));
-            panel.refresh();
-          }, { disabledReason: rodMissing ? `need ${rodMissing} more` : undefined, sfx: 'coin' }),
-        );
-        body.append(line);
-      }
-
-      // Lines and reels (slice 15a): one row each, the next item up, bought in order.
-      body.append(sectionTitle('Line and reel'));
       body.append(
-        tackleRow('Line', equippedLine(p), nextLine(p), p.coins, () => apply(buyLine(store.get())), () => panel.refresh()),
-        tackleRow('Reel', equippedReel(p), nextReel(p), p.coins, () => apply(buyReel(store.get())), () => panel.refresh()),
+        itemCard({
+          id: 'worms',
+          name: 'Worm pack',
+          price: SHOP.wormPackPrice,
+          effect: `${SHOP.wormPackSize} worms for bait`,
+          coins: p.coins,
+          buy: () => {
+            apply(buyWorms(store.get()), 'worms');
+            panel.refresh();
+          },
+        }),
       );
+
+      // Your tackle: the rod, line and reel she owns (slice 15b), then the next upgrades as cards.
+      body.append(sectionTitle('Your tackle'));
+      const rodNow = RODS.find((r) => r.id === p.rodId) ?? RODS[0];
+      body.append(
+        tackleEntry(rodNow, ''),
+        tackleEntry(equippedLine(p), 'No line yet'),
+        tackleEntry(equippedReel(p), 'No reel yet'),
+      );
+
+      body.append(sectionTitle('Upgrades'));
+      const rod = nextRod(p);
+      body.append(
+        rod
+          ? itemCard({
+              id: rod.id,
+              name: rod.name,
+              price: rod.price,
+              effect: rodEffect(rodNow, rod),
+              coins: p.coins,
+              buy: () => {
+                apply(buyRod(store.get()), rod.id);
+                panel.refresh();
+              },
+            })
+          : itemCard({
+              id: rodNow.id,
+              name: rodNow.name,
+              note: 'Best owned',
+              effect: `Reach ${rodNow.maxCastM} m, catch zone ${Math.round(rodNow.barGear.zoneSize * 100)}%`,
+              coins: p.coins,
+            }),
+      );
+      const line = nextLine(p);
+      const reel = nextReel(p);
+      const lineCard = tackleCard(equippedLine(p), line, p.coins, () => {
+        apply(buyLine(store.get()), line?.id);
+        panel.refresh();
+      });
+      const reelCard = tackleCard(equippedReel(p), reel, p.coins, () => {
+        apply(buyReel(store.get()), reel?.id);
+        panel.refresh();
+      });
+      if (lineCard) body.append(lineCard);
+      if (reelCard) body.append(reelCard);
     },
     onClose,
   );

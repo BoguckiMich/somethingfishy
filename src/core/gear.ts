@@ -28,7 +28,7 @@ export interface Line {
   price: number;
   /** Multiplies the rod's `lineDrain` (< 1 = easier). */
   drain: number;
-  /** One line for the shop, e.g. "progress drains 15% slower". */
+  /** One line for the shop, e.g. "Progress drains 15% slower". */
   effect: string;
 }
 

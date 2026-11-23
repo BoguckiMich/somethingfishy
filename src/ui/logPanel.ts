@@ -8,7 +8,7 @@ import { speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 /** A fish sprite on a canvas, scaled by whole pixels. */
-function fishCanvas(sprite: Sprite, maxW: number, maxScale: number): HTMLCanvasElement {
+export function fishCanvas(sprite: Sprite, maxW: number, maxScale: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = sprite.width;
   canvas.height = sprite.height;
