@@ -16,7 +16,7 @@ import { PAL } from '../art/palette';
 import { FONT, FS } from '../font';
 import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
-import { ALEX_FEET_Y, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
+import { ALEX_FEET_Y, ALEX_HANDS_KEY, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishKey, fishSizeClass } from '../art/fishArt';
 import { createTextures, repaintSky, TEX } from '../art/textures';
@@ -201,6 +201,7 @@ export class LakeScene extends Phaser.Scene {
   private catchBar!: CatchBarView;
   /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
   private showOffFish!: Phaser.GameObjects.Image;
+  private showOffHands!: Phaser.GameObjects.Image;
   private caughtText!: Phaser.GameObjects.Text;
   private caughtSub!: Phaser.GameObjects.Text;
   /** Eased rod bend while fighting: more while the thumb is down, less when released. */
@@ -435,7 +436,7 @@ export class LakeScene extends Phaser.Scene {
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
-    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'zoomies')) sound.play('boof');
+    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'spin')) sound.play('boof');
     this.lastPlayPhase = phase;
   }
 
@@ -794,9 +795,13 @@ export class LakeScene extends Phaser.Scene {
     this.worldImgs.push(this.alexImg);
     this.showOffFish = this.add
       .image(ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x, ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y, fishKey('perch', 0))
+      .setOrigin(0, 0)
       .setDepth(Z.angler + 0.5)
       .setVisible(false);
     this.worldImgs.push(this.showOffFish);
+    // Her hands go over the fish so they grip it.
+    this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
+    this.worldImgs.push(this.showOffHands);
     this.companions = new CompanionView(this);
 
     this.action = this.add.graphics().setDepth(Z.action);
@@ -919,9 +924,17 @@ export class LakeScene extends Phaser.Scene {
     const showingOff = this.state.kind === 'caught';
     this.alexImg.setTexture(showingOff ? alexShowOffKey(breath) : alexKey(this.lookOverride ?? this.look.dir, breath));
     this.showOffFish.setVisible(showingOff);
+    this.showOffHands.setVisible(showingOff);
     if (this.state.kind === 'caught') {
       const { speciesId, lengthCm } = this.state.hooked;
       this.showOffFish.setTexture(fishKey(speciesId, fishSizeClass(speciesId, lengthCm)));
+      // Held level at chest height at its real size: whole pixels, centred on the anchor.
+      const fw = this.showOffFish.width;
+      const fh = this.showOffFish.height;
+      this.showOffFish.setPosition(
+        ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x - Math.floor(fw / 2),
+        ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y - Math.floor(fh / 2),
+      );
     }
 
     const g = this.action;

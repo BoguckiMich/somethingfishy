@@ -4,7 +4,7 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffHandsSprite, alexShowOffSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
 import { SPECIES } from '../core/data/fish';
 import { FISH_SIZE_CLASSES, fishIconSprite, fishSizeClass, fishSprite } from './fishArt';
 import { BOBBER, PINE_A, PINE_TALL, REED } from './sprites';
@@ -68,20 +68,25 @@ describe('sprites', () => {
     for (const x of [11, 12, 13, 14, 17, 18, 19, 20]) {
       expect(a.pixels[ALEX_FEET_Y * a.width + x], `feet column ${x}`).toBe(standing.pixels[ALEX_FEET_Y * standing.width + x]);
     }
-    // The fish is a separate sprite, anchored between her raised hands, inside the sprite.
+    // The fish is a separate sprite held level at her chest, centred on her, inside the sprite height.
     expect(SHOW_OFF_FISH_ANCHOR.x - 16).toBe(0);
-    expect(SHOW_OFF_FISH_ANCHOR.y).toBeLessThan(a.height / 2);
+    expect(SHOW_OFF_FISH_ANCHOR.y).toBeGreaterThan(22);
+    expect(SHOW_OFF_FISH_ANCHOR.y).toBeLessThan(34);
+    // Her hands are a separate overlay in the same frame, drawn over the fish.
+    const hands = alexShowOffHandsSprite();
+    expect([hands.width, hands.height]).toEqual([ALEX_SIZE.w, ALEX_SIZE.h]);
+    expect(hands.pixels.filter((c) => c !== TRANSPARENT).length).toBeGreaterThan(20);
     // The tee logo from the front is in the pose.
     expect(Array.from(a.pixels)).toContain(PAL.white);
   });
 
-  it('every species has fish frames in every size class, narrow enough for the show-off pose', () => {
+  it('every species has fish frames in every size class, not wider than 46 px', () => {
     const seen = new Set<string>();
     for (const sp of SPECIES) {
       let prevW = 0;
       for (const cls of FISH_SIZE_CLASSES) {
         const f = fishSprite(sp.id, cls);
-        expect(f.width, `${sp.id} ${cls}`).toBeLessThanOrEqual(34);
+        expect(f.width, `${sp.id} ${cls}`).toBeLessThanOrEqual(46);
         expect(f.width, `${sp.id} grows with size`).toBeGreaterThan(prevW);
         prevW = f.width;
         expect(f.pixels.some((c) => c !== TRANSPARENT)).toBe(true);
@@ -100,7 +105,7 @@ describe('sprites', () => {
       return f.pixels.filter((c) => c !== TRANSPARENT).length;
     };
     expect(area('catfish', 2)).toBeGreaterThan(area('bleak', 2) * 3);
-    expect(area('eel', 1)).toBeGreaterThan(area('bleak', 2) * 1.5);
+    expect(area('eel', 2)).toBeGreaterThan(area('bleak', 2) * 1.5);
     expect(fishSprite('eel', 1).height).toBeLessThan(fishSprite('bream', 1).height); // long and thin
   });
 

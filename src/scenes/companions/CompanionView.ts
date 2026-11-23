@@ -83,6 +83,7 @@ export class CompanionView {
       tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' ? v.tail % 2 : 0,
       perked: v.shape === 'lie' || v.shape === 'sit' || v.shape === 'stand' ? v.perked : false,
       step: v.shape === 'run' ? v.step : 0,
+      carry: v.shape === 'run' && v.carry,
     };
     const d = s.dog;
     const wiggle = d.petMs > 0 ? Math.round(Math.sin(elapsed / 45)) : 0;
@@ -104,8 +105,14 @@ export class CompanionView {
 
     // Stick.
     const st = s.stick;
-    this.stick.setVisible(st.state !== 'hidden').setPosition(Math.round(st.x), Math.round(st.y)).setTint(tint);
-    if (st.state === 'carried') this.stick.setFlipX(d.face < 0);
+    // Carried, it is a bigger, angled stick gripped at the snout and flipped with the dog.
+    const carried = st.state === 'carried';
+    this.stick
+      .setTexture(carried ? TEX.stickCarry : TEX.stick)
+      .setVisible(st.state !== 'hidden')
+      .setFlipX(carried && d.face < 0)
+      .setPosition(Math.round(st.x), Math.round(st.y))
+      .setTint(tint);
 
     // Hearts float up and fade.
     for (const h of this.hearts) {
