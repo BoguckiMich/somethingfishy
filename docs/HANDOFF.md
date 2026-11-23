@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 13a merged, not pushed; 13b built, awaiting play-test)._
+_Last updated: 2026-11-23 (slice 13 merged and pushed; 14 candidate: lake moments, not grilled)._
 
 ## Current state
 
@@ -26,7 +26,8 @@ _Last updated: 2026-11-23 (slice 13a merged, not pushed; 13b built, awaiting pla
 | 11b | Readability: whole canvas renders at device resolution (K×, `src/renderScale.ts`), font → VT323 on its 12.5 px grid, update toast above the bar, `/dev/font-sheet.html` | merged |
 | 12 | Legendary: The Pale One (≥30 m, 02–04 h, 25%), abyssal fight, eerie window (still lake, murky tint, drone), hug show-off, log tile 13 | merged |
 | 13a | Daily bait box: crate on the dock, real-date day, streak tiers (GAME_DESIGN §3 → Slice 13) | merged |
-| 13b | Daily quests: 3/day, notice-board button, claim, reroll | built, awaiting play-test (`slice/13b-quests`) |
+| 13b | Daily quests: 3/day, notice-board button, claim, reroll | merged (user skipped the phone play-test) |
+| 14 | Lake moments (GAME_DESIGN Ideas) | candidate (not grilled yet) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -70,7 +71,7 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   the "slips back" line. Hug pose covers Alex from the chin down (may read as a fish standing in front
   of her). Window tint is very subtle. Extra eye only on the large sprite. `?debug=fight` uses 25 m.
 - Daily bait box (slice 13a): pure rules in `src/core/daily/` (`dates.ts`, `daily.ts`), tunables `src/core/data/daily.ts`; the tier that fills a box is the *new* tier (day-after = +1). Reviewer clicked through it in the in-app browser at phone size (crate tap opens the card without casting, Take it adds worms, crate disappears). Not seen live: the "Lucky box!" card, the sparkle, a real midnight rollover, a streak across real days (unit-tested). User OK with the crate size. Bestia does not sniff at the crate (skipped: the dog is pinned to its dock spot in `tickDock`, a walk-and-sniff activity would need new movement). The crate is small (16x12 px) with a 40 px tap area; the date is re-read every 5 s and on tab focus. Sandbox flags never save, so the streak can only be tested live with a real save and the device clock.
-- Daily quests (slice 13b): pure rules in `src/core/quests/quests.ts` (roll, sync/auto-pay, progress, claim, reroll, text), tunables + pacing reasoning in `src/core/data/quests.ts`, panel `src/ui/questPanel.ts`, button/badge/cue in `LakeScene`. Seen only in headless stills (HUD, panel, a Claim row); not seen live: a real catch advancing a quest, the "Quest done!" float, claim/reroll clicks, a midnight rollover with auto-pay, sale progress through the real shop. Targets (12-22 fish, 3-5 common, 60-300 coins...) are estimates from ~40 s per catch, never play-tested; a rare/night species quest can take more than a day (reroll exists). The quest roll uses the gear at roll time, so the first day on a new save is bamboo-only. Sale progress lives in `sellOne`/`sellAll` (inventory), catch progress in `LakeScene.noteCatch` (time of day from the game clock, record from `recordCatch`). The Pale One counts for any/deep/time quests, not species or records. The notice-board icon is a first pass. A bad saved quest list is dropped and re-rolled the same day.
+- Daily quests (slice 13b): pure rules in `src/core/quests/quests.ts` (roll, sync/auto-pay, progress, claim, reroll, text), tunables + pacing reasoning in `src/core/data/quests.ts`, panel `src/ui/questPanel.ts`, button/badge/cue in `LakeScene`. Reviewer clicked Claim and Reroll in the in-app browser at phone size (paid, badge cleared, reroll swapped kinds). Not seen live: a real catch advancing a quest, the "Quest done!" float, a midnight rollover with auto-pay, sale progress through the real shop; merged without a phone play-test. Targets (catch-any lowered to 8-15 by the reviewer, 3-5 common, 60-300 coins...) are estimates from ~40 s per catch, never play-tested; a rare/night species quest can take more than a day (reroll exists). The quest roll uses the gear at roll time, so the first day on a new save is bamboo-only. Sale progress lives in `sellOne`/`sellAll` (inventory), catch progress in `LakeScene.noteCatch` (time of day from the game clock, record from `recordCatch`). The Pale One counts for any/deep/time quests, not species or records. The notice-board icon is a first pass. A bad saved quest list is dropped and re-rolled the same day.
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
