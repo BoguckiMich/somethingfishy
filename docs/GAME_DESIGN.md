@@ -189,6 +189,38 @@ The game stars the two of them and their dog. Reference photos live untracked in
      - *Storage trouble:* `navigator.storage.persist()` on start. If writing fails the game keeps
        working and the ⚙ panel says "Can't save on this device; use Export to keep your
        progress." No other nag. (She plays on Android.)
+9. **Sound & second art pass** — decided for slice 10, split into 10a (sound) and 10b (art).
+   - **10a Sound:**
+     - *Source:* all sound is synthesised in code with Web Audio: no files, no licences, works
+       offline. A single sound that disappoints can be swapped for a CC0 file later.
+     - *SFX:* cast whoosh (pitch follows the charge), bobber plop, soft nibble tick, bite "!"
+       alert, hook strike, reel clicks while reeling in the fight, line slack (fish lost), short
+       catch jingle, longer jingle for "New species!" / "New record!", coin clink (sell/buy),
+       soft UI tap (buttons, panel open/close), dog "boof" (petting, AFK fetch). No footsteps.
+       Every SFX gets ~±5% random pitch/volume so repeats don't sound robotic.
+     - *Ambient:* water lapping always; birds by day, frogs at dusk, crickets at night, crossfaded
+       on the game clock like `dayLook`. Birds/frogs are randomly spaced calls, not a fixed loop.
+       Quiet under the SFX, no ducking during a fight.
+     - *Settings:* two toggles in the ⚙ panel, **Sounds** and **Ambience**, both on by default, no
+       volume sliders. Stored under their own key `rybki.settings.v1` (device preference): not in
+       `SaveData`, not in the export code.
+     - *Playback:* audio unlocks on the first tap; everything is silent while the page is hidden.
+     - *Dev:* `?debug=sounds` opens a sound board (a button per SFX and ambient layer + a time
+       slider for the ambient crossfade). Sandboxed like the other flags.
+   - **10b Art pass:**
+     - *Font:* a bundled OFL pixel font (self-hosted woff2, Latin Extended for Polish names),
+       replacing `monospace` everywhere (Phaser text and DOM), sizes snapped to its pixel grid.
+       Chosen by eye from sample screens of Pixelify Sans, Silkscreen and VT323.
+     - *Fish:* one hand-authored grid per species (12) at its large size, realistic enough that a
+       Polish angler recognises it; medium/small via a code shrink, hand-touched if mushy. Feeds
+       the bar icon, catch screen, show-off and log; log silhouettes are the sprite in flat
+       shadow. A contact sheet of all 12 is approved before wiring.
+     - *Panels:* all DOM panels and the canvas bottom bar get a pixel frame drawn in code
+       (canvas 9-slice as `border-image`, stepped corners, subtle wood grain, 2 px bevel buttons).
+     - *Polish folded in:* show-off fish bigger and held at her chest; catch bar frame thicker and
+       lighter; gear, worm and coin icons redrawn at a proper size; the sleep "z" redrawn;
+       Pajkel: readable seated back view (lighter jacket/hair, separate shoulders, visible rod
+       arm), fuller walking side view with a 2–3 frame walk, and **no glasses** in any view.
 
 ### v1 fish roster (decided for slice 6)
 
@@ -358,7 +390,9 @@ come once the v2 bait and lure systems provide more interesting rewards.
 7. Bag, shop, coins, rod upgrades ✅
 8. Fish log + personal bests ✅
 9. Saving (local + export code, ⚙ panel; details in §3 item 8) ✅
-10. Sound + second art pass (UI panels, fish sprites, pixel font) ← *current*
+10. Sound + second art pass (details in §3 item 9)
+    - 10a. Sound ← *current*
+    - 10b. Art pass (pixel font, panels, fish sprites, polish, Pajkel)
 11. PWA + GitHub Pages deploy
 12. Legendary fish
 13. Daily bait box + daily quests (§5)
