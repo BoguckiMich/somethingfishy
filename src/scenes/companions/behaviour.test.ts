@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   CLAP_BIG_MS,
   CLAP_MS,
+  DOG_MOUTH,
   DOG_SPOT,
   HOP_BIG_MS,
   HOP_MS,
   IDLE_BEFORE_PLAY_MS,
+  PAJ_STRIDE_PX,
+  SPIN_FLIPS,
+  SPIN_MS,
   companionEvent,
   companionPress,
   createCompanions,
   dogView,
+  pajWalkFrame,
   petDog,
   startPlayNow,
   tickCompanions,
@@ -119,9 +124,75 @@ describe('idle play on the grass', () => {
       sticks.add(s.stick.state);
     }
     expect(phases.has('chase') || phases.has('bring')).toBe(true);
-    expect(phases.has('zoomies')).toBe(true);
+    expect(phases.has('spin')).toBe(true);
+    expect(phases.has('zoomies' as never)).toBe(false);
     expect(sticks.has('flying')).toBe(true);
     expect(sticks.has('carried')).toBe(true);
+  });
+
+  it('brings the stick back in its mouth: carried at the snout, trotting with a slight bounce', () => {
+    const s = createCompanions(rng);
+    startPlayNow(s);
+    let carried = 0;
+    let peakHop = 0;
+    for (let t = 0; t < 30000; t += 50) {
+      tickCompanions(s, 50, idle, rng);
+      if (s.play.phase === 'bring' && s.stick.state === 'carried') {
+        carried++;
+        expect(dogView(s).carry).toBe(true);
+        expect(s.stick.x).toBeCloseTo(s.dog.x + s.dog.face * DOG_MOUTH.x);
+        expect(s.stick.y).toBeCloseTo(s.dog.y - s.dog.hop - DOG_MOUTH.y);
+        peakHop = Math.max(peakHop, s.dog.hop);
+      } else {
+        expect(dogView(s).carry).toBe(false);
+      }
+      if (s.play.phase === 'spin') break;
+    }
+    expect(carried).toBeGreaterThan(10);
+    expect(peakHop).toBeGreaterThan(0.5);
+    expect(peakHop).toBeLessThanOrEqual(3);
+  });
+
+  it('after the last fetch the dog spins on the spot (flips facing, hops, wags), then rests; no zoomies', () => {
+    const s = createCompanions(rng);
+    startPlayNow(s);
+    let spinStart = -1;
+    const faces: number[] = [];
+    let faceBefore: number = s.dog.face;
+    let peakHop = 0;
+    let wagged = false;
+    const spot = { x: 0, y: 0 };
+    let t = 0;
+    for (; t < 60000; t += 50) {
+      const before = s.dog.face;
+      tickCompanions(s, 50, idle, rng);
+      if (s.play.phase === 'spin') {
+        if (spinStart < 0) {
+          faceBefore = before;
+          spinStart = t;
+          spot.x = s.dog.x;
+          spot.y = s.dog.y;
+        }
+        faces.push(s.dog.face);
+        peakHop = Math.max(peakHop, s.dog.hop);
+        wagged ||= dogView(s).tail > 0;
+        expect(s.dog.x).toBeCloseTo(spot.x);
+        expect(s.dog.y).toBeCloseTo(spot.y);
+        expect(dogView(s).carry).toBe(false);
+      } else if (spinStart >= 0) {
+        break;
+      }
+    }
+    expect(spinStart).toBeGreaterThan(0);
+    expect(s.play.phase).toBe('rest');
+    expect(s.dog.hop).toBe(0);
+    expect(s.dog.wagMs).toBe(0);
+    const flips = [faceBefore, ...faces].filter((f, i, all) => i > 0 && f !== all[i - 1]).length;
+    expect(flips).toBe(SPIN_FLIPS);
+    expect(faces.length * 50).toBeGreaterThanOrEqual(SPIN_MS - 100);
+    expect(faces.length * 50).toBeLessThanOrEqual(SPIN_MS + 100);
+    expect(peakHop).toBeGreaterThan(1);
+    expect(wagged).toBe(true);
   });
 
   it('heads back to the dock on a press and sits down', () => {
@@ -141,6 +212,39 @@ describe('idle play on the grass', () => {
     startPlayNow(s);
     companionEvent(s, 'bite');
     expect(s.mode).toBe('returning');
+  });
+});
+
+describe("Pajkel's walk cycle", () => {
+  it('steps by distance: a frame per stride, so faster walking does not slide his feet', () => {
+    const s = createCompanions(rng);
+    run(s, IDLE_BEFORE_PLAY_MS + 1000);
+    const frames = new Set<number>();
+    let last = { x: s.paj.x, y: s.paj.y };
+    let dist = 0;
+    let frameAtStart = pajWalkFrame(s);
+    let changes = 0;
+    let prevFrame = frameAtStart;
+    for (let t = 0; t < 8000 && s.mode === 'leaving'; t += 50) {
+      tickCompanions(s, 50, idle, rng);
+      dist += Math.hypot(s.paj.x - last.x, s.paj.y - last.y);
+      last = { x: s.paj.x, y: s.paj.y };
+      const f = pajWalkFrame(s);
+      frames.add(f);
+      if (f !== prevFrame) changes++;
+      prevFrame = f;
+    }
+    expect(frames.size).toBe(4);
+    // One frame change per stride, give or take the first and last partial strides.
+    expect(Math.abs(changes - dist / PAJ_STRIDE_PX)).toBeLessThanOrEqual(1.5);
+  });
+
+  it('does not step while standing still', () => {
+    const s = createCompanions(rng);
+    startPlayNow(s);
+    const f = pajWalkFrame(s);
+    run(s, 1000);
+    expect(pajWalkFrame(s)).toBe(f);
   });
 });
 

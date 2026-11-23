@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { sound } from './audio/sound';
 import { isSandbox } from './core/save';
+import { loadFonts } from './font';
 import { LakeScene } from './scenes/LakeScene';
 
 export const GAME_WIDTH = 360;
@@ -15,7 +16,8 @@ try {
 }
 sound.init(storage, !isSandbox([...new URLSearchParams(location.search).keys()]));
 
-new Phaser.Game({
+// Phaser draws text on a canvas, so the pixel font must be ready before any text is created.
+void loadFonts().then(() => new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: GAME_WIDTH,
@@ -28,4 +30,4 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [LakeScene],
-});
+}));

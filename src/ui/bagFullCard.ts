@@ -1,3 +1,4 @@
+import { FS } from '../font';
 import type { BagFish } from '../core/inventory';
 import { fishName } from './bagShop';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
@@ -16,7 +17,7 @@ export function showBagFullCard(
     'Bag is full',
     (body) => {
       body.append(
-        el('div', `font-size:13px;line-height:1.4;color:${COLORS.cream};margin-bottom:10px`, `You caught a ${fishName(fish)}, ${fish.lengthCm} cm (${fish.price} coins). There is no room for it.`),
+        el('div', `font-size:${FS.body}px;line-height:1.4;color:${COLORS.cream};margin-bottom:10px`, `You caught a ${fishName(fish)}, ${fish.lengthCm} cm (${fish.price} coins). There is no room for it.`),
       );
       const col = el('div', 'display:flex;flex-direction:column;gap:8px');
       col.append(
@@ -29,7 +30,7 @@ export function showBagFullCard(
           onSwap();
         }),
       );
-      body.append(col, el('div', `font-size:11px;color:${COLORS.cream};margin-top:8px`, `Swapping lets the ${fishName(cheapest)} (${cheapest.price} coins) go.`));
+      body.append(col, el('div', `font-size:${FS.small}px;color:${COLORS.cream};margin-top:8px`, `Swapping lets the ${fishName(cheapest)} (${cheapest.price} coins) go.`));
     },
     () => {},
     false,

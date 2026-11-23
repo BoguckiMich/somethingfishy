@@ -13,8 +13,10 @@ import {
   W,
 } from '../art/layout';
 import { PAL } from '../art/palette';
+import { FONT, FS } from '../font';
+import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
-import { ALEX_FEET_Y, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
+import { ALEX_FEET_Y, ALEX_HANDS_KEY, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishKey, fishSizeClass } from '../art/fishArt';
 import { createTextures, repaintSky, TEX } from '../art/textures';
@@ -168,6 +170,8 @@ export class LakeScene extends Phaser.Scene {
   private bottomBar!: BottomBar;
   private wormLabel!: Phaser.GameObjects.Text;
   private coinLabel!: Phaser.GameObjects.Text;
+  private wormIcon!: Phaser.GameObjects.Image;
+  private coinIcon!: Phaser.GameObjects.Image;
   private wormCue!: Phaser.GameObjects.Text;
   private wormCueAge = Infinity;
   private clock: GameClock = NEW_GAME_CLOCK;
@@ -197,6 +201,7 @@ export class LakeScene extends Phaser.Scene {
   private catchBar!: CatchBarView;
   /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
   private showOffFish!: Phaser.GameObjects.Image;
+  private showOffHands!: Phaser.GameObjects.Image;
   private caughtText!: Phaser.GameObjects.Text;
   private caughtSub!: Phaser.GameObjects.Text;
   /** Eased rod bend while fighting: more while the thumb is down, less when released. */
@@ -431,7 +436,7 @@ export class LakeScene extends Phaser.Scene {
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
-    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'zoomies')) sound.play('boof');
+    if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'spin')) sound.play('boof');
     this.lastPlayPhase = phase;
   }
 
@@ -790,9 +795,13 @@ export class LakeScene extends Phaser.Scene {
     this.worldImgs.push(this.alexImg);
     this.showOffFish = this.add
       .image(ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x, ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y, fishKey('perch', 0))
+      .setOrigin(0, 0)
       .setDepth(Z.angler + 0.5)
       .setVisible(false);
     this.worldImgs.push(this.showOffFish);
+    // Her hands go over the fish so they grip it.
+    this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
+    this.worldImgs.push(this.showOffHands);
     this.companions = new CompanionView(this);
 
     this.action = this.add.graphics().setDepth(Z.action);
@@ -832,57 +841,59 @@ export class LakeScene extends Phaser.Scene {
   }
 
   private buildUi(): void {
-    const textStyle = { fontFamily: 'monospace', fontSize: '14px', color: TEXT };
+    const textStyle = { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT };
     const pad = { padding: { x: 9, y: 5 } };
     this.ui = this.add.graphics().setDepth(Z.uiPanel);
     this.clockLabel = this.add.text(8, 8, '', { ...textStyle, ...pad }).setDepth(Z.uiText);
-    const statStyle = { ...textStyle, padding: { left: 22, right: 8, top: 4, bottom: 4 } };
+    const statStyle = { ...textStyle, padding: { left: 27, right: 8, top: 4, bottom: 4 } };
     this.wormLabel = this.add.text(8, 40, '', statStyle).setDepth(Z.uiText);
     this.coinLabel = this.add.text(70, 40, '', statStyle).setDepth(Z.uiText);
+    this.wormIcon = this.add.image(0, 0, TEX.worm).setOrigin(0, 0).setDepth(Z.uiText);
+    this.coinIcon = this.add.image(0, 0, TEX.coin).setOrigin(0, 0).setDepth(Z.uiText);
     this.wormCue = this.add
-      .text(0, 0, '-1 worm', { fontFamily: 'monospace', fontSize: '14px', fontStyle: 'bold', color: '#ffb0a0', stroke: '#241a2e', strokeThickness: 4 })
+      .text(0, 0, '-1 worm', { fontFamily: FONT, fontSize: `${FS.body}px`, color: '#ffb0a0', stroke: '#241a2e', strokeThickness: 3 })
       .setOrigin(0.5, 0)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
     this.devTag = this.add
-      .text(W - 8, 38, 'DEV · not saving', { fontFamily: 'monospace', fontSize: '11px', color: ALERT, padding: { x: 5, y: 3 } })
+      .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: { x: 5, y: 3 } })
       .setOrigin(1, 0)
       .setDepth(Z.uiText)
       .setVisible(this.sandbox);
     this.zoneLabel = this.add
-      .text(W / 2, 84, '', { ...textStyle, ...pad, fontSize: '16px' })
+      .text(W / 2, 84, '', { ...textStyle, ...pad })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.toast = this.add
-      .text(W / 2, 120, '', { ...textStyle, ...pad, fontSize: '18px', color: ALERT })
+      .text(W / 2, 120, '', { ...textStyle, ...pad, color: ALERT })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.alertMark = this.add
-      .text(0, 0, '!', { fontFamily: 'monospace', fontSize: '22px', fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 4 })
+      .text(0, 0, '!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5, 1)
       .setDepth(Z.alert)
       .setVisible(false);
     this.caughtText = this.add
-      .text(W / 2, 206, 'Caught!', { fontFamily: 'monospace', fontSize: '40px', fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 7 })
+      .text(W / 2, 206, 'Caught!', { fontFamily: FONT, fontSize: `${FS.title}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 6 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtSub = this.add
-      .text(W / 2, 240, '', { fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold', color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, 240, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: TEXT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtBadge = this.add
-      .text(W / 2, 274, '', { fontFamily: 'monospace', fontSize: '22px', fontStyle: 'bold', color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
+      .text(W / 2, 274, '', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
     this.caughtNote = this.add
       .text(W / 2, 296, '', {
-        fontFamily: 'monospace', fontSize: '13px', color: TEXT, align: 'center', stroke: '#241a2e', strokeThickness: 4,
+        fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, align: 'center', stroke: '#241a2e', strokeThickness: 4,
         wordWrap: { width: W - 48 },
       })
       .setOrigin(0.5, 0)
@@ -891,7 +902,7 @@ export class LakeScene extends Phaser.Scene {
     this.hint = this.add.text(W / 2, BAR_TOP - 18, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     for (let i = 0; i < 3; i++) {
       const text = this.add
-        .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: TEXT, padding: { x: 6, y: 3 } })
+        .text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, padding: { x: 6, y: 3 } })
         .setOrigin(0.5, 1)
         .setDepth(Z.uiText)
         .setVisible(false);
@@ -913,9 +924,17 @@ export class LakeScene extends Phaser.Scene {
     const showingOff = this.state.kind === 'caught';
     this.alexImg.setTexture(showingOff ? alexShowOffKey(breath) : alexKey(this.lookOverride ?? this.look.dir, breath));
     this.showOffFish.setVisible(showingOff);
+    this.showOffHands.setVisible(showingOff);
     if (this.state.kind === 'caught') {
       const { speciesId, lengthCm } = this.state.hooked;
       this.showOffFish.setTexture(fishKey(speciesId, fishSizeClass(speciesId, lengthCm)));
+      // Held level at chest height at its real size: whole pixels, centred on the anchor.
+      const fw = this.showOffFish.width;
+      const fh = this.showOffFish.height;
+      this.showOffFish.setPosition(
+        ALEX_POS.x + SHOW_OFF_FISH_ANCHOR.x - Math.floor(fw / 2),
+        ALEX_POS.y + SHOW_OFF_FISH_ANCHOR.y - Math.floor(fh / 2),
+      );
     }
 
     const g = this.action;
@@ -1370,10 +1389,7 @@ export class LakeScene extends Phaser.Scene {
       const l = Math.round(t.x - t.originX * w);
       const top = Math.round(t.y - t.originY * h);
       const a = Math.min(1, t.alpha);
-      g.fillStyle(PAL.outline, a).fillRect(l - 1, top, w + 2, h).fillRect(l, top - 1, w, h + 2);
-      g.fillStyle(PAL.woodLight, a).fillRect(l, top, w, h);
-      g.fillStyle(PAL.woodDeep, 0.9 * a).fillRect(l + 1, top + 1, w - 2, h - 2);
-      g.fillStyle(PAL.woodDark, 0.9 * a).fillRect(l + 1, top + 1, w - 2, 1);
+      drawFrame(g, l, top, w, h, 'hud', a);
     };
     panel(this.clockLabel);
     panel(this.wormLabel);
@@ -1387,25 +1403,18 @@ export class LakeScene extends Phaser.Scene {
       t.text.setVisible(t.age < 2400);
       panel(t.text);
     }
-    // Tiny pixel icons: a worm and a coin.
-    const wx = Math.round(this.wormLabel.x) + 6;
-    const wy = Math.round(this.wormLabel.y + this.wormLabel.height / 2);
-    g.fillStyle(PAL.pink).fillRect(wx, wy - 1, 3, 2).fillRect(wx + 3, wy, 3, 2).fillRect(wx + 6, wy - 1, 3, 2);
-    g.fillStyle(PAL.cream).fillRect(wx + 8, wy - 1, 1, 1);
-    const cx = Math.round(this.coinLabel.x) + 6;
-    const cy = Math.round(this.coinLabel.y + this.coinLabel.height / 2);
-    g.fillStyle(PAL.outline).fillRect(cx - 1, cy - 4, 10, 8).fillRect(cx, cy - 5, 8, 10);
-    g.fillStyle(PAL.gold).fillRect(cx, cy - 4, 8, 8).fillRect(cx + 1, cy - 5, 6, 10);
-    g.fillStyle(0xb78837).fillRect(cx + 3, cy - 2, 2, 4);
+    // Worm and coin icons sit in the left padding of their labels.
+    const place = (icon: Phaser.GameObjects.Image, label: Phaser.GameObjects.Text) =>
+      icon.setPosition(Math.round(label.x) + 5, Math.round(label.y + label.height / 2) - 8).setVisible(label.visible);
+    place(this.wormIcon, this.wormLabel);
+    place(this.coinIcon, this.coinLabel);
     this.bottomBar.draw(g, {
       enabled: this.state.kind === 'idle' && !this.panel,
       bagCount: this.player.bag.length,
       bagSlots: SHOP.bagSlots,
     });
     // Pencil button (rename), top right.
-    g.fillStyle(PAL.outline).fillRect(PENCIL.x - 1, PENCIL.y, PENCIL.width + 2, PENCIL.height).fillRect(PENCIL.x, PENCIL.y - 1, PENCIL.width, PENCIL.height + 2);
-    g.fillStyle(PAL.woodLight).fillRect(PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height);
-    g.fillStyle(PAL.woodDeep, 0.9).fillRect(PENCIL.x + 1, PENCIL.y + 1, PENCIL.width - 2, PENCIL.height - 2);
+    drawFrame(g, PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height, 'buttonWood');
     for (let i = 0; i < 9; i++) {
       g.fillStyle(i < 2 ? PAL.pink : i < 7 ? PAL.gold : PAL.cream).fillRect(PENCIL.x + 8 + i * 1.5, PENCIL.y + 18 - i * 1.5, 3, 3);
     }

@@ -102,6 +102,21 @@ export const HEART = sprite(
 
 export const STICK = sprite('sLsssss', { s: PAL.woodLight, L: PAL.woodHi });
 
+/**
+ * The stick as the dog carries it: gripped across the mouth, the front end up and ahead of the
+ * snout, the back end trailing behind the head, a small twig on top. Centred on its middle
+ * (the mouth); faces right, flipped with the dog.
+ */
+export const STICK_CARRY_SIZE = { w: 17, h: 8 };
+export function stickCarrySprite(): Sprite {
+  const p = new Pix(STICK_CARRY_SIZE.w, STICK_CARRY_SIZE.h);
+  p.line(4, 6, 16, 3, PAL.woodLight);
+  p.line(4, 5, 16, 2, PAL.woodHi);
+  p.line(12, 3, 14, 0, PAL.woodLight); // a twig
+  p.set(4, 6, PAL.wood);
+  return p.outline().done();
+}
+
 // ---- Alex (player): standing at the dock edge, ¾ back view, rod in her right hand ----------
 
 export const ALEX_SIZE = { w: 32, h: 56 };
@@ -223,10 +238,23 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
   return p.outline().done();
 }
 
-// ---- Alex showing off the catch: front-facing, both hands raised --------------------------------
+// ---- Alex showing off the catch: front-facing, holding the fish at her chest --------------------------------
 
 /** Centre of the fish she holds, in sprite pixels. The fish itself is a separate sprite (see fishArt.ts). */
-export const SHOW_OFF_FISH_ANCHOR = { x: 16, y: 21 };
+export const SHOW_OFF_FISH_ANCHOR = { x: 16, y: 29 };
+export const ALEX_HANDS_KEY = 'alex:showoff:hands';
+
+/** The two hands gripping the fish's ends, drawn over the fish (same size and origin as her sprite). */
+export function alexShowOffHandsSprite(): Sprite {
+  const p = new Pix(32, 56);
+  for (const side of [-1, 1] as const) {
+    const X = (x: number) => (side < 0 ? x : 31 - x);
+    p.rect(Math.min(X(8), X(10)), 28, 3, 4, PAL.skin);
+    p.rect(Math.min(X(8), X(10)), 31, 3, 1, PAL.skinShade);
+    p.set(X(10), 28, PAL.skinShade); // thumb over the fish
+  }
+  return p.outline().done();
+}
 export const alexShowOffKey = (breath: 0 | 1) => `alex:showoff:${breath}`;
 
 export function alexShowOffSprite(breath: 0 | 1): Sprite {
@@ -241,19 +269,18 @@ export function alexShowOffSprite(breath: 0 | 1): Sprite {
     for (let x = x0; x <= x1; x++) p.set(x, y, x <= 11 ? PAL.teeLight : x >= 19 ? PAL.teeDark : PAL.tee);
   }
   p.blit(LOGO, 11, 27);
-  // Both arms bent up: short sleeve, upper arm out to the elbow, forearm up to the hand.
+  // Both arms bent in front of her: short sleeve, upper arm down to the elbow, forearm in to the
+  // hands that carry the fish at chest height (the hands are a separate overlay, see above).
   // The smartwatch is on her left wrist (the right side of the picture).
   for (const side of [-1, 1] as const) {
     const X = (x: number) => (side < 0 ? x : 31 - x);
-    p.rect(side < 0 ? 8 : 21, 22, 3, 3, PAL.tee);
-    p.line(X(8), 25, X(6), 28, PAL.skin);
-    p.line(X(9), 25, X(7), 28, PAL.skinShade);
-    p.line(X(6), 28, X(6), 21, PAL.skin);
-    p.line(X(7), 27, X(7), 21, side < 0 ? PAL.skinShade : PAL.skin);
-    p.rect(side < 0 ? 5 : 23, 18, 4, 3, PAL.skin); // hand, gripping the fish's end
-    p.set(X(6), 19, PAL.skinShade);
+    p.rect(side < 0 ? 8 : 21, 22, 3, 4, PAL.tee);
+    p.line(X(8), 26, X(7), 29, PAL.skin);
+    p.line(X(9), 26, X(8), 29, PAL.skinShade);
+    p.line(X(7), 30, X(9), 30, PAL.skin);
+    p.line(X(8), 31, X(10), 31, PAL.skinShade);
   }
-  p.rect(25, 22, 2, 1, PAL.watch);
+  p.rect(22, 30, 2, 1, PAL.watch);
   paintAlexLegs(p);
   // Neck.
   p.rect(14, 17 + dy, 3, 5 - dy, PAL.skinShade);
@@ -286,92 +313,117 @@ export function alexShowOffSprite(breath: 0 | 1): Sprite {
   return p.outline().done();
 }
 
-// ---- Pajkel (companion): broad, messy blond hair, long beard, sunglasses ---------------------
+// ---- Pajkel (companion): broad, messy blond hair, long brown beard, a slate-blue jacket ------------
 
 export const PAJ_SIZE = { w: 40, h: 44 };
 export type PajPose = 'sit' | 'sip' | 'cheer' | 'look';
 
+const pajHair = (x: number, y: number) => {
+  const n = noise(x, y);
+  if (n > 0.62) return PAL.pajHairLight;
+  if (n < 0.18 || y > 19) return PAL.pajHairDark;
+  return PAL.pajHair;
+};
+const pajBeard = (x: number, y: number) => {
+  const n = noise(x * 2, y);
+  if (y > 20 && n > 0.78) return PAL.beardGrey;
+  if (n > 0.62) return PAL.beardLight;
+  if (n < 0.25 || y > 24) return PAL.beardDark;
+  return PAL.beard;
+};
+
+/**
+ * Seen from behind, sitting on the dock with the rod in his left hand (left of the picture) and the
+ * thermos in his right. Slate jacket with a collar, two shoulders and a back seam; the head is
+ * turned a little to the right so the cheek and the long beard show ('look' faces the water
+ * squarely: only the back of the head).
+ */
 export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
   const p = new Pix(40, 44);
-  // Broad black tee.
-  for (let y = 24; y <= 41; y++) {
+  const dy = breath;
+  // Jacket body: sloping shoulders, a darker side each, a seam down the back.
+  for (let y = 22; y <= 41; y++) {
     let x0 = 10;
     let x1 = 29;
-    if (y === 24) [x0, x1] = [13, 26];
-    else if (y === 25) [x0, x1] = [11, 28];
+    if (y === 22) [x0, x1] = [15, 24];
+    else if (y === 23) [x0, x1] = [12, 27];
+    else if (y === 24) [x0, x1] = [11, 28];
     else if (y >= 40) [x0, x1] = [11, 28];
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 12 ? PAL.teeLight : x >= 26 ? PAL.teeDark : PAL.tee);
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 13 ? PAL.jacketLight : x >= 26 ? PAL.jacketDark : PAL.jacket);
   }
-  // Left arm hanging, right arm holding the thermos (or raised).
-  p.rect(7, 26, 3, 5, PAL.tee);
-  p.rect(7, 31, 3, 5, PAL.skin);
-  p.rect(9, 31, 1, 5, PAL.skinShade);
-  if (pose === 'sip') {
-    p.rect(29, 26, 3, 5, PAL.tee);
-    p.rect(29, 21, 3, 6, PAL.skin);
-    p.rect(29, 14, 4, 7, PAL.mug);
-    p.rect(29, 14, 1, 7, PAL.mugDark);
-    p.rect(29, 12, 4, 2, PAL.stoneLight);
-  } else if (pose === 'cheer') {
-    p.rect(29, 26, 3, 4, PAL.tee);
-    p.rect(29, 12, 3, 14, PAL.skin);
-    p.rect(31, 12, 1, 14, PAL.skinShade);
-    p.rect(28, 5, 5, 7, PAL.mug);
-    p.rect(28, 5, 1, 7, PAL.mugDark);
-    p.rect(28, 3, 5, 2, PAL.stoneLight);
-  } else {
-    p.rect(29, 26, 3, 5, PAL.tee);
-    p.rect(29, 31, 3, 5, PAL.skin);
-    p.rect(30, 30, 4, 8, PAL.mug);
-    p.rect(30, 30, 1, 8, PAL.mugDark);
-    p.rect(30, 28, 4, 2, PAL.stoneLight);
-  }
-  const dy = breath;
-  // Messy shoulder-length dirty-blond hair (head + back), with flyaway strands.
-  const hair = (x: number, y: number) => {
-    const n = noise(x, y);
-    if (n > 0.72) return PAL.pajHairLight;
-    if (n < 0.22 || y > 17) return PAL.pajHairDark;
-    return PAL.pajHair;
+  p.line(19, 27, 19, 41, PAL.jacketDark); // back seam
+  p.line(14, 24, 11, 26, PAL.jacketDark); // where each shoulder meets the arm
+  p.line(25, 24, 28, 26, PAL.jacketDark);
+  // Neck, then the collar over its foot.
+  p.rect(17, 17, 6, 6, PAL.skinShade);
+  p.rect(16, 21, 8, 2, PAL.jacketDark);
+  p.rect(17, 21, 6, 1, PAL.jacket);
+  // Left arm (picture left) bent forward holding the rod: sleeve, hand, and the rod rising away.
+  p.rect(5, 25, 5, 9, PAL.jacket);
+  p.rect(5, 25, 1, 9, PAL.jacketLight);
+  p.rect(9, 25, 1, 9, PAL.jacketDark);
+  p.rect(5, 34, 5, 3, PAL.skin);
+  p.rect(9, 34, 1, 3, PAL.skinShade);
+  p.line(7, 33, 4, 3, PAL.woodHi);
+  p.line(8, 33, 5, 3, PAL.woodDark);
+  p.rect(6, 34, 3, 2, PAL.woodDark); // the grip in his fist
+  // Right arm (picture right): thermos in hand, or raised to sip / cheer.
+  const sleeve = (x: number, y: number, h: number) => {
+    p.rect(x, y, 4, h, PAL.jacket);
+    p.rect(x + 3, y, 1, h, PAL.jacketDark);
   };
-  p.ell(20.5, 10 + dy, 9.5, 8, hair);
-  for (let y = 14; y <= 23; y++) for (let x = 11; x <= 19; x++) if (noise(x + 3, y) > 0.12 + (y - 14) * 0.03) p.set(x, y + (y < 18 ? dy : 0), hair(x, y));
-  if (pose === 'look') {
-    // Looking at the water: only the back of the head and beard edges show.
-    p.ell(20.5, 11 + dy, 9.5, 9, hair);
-    for (let y = 14; y <= 22; y++) {
-      p.set(10, y, PAL.beard);
-      p.set(31, y, PAL.beardLight);
-    }
-    p.rect(11, 22, 20, 2, PAL.pajHairDark);
+  if (pose === 'sip') {
+    sleeve(29, 25, 5);
+    p.rect(30, 20, 3, 6, PAL.skin);
+    p.rect(29, 13, 4, 7, PAL.mug);
+    p.rect(29, 13, 1, 7, PAL.mugDark);
+    p.rect(29, 11, 4, 2, PAL.stoneLight);
+  } else if (pose === 'cheer') {
+    sleeve(29, 25, 4);
+    p.rect(30, 12, 3, 14, PAL.skin);
+    p.rect(32, 12, 1, 14, PAL.skinShade);
+    p.rect(29, 5, 5, 7, PAL.mug);
+    p.rect(29, 5, 1, 7, PAL.mugDark);
+    p.rect(29, 3, 5, 2, PAL.stoneLight);
   } else {
-    // Face in profile looking right: skin, sunglasses with a temple arm, nose.
-    p.ell(26, 13 + dy, 5, 6, PAL.skin);
-    p.rect(30, 12 + dy, 3, 2, PAL.skin);
-    p.rect(24, 10 + dy, 8, 3, PAL.shades);
-    p.line(24, 10 + dy, 15, 9 + dy, PAL.shades);
-    p.set(29, 10 + dy, PAL.shadesGlint);
-    p.set(30, 10 + dy, PAL.shadesGlint);
-    // Long full brown beard: a moustache band, then a big spade hanging over the chest.
-    const beard = (x: number, y: number) => {
-      const n = noise(x * 2, y);
-      if (y > 20 && n > 0.78) return PAL.beardGrey;
-      if (n > 0.62) return PAL.beardLight;
-      if (n < 0.25 || y > 24) return PAL.beardDark;
-      return PAL.beard;
-    };
-    for (let y = 14; y <= 28; y++) {
-      let x0 = 18;
-      let x1 = 31;
-      if (y === 14) [x0, x1] = [19, 28];
-      else if (y >= 22 && y <= 25) [x0, x1] = [19, 30];
-      else if (y === 26) [x0, x1] = [21, 29];
-      else if (y === 27) [x0, x1] = [23, 28];
-      else if (y === 28) [x0, x1] = [24, 27];
-      for (let x = x0; x <= x1; x++) p.set(x, y + (y < 20 ? dy : 0), beard(x, y));
+    sleeve(29, 25, 7);
+    p.rect(30, 32, 3, 3, PAL.skin);
+    p.rect(30, 31, 4, 8, PAL.mug);
+    p.rect(30, 31, 1, 8, PAL.mugDark);
+    p.rect(30, 29, 4, 2, PAL.stoneLight);
+  }
+  // Messy shoulder-length dirty-blond hair: the crown, and strands falling over the collar.
+  const lobe = (x0: number, x1: number, density: number) => {
+    for (let y = 14; y <= 23; y++) for (let x = x0; x <= x1; x++) if (noise(x + 3, y) > density + (y - 14) * 0.035) p.set(x, y + (y < 18 ? dy : 0), pajHair(x, y));
+  };
+  p.ell(20.5, 10 + dy, 9.5, 8.5, pajHair);
+  if (pose === 'look') {
+    p.ell(20.5, 12 + dy, 9.5, 9, pajHair);
+    lobe(11, 16, 0.08);
+    lobe(25, 30, 0.08);
+    // Beard edges peeking out past the jaw on both sides.
+    for (let y = 14; y <= 21; y++) {
+      p.set(10, y, pajBeard(10, y));
+      p.set(31, y, pajBeard(31, y));
     }
-    p.rect(27, 15 + dy, 5, 1, PAL.beardDark);
-    if (pose === 'sip') p.rect(28, 17 + dy, 3, 1, PAL.beardDark);
+    for (let x = 17; x <= 23; x++) p.set(x, 18 + (x % 2), PAL.pajHairDark); // hair parted over the nape
+  } else {
+    lobe(11, 17, 0.1);
+    // Head turned right: a sliver of cheek, brow, eye and nose, the beard hanging under it.
+    p.ell(27.5, 13 + dy, 3.6, 5.5, PAL.skin);
+    p.rect(30, 13 + dy, 3, 2, PAL.skin); // nose
+    p.set(29, 12 + dy, PAL.outline); // eye
+    p.line(27, 10 + dy, 31, 10 + dy, PAL.pajHairDark); // brow
+    for (let y = 15; y <= 27; y++) {
+      let x0 = 22;
+      let x1 = 31;
+      if (y >= 22) [x0, x1] = [24, 30];
+      if (y >= 25) [x0, x1] = [25, 29];
+      if (y >= 27) [x0, x1] = [26, 28];
+      for (let x = x0; x <= x1; x++) p.set(x, y + (y < 20 ? dy : 0), pajBeard(x, y));
+    }
+    p.rect(28, 16 + dy, 5, 1, PAL.beardDark); // moustache
+    if (pose === 'sip') p.rect(29, 18 + dy, 3, 1, PAL.beardDark);
   }
   return p.outline().done();
 }
@@ -379,49 +431,71 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
 // Standing / walking side view, facing right (flip for left).
 export const PAJ_WALK_SIZE = { w: 32, h: 52 };
 export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw';
+/** Number of frames in the walk cycle (walk0..walkN-1). */
+export const PAJ_WALK_FRAMES = 4;
 
 export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const p = new Pix(32, 52);
-  const f = pose.startsWith('walk') ? Number(pose[4]) : 0;
-  const swing = pose === 'stand' || pose === 'throw' ? 0 : [-4, 0, 4, 0][f];
-  const bob = pose === 'stand' || pose === 'throw' ? 0 : f % 2 === 1 ? 1 : 0;
-  // Legs (jeans) and shoes.
-  const leg = (x: number, c: number) => {
-    p.rect(x, 35 + bob, 5, 14 - bob, c);
-    p.rect(x, 48, 6, 3, PAL.shoeDark);
+  const walking = pose.startsWith('walk');
+  const f = walking ? Number(pose[4]) : 0;
+  // Stride: legs apart in frames 0 and 2 (opposite ways), passing under the body in 1 and 3.
+  const swing = walking ? [-5, 0, 5, 0][f] : 0;
+  const passing = walking && f % 2 === 1;
+  const bob = passing ? 1 : 0;
+  // Far leg (darker, behind) then near leg: 6 px wide, the passing leg lifted at the knee.
+  const leg = (x: number, c: number, lifted: boolean) => {
+    const top = 32 + bob;
+    const foot = lifted ? 46 : 48;
+    p.rect(x, top, 6, foot - top + 1, c);
+    p.rect(x, foot - 5, 1, 6, c === PAL.jeans ? PAL.denimLight : c);
+    p.rect(x + (lifted ? 1 : 0), foot + 1, 8, 3, PAL.shoeDark);
+    p.rect(x + (lifted ? 1 : 0), foot + 1, 8, 1, PAL.shoe);
   };
-  leg(12 - swing, PAL.denimDark);
-  leg(14 + swing, PAL.jeans);
-  // Torso: broad black tee.
-  for (let y = 18 + bob; y <= 36; y++) for (let x = 8; x <= 23; x++) p.set(x, y, x <= 11 ? PAL.teeLight : x >= 20 ? PAL.teeDark : PAL.tee);
-  // Arm.
-  if (pose === 'throw') {
-    p.line(17, 21, 21, 8, PAL.skin);
-    p.line(18, 21, 22, 8, PAL.skin);
-    p.rect(16, 19, 5, 4, PAL.tee);
-    p.blit(STICK, 20, 6);
-  } else {
-    p.rect(14, 19 + bob, 5, 5, PAL.tee);
-    p.rect(14 + swing / 2, 24 + bob, 4, 8, PAL.skin);
+  const farLift = passing && f === 1;
+  const nearLift = passing && f === 3;
+  leg(11 - swing, PAL.denimDark, farLift);
+  leg(14 + swing, PAL.jeans, nearLift);
+  // Torso: a broad jacket with a belly in front and a lighter back.
+  for (let y = 18 + bob; y <= 34; y++) {
+    let x0 = 7;
+    let x1 = y >= 24 ? 26 : 24;
+    if (y === 18 + bob) [x0, x1] = [10, 22];
+    else if (y === 19 + bob) [x0, x1] = [8, 24];
+    else if (y >= 33) [x0, x1] = [8, 24];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 10 ? PAL.jacketLight : x >= 22 ? PAL.jacketDark : PAL.jacket);
   }
-  // Head: hair, face profile, sunglasses, beard.
-  const hair = (x: number, y: number) => (noise(x, y) > 0.7 ? PAL.pajHairLight : noise(x, y) < 0.25 ? PAL.pajHairDark : PAL.pajHair);
-  p.ell(15, 9 + bob, 7, 7, hair);
-  for (let y = 12; y <= 21; y++) for (let x = 8; x <= 13; x++) if (noise(x, y + 4) > 0.2 + (y - 12) * 0.03) p.set(x, y + bob, hair(x, y));
+  p.line(8, 34, 24, 34, PAL.jacketDark); // hem
+  // Near arm: sleeve from the shoulder, swinging opposite the near leg, hand at the end.
+  if (pose !== 'throw') {
+    const hx = Math.round(16 - swing * 0.9);
+    const sx = 15;
+    for (let dx = 0; dx < 5; dx++) p.line(sx + dx, 21 + bob, hx + dx, 27 + bob, dx === 4 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
+    p.rect(hx, 28 + bob, 5, 4, PAL.skin);
+    p.rect(hx + 4, 28 + bob, 1, 4, PAL.skinShade);
+  }
+  // Head: hair, a profile face (no glasses), the long beard.
+  p.ell(15, 9 + bob, 7, 7, pajHair);
+  for (let y = 12; y <= 21; y++) for (let x = 7; x <= 13; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.03) p.set(x, y + bob, pajHair(x, y));
   p.ell(19, 11 + bob, 4, 5, PAL.skin);
-  p.rect(23, 11 + bob, 2, 2, PAL.skin);
-  p.rect(18, 8 + bob, 7, 3, PAL.shades);
-  p.line(18, 8 + bob, 10, 8 + bob, PAL.shades);
-  p.set(23, 8 + bob, PAL.shadesGlint);
-  const beard = (x: number, y: number) => (noise(x * 2, y) > 0.62 ? PAL.beardLight : noise(x * 2, y) < 0.28 || y > 20 ? PAL.beardDark : PAL.beard);
-  for (let y = 12; y <= 24; y++) {
+  p.rect(23, 11 + bob, 2, 2, PAL.skin); // nose
+  p.set(21, 9 + bob, PAL.outline); // eye
+  p.line(20, 7 + bob, 23, 7 + bob, PAL.pajHairDark); // brow
+  for (let y = 12; y <= 25; y++) {
     let x0 = 13;
     let x1 = 24;
-    if (y >= 20) [x0, x1] = [15, 23];
-    if (y >= 23) [x0, x1] = [17, 21];
-    for (let x = x0; x <= x1; x++) p.set(x, y + bob, beard(x, y));
+    if (y >= 20) [x0, x1] = [15, 24];
+    if (y >= 23) [x0, x1] = [17, 22];
+    if (y >= 25) [x0, x1] = [18, 21];
+    for (let x = x0; x <= x1; x++) p.set(x, y + bob, pajBeard(x, y));
   }
   p.rect(21, 12 + bob, 4, 1, PAL.beardDark);
+  if (pose === 'throw') {
+    // The arm winds up in front of the beard, stick in the fist.
+    for (let dx = 0; dx < 4; dx++) p.line(17 + dx, 22, 24 + dx, 11, dx === 3 ? PAL.jacketDark : PAL.jacket);
+    p.rect(25, 7, 4, 5, PAL.skin);
+    p.rect(28, 7, 1, 5, PAL.skinShade);
+    p.blit(STICK, 25, 6);
+  }
   return p.outline().done();
 }
 
@@ -436,10 +510,12 @@ export interface DogFrame {
   perked: boolean;
   /** Run cycle 0..3. */
   step: number;
+  /** Carrying the stick: head up, tail high (run only). */
+  carry?: boolean;
 }
 
 export function dogKey(f: DogFrame): string {
-  return `dog:${f.shape}:${f.tail}:${f.perked ? 'p' : 'f'}:${f.step}`;
+  return `dog:${f.shape}:${f.tail}:${f.perked ? 'p' : 'f'}:${f.step}${f.carry ? ':c' : ''}`;
 }
 
 export function dogSprite(f: DogFrame): Sprite {
@@ -510,8 +586,12 @@ export function dogSprite(f: DogFrame): Sprite {
     p.line(21, 14, 23 + stretch, 21, PAL.gingerLight);
     p.line(8, 14, 6 - stretch, 21, PAL.ginger);
     p.line(9, 14, 7 - stretch, 21, PAL.ginger);
-    head(25, 7);
-    p.line(5, 9, 2, 5, PAL.ginger);
+    const up = f.carry ? 1 : 0; // proud: chin up
+    head(25, 7 - up);
+    if (f.carry) {
+      p.line(5, 9, 3, 4, PAL.ginger); // tail held high with a curl
+      p.line(3, 4, 4, 2, PAL.gingerLight);
+    } else p.line(5, 9, 2, 5, PAL.ginger);
   }
   return p.outline().done();
 }
@@ -527,5 +607,6 @@ export function allDogFrames(): DogFrame[] {
     }
   }
   for (let step = 0; step < 4; step++) out.push({ shape: 'run', tail: 0, perked: false, step });
+  for (let step = 0; step < 4; step++) out.push({ shape: 'run', tail: 0, perked: false, step, carry: true });
   return out;
 }

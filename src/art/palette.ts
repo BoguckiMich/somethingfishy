@@ -112,8 +112,10 @@ export const PAL = {
   beardLight: 0xa17a4c,
   beardDark: 0x573a20,
   beardGrey: 0x9a8a76,
-  shades: 0x1a1a24,
-  shadesGlint: 0x66789a,
+  // Pajkel's jacket: lighter than the black tee so he reads against the dark dock.
+  jacket: 0x62758c,
+  jacketLight: 0x8396ad,
+  jacketDark: 0x46566a,
   jeans: 0x34425e,
   shoe: 0xe6e1d6,
   shoeDark: 0x4a4455,

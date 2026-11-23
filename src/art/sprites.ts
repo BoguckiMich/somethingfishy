@@ -404,23 +404,3 @@ export const POST = sprite(
 `,
   { o: PAL.outline, H: PAL.woodHi, L: PAL.woodLight, w: PAL.wood, d: PAL.woodDark, D: PAL.woodDeep },
 );
-
-/** The settings button's gear: 13 x 13, cream with a dark rim and a centre hole. */
-export const GEAR = sprite(
-  `
-  .....ooo.....
-  .oo..oGo..oo.
-  oGGooGGGooGGo
-  oGGGGGGGGGGGo
-  .ooGGGGGGGoo.
-  ..oGGhhhGGo..
-  .oGGGhhhGGGo.
-  ..oGGhhhGGo..
-  .ooGGGGGGGoo.
-  oGGGGGGGGGGGo
-  oGGooGGGooGGo
-  .oo..oGo..oo.
-  .....ooo.....
-`,
-  { o: PAL.outline, G: PAL.cream, h: PAL.woodDeep },
-);

@@ -213,7 +213,11 @@ The game stars the two of them and their dog. Reference photos live untracked in
    - **10b Art pass:**
      - *Font:* a bundled OFL pixel font (self-hosted woff2, Latin Extended for Polish names),
        replacing `monospace` everywhere (Phaser text and DOM), sizes snapped to its pixel grid.
-       Chosen by eye from sample screens of Pixelify Sans, Silkscreen and VT323.
+       Chosen by eye from sample screens of Pixelify Sans, Silkscreen and VT323: first Pixelify Sans,
+       then switched to **Tiny5** because Pixelify's "5" reads as S/8 and "B" as G ("15 coins" looked
+       like "18"). Tiny5 has one weight (no bold anywhere; emphasis by colour/size). Sizes: 15 px for
+       all real text (off-grid but clean on phones), 20 headings, 30 title, 10 only for log-tile hints
+       and the dev tag.
      - *Fish:* one hand-authored grid per species (12) at its large size, realistic enough that a
        Polish angler recognises it; medium/small via a code shrink, hand-touched if mushy. Feeds
        the bar icon, catch screen, show-off and log; log silhouettes are the sprite in flat
@@ -225,8 +229,9 @@ The game stars the two of them and their dog. Reference photos live untracked in
        Pajkel: readable seated back view (lighter jacket/hair, separate shoulders, visible rod
        arm), fuller walking side view with a 2–3 frame walk, and **no glasses** in any view.
      - *Dog fetch (from the 10a play-test):* the "bringing the stick back" graphics need polish,
-       and the zoomies running in circles look weird; rework both (shape of the run decided in
-       10b).
+       and the zoomies running in circles look weird. Decided: **zoomies are dropped**; after the
+       last fetch the dog does a happy in-place spin and tail wag, then rests. The bring-back
+       graphics get polished (stick clearly in the mouth, proud trot).
 
 ### v1 fish roster (decided for slice 6)
 

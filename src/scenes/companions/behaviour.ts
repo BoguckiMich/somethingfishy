@@ -24,6 +24,14 @@ const THROW_X: [number, number] = [200, 320];
 const THROW_Y: [number, number] = [508, 572];
 
 export const IDLE_BEFORE_PLAY_MS = 25_000;
+/** The happy spin after the last fetch: the dog flips to face the other way this many times over this long. */
+export const SPIN_MS = 1000;
+export const SPIN_FLIPS = 4;
+const SPIN_HOP = 4;
+/** Where the stick sits when carried: this far in front of the dog's feet and this high (before the bounce). */
+export const DOG_MOUTH = { x: 15, y: 14 };
+/** Pajkel's walk cycle advances one frame per this many pixels travelled. */
+export const PAJ_STRIDE_PX = 6;
 const PAJ_WALK_SPEED = 46;
 const PAJ_RUN_SPEED = 90;
 const DOG_RUN_SPEED = 120;
@@ -39,7 +47,7 @@ export const HOP_BIG_MS = 2800;
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
 export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning';
-type PlayPhase = 'throw' | 'chase' | 'bring' | 'drop' | 'zoomies' | 'rest';
+type PlayPhase = 'throw' | 'chase' | 'bring' | 'drop' | 'spin' | 'rest';
 
 interface Actor extends Point {
   /** 1 = facing right, -1 = left. */
@@ -77,14 +85,15 @@ export interface Companions {
     shape: PajShape;
     reactMs: number;
     nextSipIn: number;
-    walkMs: number;
+    /** Distance walked, in pixels: drives the walk cycle so his feet match his speed. */
+    walkDist: number;
     /** Time left clapping (alternating the cheer and sit frames). */
     clapMs: number;
     /** How long this clap started with (a big moment claps longer). */
     clapTotalMs: number;
   };
   stick: Stick;
-  play: { phase: PlayPhase; phaseMs: number; fetches: number; target: Point; angle: number };
+  play: { phase: PlayPhase; phaseMs: number; fetches: number; target: Point; /** Which way the dog faced when the spin began. */ spinFace: 1 | -1 };
 }
 
 export interface CompanionContext {
@@ -116,9 +125,9 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       restMs: 0,
       sleeping: false,
     },
-    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkMs: 0, clapMs: 0, clapTotalMs: CLAP_MS },
+    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
     stick: { x: 0, y: 0, state: 'hidden' },
-    play: { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, angle: 0 },
+    play: { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 },
   };
 }
 
@@ -182,7 +191,7 @@ export function startPlayNow(s: Companions): void {
   s.mode = 'play';
   Object.assign(s.paj, PLAY_PAJ, { shape: 'stand', path: [], face: 1 });
   Object.assign(s.dog, PLAY_DOG, { shape: 'sit', path: [], face: 1, reaction: 'none' });
-  s.play = { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, angle: 0 };
+  s.play = { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 };
   s.stick.state = 'hidden';
 }
 
@@ -197,6 +206,8 @@ function beginReturn(s: Companions): void {
   s.paj.path = [{ x: PAJ_PATH_DOWN[1].x, y: PAJ_PATH_DOWN[1].y }, PAJ_PATH_DOWN[0], PAJ_SPOT];
   s.dog.path = [DOG_PATH_DOWN[1], DOG_PATH_DOWN[0], DOG_SPOT];
   s.dog.reaction = 'none';
+  s.dog.hop = 0;
+  s.dog.wagMs = 0;
   s.paj.shape = 'walk';
   s.dog.shape = 'run';
 }
@@ -239,6 +250,7 @@ function follow(a: Actor, speed: number, dtMs: number): boolean {
 
 export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng = Math.random): void {
   s.elapsed += dtMs;
+  const pajFrom = { x: s.paj.x, y: s.paj.y };
   const waiting = ctx.fishing === 'idle' || ctx.fishing === 'waiting';
   if (!waiting) s.idleMs = 0;
   else s.idleMs += dtMs;
@@ -255,7 +267,7 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
     if (pDone) s.paj.shape = 'stand';
     if (pDone && dDone) {
       s.mode = 'play';
-      s.play = { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, angle: 0 };
+      s.play = { phase: 'throw', phaseMs: 0, fetches: 0, target: { x: 250, y: 540 }, spinFace: 1 };
     }
   } else if (s.mode === 'play') {
     tickPlay(s, dtMs, rng);
@@ -264,7 +276,6 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
     const dDone = follow(s.dog, DOG_RUN_SPEED, dtMs);
     s.paj.shape = pDone ? 'sit' : 'walk';
     s.dog.shape = dDone ? 'sit' : 'run';
-    s.paj.walkMs += dtMs;
     if (pDone) {
       s.paj.face = 1;
       s.paj.x = PAJ_SPOT.x;
@@ -279,7 +290,7 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
       s.idleMs = 0;
     }
   }
-  if (s.mode !== 'dock' && s.paj.shape === 'walk') s.paj.walkMs += dtMs;
+  s.paj.walkDist += Math.hypot(s.paj.x - pajFrom.x, s.paj.y - pajFrom.y);
 }
 
 function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
@@ -382,7 +393,6 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
   const p = s.paj;
   const d = s.dog;
   pl.phaseMs += dtMs;
-  p.walkMs += dtMs;
   switch (pl.phase) {
     case 'throw': {
       p.shape = 'throw';
@@ -411,6 +421,8 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         pl.phase = 'bring';
         pl.phaseMs = 0;
         s.stick.state = 'carried';
+        s.stick.x = d.x + d.face * DOG_MOUTH.x;
+        s.stick.y = d.y - DOG_MOUTH.y;
         d.path = [{ x: p.x + 26, y: p.y + 4 }];
       }
       break;
@@ -419,11 +431,14 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       s.stick.state = 'carried';
       const done = follow(d, DOG_RUN_SPEED, dtMs);
       d.shape = done ? 'sit' : 'run';
-      s.stick.x = d.x + d.face * 9;
-      s.stick.y = d.y - 9;
+      // A proud trot: a slight bounce in time with the strides, the stick held at the snout.
+      d.hop = done ? 0 : Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2;
+      s.stick.x = d.x + d.face * DOG_MOUTH.x;
+      s.stick.y = d.y - d.hop - DOG_MOUTH.y;
       p.shape = 'stand';
       p.face = 1;
       if (done) {
+        d.hop = 0;
         s.stick.state = 'ground';
         s.stick.x = d.x;
         s.stick.y = d.y;
@@ -438,8 +453,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       p.shape = 'stand';
       if (pl.phaseMs > 1300) {
         if (pl.fetches >= 2 + Math.floor(rng() * 2)) {
-          pl.phase = 'zoomies';
-          pl.angle = 0;
+          pl.phase = 'spin';
           s.stick.state = 'hidden';
         } else {
           pl.phase = 'throw';
@@ -449,18 +463,23 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       }
       break;
     }
-    case 'zoomies': {
+    case 'spin': {
+      // Happy spin on the spot: the dog flips to face the other way SPIN_FLIPS times (two turns
+      // around), hopping a little on each, tail wagging.
       p.shape = 'stand';
-      pl.angle += (dtMs / 1000) * 4.6;
-      const cx = p.x + 66;
-      const cy = p.y + 6;
-      const nx = cx + Math.cos(pl.angle) * 62;
-      const ny = cy + Math.sin(pl.angle) * 28;
-      d.face = nx >= d.x ? 1 : -1;
-      d.x = nx;
-      d.y = Math.min(584, ny);
-      d.shape = 'run';
-      if (pl.phaseMs > 4800) {
+      if (pl.phaseMs <= dtMs) pl.spinFace = d.face; // (first tick of the phase)
+      const slot = SPIN_MS / SPIN_FLIPS;
+      const flips = Math.min(SPIN_FLIPS, Math.floor(pl.phaseMs / slot) + 1); // the first flip is immediate
+      d.face = (flips % 2 === 0 ? pl.spinFace : -pl.spinFace) as 1 | -1;
+      d.shape = 'stand';
+      d.reaction = 'spin';
+      d.hop = Math.abs(Math.sin((Math.PI * (pl.phaseMs % slot)) / slot)) * SPIN_HOP;
+      d.wagMs = 1 + pl.phaseMs;
+      if (pl.phaseMs >= SPIN_MS) {
+        d.face = pl.spinFace;
+        d.hop = 0;
+        d.wagMs = 0;
+        d.reaction = 'none';
         pl.phase = 'rest';
         pl.phaseMs = 0;
         d.path = [{ x: p.x + 30, y: p.y + 4 }];
@@ -489,6 +508,8 @@ export interface DogView {
   tail: number;
   perked: boolean;
   step: number;
+  /** Carrying the stick in its mouth. */
+  carry: boolean;
 }
 
 export function dogView(s: Companions): DogView {
@@ -501,10 +522,11 @@ export function dogView(s: Companions): DogView {
     tail,
     perked: d.reaction === 'perk' || d.reaction === 'stand' || d.reaction === 'spin' || d.reaction === 'hop' || d.petMs > 0,
     step: Math.floor(s.elapsed / 90) % 4,
+    carry: s.stick.state === 'carried',
   };
 }
 
 /** 0..3 walk frame for Pajkel. */
 export function pajWalkFrame(s: Companions): number {
-  return Math.floor(s.paj.walkMs / 170) % 4;
+  return Math.floor(s.paj.walkDist / PAJ_STRIDE_PX) % 4;
 }

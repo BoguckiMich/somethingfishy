@@ -1,0 +1,303 @@
+import { PAL } from './palette';
+import { sprite, TRANSPARENT, type Sprite } from './pixelGrid';
+
+/**
+ * The 12 fish, hand-authored at their LARGE size, facing right. Every grid is the fish without
+ * its outline (`.` transparent); `outlined()` wraps it in the 1 px `PAL.outline` ring. Letters are
+ * local to each species (see its colour map); fish colours stay in this file, not in PAL.
+ * Medium, small and icon sizes are derived in `fishVariants.ts` (code shrink + hand overrides).
+ */
+
+export interface FishArt {
+  /** Interior grid (no outline). */
+  grid: string;
+  colors: Record<string, number>;
+  /** Letters that are drawn after the outline and are not outlined themselves (barbels). */
+  thin?: string;
+  /** Letter of the eye pixel(s) that a shrink must keep. */
+  eye: string;
+}
+
+export const FISH_ART: Record<string, FishArt> = {
+  // Roach
+  roach: {
+    grid: `
+      ..........ff........
+      .........ffff.......
+      .......KKKKKKKKK....
+      f.....KKKKKKKKKKKK..
+      ff...KKKKKKKKKKKKKK.
+      fff.MMMMMMMMMMMMEMM.
+      .ffLLLLLLLLLLLLLLLLL
+      .ffLLLLLLLLLLLLLLLL.
+      fff.BBBBBBBBBBBBBB..
+      ff....BBBBBBBBBB....
+      f.....rrrr.rrr......
+      ......rr...rr.......
+`,
+    colors: { K: 0x5a6e82, M: 0xaebcc2, L: 0xc9d4d6, B: 0xeff1ea, f: 0x8c9298, r: 0xd9533e, E: 0xd9433a, H: 0xffffff },
+    eye: 'E',
+  },
+  // Rudd
+  rudd: {
+    grid: `
+      ...........ff.......
+      ..........ffff......
+      ......KKKKKKKKKK....
+      f...KKKKKKKKKKKKKK..
+      ff..KKMMMMMMMMMMEMM.
+      fff.MMMMMMMMMMMMMMM.
+      .ffLLLLLLLLLLLLLLLLL
+      fff.LLLLLLLLLLLLLL..
+      ff...BBBBBBBBBBBB...
+      f......BBBBBBBBB....
+      f.....rrrrr.rrrr....
+      ......rrr...rr......
+`,
+    colors: { K: 0x6c7a4c, M: 0xcaa860, L: 0xe0c47a, B: 0xf2e6b8, f: 0xd9433a, r: 0xe0523a, E: 0xf0b030, H: 0xffffff },
+    eye: 'E',
+  },
+  // Bleak
+  bleak: {
+    grid: `
+      f......ffff.....
+      ff...KKKKKKKKKK.
+      .ffKKKKKKKKKEKKM
+      ..fMMMHMMHMHMMMM
+      .ffBBMMMMMMMMMDM
+      ff...BBBBBBBBBB.
+      f.....ffffff....
+      ........ff......
+`,
+    colors: { K: 0x5e7a96, M: 0xb4c4cc, L: 0xd0dce0, B: 0xf0f2ec, f: 0xa9bbc6, E: 0x120e18, D: 0x8a98a2, H: 0xffffff },
+    eye: 'E',
+  },
+  // Perch
+  perch: {
+    grid: `
+      .............ss.....
+      ...........sssss....
+      ....sss..sDssss.....
+      .....KDKDKDKDKDK....
+      t...KKDKDKDKDKDKKK..
+      tt..MMDMDMDMDMDMMEM.
+      ttt.MMDMDMDMDMDMMMMM
+      .ttMMMDMDMDMDMDMMMM.
+      ttt..BBBBBBBBBBBBB..
+      tt....BBBBBBBBBBB...
+      t.......BBBBBBBB....
+      ......ooo...oooo....
+      .......oo...ooo.....
+`,
+    colors: { f: 0xc8642c, K: 0x3f5a28, M: 0x86a238, D: 0x24341a, B: 0xe4e0a4, s: 0x4e6c34, t: 0xc8642c, o: 0xe0592e, E: 0xf0b030 },
+    eye: 'E',
+  },
+  // Crucian carp
+  crucian: {
+    grid: `
+      .........ffff.....
+      .........fgfgff...
+      .......fffgfgfg...
+      ......ffgKKKKKKf..
+      .ff...KKKKKKKKKKK.
+      gggf.KKKKKKKKKKKKK
+      ffffKKMMHMMMHNEMHK
+      gggfMMHMMMHMNMHMMM
+      ffffHMMMHMMMHNMMHM
+      gggfBBBBMBBBBBBBBB
+      .ff...BBBBBBBBBBB.
+      ......ffBBBBBBB...
+      ........f.ffff....
+      ...........ff.....
+`,
+    colors: { K: 0x8a6a2a, M: 0xcaa23e, L: 0xe2bd58, B: 0xe9d38c, f: 0xa87c30, g: 0x8c6424, H: 0xe8c460, N: 0xb48c34, E: 0x3a2410 },
+    eye: 'E',
+  },
+  // Eel
+  eel: {
+    grid: `
+      ................fff...................
+      .............fffKKKfff................
+      ............fKKKMMMKKKf...............
+      ..........ffKMMMLLLMMMKff.............
+      .........fKKMLLLBBBLLLMKKf..........KK
+      ......fffKMMLBBBfffBBBLMMKfff......KBD
+      MMKfffKKKMLLBfff...fffBLLMKKKff.KKKB..
+      ..BKKKMMMLBBf.........fBBLMMMKKKLLE...
+      ...BBMLLLBff...........ffBLLLMMMBBB...
+      .....LBBBf...............fBBBLpp......
+      .....Bfff.................fffBpB......
+      .............................ff.......
+`,
+    colors: { K: 0x2a3820, M: 0x4e6030, L: 0x7a8a40, B: 0xc4bc70, f: 0x5a6a38, p: 0x9a9a50, E: 0xf2eaa8, D: 0x1c2616 },
+    eye: 'E',
+  },
+  // Bream
+  bream: {
+    grid: `
+      ..............ffff..........
+      .............fgfgff.........
+      ............ffgfgfg.........
+      f...........KKKKKKKKKK......
+      gg........KKKKKKKKKKKKKK....
+      fff.....KKKKKKKKKKKKKKKKKK..
+      .ggg..KKKKMKMMMMHMMMMHKNKKKK
+      .ffffKMMMHMMMMHMMMMHMMNMEMKM
+      ..ggfMMHMMMMHMMMMHMMMMHMMMMH
+      .ffffBMMMMHMMMMHMMMMHMNMMHDD
+      .ggg..BBBMMMMHMMMMHMMMMHMBBB
+      fff.....BBBBBBBBBMBBBBBBBBB.
+      gg......fBBBBBBBBBBBBBBBB...
+      ff.......fgBBBBBBBBBBBBff...
+      g........fffgfgffBffgff.....
+      f..........fgfgfgfgfff......
+      ...........fffffffff........
+      .................f..........
+`,
+    colors: { D: 0x3a2e22, K: 0x5a4a38, M: 0xa88a50, L: 0xc4a666, B: 0xd8c898, f: 0x6a5a44, g: 0x4e4030, H: 0xd6ba7a, N: 0x927744, E: 0x120e18 },
+    eye: 'E',
+  },
+  // Tench
+  tench: {
+    grid: `
+      .............f.............
+      ..........fffff............
+      .........ffffKKKKKKK.......
+      .fff...KKKKKKKKKKKKKKKKK...
+      ffffKKKKKKKKKKKKKKKKKKKKKK.
+      ffffKKKMMMHMKMHMMMHMNMEMKK.
+      ffffHMMMHMMMHMMMHMMMHMMMHM.
+      ffffMMHMMMHMMMHMMMHMNMHMMMW
+      ffffBBBBBBBBHBBBBBBBBNBBBB.
+      .fff..BBBBBBBBBBBBBBBBBB...
+      ........ffffBBBBBBBBfff....
+      .........ff..fffff.........
+      ..............fff..........
+      ...............f...........
+`,
+    colors: { K: 0x2c4a24, M: 0x56783a, B: 0xa8985a, f: 0x3a5a2c, H: 0x5e8240, N: 0x486a32, E: 0xe0382e, W: 0xb0a060, D: 0x1c2a18 },
+    thin: 'W',
+    eye: 'E',
+  },
+  // Carp
+  carp: {
+    grid: `
+      ...............fffffff............
+      ...............fgfgfgff...........
+      f..........fffffgfgfgfg...........
+      gg.........fgfgKKKKKKKKKKK........
+      fff......ffKKKKKKKKKKKKKKKKKKK....
+      gggg...KKKKKKKKKKKKKKKKKKKNKKKK...
+      .ffffKKHMKKHMMSHMMSHMMSHMNSHEMSK..
+      ..ggfHMMSHMMSHMMSHMMSHMMSNMMSHMM..
+      .ffffMSHMMSHMMSHMMSHMMSHMMNHMMSB..
+      gggg.BBBBBBBSHMMSHMMSHMMSHMBBBB.W.
+      fff......BBBBBBBBBBBBBBBBBBBBB..WW
+      gg........ffBBBBBBBBBBBBBBBf......
+      f..........ffff.ffff.....ff.......
+      ............ff...ff...............
+`,
+    colors: { K: 0x946620, M: 0xdca62e, B: 0xf0d890, f: 0xb8761a, g: 0x94601a, S: 0xa87818, H: 0xf4cc5a, N: 0xc08e20, E: 0x3a2410, W: 0xd8b868 },
+    thin: 'W',
+    eye: 'E',
+  },
+  // Pike
+  pike: {
+    grid: `
+      ..........ffff.f......................
+      gg.......fgfgfffff....................
+      fff.....ffgfgfgKKKKKKKKKKKKKK.........
+      gggg....KKKKKSKKKKKKKSKKKKKKKKNKK.....
+      .fffffKKKKKSSKKLLLLSSLLLLLLSSKNKKKKKKK
+      ..gggfMMMMMMMMLSSMMMMMMSSMMMMMNMMEMMMM
+      .fffffBBMMMMSSMMMMMMSSMMMMMMSSNDDDDDDD
+      gggg....BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+      fff......fgfgfBBBBBBBBBBBBBBBff.......
+      gg........ffgfgfff.fff......f.........
+      ............ffff....f.................
+`,
+    colors: { K: 0x2c5a2a, M: 0x588e3c, L: 0x6aa046, B: 0xe2e2b8, f: 0x78862e, g: 0x56662a, S: 0xe0e29a, N: 0x1e3a1e, E: 0xf0b030, D: 0x120e18 },
+    eye: 'E',
+  },
+  // Zander
+  zander: {
+    grid: `
+      .................fffff..........
+      .................TgTgTf.........
+      g........fffff..ffgfgfgf........
+      ff.......fgfgff.KKKKTTKKKTT.....
+      ggg.....fKTTKKKTTKKKTTKKNTTKKKK.
+      .ffffKKKKKTTKKKTTLLLTTLLNTTEEKKK
+      ..ggfMMMMMTTMMMTTMMMTTMMNTTEPMMM
+      .ffffBBBBMMMMMMMMMMMMMMMNDDDDDDD
+      ggg......BBBBBBBBBBBBBBBBBBBBBSB
+      ff.......fffff..BBBBBBBBBBBB....
+      g.........fff.....fff....fff....
+      ...................f............
+`,
+    colors: { K: 0x44564c, M: 0x80927a, L: 0x98a890, B: 0xdadecb, f: 0x76867a, g: 0x56665a, T: 0x2a3430, E: 0xeff0c8, P: 0x120e18, D: 0x120e18, S: 0xffffff, N: 0x364238 },
+    eye: 'E',
+  },
+  // Catfish (wels)
+  catfish: {
+    grid: `
+      .....................fff...KKKKKKKK.......
+      .....................KKKKKKKKKKKEKKKKK....
+      .fff.......KKKKKKTTTKKKKKKKKKSSSKKKKKK....
+      fffffKKKKKKKKSSSSTTTKKKKKTTTMSSSMMMMMMWW..
+      fffffMMMMTTTMSSSSMMMSSSSMTTTMMMMMMMMMMW.W.
+      fffffBBBBBMMMMMMMMMMSSSSMMMMMMDDDDDDDD.W.W
+      .fff..ffffBBBBBBBBBBBBBBBBBBBBBBBBBBBB..W.
+      ........ffffffffffBBBBBBBBBBBBBBBWBW.....W
+      ..........ffffffffffffffffffffff.W.W......
+      ...........fffffffffffffffff..............
+      ..................ffffffff................
+`,
+    colors: { K: 0x1e2a26, M: 0x34443a, B: 0x8a907a, f: 0x2a3832, S: 0x4a5c4e, T: 0x232f2a, E: 0xe0e0b8, D: 0x0e1410, W: 0xdcdccc },
+    thin: 'W',
+    eye: 'E',
+  },
+};
+
+const rowsOf = (grid: string): string[] =>
+  grid
+    .split('\n')
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0);
+
+/** Grid → sprite with a closed 1 px dark outline (thin letters are added after it, unoutlined). */
+export function outlined(art: FishArt): Sprite {
+  const rows = rowsOf(art.grid);
+  const thin = art.thin ?? '';
+  const inner = sprite(rows.map((r) => [...r].map((ch) => (thin.includes(ch) ? '.' : ch)).join('')).join('\n'), art.colors);
+  const W = inner.width + 2;
+  const H = inner.height + 2;
+  const px = new Int32Array(W * H).fill(TRANSPARENT);
+  for (let y = 0; y < inner.height; y++) {
+    for (let x = 0; x < inner.width; x++) px[(y + 1) * W + x + 1] = inner.pixels[y * inner.width + x];
+  }
+  const src = Int32Array.from(px);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (src[y * W + x] !== TRANSPARENT) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < W && ny < H && src[ny * W + nx] !== TRANSPARENT) {
+          px[y * W + x] = PAL.outline;
+          break;
+        }
+      }
+    }
+  }
+  if (thin) {
+    const full = sprite(art.grid, art.colors);
+    for (let y = 0; y < full.height; y++) {
+      for (let x = 0; x < full.width; x++) if (thin.includes(rows[y][x])) px[(y + 1) * W + x + 1] = full.pixels[y * full.width + x];
+    }
+  }
+  return { width: W, height: H, pixels: px };
+}
+
+/** Large (hand-drawn, outlined) sprite per species id. */
+export const FISH_LARGE: Record<string, Sprite> = Object.fromEntries(Object.entries(FISH_ART).map(([id, art]) => [id, outlined(art)]));
