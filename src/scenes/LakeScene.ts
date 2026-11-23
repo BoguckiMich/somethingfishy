@@ -488,7 +488,8 @@ export class LakeScene extends Phaser.Scene {
     this.persist();
   }
 
-  update(_time: number, deltaMs: number): void {    this.elapsed += deltaMs;
+  update(_time: number, deltaMs: number): void {
+    this.elapsed += deltaMs;
     this.stateAge += deltaMs;
     this.clock = advanceClock(this.clock, deltaMs);
     this.sinceClockSave += deltaMs;
