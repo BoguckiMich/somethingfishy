@@ -20,6 +20,8 @@ export const SFX_NAMES = [
   'sparkle',
   'clink',
   'bubbles',
+  'thunk',
+  'sleepyBoof',
 ] as const;
 export type SfxName = (typeof SFX_NAMES)[number];
 
@@ -119,6 +121,17 @@ const PLAYERS: Record<SfxName, Player> = {
   boof: (g, out, t, v) => {
     tone(g, out, t, { type: 'triangle', f0: 230 * v.pitch, f1: 105 * v.pitch, dur: 0.17, attack: 0.012, peak: 0.38 * v.volume });
     burst(g, out, t, { filter: 'lowpass', f0: 700 * v.pitch, f1: 300, q: 0.9, dur: 0.14, attack: 0.012, peak: 0.2 * v.volume });
+  },
+  // A car door closing softly: a low, short body thump with a faint latch click after it.
+  thunk: (g, out, t, v) => {
+    tone(g, out, t, { type: 'sine', f0: 140 * v.pitch, f1: 62 * v.pitch, dur: 0.16, attack: 0.006, peak: 0.42 * v.volume });
+    burst(g, out, t, { filter: 'lowpass', f0: 520 * v.pitch, f1: 200, q: 0.7, dur: 0.1, attack: 0.005, peak: 0.22 * v.volume });
+    tone(g, out, t, { type: 'triangle', f0: 1100 * v.pitch, f1: 800 * v.pitch, at: 0.07, dur: 0.035, attack: 0.004, peak: 0.07 * v.volume });
+  },
+  // A dog's boof in her sleep: lower, softer and slower than the awake one, with a sigh of breath.
+  sleepyBoof: (g, out, t, v) => {
+    tone(g, out, t, { type: 'triangle', f0: 170 * v.pitch, f1: 85 * v.pitch, dur: 0.26, attack: 0.04, peak: 0.16 * v.volume });
+    burst(g, out, t, { filter: 'lowpass', f0: 500 * v.pitch, f1: 220, q: 0.8, at: 0.05, dur: 0.3, attack: 0.07, peak: 0.1 * v.volume });
   },
   // A duck's "quack-quack": each is a buzzy saw voice (~460 Hz bending down to ~330) with its octave
   // above and a nasal band of noise around 1.7 kHz; the second is a touch lower and softer.

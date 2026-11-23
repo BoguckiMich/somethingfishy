@@ -9,6 +9,9 @@ import {
   bubbleAlpha,
   createCompanions,
   dogView,
+  dogVisible,
+  pajStretchHigh,
+  pajVisible,
   pajSay,
   pajWalkFrame,
   petDog,
@@ -52,7 +55,7 @@ export class CompanionView {
     }
     this.bubbleGfx = scene.add.graphics().setDepth(BUBBLE_DEPTH);
     this.bubbleText = scene
-      .add.text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.small}px`, color: BUBBLE_INK, padding: textPad(7, 4) })
+      .add.text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.small}px`, color: BUBBLE_INK, padding: textPad(7, 4), align: 'center', wordWrap: { width: BUBBLE_VIEW_W - 2 * BUBBLE_MARGIN } })
       .setDepth(BUBBLE_DEPTH + 1)
       .setVisible(false);
   }
@@ -133,10 +136,16 @@ export class CompanionView {
         .setOrigin(0.5, 42 / PAJ_SIZE.h)
         .setFlipX(false);
     } else {
-      const key: PajWalkPose = p.shape === 'walk' ? (['walk0', 'walk1', 'walk2', 'walk3'] as const)[pajWalkFrame(s)] : p.shape === 'throw' ? 'throw' : 'stand';
+      const frame = pajWalkFrame(s);
+      const key: PajWalkPose =
+        p.shape === 'walk' ? (['walk0', 'walk1', 'walk2', 'walk3'] as const)[frame]
+        : p.shape === 'carry' ? (['carry0', 'carry1', 'carry2', 'carry3'] as const)[s.paj.path.length === 0 ? 1 : frame]
+        : p.shape === 'stretch' ? (pajStretchHigh(s) ? 'stretch1' : 'stretch0')
+        : p.shape === 'throw' ? 'throw'
+        : 'stand';
       this.paj.setTexture(pajWalkKey(key)).setOrigin(0.5, 50 / PAJ_WALK_SIZE.h).setFlipX(p.face < 0);
     }
-    this.paj.setPosition(Math.round(p.x), Math.round(p.y)).setTint(tint);
+    this.paj.setPosition(Math.round(p.x), Math.round(p.y)).setTint(tint).setVisible(pajVisible(s)).setAlpha(s.bed?.pajA ?? 1);
 
     // The dog.
     const v = dogView(s);
@@ -154,10 +163,12 @@ export class CompanionView {
       .setOrigin(0.5, 23 / DOG_SIZE.h)
       .setFlipX(d.face < 0)
       .setPosition(Math.round(d.x) + wiggle, Math.round(d.y - d.hop))
-      .setTint(tint);
+      .setTint(tint)
+      .setVisible(dogVisible(s))
+      .setAlpha(s.bed?.dogA ?? 1);
 
     // Sleeping "z"s.
-    const asleep = v.shape === 'sleep';
+    const asleep = v.shape === 'sleep' && s.mode !== 'bed';
     this.zs.forEach((z, i) => {
       z.setVisible(asleep);
       if (!asleep) return;

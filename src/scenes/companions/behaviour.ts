@@ -55,8 +55,8 @@ export interface Bubble {
 }
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
-export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw';
-export type Mode = 'dock' | 'leaving' | 'play' | 'returning';
+export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch';
+export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed';
 type PlayPhase = 'throw' | 'chase' | 'bring' | 'drop' | 'spin' | 'rest';
 
 interface Actor extends Point {
@@ -69,8 +69,61 @@ export interface Stick extends Point {
   state: 'hidden' | 'flying' | 'ground' | 'carried';
 }
 
+// ---- Bedtime, naps and the car (slice 16) ---------------------------------------------------
+
+/** Where Pajkel stands to get in and out of the car (feet), and where Bestia waits beside him. */
+export const CAR_STAND: Point = { x: 34, y: 574 };
+export const CAR_DOG: Point = { x: 60, y: 578 };
+/** Phase lengths in ms and speeds in px/s of the bedtime choreography. */
+export const BED_TUNING = {
+  sayMs: 2400,
+  callMs: 800,
+  catchMs: 700,
+  doorMs: 500,
+  enterMs: 700,
+  shutMs: 450,
+  lightMs: { night: 3500, nap: 1800 },
+  exitOpenMs: 700,
+  stretchMs: 1700,
+  /** Gives up the chase and calls it caught after this long, whatever the dog does. */
+  chaseGiveUpMs: 14_000,
+  /** Close enough to scoop her up. */
+  catchDist: 18,
+  dogRunSpeed: 105,
+  pajChaseSpeed: 72,
+  pajCarrySpeed: 50,
+  pajHomeSpeed: 60,
+  dogTrotSpeed: 75,
+  /** Stretch: arms out first, then up, then out again. */
+  stretchUpFromMs: 500,
+  stretchUpToMs: 1200,
+};
+
+export type BedKind = 'night' | 'nap';
+export type BedPhase =
+  | 'say' | 'call' | 'chase' | 'catch' | 'carry' // the 02:00 sequence up to the car
+  | 'walk' // a nap: both walk to the car, no chase
+  | 'doorOpen' | 'enter' | 'doorShut' | 'light' | 'asleep'
+  | 'exitOpen' | 'exitShut' | 'return' | 'stretch';
+
+export interface BedState {
+  kind: BedKind;
+  phase: BedPhase;
+  phaseMs: number;
+  /** Bestia is in Pajkel's arms (drawn in his carry frames, not on her own). */
+  carried: boolean;
+  /** How visible each is, 0..1: they fade into the car and out of it. */
+  pajA: number;
+  dogA: number;
+  /** The car's door is open / the interior light is on. */
+  door: boolean;
+  light: boolean;
+}
+
 export interface Companions {
   mode: Mode;
+  /** The bedtime / nap sequence (mode 'bed'); null otherwise. */
+  bed: BedState | null;
   /** Ms since the player last did something (only counts while idle/waiting). */
   idleMs: number;
   elapsed: number;
@@ -119,6 +172,7 @@ const rand = (rng: Rng, a: number, b: number) => a + rng() * (b - a);
 export function createCompanions(rng: Rng = Math.random): Companions {
   return {
     mode: 'dock',
+    bed: null,
     idleMs: 0,
     elapsed: 0,
     dog: {
@@ -224,6 +278,89 @@ export function startPlayNow(s: Companions): void {
   s.stick.state = 'hidden';
 }
 
+function beginBed(s: Companions, kind: BedKind, phase: BedPhase): BedState {
+  s.mode = 'bed';
+  s.stick.state = 'hidden';
+  s.dog.reaction = 'none';
+  s.dog.hop = 0;
+  s.dog.wagMs = 0;
+  s.dog.sleeping = false;
+  s.dog.path = [];
+  s.paj.path = [];
+  s.idleMs = 0;
+  s.bed = { kind, phase, phaseMs: 0, carried: false, pajA: 1, dogA: 1, door: false, light: false };
+  return s.bed;
+}
+
+/** Still on the planks (not yet on the grass)? */
+const onDock = (a: Point) => a.y < 470;
+
+/**
+ * 02:00: Pajkel says `line`, calls Bestia, she runs off, he chases and carries her to the car. It
+ * starts from wherever they are (on the dock, walking back, or playing on the grass).
+ */
+export function startBedtime(s: Companions, line: string): void {
+  const fromDock = (s.mode === 'dock' || s.mode === 'returning') && onDock(s.paj);
+  beginBed(s, 'night', 'say');
+  s.paj.shape = fromDock ? 'sit' : 'stand';
+  s.dog.shape = fromDock ? 'lie' : 'sit';
+  pajSay(s, line);
+}
+
+/** A nap: Pajkel and Bestia walk to the car (no chase). Only from the dock. */
+export function startNap(s: Companions): boolean {
+  if (s.mode !== 'dock') return false;
+  beginBed(s, 'nap', 'walk');
+  s.paj.shape = 'walk';
+  s.dog.shape = 'run';
+  s.paj.path = [...PAJ_PATH_DOWN, CAR_STAND].map((p) => ({ ...p }));
+  s.dog.path = [...DOG_PATH_DOWN, CAR_DOG].map((p) => ({ ...p }));
+  return true;
+}
+
+/** Start the game with them already asleep in the car. */
+export function startInCar(s: Companions): void {
+  const b = beginBed(s, 'night', 'asleep');
+  b.pajA = 0;
+  b.dogA = 0;
+  s.paj.shape = 'stand';
+  s.dog.shape = 'sit';
+}
+
+/** They are inside the car, asleep (a tap on the car then makes a "Zzz..."). */
+export const isInCar = (s: Companions): boolean => s.mode === 'bed' && s.bed?.phase === 'asleep';
+
+/** Wake them: they step out of the car and walk back to the dock. Does nothing unless they are asleep. */
+export function wakeUp(s: Companions): void {
+  const b = s.bed;
+  if (s.mode !== 'bed' || !b || b.phase !== 'asleep') return;
+  b.phase = 'exitOpen';
+  b.phaseMs = 0;
+  b.carried = false;
+  b.door = true;
+  b.pajA = 0;
+  b.dogA = 0;
+  Object.assign(s.paj, CAR_STAND, { shape: 'stand', face: 1, path: [] });
+  Object.assign(s.dog, CAR_DOG, { shape: 'sit', face: 1, path: [], reaction: 'none' });
+}
+
+/** Which picture of the car to draw. */
+export function carVariant(s: Companions): 'closed' | 'open' | 'light' {
+  const b = s.bed;
+  if (s.mode !== 'bed' || !b) return 'closed';
+  return b.door ? 'open' : b.light ? 'light' : 'closed';
+}
+
+/** Whether each can be seen on the grass or dock (and so tapped). */
+export const pajVisible = (s: Companions): boolean => s.mode !== 'bed' || (s.bed?.pajA ?? 1) > 0.01;
+export const dogVisible = (s: Companions): boolean => s.mode !== 'bed' || (!s.bed?.carried && (s.bed?.dogA ?? 1) > 0.01);
+
+/** True while Pajkel's arms are up high in the stretch (else out). */
+export function pajStretchHigh(s: Companions): boolean {
+  const t = s.bed?.phaseMs ?? 0;
+  return t >= BED_TUNING.stretchUpFromMs && t < BED_TUNING.stretchUpToMs;
+}
+
 function setReaction(s: Companions, r: Companions['dog']['reaction']): void {
   s.dog.reaction = r;
   s.dog.reactMs = 0;
@@ -275,6 +412,31 @@ function follow(a: Actor, speed: number, dtMs: number): boolean {
   return a.path.length === 0;
 }
 
+/** Walks `a` straight at `target`, stopping `stopAt` px short; returns true when it is there. */
+function pursue(a: Actor, target: Point, speed: number, dtMs: number, stopAt: number): boolean {
+  const dx = target.x - a.x;
+  const dy = target.y - a.y;
+  const dist = Math.hypot(dx, dy);
+  if (Math.abs(dx) > 0.6) a.face = dx > 0 ? 1 : -1;
+  if (dist <= stopAt) return true;
+  const step = Math.min(dist - stopAt, (speed * dtMs) / 1000);
+  a.x += (dx / dist) * step;
+  a.y += (dy / dist) * step;
+  return dist - step <= stopAt;
+}
+
+/** A playful run on the grass: right, left, right, then in towards the car. */
+function zigzag(from: Point, rng: Rng): Point[] {
+  const pts: Point[] = [];
+  let right = from.x < 200;
+  for (let i = 0; i < 3; i++) {
+    pts.push({ x: right ? rand(rng, 240, 320) : rand(rng, 90, 150), y: rand(rng, 508, 584) });
+    right = !right;
+  }
+  pts.push({ x: rand(rng, 100, 124), y: rand(rng, 566, 582) });
+  return pts;
+}
+
 // ---- Tick ----------------------------------------------------------------------------------
 
 export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng = Math.random): void {
@@ -301,6 +463,8 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
     }
   } else if (s.mode === 'play') {
     tickPlay(s, dtMs, rng);
+  } else if (s.mode === 'bed') {
+    tickBed(s, dtMs, rng);
   } else {
     const pDone = follow(s.paj, PAJ_RUN_SPEED, dtMs);
     const dDone = follow(s.dog, DOG_RUN_SPEED, dtMs);
@@ -411,6 +575,181 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
       p.shape = 'sip';
       p.reactMs = 0;
     }
+  }
+}
+
+function tickBed(s: Companions, dtMs: number, rng: Rng): void {
+  const b = s.bed;
+  if (!b) {
+    s.mode = 'dock';
+    return;
+  }
+  const p = s.paj;
+  const d = s.dog;
+  const T = BED_TUNING;
+  b.phaseMs += dtMs;
+  const go = (phase: BedPhase) => {
+    b.phase = phase;
+    b.phaseMs = 0;
+  };
+  switch (b.phase) {
+    case 'say':
+      if (b.phaseMs >= T.sayMs) {
+        go('call');
+        p.shape = 'stand';
+        p.face = 1;
+        d.shape = 'stand';
+        d.reaction = 'stand';
+      }
+      break;
+    case 'call':
+      d.shape = 'stand';
+      if (b.phaseMs >= T.callMs) {
+        const dockStart = onDock(d);
+        go('chase');
+        d.reaction = 'none';
+        p.path = onDock(p) ? PAJ_PATH_DOWN.map((q) => ({ ...q })) : [];
+        d.path = [...(dockStart ? DOG_PATH_DOWN : []), ...zigzag(dockStart ? DOG_PATH_DOWN[1] : d, rng)].map((q) => ({ ...q }));
+      }
+      break;
+    case 'chase': {
+      follow(d, T.dogRunSpeed, dtMs);
+      d.shape = d.path.length > 0 ? 'run' : 'sit';
+      // A playful bounce while she runs.
+      d.hop = d.path.length > 0 ? Math.abs(Math.sin((s.elapsed / 90) * (Math.PI / 2))) * 2 : 0;
+      const walkingDown = p.path.length > 0;
+      if (walkingDown) follow(p, PAJ_RUN_SPEED * 0.8, dtMs);
+      else pursue(p, d, T.pajChaseSpeed, dtMs, 10);
+      p.shape = 'walk';
+      const close = Math.hypot(p.x - d.x, p.y - d.y) <= T.catchDist;
+      if ((d.path.length === 0 && !walkingDown && close) || b.phaseMs > T.chaseGiveUpMs) {
+        d.path = [];
+        d.hop = 0;
+        go('catch');
+        p.shape = 'stand';
+        p.path = [];
+        if (!close) {
+          // He gave up chasing: she is simply scooped up where she stopped.
+          p.x = d.x - 12;
+          p.y = d.y;
+        }
+        p.face = d.x >= p.x ? 1 : -1;
+        d.shape = 'sit';
+      }
+      break;
+    }
+    case 'catch':
+      d.hop = Math.abs(Math.sin(b.phaseMs / 110)) * 2;
+      if (b.phaseMs >= T.catchMs) {
+        d.hop = 0;
+        b.carried = true;
+        p.shape = 'carry';
+        p.path = [{ ...CAR_STAND }];
+        go('carry');
+      }
+      break;
+    case 'carry':
+      p.shape = 'carry';
+      if (follow(p, T.pajCarrySpeed, dtMs)) {
+        p.face = -1;
+        go('doorOpen');
+        b.door = true;
+      }
+      break;
+    case 'walk': {
+      const pDone = follow(p, PAJ_WALK_SPEED, dtMs);
+      const dDone = follow(d, DOG_RUN_SPEED * 0.55, dtMs);
+      p.shape = pDone ? 'stand' : 'walk';
+      d.shape = dDone ? 'sit' : 'run';
+      if (pDone && dDone) {
+        p.face = -1;
+        d.face = -1;
+        go('doorOpen');
+        b.door = true;
+      }
+      break;
+    }
+    case 'doorOpen':
+      if (b.phaseMs >= T.doorMs) go('enter');
+      break;
+    case 'enter': {
+      const t = Math.min(1, b.phaseMs / T.enterMs);
+      b.pajA = 1 - t;
+      b.dogA = 1 - t;
+      p.x = CAR_STAND.x - 6 * t;
+      p.y = CAR_STAND.y - 4 * t;
+      if (!b.carried) {
+        d.x = CAR_DOG.x - 12 * t;
+        d.y = CAR_DOG.y - 4 * t;
+      }
+      if (t >= 1) {
+        b.door = false;
+        go('doorShut');
+      }
+      break;
+    }
+    case 'doorShut':
+      if (b.phaseMs >= T.shutMs) {
+        b.light = true;
+        go('light');
+      }
+      break;
+    case 'light':
+      if (b.phaseMs >= T.lightMs[b.kind]) {
+        b.light = false;
+        go('asleep');
+      }
+      break;
+    case 'asleep':
+      break;
+    case 'exitOpen': {
+      const t = Math.min(1, b.phaseMs / T.exitOpenMs);
+      b.pajA = t;
+      b.dogA = t;
+      p.x = CAR_STAND.x - 6 * (1 - t);
+      p.y = CAR_STAND.y - 4 * (1 - t);
+      d.x = CAR_DOG.x - 12 * (1 - t);
+      d.y = CAR_DOG.y - 4 * (1 - t);
+      if (t >= 1) {
+        b.door = false;
+        go('exitShut');
+      }
+      break;
+    }
+    case 'exitShut':
+      if (b.phaseMs >= T.shutMs) {
+        go('return');
+        p.shape = 'walk';
+        d.shape = 'run';
+        p.path = [...PAJ_PATH_DOWN].reverse().concat(PAJ_SPOT).map((q) => ({ ...q }));
+        d.path = [...DOG_PATH_DOWN].reverse().concat(DOG_SPOT).map((q) => ({ ...q }));
+      }
+      break;
+    case 'return': {
+      const pDone = follow(p, T.pajHomeSpeed, dtMs);
+      const dDone = follow(d, T.dogTrotSpeed, dtMs);
+      p.shape = pDone ? 'stand' : 'walk';
+      d.shape = dDone ? 'sit' : 'run';
+      if (pDone && dDone) {
+        Object.assign(p, PAJ_SPOT, { face: 1 });
+        Object.assign(d, DOG_SPOT, { face: 1 });
+        go('stretch');
+        p.shape = 'stretch';
+      }
+      break;
+    }
+    case 'stretch':
+      p.shape = 'stretch';
+      if (b.phaseMs >= T.stretchMs) {
+        s.mode = 'dock';
+        s.bed = null;
+        p.shape = 'sit';
+        d.restMs = 0;
+        d.reaction = 'sit';
+        d.reactMs = 0;
+        s.idleMs = 0;
+      }
+      break;
   }
 }
 
