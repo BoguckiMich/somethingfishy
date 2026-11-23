@@ -30,7 +30,7 @@ _Last updated: 2026-11-23 (slice 15b on its branch awaiting review; slice 15a + 
 | 13c | Catch-bar fish marker 2x bigger (75% of the large sprite, 18-34 px), bar 36 px wide (playtesters: too small) | merged |
 | 14 | Lake moments: duck, frog, jumping fish, shooting star, bottle note, uncanny bubbles / dark shape (GAME_DESIGN §3 → Slice 14) | merged before the phone play-test (user may want fixes after testing) |
 | 15a | Prices by rarity, braided/fluoro lines + smooth/pro reels, time-of-day in the clock label, Pajkel's speech bubble (GAME_DESIGN §3 → Slice 15a) | merged before the phone play-test (reels help little in the bot sim: sloppy bot 85% → 87% with the Pro reel vs 97% with fluoro line; may raise the reel numbers) |
-| 15b | Shop icons: 16x16 icons for worm pack, rods, lines, reels; item cards, "Your tackle" strip, fish sprites + coin icon in sell lists, buy pop (GAME_DESIGN §3 → Slice 15b) | on branch `slice/15b-shop-icons`, awaiting review |
+| 15b | Shop icons: 16x16 icons for worm pack, rods, lines, reels; item cards, "Your tackle" strip, fish sprites + coin icon in sell lists, buy pop (GAME_DESIGN §3 → Slice 15b) | merged overnight by the main session (user authorised merges up to 16); not phone-tested. Rod icons are the weakest (reel reads as a grey blob on bamboo/fiberglass), pro reel looks a bit like a coin |
 | fix | Update toast: reload ~1.5 s after the tap if the service-worker hand-over never fires (GAME_DESIGN §3 → Fix: update toast) | merged, not seen on a phone |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
