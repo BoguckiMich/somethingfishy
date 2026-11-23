@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 11 merged and pushed)._
+_Last updated: 2026-11-23 (slice 11b on branch `slice/11b-readability`, awaiting play-test)._
 
 ## Current state
 
@@ -23,7 +23,8 @@ _Last updated: 2026-11-23 (slice 11 merged and pushed)._
 | 10a | Sound: synthesised SFX + ambient by time of day, volume sliders in ⚙, `?debug=sounds` | merged |
 | 10b | Art pass: Tiny5 font, code-drawn pixel frames, icons, 12 fish sprites, show-off at chest, Pajkel, dog spin (GAME_DESIGN §3 item 9) | merged |
 | 11 | PWA (offline precache, update toast), app icon, GitHub Pages deploy via Actions, renamed Something Fishy (GAME_DESIGN §3 item 10) | merged |
-| 12 | Legendary fish | next (not grilled yet) |
+| 11b | Readability: whole canvas renders at device resolution (K×, `src/renderScale.ts`), font → VT323 on its 12.5 px grid, update toast above the bar, `/dev/font-sheet.html` | on branch, awaiting phone test |
+| 12 | Legendary fish (first eldritch hint) | next (not grilled yet) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -64,13 +65,13 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
-- Font (slice 10b, Tiny5 at 15 px, off its 10 px grid): user on the phone, "text is sometimes hard
-  to read"; deferred to a later polish stage. Worst: longer text (fish facts) and "Caught ×N"
-  in the log. User: "overall font is not so good; previous (Pixelify Sans) was more readable but
-  had the problem with B and numbers". Ideas: go back to Pixelify Sans and take only the digits
-  (and maybe B) from another pixel font via unicode-range; check whether the upstream GitHub
-  build of Pixelify has a normal 5/B; larger sizes; text outline/shadow; render canvas text at
-  device resolution.
+- Readability (slice 11b): font is now VT323 (`FS` = 12.5/25/25/37.5/50 px = 1/2/2/3/4 px strokes,
+  `LINE` 1.2, `textPad()` nudges Phaser text up ~0.08 em). The canvas backing store is K× (1..4,
+  picked once at start; rotation needs a reload for crisp text); the camera zooms by K and taps use
+  `pointer.worldX/Y`. Unverified on a real phone: K on device, fill-rate/battery at 1080×1920+,
+  moving sprites may now land between art pixels. Log tile hints are 12.5 px (dim, 1 px strokes);
+  "★ New record!" star falls back to a system font; record screen and update toast not seen;
+  name-card title is tight at 360 px. "Caught ×N" became "Caught xN" (VT323's × is tiny).
 - Sound (slice 10a): all synthesised in `src/audio/` (facade `sound.ts`; pure parts in `src/core/`
   soundSettings/ambientMix/variation/callSchedule/reelClicks). User: frog "ribbit is better but not
   perfect", polish later; crickets were lowered to ~2 kHz after "too high". Birds, cast whoosh and
