@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { pageParams } from '../urlParams';
 import { sound } from '../audio/sound';
 import { dayLook, lerpColor, moonArc, sunArc, type DayLook } from '../art/dayCycle';
 import {
@@ -254,11 +255,11 @@ export class LakeScene extends Phaser.Scene {
 
   create(): void {
     // Dev helper: ?time=22 starts the clock at 22:00, to check night/dawn without waiting.
-    const params = new URLSearchParams(location.search);
+    const params = pageParams();
     this.sandbox = isSandbox([...params.keys()]);
     const saveStatus = this.setupSave(params);
     const startHour = Number(params.get('time'));
-    if (startHour >= 0 && startHour < 24 && location.search.includes('time=')) {
+    if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
     }
 
@@ -587,7 +588,7 @@ export class LakeScene extends Phaser.Scene {
       return;
     }
     if (dbg === 'log') {
-      this.openPlayerPanel('log', new URLSearchParams(location.search).get('species') ?? undefined);
+      this.openPlayerPanel('log', pageParams().get('species') ?? undefined);
       return;
     }
     if (dbg !== 'shop' && dbg !== 'bag' && dbg !== 'bagfull') return;
