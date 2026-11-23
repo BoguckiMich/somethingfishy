@@ -2,11 +2,13 @@ import type Phaser from 'phaser';
 import { ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
 import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
+import { BAITS } from '../core/data/baits';
 import { SPECIES } from '../core/data/fish';
 import { FAR_SHORE_Y, W } from './layout';
 import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
 import { MOMENT_SPRITES } from './momentArt';
 import { Raster } from './raster';
+import { shopIconSprite } from './shopIconArt';
 import {
   BOBBER,
   BOBBER_UNDER,
@@ -59,6 +61,9 @@ export const TEX = {
   zBig: 'zBig',
 } as const;
 
+/** Texture key of a bait's 16 x 16 icon (the bottom-bar chip); worms use the plain worm icon. */
+export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `bait:${id}`);
+
 /** Texture key of a lake-moment sprite (a key of MOMENT_SPRITES). */
 export const momentKey = (name: string) => `moment:${name}`;
 
@@ -90,6 +95,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.gear, Raster.fromSprite(gearSprite()));
   addRaster(scene, TEX.worm, Raster.fromSprite(wormSprite()));
   addRaster(scene, TEX.coin, Raster.fromSprite(coinSprite()));
+  for (const b of BAITS) addRaster(scene, baitIconKey(b.id), Raster.fromSprite(shopIconSprite(b.id)!));
   addRaster(scene, TEX.zSmall, Raster.fromSprite(zSprite(false)));
   addRaster(scene, TEX.zBig, Raster.fromSprite(zSprite(true)));
   createCharacterTextures(scene);
