@@ -1,10 +1,10 @@
 # Handoff — read this first in a new session
 
-Rybki is a cozy pixel-art fishing game (PWA, portrait) made by the developer (Pajkel) as a gift
+Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fishing game (PWA, portrait) made by the developer (Pajkel) as a gift
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-23 (slice 10b merged)._
+_Last updated: 2026-11-23 (slice 11 merged and pushed)._
 
 ## Current state
 
@@ -22,7 +22,8 @@ _Last updated: 2026-11-23 (slice 10b merged)._
 | 9 | Saving: autosave, export code, ⚙ settings panel (GAME_DESIGN §3 item 8) | merged |
 | 10a | Sound: synthesised SFX + ambient by time of day, volume sliders in ⚙, `?debug=sounds` | merged |
 | 10b | Art pass: Tiny5 font, code-drawn pixel frames, icons, 12 fish sprites, show-off at chest, Pajkel, dog spin (GAME_DESIGN §3 item 9) | merged |
-| 11 | PWA + GitHub Pages deploy | next (not grilled yet) |
+| 11 | PWA (offline precache, update toast), app icon, GitHub Pages deploy via Actions, renamed Something Fishy (GAME_DESIGN §3 item 10) | merged |
+| 12 | Legendary fish | next (not grilled yet) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, bedtime at
 2 AM + night gear/tiredness, retention quests §5) are in GAME_DESIGN.md too.
@@ -55,6 +56,11 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   in the show-off; medium-class pike looks small; catfish whiskers a bit dotty. The spin, the
   4-frame walk and the carry trot were only seen as single frames (unit-tested). Zoomed sprite
   sheets: `/dev/fish-sheet.html`, `/dev/char-sheet.html` on the dev server.
+- PWA (slice 11): SW registration, offline load and the update toast were checked in headless Edge
+  under a `/somethingfishy/` sub-path, not on the phone. The toast sits over the middle of the top
+  HUD row. Icon (`src/art/appIconArt.ts`, `npm run icons`) is chunky with a stray pixel under the
+  belly. `npm audit` flags dev-only build deps (untouched). Phone test needs the Pages site: the
+  LAN dev server is plain http, so no install/offline there, and PWA is off in dev.
 - Name tags age per frame (~16 ms), not by real delta.
 - Foreground grass is plain (user: "we can add something in the future").
 - Shallow/deep water boundary is subtle at dusk; reel reads grey.
@@ -99,6 +105,13 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   `behaviour.ts` (companions + dog state machine) and `CompanionView.ts`.
 - `src/ui/nameOverlay.ts` — DOM overlay for first-launch names (localStorage `rybki.profile.v1`).
 - The core's `step()` returns `{ state, events }`; GameEvents feed the scene now and quests later.
+
+## Deploy
+
+Repo `github.com/BoguckiMich/somethingfishy` (remote `origin`). Every push to `main` runs
+`.github/workflows/deploy.yml` (tsc, tests, build) and publishes `dist/` to
+`https://boguckimich.github.io/somethingfishy/` (Pages source must be "GitHub Actions").
+Push only when the user says so. URL dev flags are ignored in production (`src/urlParams.ts`).
 
 ## Running and verifying
 
