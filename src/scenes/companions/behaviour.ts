@@ -142,18 +142,21 @@ export const STICK_TUNING = {
 export const stickVariantAt = (p: Point): number => Math.abs(Math.round(p.x) * 7 + Math.round(p.y) * 13) % 3;
 
 /** Where the companions play: the grass between the car (left), the dock (top), the right bushes and the hint line (bottom). */
-export const PLAY_AREA = { x0: 100, x1: 322, y0: 508, y1: 546 };
+export const PLAY_AREA = { x0: 100, x1: 322, y0: 500, y1: 554 };
 
 export const PLAY_TUNING = {
   /** A round ends with her bringing it back and dropping it at his feet this often. */
   giveBackChance: 1 / 6,
   /** She stops this far from him with the stick (out of reach); he has her when he is this close. */
   keepDist: 52,
-  reachDist: 22,
+  reachDist: 28,
   /** In the rare round she brings it back she stops this close (well within his reach). */
   giveBackDist: 20,
-  /** Closest he gets while chasing: she is never caught. */
-  minGap: 20,
+  /** Closest he gets while chasing: she is never caught. The sprites are ~26 px wide, so their centres stay this far apart. */
+  minGap: 28,
+  /** Within this far of an edge (x, y) she turns back towards the middle of the lawn instead of running on along it. */
+  edgeMarginX: 24,
+  edgeMarginY: 10,
   teaseMaxMs: 2500,
   pajTeaseSpeed: 40,
   dodgeBowMs: 420,
@@ -274,6 +277,10 @@ export interface Companions {
     /** How many sips he has started (every POUR_EVERY-th starts with a pour), and whether the one under way pours. */
     sips: number;
     sipPour: boolean;
+    /** How much longer he stays in the walk frame after he last moved (ms): a standing man never walks in place. */
+    walkHoldMs: number;
+    /** Where he was WALK_WINDOW_MS ago at most (and for how long): the yardstick for "is he really walking". */
+    walkAnchor: Point & { ms: number };
     /** Distance walked, in pixels: drives the walk cycle so his feet match his speed. */
     walkDist: number;
     /** Time left clapping (alternating the cheer and sit frames). */
@@ -315,6 +322,8 @@ export interface PlayState {
   hopTo: Point;
   /** Which side of the spare stick he stands on (-1 left, 1 right), so his reach lands on it. */
   stickSide: 1 | -1;
+  /** The chase: which way round him she slides while he blocks her way (0 = not blocked). */
+  slide: 1 | -1 | 0;
 }
 
 function newPlay(): PlayState {
@@ -334,6 +343,7 @@ function newPlay(): PlayState {
     hopFrom: { x: 0, y: 0 },
     hopTo: { x: 0, y: 0 },
     stickSide: 1,
+    slide: 0,
   };
 }
 
@@ -367,7 +377,7 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       restMs: 0,
       sleeping: false,
     },
-    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), sips: 0, sipPour: false, walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
+    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), sips: 0, sipPour: false, walkHoldMs: 0, walkAnchor: { x: PAJ_SPOT.x, y: PAJ_SPOT.y, ms: 0 }, walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
     stick: { x: 0, y: 0, state: 'hidden', variant: 0 },
     bubble: null,
     sticks: [],
@@ -1071,11 +1081,18 @@ function segDist(p: Point, a: Point, b: Point): number {
 function chaseWaypoint(from: Point, chaser: Point, heading: Point, rng: Rng): Point {
   let best: Point = from;
   let bestScore = -Infinity;
-  for (let i = 0; i < 10; i++) {
+  const T = PLAY_TUNING;
+  // Near an edge (above all the car's side) she must head back into the lawn, not along the wall.
+  const ex = from.x < PLAY_AREA.x0 + T.edgeMarginX ? 1 : from.x > PLAY_AREA.x1 - T.edgeMarginX ? -1 : 0;
+  const ey = from.y < PLAY_AREA.y0 + T.edgeMarginY ? 1 : from.y > PLAY_AREA.y1 - T.edgeMarginY ? -1 : 0;
+  const cornered = ex !== 0 || ey !== 0;
+  for (let i = 0; i < 12; i++) {
     const wp = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
-    // No sharp reversals: she turns, she does not run back past him.
-    const reverses = (wp.x - from.x) * heading.x + (wp.y - from.y) * heading.y < 0;
-    const score = dist(wp, chaser) + 0.6 * dist(wp, from) - (segDist(chaser, from, wp) < 30 ? 200 : 0) - (reverses ? 300 : 0);
+    // No sharp reversals: she turns, she does not run back past him (but at an edge turning back is the point).
+    const reverses = !cornered && (wp.x - from.x) * heading.x + (wp.y - from.y) * heading.y < 0;
+    const inwards = (ex === 0 || (wp.x - from.x) * ex >= 40) && (ey === 0 || (wp.y - from.y) * ey >= 12);
+    const score =
+      dist(wp, chaser) + 0.6 * dist(wp, from) - (segDist(chaser, from, wp) < T.minGap + 8 ? 200 : 0) - (reverses ? 300 : 0) - (cornered && !inwards ? 500 : 0);
     if (score > bestScore) {
       bestScore = score;
       best = wp;
@@ -1103,7 +1120,31 @@ function endRound(s: Companions, rng: Rng): void {
   pl.finalRound = pl.fetches >= 2 + Math.floor(rng() * 2);
 }
 
+/**
+ * He walks only while he really goes somewhere: the walk frame follows his feet, not the phase he is in.
+ * Every WALK_WINDOW_MS he must have got WALK_MIN_PX away from where he was (a creep or a shuffle does not
+ * count), and the walk frame stays WALK_HOLD_MS after that, so a real stride never flickers.
+ */
+const WALK_HOLD_MS = 150;
+const WALK_WINDOW_MS = 300;
+const WALK_MIN_PX = 5;
+
 function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
+  tickPlayPhase(s, dtMs, rng);
+  const p = s.paj;
+  const a = p.walkAnchor;
+  a.ms += dtMs;
+  if (dist(a, p) >= WALK_MIN_PX) {
+    p.walkHoldMs = WALK_HOLD_MS;
+    Object.assign(a, { x: p.x, y: p.y, ms: 0 });
+  } else {
+    p.walkHoldMs = Math.max(0, p.walkHoldMs - dtMs);
+    if (a.ms >= WALK_WINDOW_MS) Object.assign(a, { x: p.x, y: p.y, ms: 0 });
+  }
+  if (p.shape === 'walk' && p.walkHoldMs === 0) p.shape = 'stand';
+}
+
+function tickPlayPhase(s: Companions, dtMs: number, rng: Rng): void {
   const pl = s.play;
   const p = s.paj;
   const d = s.dog;
@@ -1192,8 +1233,11 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         const py = vx / len;
         const sign = rng() < 0.5 ? 1 : -1;
         const make = (sg: number): Point => ({ x: d.x + (vx / len) * T.dodgeAway + px * sg * T.dodgeSide, y: d.y + ((vy / len) * T.dodgeAway + py * sg * T.dodgeSide) * 0.6 });
+        // The side with more room: a hop into the edge would be clamped short and leave her cornered.
+        const room = (q: Point) => Math.min(q.x - PLAY_AREA.x0, PLAY_AREA.x1 - q.x, (q.y - PLAY_AREA.y0) * 2.5, (PLAY_AREA.y1 - q.y) * 2.5);
         let to = make(sign);
-        if (!inArea(to)) to = make(-sign);
+        const other = make(-sign);
+        if (!inArea(to) || (room(to) < 12 && room(other) > room(to))) to = other;
         pl.hopFrom = { x: d.x, y: d.y };
         pl.hopTo = clampArea(to);
         pl.chaseMs = rand(rng, T.chaseMs[0], T.chaseMs[1]);
@@ -1207,6 +1251,13 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       const bow = T.dodgeBowMs;
       if (pl.phaseMs >= bow) {
         pursue(p, pl.hopFrom, 70, dtMs, 6); // he lunges at where she was
+        // ...but never into her (a hop the edge cut short leaves her close).
+        const gd = dist(p, d);
+        if (gd < T.minGap && gd > 0) {
+          p.x = d.x + ((p.x - d.x) / gd) * T.minGap;
+          p.y = d.y + ((p.y - d.y) / gd) * T.minGap;
+          Object.assign(p, clampArea(p));
+        }
         p.shape = 'walk';
       } else p.shape = 'stand';
       if (pl.phaseMs < bow) {
@@ -1243,9 +1294,12 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
           pl.nearIn = rand(rng, T.nearMissEveryMs[0], T.nearMissEveryMs[1]);
         }
       }
+      // A waypoint he has walked up to would pin her against him: forget it and choose another.
+      while (d.path.length > 0 && dist(d.path[0], p) < T.minGap + 8) d.path.shift();
       // The next turn is chosen before she gets to the corner, so she curves instead of stopping.
       if (d.path.length === 0) d.path = [chaseWaypoint(d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
       else if (d.path.length === 1 && dist(d, d.path[0]) < 45) d.path.push(chaseWaypoint(d.path[0], p, { x: d.path[0].x - d.x, y: d.path[0].y - d.y }, rng));
+      const dFrom = { x: d.x, y: d.y };
       follow(d, pl.nearMs > 0 ? T.dogSlowSpeed : T.dogSpeed, dtMs);
       d.shape = 'run';
       d.hop = Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2;
@@ -1254,10 +1308,34 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       const speed = Math.min(T.pajMaxSpeed, T.pajBaseSpeed + Math.max(0, gap - 40) * T.pajCatchUp);
       pursue(p, d, speed, dtMs, T.minGap);
       p.shape = 'walk';
-      // She is never caught: if she runs past him she slips away to the edge of his reach.
+      // She is never caught: when he blocks her way she slides round him at the edge of his reach (the side
+      // her waypoint is on, or the one with more room) instead of being pinned against him.
       const g2 = dist(p, d);
-      if (g2 < T.minGap && g2 > 0) {
-        const away = clampArea({ x: p.x + ((d.x - p.x) / g2) * T.minGap, y: p.y + ((d.y - p.y) / g2) * T.minGap });
+      if (g2 < T.minGap - 0.05 && g2 > 0) {
+        // Where she was, not where she tried to go: sliding replaces that step instead of fighting it.
+        const bl = dist(dFrom, p) || 1;
+        const rx = (dFrom.x - p.x) / bl;
+        const ry = (dFrom.y - p.y) / bl;
+        const aim = d.path[0] ?? d;
+        const arc = ((pl.nearMs > 0 ? T.dogSlowSpeed : T.dogSpeed) * dtMs) / 1000 / T.minGap;
+        // The point `a` radians round him (sign = which way) at the edge of his reach.
+        const around = (a: number): Point => {
+          const ux = rx * Math.cos(a) - ry * Math.sin(a);
+          const uy = rx * Math.sin(a) + ry * Math.cos(a);
+          return { x: p.x + ux * T.minGap, y: p.y + uy * T.minGap };
+        };
+        /** How far a spot is off the lawn. */
+        const off = (q: Point) => Math.hypot(q.x - clamp(q.x, PLAY_AREA.x0, PLAY_AREA.x1), q.y - clamp(q.y, PLAY_AREA.y0, PLAY_AREA.y1));
+        // Which way round: the side with room to get past him (a quarter turn on), else the way her waypoint lies.
+        const pass = (sg: number) => off(around(sg * 1.75));
+        if (pl.slide === 0 || off(around(pl.slide * arc)) > 3) {
+          const want: 1 | -1 = -ry * (aim.x - d.x) + rx * (aim.y - d.y) >= 0 ? 1 : -1;
+          const [pw, po] = [pass(want), pass(-want)];
+          pl.slide = po + 2 < pw ? (-want as 1 | -1) : want;
+          if (Math.min(pw, po) > 8) d.path = []; // boxed in against the edge: a new way out is chosen
+        }
+        const at = (sg: number): Point => around(sg * arc);
+        const away = clampArea(at(pl.slide));
         d.x = away.x;
         d.y = away.y;
         const g3 = dist(p, d);
@@ -1267,7 +1345,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
           p.y = d.y + ((p.y - d.y) / g3) * T.minGap;
           Object.assign(p, clampArea(p));
         }
-      }
+      } else pl.slide = 0;
       if (pl.phaseMs >= pl.chaseMs) {
         // She trots off a few steps, pleased with herself.
         const gap = dist(p, d) || 1;
