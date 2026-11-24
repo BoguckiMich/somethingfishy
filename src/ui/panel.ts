@@ -28,7 +28,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(tag: K, css = '', text
 }
 
 export interface ButtonOptions {
-  /** Why the button is disabled (shown in place of the label); omit for an enabled button. */
+  /** Why the button is disabled (shown after the label; '' = the label itself says it); omit for an enabled button. */
   disabledReason?: string;
   small?: boolean;
   /** Sound on press: a soft tap by default, null for none (a button that plays its own sound). */
@@ -38,7 +38,7 @@ export interface ButtonOptions {
 /** A chunky wooden/gold button. Disabled ones are dimmed and say why. */
 export function woodButton(label: string, onClick: () => void, opts: ButtonOptions = {}): HTMLButtonElement {
   const disabled = opts.disabledReason !== undefined;
-  const b = el('button', '', disabled ? `${label} (${opts.disabledReason})` : label);
+  const b = el('button', '', disabled && opts.disabledReason ? `${label} (${opts.disabledReason})` : label);
   b.type = 'button';
   b.disabled = disabled;
   installFrameStyles();
