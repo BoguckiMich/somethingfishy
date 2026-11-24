@@ -22,3 +22,18 @@ export function showBottleCard(contents: BottleContents, onClose: () => void): P
   );
   return panel;
 }
+
+/** A small story card: a title and a few short lines (the Pale One bonus beat). Like the others it is only a view. */
+export function showStoryCard(title: string, lines: readonly string[], onClose: () => void): PanelHandle {
+  const panel: PanelHandle = openPanel(
+    title,
+    (body) => {
+      for (const t of lines) body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text};padding:2px 0`, t));
+      const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:12px');
+      col.append(woodButton('Close', () => panel.close()));
+      body.append(col);
+    },
+    onClose,
+  );
+  return panel;
+}
