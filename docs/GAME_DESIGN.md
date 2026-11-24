@@ -946,8 +946,32 @@ Also from play (user, 2026-11-24):
    bronze, medal look in log/bag, does a medal fill checklist star slots; grill together with the red sweet spot.
 8. **Max-distance cast is too hard**: the charge meter pauses briefly at full power (~150-300 ms). Small tweak.
 
-Open questions (grill before the spec): which conditions and how many per day, how they show on screen;
-which rare fish, their conditions and rewards; which gear goes behind which goal; camp items and prices.
+**Grill round 1 (decided 2026-11-24, user accepted all recommendations):**
+- **Daily condition** keyed by the REAL date (like fish of the day), one per day from 5:
+  - Sunny & calm: shallow fish bite more, deep ones slower.
+  - Overcast: even mix; time-of-day fish (tench, zander) bite all day.
+  - Light rain: faster bites, carp/bream more; rain sound + drops on the water.
+  - Windy: bobber drifts a little, predators (perch, pike, zander) more, fights a bit harder.
+  - Morning fog: fog until ~10:00 in-game, rare fish more, eerie mood.
+  Each = a few species weights up + one visible lake effect + a Pajkel line. Shown as an icon next to the
+  clock and a Pajkel line on the day's first visit; Grzesiu's log card says which weather a fish likes
+  (knowledge tier). Light visual effects (rain drops, fog, overcast tint, wind ripples).
+- **Rare fish on Quiet Lake: 3 + the Pale One**, each = weather + time window + one more condition:
+  - Golden tench: rain, dawn/dusk, deep.
+  - Old Mossback (huge carp): fog, corn bait, 30 m+.
+  - Silver ghost (white bleak): sunny, 11-13, shallow, maggots.
+  Found through half-hints (bottle note, Pajkel, a notice-board note); unknown ones show as a "?"
+  silhouette with the hint in the log. Reward: a **trophy at the camp** (mounted fish by the car), a
+  gold-framed log entry, a special Pajkel/Bestia moment; no extra coins. Harder fight: a new pattern and
+  it escapes if it stays out of the green too long (perfect catch of a rare fish = top achievement).
+- **3 new normal species** (user: uncommon/rare, not legendary). Proposal, not yet confirmed:
+  - Ide: shallow, dawn/dusk, uncommon, smooth-darting; likes overcast.
+  - Asp: shallow surface predator, day, rare, darting (fast); likes windy.
+  - Burbot: deep, night, rare, erratic/sinker; likes rain and fog.
+  Log goes 13 -> 16 (+3 rare = 19); checklist/quests/knowledge data need entries.
+
+Still open (round 2): which gear goes behind which goal; camp items and prices; perfect catch / medal /
+sweet spot details.
 
 ---
 
