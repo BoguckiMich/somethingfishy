@@ -776,6 +776,12 @@ today's chapter when one is waiting (else the quests).
   what is hidden before (shown as "???"), and whether old saves (counts only) unlock at once
   (probably yes, counts are kept).
 
+- **Species that need a special bait** (user, 2026-11-24, still thinking; no change to bites for now) — some
+  fish (maybe new ones at the River bend, or a rare Quiet Lake variant) bite *only* on a given bait,
+  e.g. glow bait at night, fish strip for a predator. Would give baits a stronger purpose and the
+  log a "needs ..." hint. Open questions: which species, is it a hard gate or a big boost, and how
+  the log/knowledge tells her (ties into Grzesiu's fish knowledge).
+
 - **Achievements + total weight per species** (playtester, 2026-11-23) — the log could show the
   total weight caught per species; the user wants it with an achievements system, not on its own.
   Open questions: what achievements, rewards or just badges, and how to count weight for catches
