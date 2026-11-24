@@ -524,7 +524,44 @@ stick and throw that one. The fetch game (companions `play` mode) becomes that:
 - Pure state in `companions/behaviour.ts`, unit-tested; uses the slice-15a speech bubble.
 - Built as: she stops ~52 px from him, he steps up (~22 px), she play-bows (new dog frame) and hops away, the chase runs 7-11 s inside the grass (x 100-322, y 508-558, clear of the car, dock, crate and hint line) with a near miss every 2-4 s, then he says one of the three lines, walks to a spare stick that appears on the grass, bends (new Pajkel pose) and throws; she drops the old stick where she stands. At most 3 old sticks (a 4th makes the oldest fade over 1.5 s); a bite, a press or bedtime clears them. Give-back chance 1/6, "...thank you?", he picks that stick up and throws it. Dev: `?debug=afk&giveback=1`.
 
----
+**Fix: no "New record!" from bed (user, 2026-11-24).** Pajkel praised records even while walking
+to the car or asleep in it. Now he speaks only outside bed mode; asleep in the car, a record just
+puffs a big Zzz from the car window.
+
+### Progression plan: road trips (decided with the user, 2026-11-24)
+Goal: a long-term reason to come back daily for ~15 minutes (one in-game day is 20 real minutes).
+- **Places**, travelled to by the car: Quiet Lake → **River bend** (first new place: current,
+  trout, grayling, chub, asp) → **Old quarry** (very deep, clear water, odd catches, the eerie
+  thread continues) → **Sea pier** (later). Each place: its own fish-log page, moments and legendary.
+- **Unlock by a lake checklist**, not a plain species count (Stardew bundles): e.g. a dawn bundle
+  (roach, rudd, bleak caught at dawn), a night bundle (eel, zander, catfish), "3 gold-star fish",
+  "500 coins for petrol". Handing in a fish means not selling it.
+- **Shared** day clock, daily quests and bait box across places; quests may name a place.
+- **Size stars** (bronze / silver / gold per species, by length) come before the road trips; the
+  checklist can ask for them. **Fish of the day** (one species pays double or bites more) with them.
+- Later: a weekly quest, daily story chapters (storyline written separately, `docs/STORY.md`),
+  a trophy wall / aquarium.
+- Order (user): fix above → **slice 18 road map (WIP)** first, so she can see new places are
+  coming → size stars + fish of the day → checklist board on Quiet Lake → River bend (art, fish,
+  travel) → weekly quest + story chapters.
+
+**Slice 18: the road map, places "coming soon" (decided 2026-11-24).** The user wants the map in
+early so Alex sees new places are on the way while we build them. No travel yet.
+- A tap on the car (when Pajkel and Bestia are **not** asleep in it) opens a **Road map** panel
+  instead of the nap card. Asleep in the car: the tap stays as now (Zzz, sometimes a sleepy boof).
+- The panel shows a small code-drawn pixel-art map: a winding road linking four pins.
+  **Quiet Lake** is open, marked "You are here" (the car icon or a highlight on the pin).
+  **River bend**, **Old quarry** and **Sea pier** are greyed out, each with a small
+  **work-in-progress sign** (a red-white striped road barrier or a traffic cone) and "Coming soon".
+- Tapping a pin shows its name and a one-line blurb under the map. Locked places get a playful
+  line, e.g. "Pajkel is still fixing the road to the river." Quiet Lake: "Home. The fish know you here."
+- Below the map, a wood button **"Take a nap..."** opens the existing nap card, so naps keep working.
+- Data: the places list (id, name, blurb, `open` or `soon`) in `src/core/data/locations.ts`
+  next to `QUIET_LAKE`; pure and unit-tested (one open place, ids unique). No save change.
+- Art in `src/art/mapArt.ts` (pins, barrier, tiny map scenery: lake, river line, grey quarry
+  cliffs, sea strip at the top), shown on a dev contact sheet; panel in `src/ui/mapPanel.ts`.
+- Dev flag `?debug=map` opens the map at load.
+
 
 ## 4. Roadmap
 
@@ -715,3 +752,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
     - 15c. Baits
 16. The car, bedtime, naps and the night kit (details in §3 → Slice 16)
 17. "No take, only throw" fetch (details in §3 → Slice 17)
+18. Road map on a car tap, new places "coming soon" (details in §3 → Slice 18)
+19. Size stars + fish of the day (planned, §3 → Progression plan)
+20. Lake checklist on Quiet Lake (planned)
+21. River bend: art, fish, travel (planned)
