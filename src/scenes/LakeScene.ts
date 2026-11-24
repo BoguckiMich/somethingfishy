@@ -37,6 +37,7 @@ import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
 import { crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
 import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/sleepFade';
+import { showMapPanel } from '../ui/mapPanel';
 import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, formatClock, NEW_GAME_CLOCK, TIME_OF_DAY_NAMES, timeOfDay, type GameClock } from '../core/clock';
@@ -716,7 +717,18 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
-  /** A tap on the car (never casts): asleep inside makes a "Zzz...", otherwise the nap card. */
+  /** The road map (slice 18): only from the dock, with Alex idle; "Take a nap..." there opens the nap card. */
+  private openMap(): void {
+    const c = this.companions.state;
+    if (this.state.kind !== 'idle' || this.panel || c.mode !== 'dock') return;
+    this.swallowUp = false;
+    this.panel = showMapPanel(
+      () => this.openNapCard(),
+      () => (this.panel = null),
+    );
+  }
+
+  /** A tap on the car (never casts): asleep inside makes a "Zzz...", otherwise the road map. */
   private tapCar(): void {
     const c = this.companions.state;
     if (isInCar(c)) {
@@ -724,7 +736,7 @@ export class LakeScene extends Phaser.Scene {
       if (Math.random() < 1 / 3) sound.play('sleepyBoof');
       return;
     }
-    this.openNapCard();
+    this.openMap();
   }
 
   private spawnZzz(big: boolean): void {
@@ -986,6 +998,10 @@ export class LakeScene extends Phaser.Scene {
     }
     if (dbg === 'nap') {
       this.openNapCard();
+      return;
+    }
+    if (dbg === 'map') {
+      this.openMap();
       return;
     }
     if (dbg === 'quests') {
