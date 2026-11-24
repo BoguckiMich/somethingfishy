@@ -647,6 +647,13 @@ early so Alex sees new places are on the way while we build them. No travel yet.
   baits shift the spawn weights toward rarer species (or one species). Open questions: per-species or
   per-rarity boost, how strong, and do baits come from the shop, the daily box, or crafting?
 
+- **Fish knowledge unlocked in the log** (tester Grzesiu, 2026-11-24) — each species' log card
+  reveals more as she catches more of it, e.g. after 10 catches she learns its weight and length
+  range (later tiers: best time of day, favourite bait, depth). Fits the size stars (slice 19): the
+  range tells her what a gold fish is. Open questions: the tiers and their counts (3 / 10 / 25?),
+  what is hidden before (shown as "???"), and whether old saves (counts only) unlock at once
+  (probably yes, counts are kept).
+
 - **Achievements + total weight per species** (playtester, 2026-11-23) — the log could show the
   total weight caught per species; the user wants it with an achievements system, not on its own.
   Open questions: what achievements, rewards or just badges, and how to count weight for catches
