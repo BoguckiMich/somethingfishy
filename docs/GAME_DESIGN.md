@@ -592,6 +592,33 @@ Every catch gets a little more exciting, and each real day has one special speci
 - Later (not in this slice): quests and lake checklists asking for stars ("Catch a silver-star
   perch"), Grzesiu's log knowledge (size ranges revealed after N catches).
 
+**Slice 20: the Quiet Lake checklist (details picked by Claude 2026-11-24, user may adjust).**
+Stardew-style bundles: hand in fish (and coins) to fix the road to the River bend. The river
+itself is slice 21, so finishing the checklist now marks the road as fixed ("opening soon").
+- **Five bundles**, each with slots. A fish slot takes one fish from the bag (the fish is gone,
+  not sold, no coins, no quest sale progress). Species already set the time of day, so no time
+  rule is needed. The Pale One never fits.
+  1. *Morning net*: roach, rudd, bleak, perch (any size). Reward 10 corn + 60 coins.
+  2. *Deep water*: bream, tench, carp, pike. Reward 10 fish strip + 150 coins.
+  3. *After dark*: eel, zander, catfish. Reward 3 glow bait + 200 coins.
+  4. *Proud angler*: 3 slots "any fish, silver or better" + 1 slot "any gold fish". Reward 300 coins.
+  5. *Petrol money*: pay 750 coins (one slot, one button, only when she has them). No reward
+     besides the road.
+- **Hand-in:** each open slot shows what it wants (fish sprite or star row) and a "Give"
+  button, enabled when a fitting fish is in the bag; it gives the cheapest fitting fish. A
+  finished bundle shows its reward being paid ("+10 corn · +60 coins" toast) and a tick.
+- **All five done:** a card "The road to the River bend is fixed! Pajkel is packing the car." with
+  a jingle; the road map's River bend pin changes from the barrier to "Road fixed! Opening soon".
+- **Where:** the road map gets a "Quiet Lake checklist n/5" button; the River bend pin's line
+  becomes "Finish the Quiet Lake checklist to fix the road (n/5)" until done. The notice-board
+  panel gets the same button at the bottom. Catch screen: a small line "Fits the checklist!" when
+  the caught fish fits an open slot (and it went into the bag).
+- **Save:** `PlayerState.checklist?` (filled slots per bundle id; missing = nothing filled),
+  normalised on load, no version bump. Pure rules in `core/checklist/` (fits, give, pay, bundle
+  done, all done), data in `core/data/checklist.ts`, unit-tested.
+- Dev: `?debug=checklist` opens it with a bag that fits a few slots; `&cl=done` marks all but the
+  last slot filled.
+
 
 ## 4. Roadmap
 
@@ -791,5 +818,5 @@ come once the v2 bait and lure systems provide more interesting rewards.
 17. "No take, only throw" fetch (details in §3 → Slice 17)
 18. Road map on a car tap, new places "coming soon" (details in §3 → Slice 18)
 19. Size stars + fish of the day (planned, §3 → Progression plan)
-20. Lake checklist on Quiet Lake (planned)
+20. Lake checklist on Quiet Lake (details in §3 → Slice 20)
 21. River bend: art, fish, travel (planned)
