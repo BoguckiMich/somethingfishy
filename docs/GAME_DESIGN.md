@@ -683,6 +683,41 @@ today's chapter when one is waiting (else the quests).
 - **22c "The lake teaches itself":** UI_REVIEW §1 fixes 1-4 and the tall-phone bands, §5 "Slice 21c".
 - Built as (22c): the sign (24x26, feet (276, 498), 48x48 tap area y 452-500, so it never overlaps the fetch lawn; PLAY_AREA unchanged) shows a cream note per unfinished quest, a done one with a rim, a gold pin and a 2-frame flutter, and a wax seal on a cream note while today's chapter is waiting or out on the water. A tap while idle: the sealed bottle's card if it floats, else today's chapter starts (same `beginChapter` as the delivery) when it waits and the lake is calm, else the quests. The top-right board and pencil buttons and the HUD worm counter are gone; the clock reads "Day 1 · 12:00" with the 9x9 sun / half sun / moon icon (drawn 2x), coins stay under it. The hint line (`core/tips.ts`) is, by priority: out of bait ("Out of worms, visit the Shop"), fewer than 3 casts ("Hold to charge, release to cast"), bag full, a crate never tapped, a finished quest, a waiting chapter; none and no frame otherwise; one-off lines show 6 s once per occasion; texts are short enough for 360 px. Glints (the crate's `+`, every 4 s, staggered) on the car, sign and Bestia until each is tapped once; the crate keeps its own twinkle. `PlayerState.seen?: string[]` holds the tapped ids and `cast1..3`. Bottom bar 34 px drawn, 44 px hit (gaps go to the nearer button), 85 % labels when disabled, "Bag" amber from 8/10, "Log n/13"; gear, crate (44x44), dog (44x44 at least) and sign are finger-sized. Names are three fields plus "Save names" in ⚙ Settings (shared `nameFields` with the first-launch card). The catch bar starts at y 50, and the progress strip has a fish icon above and a net icon below. The update toast sits top right. Tall phones: the page background is a gradient from the sky's top colour (upper half) to the lawn colour (lower half), and the theme-color meta follows the sky.
 
+**Slices 22d + 22e (user, 2026-11-24; details picked by Claude, user may edit the texts).**
+- **22d "Bigger sign + story journal".**
+  - *Sign:* about 1.5x bigger (~36x38 px), notes ~6x7 px and readable, the claimable-quest note
+    gets a 3x3 gold pin plus a soft gold glow/twinkle, the wax-seal note bigger and red; tap area
+    ≥ 56x56. Keep it clear of the fetch lawn (y ≥ 500), the dock and the crate; Bestia must not
+    steal its taps (sign wins over a pet tap inside its box).
+  - *Story journal:* the notice-board panel gets two tabs, **Quests** and **Story**. Story lists
+    every chapter she has seen, oldest first: a small icon (sealed bottle / duck / star / footprints
+    / car / pale fish), the chapter's text (the W. note for bottles, a one-line description for
+    moments) and one **thought** from Alex or Pajkel in italics. Unseen chapters are not shown (no
+    spoilers); the header says "Chapter n of 8". A dot on the Story tab when a new page was added
+    since she last looked. Thoughts (≤ 60 chars, the user may rewrite them later), in `core/data/story.ts`:
+    - Q1 Alex: "A pen pal who signs with one letter. Who are you, W.?"
+    - Q2 Pajkel: "Note to self: never trust a duck."
+    - Q3 Alex: "Forty metres down in a nine-metre lake?"
+    - Q4 night Alex: "A star in the water with no star above it. It blinked."
+      / Q4 day Alex: "Count the stars tonight. Maybe. Probably."
+    - Q5 Pajkel: "Wet footprints. Not mine, not Bestia's. Hm."
+    - Q6 Alex: "How do you forget catching something like that?"
+    - Q7 Pajkel: "A doorstep to what? I'm fixing the road anyway."
+    - Q8 Pajkel: "Car packed. Stick packed. Duck not invited."
+    - Pale One beat Alex: "I caught it. I think. Why is it so hard to remember?"
+    Pure: `journalEntries(story)` in `core/story/`, unit-tested; no save change (the seen chapters and
+    the Q4 version are already saved; if the Q4 version is not, store it).
+- **22e "Fish knowledge" (tester Grzesiu's idea).** A species' log card reveals more the more she
+  catches it; old saves unlock at once from their counts. Tiers (pure `core/fishKnowledge.ts`, data
+  in `core/data/`):
+  - 1 catch: name, fact, where/when (as now), her best size.
+  - **5 catches:** size range "12-30 cm · 20-300 g" (from the species data).
+  - **10 catches:** favourite bait ("Bites best on: corn" from `baits.ts` speciesBoost; species with
+    no favourite bait: "Not fussy: worms are fine").
+  - **25 catches:** "Gold from N cm" (the gold-star threshold) and the times caught.
+  - A locked tier shows as a dim line "??? · catch 5 to learn" so she knows what's next.
+  - The Pale One: no tiers (it slips away; keep its card as is).
+
 
 ## 4. Roadmap
 
@@ -893,5 +928,5 @@ come once the v2 bait and lure systems provide more interesting rewards.
 19. Size stars + fish of the day (details in §3 → Slice 19)
 20. Lake checklist on Quiet Lake (details in §3 → Slice 20)
 21. Story chapters, Quiet Lake (details in §3 → Slice 21)
-22. Polish pass (M1): 22a Pajkel's chair + sticks, 22b friendlier panels, 22c hints + shore sign (§3 → Polish pass; `docs/ui-review/UI_REVIEW.md`)
+22. Polish pass (M1): 22a Pajkel's chair + sticks, 22b friendlier panels, 22c hints + shore sign (§3 → Polish pass; `docs/ui-review/UI_REVIEW.md`), 22d bigger sign + story journal, 22e fish knowledge (§3 → Slices 22d + 22e)
 23. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
