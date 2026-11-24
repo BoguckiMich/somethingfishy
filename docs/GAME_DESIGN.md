@@ -626,6 +626,9 @@ itself is slice 21, so finishing the checklist now marks the road as fixed ("ope
 
 ## 4. Roadmap
 
+> Milestones (M1-M5, Google Play) are now in [ROADMAP.md](ROADMAP.md) (2026-11-24). The list below is
+> the older idea pool; v2a-v2d come after M5.
+
 - **v1** — one lake, float fishing, worms only, ~12 fish + 1 legendary, log, bag, shop, 2 rod upgrades.
 - **v1.5 Daily habit** — daily bait box + daily quests (rewards: worms + coins), right after saving lands.
   See §5.
