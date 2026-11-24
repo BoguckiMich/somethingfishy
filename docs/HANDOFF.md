@@ -148,7 +148,7 @@ reviewed by the main session (tsc, tests, build, screenshots) but none play-test
 - **Plan after 2026-11-24 16:30 (user agreed):** 1) Bestia/Pajkel weird walking and stuck near the lawn edges
   (screenshot in repo root, `fix/chase-stuck` did not fully solve it) + **Bestia's tail in the run frames looks like
   poop** (standing/wiggle tail is fine; fix only the running frames, `src/art/characters.ts`, `/dev/char-sheet.html`);
-  2) phone-test fixes; 3) grill the pacing rework (GAME_DESIGN §5), then spec and slices.
+  2) ~~phone-test fixes~~ user played + tester feedback 2026-11-24: OK for now, nothing to fix; 3) grill the pacing rework (GAME_DESIGN §5), then spec and slices.
 - Fixes from the phone test of 15a-17 come first.
 - Reels barely help in the bot sim (15a): maybe raise the reel multipliers.
 - Rod shop icons are weak (15b).
