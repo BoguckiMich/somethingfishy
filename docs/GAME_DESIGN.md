@@ -970,8 +970,27 @@ Also from play (user, 2026-11-24):
   - Burbot: deep, night, rare, erratic/sinker; likes rain and fog.
   Log goes 13 -> 16 (+3 rare = 19); checklist/quests/knowledge data need entries.
 
-Still open (round 2): which gear goes behind which goal; camp items and prices; perfect catch / medal /
-sweet spot details.
+**Grill round 2 (decided 2026-11-24, user accepted all recommendations):**
+- **Gear gated by finished checklist bundles** (coins still pay): start = fiberglass, worms, baits;
+  1 bundle = braided line + smooth reel; 2 bundles = carbon rod (deep 30 m+: Pale One, Old Mossback);
+  4 bundles = fluoro line + pro reel; Lantern & blanket unchanged (after fiberglass). Locked shop card:
+  greyed with a lock and "Unlocks after 2 checklist bundles (1/2)". No price change now; rebalance after a
+  pacing sim.
+- **Camp** on the grass by the car (left), small fixed spots clear of the fetch area; for sale from the
+  start, mostly cosmetic, each with one small Pajkel/Bestia moment: campfire 800 (night glow, he warms his
+  hands), deck chair for Pajkel 600, Bestia's bed 1000 (she naps there), tent 1500, string lights 1200
+  (night), windsock 400 (shows the day's wind), trophy board free with the first rare fish (~5500 total).
+- **Perfect catch**: the fish never leaves the green zone the whole fight -> +1 star (none->bronze,
+  bronze->silver, silver->gold). **Medal** only for a gold-size fish caught perfectly; shown as a gold
+  medal instead of the star row in log/bag; counts as gold for checklist star slots.
+- **Sweet spot**: a red core inside the green zone on every rod (bamboo 20 % of the zone, fiberglass 30 %,
+  carbon 40 %); while the fish is in the core progress fills x1.5.
+- **Switching owned rods**: postponed until rods differ by more than "better".
+
+**Slices (in order):** 23a gear gates in the shop -> 23b daily weather (pick by real date, icon by the
+clock, Pajkel line, species weights, lake visuals) -> 23c new species ide/asp/burbot (data, art, log,
+knowledge, quests) -> 23d rare fish (3, conditions, half-hints, "?" silhouettes in the log, harder fight,
+trophy board) -> 23e camp items -> 23f perfect catch + medal + sweet spot -> pacing sim + price rebalance.
 
 ---
 
