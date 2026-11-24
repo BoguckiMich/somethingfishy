@@ -52,7 +52,7 @@ describe('sprites', () => {
     // The chair is red canvas on a stone frame in every frame.
     for (const f of frames) {
       expect(Array.from(f.pixels)).toContain(PAL.shirtDark);
-      expect(Array.from(f.pixels)).toContain(PAL.stoneDark);
+      expect(Array.from(f.pixels)).toContain(PAL.stone);
     }
     const chair = emptyChairSprite();
     expect(chair.width).toBeGreaterThan(24);

@@ -166,7 +166,7 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   for (let i = 0; i < 4; i++) addRaster(scene, TEX.stickSpin[i], Raster.fromSprite(stickSpinSprite(i)));
   for (const f of [0, 1] as const) addRaster(scene, TEX.stickPuff[f], Raster.fromSprite(stickPuffSprite(f)));
   addRaster(scene, TEX.emptyChair, Raster.fromSprite(emptyChairSprite()));
-  addRaster(scene, TEX.steam, Raster.fromSprite(sprite('w\nw', { w: PAL.whiteShade })));
+  addRaster(scene, TEX.steam, Raster.fromSprite(sprite('.w\nww\nw.', { w: PAL.white })));
   addRaster(scene, TEX.stickCarry, Raster.fromSprite(stickCarrySprite()));
   for (let v = 0; v < STICK_VARIANTS; v++) addRaster(scene, stickGroundKey(v as StickVariant), Raster.fromSprite(stickGroundSprite(v as StickVariant)));
 }

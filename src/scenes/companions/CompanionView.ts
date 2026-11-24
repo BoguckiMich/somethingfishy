@@ -27,12 +27,12 @@ import {
 
 const DEPTH = 14;
 /** The wisp over the cup: one every STEAM_EVERY_MS, rising STEAM_RISE px and fading over STEAM_MS. */
-const STEAM_EVERY_MS = 1500;
-const STEAM_MS = 1200;
-const STEAM_RISE = 4;
+const STEAM_EVERY_MS = 700;
+const STEAM_MS = 1500;
+const STEAM_RISE = 7;
 /** The thrown stick turns one frame (45 degrees) every SPIN_MS; the landing puff shows two frames of PUFF_MS. */
 const STICK_SPIN_MS = 80;
-const PUFF_MS = 110;
+const PUFF_MS = 225;
 /** The speech bubble: height of the tail (rows incl. the tip), the gap to the screen edge, and the canvas width it must stay inside. */
 const BUBBLE_TAIL = 4;
 /** Extra stalk so the box clears Alex's head, who stands right beside Pajkel on the dock. */
@@ -73,7 +73,7 @@ export class CompanionView {
     this.chair = scene.add.image(PAJ_SPOT.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x, PAJ_SPOT.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y, TEX.emptyChair).setOrigin(0, 0).setDepth(DEPTH - 1).setVisible(false);
     this.stick = scene.add.image(0, 0, TEX.stickSpin[0]).setDepth(DEPTH + 1).setVisible(false);
     this.puff = scene.add.image(0, 0, TEX.stickPuff[0]).setDepth(DEPTH - 0.4).setVisible(false);
-    for (let i = 0; i < 2; i++) this.steam.push({ img: scene.add.image(0, 0, TEX.steam).setOrigin(0.5, 1).setDepth(DEPTH + 2).setVisible(false), age: Infinity, x: 0, y: 0 });
+    for (let i = 0; i < 3; i++) this.steam.push({ img: scene.add.image(0, 0, TEX.steam).setOrigin(0.5, 1).setDepth(DEPTH + 2).setVisible(false), age: Infinity, x: 0, y: 0 });
     for (const key of [TEX.zSmall, TEX.zBig]) {
       this.zs.push(scene.add.image(0, 0, key).setDepth(DEPTH + 3).setVisible(false));
     }
@@ -141,7 +141,7 @@ export class CompanionView {
     for (const w of this.steam) {
       w.age += dtMs;
       const t = w.age / STEAM_MS;
-      w.img.setVisible(t < 1).setPosition(w.x + (t > 0.5 ? 1 : 0), Math.round(w.y - STEAM_RISE * t)).setAlpha(0.7 * (1 - t)); // untinted: steam is light, so it still shows at night
+      w.img.setVisible(t < 1).setPosition(w.x + Math.round(Math.sin(t * Math.PI * 3)), Math.round(w.y - STEAM_RISE * t)).setAlpha(0.85 * (1 - t)); // untinted: steam is light, so it still shows at night
     }
   }
 
@@ -246,7 +246,7 @@ export class CompanionView {
     }
     this.lastStickState = st.state;
     this.puffAge += dtMs;
-    this.puff.setVisible(this.puffAge < 2 * PUFF_MS).setTexture(TEX.stickPuff[this.puffAge < PUFF_MS ? 0 : 1]).setTint(tint);
+    this.puff.setVisible(this.puffAge < 2 * PUFF_MS).setTexture(TEX.stickPuff[this.puffAge < PUFF_MS ? 0 : 1]).setAlpha(this.puffAge < PUFF_MS ? 1 : 0.7);
 
     // Sticks lying on the grass: under the characters, fading in and out.
     while (this.ground.length < s.sticks.length) this.ground.push(this.scene.add.image(0, 0, stickGroundKey(0)).setDepth(DEPTH - 0.5));

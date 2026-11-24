@@ -191,19 +191,21 @@ export function stickSpinSprite(step: number): Sprite {
   return p.done();
 }
 
-/** The little dust puff where a thrown stick lands: two frames of three pixels. */
-export const STICK_PUFF_SIZE = { w: 9, h: 4 };
+/** The little dust puff where a thrown stick lands: two frames of five or six pixels, spreading. */
+export const STICK_PUFF_SIZE = { w: 11, h: 5 };
 export function stickPuffSprite(frame: 0 | 1): Sprite {
   const p = new Pix(STICK_PUFF_SIZE.w, STICK_PUFF_SIZE.h);
-  const c = PAL.grass3;
+  const c = PAL.sandLight; // pale dust: shows on every shade of the lawn
+  const d = PAL.sand;
   if (frame === 0) {
-    p.set(2, 2, c);
-    p.set(4, 1, c);
-    p.set(6, 2, c);
+    // a small cloud close to the ground
+    for (const [x, y] of [[4, 3], [5, 3], [6, 3], [3, 2], [7, 2]]) p.set(x, y, c);
+    p.set(5, 2, d);
   } else {
-    p.set(0, 1, c);
-    p.set(4, 0, c);
-    p.set(8, 1, c);
+    // spread out and rising
+    for (const [x, y] of [[0, 3], [2, 1], [5, 0], [8, 1], [10, 3]]) p.set(x, y, c);
+    p.set(3, 3, d);
+    p.set(7, 3, d);
   }
   return p.done();
 }
@@ -416,9 +418,9 @@ export type PajPose = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'c
 export const PAJ_POSES: readonly PajPose[] = ['sit', 'sipLift', 'sipDrink', 'pourReach', 'pour', 'cheer', 'look'];
 /** Where the cup's top centre is, per pose (sprite pixels): the steam wisps start just above it. */
 export const PAJ_CUP: Partial<Record<PajPose, { x: number; y: number }>> = {
-  sit: { x: 29, y: 24 },
-  sipLift: { x: 30, y: 21 },
-  sipDrink: { x: 27, y: 14 },
+  sit: { x: 27, y: 22 },
+  sipLift: { x: 28, y: 18 },
+  sipDrink: { x: 28, y: 13 },
 };
 
 const pajHair = (x: number, y: number) => {
@@ -435,48 +437,57 @@ const pajBeard = (x: number, y: number) => {
   return PAL.beard;
 };
 
-/** The camp chair seen from behind: red canvas back, grey arms and posts. The legs and shadow come after the outline. */
-function paintChairBack(p: Pix): void {
-  p.rect(4, 32, 3, 1, PAL.stone); // armrests
-  p.rect(27, 32, 3, 1, PAL.stone);
-  p.rect(5, 33, 1, 8, PAL.stoneDark); // posts
-  p.rect(28, 33, 1, 8, PAL.stoneDark);
-  p.rect(6, 33, 22, 1, PAL.shirt); // the hem
-  p.rect(6, 34, 22, 7, PAL.shirtDark);
-  for (let x = 6; x < 28; x += 2) p.set(x, 34, PAL.shirt);
-  p.rect(16, 35, 1, 5, PAL.shirt); // a fold down the middle
+/**
+ * The camp chair seen from behind: light grey arms, posts and legs (they show against the planks), a
+ * red canvas back. Seated, the canvas is low (his jacket shows above it); empty, it is taller and has a
+ * top rail. The legs and shadow come after the outline.
+ */
+function paintChairBack(p: Pix, empty = false): void {
+  const top = empty ? 33 : 35;
+  p.rect(6, 34, 3, 1, PAL.stoneLight); // armrests
+  p.rect(25, 34, 3, 1, PAL.stoneLight);
+  p.rect(7, 35, 1, 6, PAL.stone); // posts
+  p.rect(26, 35, 1, 6, PAL.stone);
+  if (empty) {
+    p.rect(7, 32, 20, 1, PAL.stoneLight); // the top rail
+    p.rect(7, 33, 1, 2, PAL.stone);
+    p.rect(26, 33, 1, 2, PAL.stone);
+  }
+  p.rect(8, top, 18, 1, PAL.shirt); // the hem
+  p.rect(8, top + 1, 18, 40 - top, PAL.shirtDark);
+  for (let x = 8; x < 26; x += 2) p.set(x, top + 1, PAL.shirt);
+  p.rect(16, top + 2, 1, 40 - top - 2, PAL.shirt); // a fold down the middle
   p.set(16, 40, PAL.shirtDark);
 }
 
 function paintChairLegs(p: Pix): void {
-  for (const x0 of [5, 25]) {
+  for (const x0 of [7, 23]) {
     // an X of two legs, 4 wide and 4 tall, under each post
-    p.line(x0, 42, x0 + 3, 45, PAL.stoneDark);
-    p.line(x0 + 3, 42, x0, 45, PAL.stoneDark);
-    p.set(x0 + 3, 42, PAL.stone);
+    p.line(x0, 42, x0 + 3, 45, PAL.stoneLight);
+    p.line(x0 + 3, 42, x0, 45, PAL.stoneLight);
+    p.set(x0 + 1, 43, PAL.stone);
+    p.set(x0 + 2, 44, PAL.stone);
   }
-  p.rect(3, 46, 32, 1, PAL.woodDeep); // the shadow on the planks
-  p.rect(5, 47, 28, 1, PAL.woodDeep);
+  p.rect(5, 46, 28, 1, PAL.outline); // a 1 px shadow on the planks
 }
 
 /** The thermos standing on the planks right of the chair. */
 function paintThermos(p: Pix): void {
-  p.rect(36, 38, 3, 7, PAL.mug);
-  p.rect(36, 38, 1, 7, PAL.mugDark);
-  p.rect(36, 37, 3, 1, PAL.stoneLight);
+  p.rect(34, 38, 3, 7, PAL.mug);
+  p.rect(34, 38, 1, 7, PAL.mugDark);
+  p.rect(34, 37, 3, 1, PAL.stoneLight);
 }
 
 /** The shadow under the thermos (after the outline), only where it stands. */
 function paintThermosShadow(p: Pix): void {
-  p.rect(35, 46, 5, 1, PAL.woodDeep);
+  p.rect(33, 46, 5, 1, PAL.outline);
 }
 
 /** A camp chair with nobody in it and the thermos beside it: drawn where he sits while he is away (22a). */
-export const EMPTY_CHAIR = { x: 3, y: 31, w: 37, h: 17 };
+export const EMPTY_CHAIR = { x: 4, y: 31, w: 35, h: 17 };
 export function emptyChairSprite(): Sprite {
   const p = new Pix(40, 48);
-  paintChairBack(p);
-  p.rect(6, 32, 22, 1, PAL.stone); // the top rail shows when nobody leans on it
+  paintChairBack(p, true);
   paintThermos(p);
   p.outline();
   paintChairLegs(p);
@@ -487,10 +498,13 @@ export function emptyChairSprite(): Sprite {
   return out.done();
 }
 
+/** A cup 3 wide and 4 tall: a white rim row, a grey body with a darker foot, a dark edge on its left (the jacket side). */
 const cup = (p: Pix, x: number, y: number) => {
-  p.rect(x, y, 3, 3, PAL.stoneLight);
-  p.set(x, y, PAL.whiteShade);
-  p.set(x + 1, y, PAL.whiteShade);
+  p.rect(x, y + 1, 3, 3, PAL.stone);
+  p.rect(x, y + 3, 3, 1, PAL.stoneDark);
+  p.set(x + 1, y + 1, PAL.stoneLight);
+  p.rect(x, y, 3, 1, PAL.white);
+  p.rect(x - 1, y, 1, 4, PAL.outline);
 };
 
 /**
@@ -515,19 +529,21 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
   }
 
   // Jacket: sloping shoulders, a lighter left side, a darker right side, a back seam, two sleeves.
-  for (let y = 22; y <= 32; y++) {
-    let x0 = 7;
-    let x1 = 26;
-    if (y === 22) [x0, x1] = [12, 21];
-    else if (y === 23) [x0, x1] = [9, 24];
-    else if (y === 24) [x0, x1] = [8, 25];
-    for (let x = x0; x <= x1; x++) up.set(x, y, x <= 9 ? PAL.jacketLight : x >= 23 ? PAL.jacketDark : PAL.jacket);
+  for (let y = 22; y <= 34; y++) {
+    // Slim: narrow shoulders, a taper to the waist.
+    let [x0, x1] = [11, 22];
+    if (y === 22) [x0, x1] = [13, 20];
+    else if (y === 23) [x0, x1] = [11, 22];
+    else if (y === 24) [x0, x1] = [10, 23];
+    else if (y <= 28) [x0, x1] = [9, 24];
+    else if (y <= 31) [x0, x1] = [10, 23];
+    for (let x = x0; x <= x1; x++) up.set(x, y, x <= x0 + 2 ? PAL.jacketLight : x >= x1 - 2 ? PAL.jacketDark : PAL.jacket);
   }
-  up.line(16, 27, 16, 32, PAL.jacketDark); // back seam
-  up.line(11, 24, 9, 26, PAL.jacketDark); // where each shoulder meets the arm
-  up.line(22, 24, 24, 26, PAL.jacketDark);
-  up.line(10, 26, 10, 32, PAL.jacketDark); // sleeve edges
-  up.line(22, 27, 22, 32, PAL.jacketDark);
+  up.line(16, 27, 16, 34, PAL.jacketDark); // back seam
+  up.line(12, 24, 10, 26, PAL.jacketDark); // where each shoulder meets the arm
+  up.line(21, 24, 23, 26, PAL.jacketDark);
+  up.line(12, 26, 12, 34, PAL.jacketDark); // sleeve edges
+  up.line(21, 27, 21, 34, PAL.jacketDark);
   // Neck, then the collar over its foot.
   up.rect(14, 16, 6, 6, PAL.skinShade);
   up.rect(13, 21, 8, 2, PAL.jacketDark);
@@ -589,67 +605,68 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
   };
   if (pose === 'sit' || pose === 'look') {
     sleeve(24, 29, 5, 3);
+    cup(front, 28, 23);
     front.rect(29, 27, 2, 3, PAL.skin);
+    front.set(28, 27, PAL.skin);
     front.set(30, 29, PAL.skinShade);
-    cup(front, 28, 25);
   } else if (pose === 'sipLift') {
     sleeve(24, 29, 4, 3);
-    front.line(28, 29, 30, 25, PAL.skin);
-    front.line(29, 29, 31, 25, PAL.skinShade);
-    front.rect(29, 24, 3, 2, PAL.skin);
-    cup(front, 29, 21);
+    front.line(28, 29, 30, 26, PAL.skin);
+    front.line(29, 29, 31, 26, PAL.skinShade);
+    cup(front, 30, 19);
+    front.rect(30, 23, 3, 3, PAL.skin);
   } else if (pose === 'sipDrink') {
-    sleeve(24, 29, 4, 3);
-    front.rect(28, 19, 2, 11, PAL.skin);
-    front.rect(29, 19, 1, 11, PAL.skinShade);
-    front.rect(28, 17, 3, 3, PAL.skin);
-    front.rect(26, 14, 3, 3, PAL.stoneLight);
-    front.set(26, 14, PAL.skinShade); // the rim at his lip
-    front.set(27, 14, PAL.whiteShade);
+    sleeve(22, 29, 6, 3);
+    front.rect(28, 20, 2, 10, PAL.skin);
+    front.rect(29, 20, 1, 10, PAL.skinShade);
+    cup(front, 27, 14);
+    front.rect(27, 18, 3, 2, PAL.skin);
+    front.set(27, 15, PAL.skinShade); // the rim at his lip
   } else if (pose === 'pourReach') {
-    sleeve(24, 29, 5, 3);
-    front.line(29, 30, 34, 35, PAL.skin);
-    front.line(29, 31, 34, 36, PAL.skinShade);
-    front.rect(34, 35, 3, 3, PAL.skin);
-    front.rect(18, 28, 3, 2, PAL.stoneLight); // the cup in the other hand, in his lap
-    front.rect(18, 28, 3, 1, PAL.whiteShade);
-    front.rect(19, 30, 3, 1, PAL.skin);
+    // Reaching down to the thermos beside the chair; the other hand holds the cup low in his lap.
+    sleeve(22, 29, 7, 3);
+    front.line(27, 31, 33, 36, PAL.skin);
+    front.line(27, 32, 33, 37, PAL.skinShade);
+    front.rect(33, 35, 3, 2, PAL.skin);
+    cup(front, 24, 29);
+    front.rect(23, 31, 1, 2, PAL.skin);
   } else if (pose === 'pour') {
-    sleeve(24, 29, 4, 3);
-    front.rect(28, 25, 2, 5, PAL.skin);
-    front.rect(29, 25, 1, 5, PAL.skinShade);
-    // The thermos lifted and tilted over the lap cup: body down-left to the mouth.
-    for (let i = 0; i < 8; i++) {
-      front.set(31 - i, 22 + i, PAL.mug);
-      front.set(32 - i, 22 + i, PAL.mug);
-      front.set(30 - i, 22 + i, PAL.mugDark);
+    // His right hand tips the thermos (3 wide, 6 tall on the slant) over the cup in his lap.
+    sleeve(22, 29, 6, 3);
+    front.line(27, 30, 29, 25, PAL.skin);
+    front.line(28, 30, 30, 25, PAL.skinShade);
+    for (let r = 21; r <= 26; r++) {
+      const x0 = 26 + (26 - r);
+      front.rect(x0, r, 3, 1, r === 26 ? PAL.stoneLight : PAL.mug);
+      if (r < 26) front.set(x0, r, PAL.mugDark);
     }
-    front.rect(23, 29, 2, 2, PAL.stoneLight); // the cap at the mouth
-    front.rect(23, 31, 1, 2, PAL.mugDark); // the stream
-    front.rect(20, 32, 4, 1, PAL.stoneLight);
-    front.rect(20, 31, 4, 1, PAL.whiteShade);
+    front.rect(29, 23, 2, 2, PAL.skin); // the hand on the thermos
+    front.rect(25, 27, 1, 2, PAL.mugDark); // the stream
+    cup(front, 24, 29);
+    front.rect(23, 31, 1, 2, PAL.skin);
   } else {
-    // cheer: the cup held high; the second frame lifts it a little and tips it
+    // cheer: the cup held high; the second frame lifts it a little
     const hi = breath;
     sleeve(24, 28, 5, 3);
-    front.rect(28, 12 - hi, 2, 17 + hi, PAL.skin);
-    front.rect(29, 12 - hi, 1, 17 + hi, PAL.skinShade);
-    front.rect(28, 9 - hi, 3, 3, PAL.skin);
-    cup(front, 27 + hi, 5 - hi);
+    front.rect(28, 10 - hi, 2, 18 + hi, PAL.skin);
+    front.rect(29, 10 - hi, 1, 18 + hi, PAL.skinShade);
+    cup(front, 28 + hi, 4 - hi);
+    front.rect(28, 8 - hi, 3, 2, PAL.skin);
   }
 
   p.blit(up.done(), lean, 0);
+  const fx = pose === 'sit' || pose === 'look' || pose === 'sipLift' ? -2 : pose === 'cheer' ? -1 : 0; // the arm follows the slimmer body
   paintChairBack(p);
   // His right knee and shoe stick out past the arm of the chair.
-  p.rect(30, 35, 4, 1, PAL.jeans);
-  p.rect(29, 36, 6, 3, PAL.jeans);
-  p.rect(30, 39, 4, 1, PAL.jeans);
-  p.rect(30, 35, 3, 1, PAL.denim);
-  p.rect(31, 40, 3, 3, PAL.jeans);
-  p.rect(30, 43, 5, 2, PAL.shoe);
-  p.rect(30, 45, 5, 1, PAL.shoeDark);
+  p.rect(28, 35, 4, 1, PAL.jeans);
+  p.rect(27, 36, 6, 3, PAL.jeans);
+  p.rect(28, 39, 4, 1, PAL.jeans);
+  p.rect(28, 35, 3, 1, PAL.denim);
+  p.rect(29, 40, 3, 3, PAL.jeans);
+  p.rect(28, 43, 5, 2, PAL.shoe);
+  p.rect(28, 45, 5, 1, PAL.shoeDark);
   if (pose !== 'pour') paintThermos(p);
-  p.blit(front.done(), lean, 0);
+  p.blit(front.done(), lean + fx, 0);
   p.outline();
   paintChairLegs(p);
   if (pose !== 'pour') paintThermosShadow(p);
