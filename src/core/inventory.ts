@@ -310,3 +310,6 @@ export function applyEvent(state: PlayerState, event: GameEvent, rng: Rng): { st
   if (left <= 0) delete next.baitId;
   return { state: next, wormUsed: false, baitUsed: id };
 }
+
+/** The tab the shop opens on (slice 22b): Sell when the bag has fish, else Buy. */
+export const shopStartTab = (p: PlayerState): 'sell' | 'buy' => (p.bag.length > 0 ? 'sell' : 'buy');

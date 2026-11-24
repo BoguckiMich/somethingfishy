@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DAILY_BOX } from '../data/daily';
 import { newPlayer } from '../inventory';
 import { seededRng } from '../random';
-import { boxAvailable, newDaily, openBox, rollContents, tierFor, tierMultiplier, type DailyState } from './daily';
+import { boxAvailable, newDaily, openBox, rollContents, tierFor, tierHint, tierMultiplier, type DailyState } from './daily';
 
 const d = (lastBoxDate: string | null, streakTier: number): DailyState => ({ lastBoxDate, streakTier });
 /** An rng that returns the given values in turn (then 0.5). */
@@ -154,5 +154,13 @@ describe('openBox', () => {
     const { daily: _daily, ...old } = newPlayer();
     const r = openBox(old, '2026-11-23', rng());
     expect(r.contents!.tier).toBe(1);
+  });
+});
+
+describe('tierHint', () => {
+  it('says what the next day brings', () => {
+    expect(tierHint(1)).toBe('2 days in a row: a chance of glow bait');
+    expect(tierHint(3)).toBe('4 days in a row: a bigger box');
+    expect(tierHint(DAILY_BOX.maxTier)).toBe('Top tier: the biggest box');
   });
 });

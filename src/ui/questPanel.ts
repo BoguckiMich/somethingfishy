@@ -1,11 +1,12 @@
 import { FS, LINE } from '../font';
-import { claimQuest, questText, questsOf, rerollQuest, rewardText, canReroll, type Quest } from '../core/quests/quests';
+import { claimQuest, questText, questsOf, rerollQuest, canReroll, type Quest } from '../core/quests/quests';
 import type { PlayerState } from '../core/inventory';
 import { fishIconSprite } from '../art/fishArt';
 import { speciesById } from '../core/data/fish';
 import { fishCanvas } from './logPanel';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import type { PlayerStore } from './bagShop';
+import { rewardLine } from './rewardLine';
 
 /** What the quest panel needs: the player (read and written back) and today's date. */
 export interface QuestStore extends PlayerStore {
@@ -17,26 +18,37 @@ export interface QuestStore extends PlayerStore {
   checklist(): { done: number; total: number };
 }
 
-/** The top row: today's fish with its sprite. */
+/** The top block: today's fish. Its sprite sits beside the name only, not beside the whole block. */
 function fotdRow(id: string): HTMLElement | undefined {
   const sp = speciesById(id);
   if (!sp) return undefined;
-  const row = el('div', `display:flex;align-items:center;gap:8px;padding:6px 0 8px;border-bottom:2px solid ${COLORS.woodLight}`);
+  const row = el('div', `padding:6px 0 8px;border-bottom:2px solid ${COLORS.woodLight};font-size:${FS.body}px;line-height:${LINE}`);
+  const nameRow = el('div', 'display:flex;align-items:center;gap:8px');
   const pic = el('div', 'flex:none;width:40px;display:flex;align-items:center;justify-content:center');
   pic.append(fishCanvas(fishIconSprite(id), 40, 2));
-  const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px;line-height:${LINE}`);
-  info.append(el('div', `color:${COLORS.gold}`, 'Fish of the day'), el('div', `color:${COLORS.text}`, sp.name), el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, 'bites more, sells x2'));
-  row.append(pic, info);
+  nameRow.append(pic, el('div', `color:${COLORS.text}`, sp.name));
+  row.append(
+    el('div', `color:${COLORS.gold}`, 'Fish of the day'),
+    nameRow,
+    el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, 'bites more, sells x2'),
+  );
   return row;
 }
 
+/** The progress bar: gold fill, with the count inside on the right. */
 function bar(q: Quest): HTMLElement {
-  const row = el('div', 'display:flex;align-items:center;gap:8px;margin-top:4px');
-  const track = el('div', `flex:1;height:12px;box-sizing:border-box;border:2px solid ${COLORS.outline};background:${COLORS.outline}`);
+  const track = el('div', `position:relative;height:22px;margin-top:4px;box-sizing:border-box;border:2px solid ${COLORS.outline};background:${COLORS.outline}`);
   const share = Math.min(1, q.progress / q.params.target);
-  track.append(el('div', `height:100%;width:${Math.round(share * 100)}%;background:${q.done ? COLORS.gold : COLORS.amber}`));
-  row.append(track, el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};min-width:42px;text-align:right`, `${q.progress}/${q.params.target}`));
-  return row;
+  track.append(el('div', `height:100%;width:${Math.round(share * 100)}%;background:${COLORS.gold}`));
+  const shadow = ['1px 0', '-1px 0', '0 1px', '0 -1px'].map((o) => `${o} ${COLORS.outline}`).join(',');
+  track.append(
+    el(
+      'div',
+      `position:absolute;right:4px;top:0;bottom:0;display:flex;align-items:center;font-size:${FS.small}px;line-height:1;color:${COLORS.cream};text-shadow:${shadow}`,
+      `${q.progress}/${q.params.target}`,
+    ),
+  );
+  return track;
 }
 
 function questRow(p: PlayerState, i: number, today: string, act: (next: PlayerState) => void): HTMLElement {
@@ -45,19 +57,21 @@ function questRow(p: PlayerState, i: number, today: string, act: (next: PlayerSt
   const row = el('div', `padding:8px 0;border-bottom:1px solid ${COLORS.woodLight};${q.claimed ? 'opacity:0.55' : ''}`);
   row.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, questText(q)), bar(q));
   const foot = el('div', 'display:flex;align-items:center;gap:8px;margin-top:6px');
-  foot.append(el('div', `flex:1;min-width:0;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.gold}`, rewardText(q.reward)));
+  const reward = rewardLine(q.reward);
+  reward.style.cssText += ';flex:1;min-width:0';
+  foot.append(reward);
   if (q.claimed) {
     foot.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.dim}`, 'Done'));
   } else if (q.done) {
     foot.append(woodButton('Claim', () => act(claimQuest(p, i).player), { small: true, sfx: 'coin' }));
   } else if (canReroll(quests, i, today)) {
-    foot.append(woodButton('Reroll', () => act(rerollQuest(p, i, today).player), { small: true }));
+    foot.append(woodButton('Reroll', () => act(rerollQuest(p, i, today).player), { small: true, variant: 'wood' }));
   }
   row.append(foot);
   return row;
 }
 
-/** The notice board: today's quests with progress, Claim and the one free Reroll. */
+/** The notice board: today's quests with progress, Claim (gold) and the one free Reroll (wood). */
 export function showQuestPanel(store: QuestStore, onClose: () => void): PanelHandle {
   const panel: PanelHandle = openPanel(
     'Daily quests',
@@ -85,9 +99,9 @@ export function showQuestPanel(store: QuestStore, onClose: () => void): PanelHan
         woodButton(`Quiet Lake checklist ${cl.done}/${cl.total}`, () => {
           panel.close();
           store.openChecklist();
-        }),
+        }, { variant: 'wood' }),
       );
-      col.append(woodButton('Close', () => panel.close()));
+      col.append(woodButton('Close', () => panel.close(), { variant: 'wood' }));
       body.append(col);
     },
     onClose,

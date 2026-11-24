@@ -46,6 +46,8 @@ export function installFrameStyles(): void {
     btn('rb-wood', FRAME_STYLES.buttonWood),
     btn('rb-off', FRAME_STYLES.buttonOff),
     `.rb-btn:disabled{cursor:default}`,
+    // Thin wood scrollbar for the panel bodies (Firefox / Chrome 121+ read scrollbar-color, older WebKit the pseudo-elements).
+    `.rb-scroll{scrollbar-width:thin;scrollbar-color:#cb9c5a #3a2318}.rb-scroll::-webkit-scrollbar{width:6px;height:6px}.rb-scroll::-webkit-scrollbar-track{background:#3a2318}.rb-scroll::-webkit-scrollbar-thumb{background:#cb9c5a;border:1px solid #241a2e}`,
   ].join('\n');
   const style = document.createElement('style');
   style.textContent = css;

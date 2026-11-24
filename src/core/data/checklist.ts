@@ -21,7 +21,7 @@ export interface ChecklistBundle {
 
 const sp = (id: string): ChecklistSlot => ({ kind: 'species', id });
 
-export const CHECKLIST_TITLE = 'Quiet Lake: The Doorstep';
+export const CHECKLIST_TITLE = 'The Doorstep';
 
 export const CHECKLIST: readonly ChecklistBundle[] = [
   {

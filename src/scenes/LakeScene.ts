@@ -777,6 +777,7 @@ export class LakeScene extends Phaser.Scene {
         startNap(this.companions.state);
       },
       () => (this.panel = null),
+      this.clock.minute,
     );
   }
 
@@ -802,6 +803,7 @@ export class LakeScene extends Phaser.Scene {
     this.panel = showChecklistPanel(
       {
         get: () => this.player,
+        fotdId: () => this.fotdId(),
         set: (p) => this.setPlayer(p),
         onHandIn: (r, bundle, allFixed) => {
           if (!r.finished) return;
@@ -1152,7 +1154,7 @@ export class LakeScene extends Phaser.Scene {
     };
     const onClose = () => (this.panel = null);
     this.panel =
-      kind === 'bag' ? openBagPanel(store, onClose)
+      kind === 'bag' ? openBagPanel(store, onClose, () => { this.panel?.close(); this.openPlayerPanel('shop'); })
       : kind === 'shop' ? openShopPanel(store, onClose)
       : kind === 'bait' ? openBaitPicker(store, onClose)
       : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
