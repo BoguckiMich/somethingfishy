@@ -37,7 +37,8 @@ The first real travel.
 ## M3 · "Ready for strangers" (public beta)
 Everything someone who isn't Alex needs.
 - [ ] Onboarding: a short first-time tutorial (cast, hook, catch bar, bag, shop)
-- [ ] Choose your character (Alex stays the default; friends can play as someone else)
+- [ ] Choose your character (Alex stays the default; friends can play as someone else; the full
+      cosmetics come in M4.5)
 - [ ] Personal vs public content: decide what stays (Pajkel, Bestia, the DS4 name, band nods)
 - [ ] Polish translation (the testers are Polish), text in one place
 - [ ] Performance + battery pass on a mid-range Android phone
@@ -50,9 +51,17 @@ Everything someone who isn't Alex needs.
 Deep, clear water, odd fish, the Ironjaw (the noon legendary), chapters O1-O7, quarry checklist.
 Fossil collection as a side goal (STORY §4).
 
+## M4.5 · "Make it yours" (cosmetics, just before the public release)
+Decided 2026-11-24: the public release comes at M5, and right before it players get options to
+change the personal parts.
+- [ ] Alex: hair, outfit, colours (the current look stays the default)
+- [ ] Pajkel: the same kind of options (beard, jacket, colours)
+- [ ] The car: rename it (no brand name by default in public text), maybe a colour
+- [ ] The wardrobe card (also holds the Pale Scale pendant from M5)
+
 ## M5 · "Sea pier: In Waves" (the story ends)
-Dunwater, gulls, the Other Angler, the finale at dawn, the Pale Scale pendant + a tiny wardrobe,
-the epilogue at Quiet Lake. **= version 2.0**, a good moment for a public Play release.
+Dunwater, gulls, the Other Angler, the finale at dawn, the Pale Scale pendant (into the M4.5 wardrobe),
+the epilogue at Quiet Lake. **= version 2.0 = the public Google Play release** (decided 2026-11-24).
 
 ## After M5 (pick by mood)
 Achievements + total weight per species · trophy wall / aquarium on the dock · treasure in the
