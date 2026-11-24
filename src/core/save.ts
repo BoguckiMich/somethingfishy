@@ -1,3 +1,4 @@
+import { normalizeTrophies } from './rare';
 import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
 import { speciesById } from './data/fish';
@@ -90,7 +91,7 @@ function normalizeQuest(v: unknown): Quest | null {
   const params: Quest['params'] = { target };
   if (kind === 'catchSpecies') {
     const sp = typeof v.params.speciesId === 'string' ? speciesById(v.params.speciesId) : undefined;
-    if (!sp || sp.rarity === 'legendary') return null;
+    if (!sp || (sp.rarity === 'legendary' || sp.rarity === 'trophy')) return null;
     params.speciesId = sp.id;
   }
   if (kind === 'catchAtTime') {
@@ -163,6 +164,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(normalizeSeen(p.seen).length > 0 ? { seen: normalizeSeen(p.seen) } : {}),
     // The date of Pajkel's weather line (slice 23b): a valid date or no key.
     ...(normalizeWeatherSeen(p.weatherSeen) ? { weatherSeen: normalizeWeatherSeen(p.weatherSeen) } : {}),
+    // The trophy board (slice 23d): stored only when a rare fish was caught (older saves have no key).
+    ...(Object.keys(normalizeTrophies(p.trophies)).length > 0 ? { trophies: normalizeTrophies(p.trophies) } : {}),
   };
 }
 

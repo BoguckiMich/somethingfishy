@@ -1,5 +1,5 @@
 import { CHECKLIST, PETROL_ID, type ChecklistBundle, type ChecklistSlot } from '../data/checklist';
-import { isLegendary, speciesById } from '../data/fish';
+import { isUnique, speciesById } from '../data/fish';
 import { starFor, type Star } from '../data/stars';
 import type { BagFish, PlayerState } from '../inventory';
 import { payReward, type QuestReward } from '../quests/quests';
@@ -41,7 +41,7 @@ const STAR_RANK: Record<Star, number> = { none: 0, bronze: 1, silver: 2, gold: 3
 /** Does this bag fish fill that slot? The Pale One never does; a coin slot takes no fish. */
 export function fits(slot: ChecklistSlot, fish: BagFish): boolean {
   const sp = speciesById(fish.speciesId);
-  if (!sp || isLegendary(sp)) return false;
+  if (!sp || isUnique(sp)) return false;
   if (slot.kind === 'species') return fish.speciesId === slot.id;
   if (slot.kind === 'star') return STAR_RANK[starFor(sp, fish.lengthCm)] >= STAR_RANK[slot.min];
   return false;

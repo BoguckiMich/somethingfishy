@@ -1,6 +1,6 @@
 import type { TimeOfDay } from '../clock';
 import { isValidDate } from '../daily/dates';
-import { POOL_SPECIES, speciesById, type Species } from '../data/fish';
+import { isUnique, POOL_SPECIES, speciesById, type Species } from '../data/fish';
 import { QUIET_LAKE } from '../data/locations';
 import { QUEST_TUNING as T } from '../data/quests';
 import { RODS } from '../data/rods';
@@ -247,7 +247,7 @@ function advance(q: QuestsState, step: (quest: Quest) => number): ProgressResult
 
 /** A fish was caught (the Pale One counts for any / deep / time-of-day, never for species or records). */
 export function questsOnCatch(q: QuestsState, c: CatchInfo): ProgressResult {
-  const legendary = speciesById(c.speciesId)?.rarity === 'legendary';
+  const legendary = isUnique(speciesById(c.speciesId));
   return advance(q, (quest) => {
     switch (quest.kind) {
       case 'catchSpecies': return quest.params.speciesId === c.speciesId ? 1 : 0;

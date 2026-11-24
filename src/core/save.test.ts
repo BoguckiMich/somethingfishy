@@ -295,3 +295,21 @@ describe('weather line date (slice 23b)', () => {
     expect(normalizeSave({ version: 1, player: {}, clock: {} })?.player).not.toHaveProperty('weatherSeen');
   });
 });
+
+describe('trophy board (slice 23d)', () => {
+  const good = { goldenTench: { lengthCm: 52, weightG: 2400, date: '2026-11-24' } };
+  it('stores nothing by default and keeps a good board through a round trip', () => {
+    expect(normalizeSave({ version: 1, player: {}, clock: {} })?.player).not.toHaveProperty('trophies');
+    const s = normalizeSave({ version: 1, player: { trophies: good }, clock: {} });
+    expect(s.player.trophies).toEqual(good);
+    expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  it('drops unknown fish, bad sizes and bad dates, and stores nothing when nothing is left', () => {
+    const bad = { carp: good.goldenTench, mossback: { lengthCm: 'big', weightG: 5, date: '2026-11-24' }, silverGhost: { lengthCm: 30, weightG: 200, date: 'soon' } };
+    const p = normalizeSave({ version: 1, player: { trophies: bad }, clock: {} }).player;
+    expect(p.trophies).toEqual({ silverGhost: { lengthCm: 30, weightG: 200, date: '' } });
+    expect(normalizeSave({ version: 1, player: { trophies: { carp: good.goldenTench } }, clock: {} }).player).not.toHaveProperty('trophies');
+    expect(normalizeSave({ version: 1, player: { trophies: 5 }, clock: {} }).player).not.toHaveProperty('trophies');
+  });
+});

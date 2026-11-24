@@ -5,6 +5,8 @@ import { FOTD_TUNING } from './data/fotd';
 import { POOL_SPECIES, speciesById, type Rarity, type Species } from './data/fish';
 import { weatherAllowsAnyTime, weatherWeightMult, type WeatherEffects } from './daily/weather';
 import { rollLegendary } from './legendary';
+import { RARE_TUNING } from './data/rare';
+import { rollRare } from './rare';
 import type { ZoneId } from './location';
 import type { Rng } from './random';
 
@@ -16,7 +18,7 @@ export interface HookedFish {
 }
 
 /** Spawn weights by rarity. */
-export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10, legendary: 0 };
+export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10, legendary: 0, trophy: 0 };
 
 export const FISH_TUNING = {
   /** Length roll: min + (max - min) * u^k. k > 1 skews toward small fish. */
@@ -83,11 +85,12 @@ export interface CastPlace {
   minute: number;
 }
 
-/** Picks the species (or the forced one) and rolls its size. A legendary may replace the normal pick. */
+/** Picks the species (or the forced one) and rolls its size. A legendary or a trophy (slice 23d) may replace the normal pick. */
 export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects): HookedFish {
   const species =
     (forcedId ? speciesById(forcedId) : undefined) ??
     (place ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
+    (place ? rollRare({ zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
     pickSpecies(zone, time, rng, baitId, fotdId, fx);
   const lengthCm = rollLength(species, rng);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };
@@ -102,9 +105,12 @@ export function sizeShare(species: Species, lengthCm: number): number {
 /** What the catch bar sees: the species' pattern, with difficulty raised a little for big fish. */
 export function fightProfile(species: Species, lengthCm: number, difficultyAdd = 0): FishProfile {
   const raw = species.difficulty + FISH_TUNING.sizeDifficulty * sizeShare(species, lengthCm);
-  const cap = species.zone === 'shallow' ? FISH_TUNING.shallowCap : 1;
+  // A trophy (slice 23d) is hard even in the shallows, and slips away when it stays out of the green zone too long.
+  const trophy = species.rarity === 'trophy';
+  const cap = species.zone === 'shallow' && !trophy ? FISH_TUNING.shallowCap : 1;
   // A windy day (slice 23b) makes every fight a little harder, past the shallow cap but never above 1.
-  return { pattern: species.pattern, difficulty: Math.min(1, Math.min(cap, raw) + difficultyAdd) };
+  const profile: FishProfile = { pattern: species.pattern, difficulty: Math.min(1, Math.min(cap, raw) + difficultyAdd) };
+  return trophy ? { ...profile, slipAfterMs: RARE_TUNING.slipAfterMs } : profile;
 }
 
 /** "24 cm · 210 g", or "50 cm · 1.8 kg" from 1000 g up. */

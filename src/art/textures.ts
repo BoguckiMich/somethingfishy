@@ -1,3 +1,4 @@
+import { trophyBoardKey, trophyBoardSprite } from './trophyBoardArt';
 import type Phaser from 'phaser';
 import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VARIANTS, emptyChairSprite, stickCarrySprite, stickGroundSprite, stickPuffSprite, stickSpinSprite, type StickVariant, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
@@ -89,6 +90,13 @@ export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `
 export function ensureSignTexture(scene: Phaser.Scene, look: SignLook): string {
   const key = signKey(look);
   addRaster(scene, key, Raster.fromSprite(signSprite(look)));
+  return key;
+}
+
+/** Makes the trophy board texture for a set of mounted fish (once per set) and returns its key. */
+export function ensureTrophyBoardTexture(scene: Phaser.Scene, mounted: readonly string[]): string {
+  const key = trophyBoardKey(mounted);
+  addRaster(scene, key, Raster.fromSprite(trophyBoardSprite(mounted)));
   return key;
 }
 

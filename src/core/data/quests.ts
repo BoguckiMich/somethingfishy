@@ -29,7 +29,7 @@ export const QUEST_TUNING = {
   /** Deep quests need a rod that casts at least this far (the deep zone starts at 15 m). */
   deepMinCastM: 15,
   /** Chance weight of a species as a catchSpecies target, by rarity (rare ones are mean to ask for). */
-  speciesWeight: { common: 3, uncommon: 2, rare: 1, legendary: 0 },
+  speciesWeight: { common: 3, uncommon: 2, rare: 1, legendary: 0, trophy: 0 },
   /** Target ranges (inclusive). */
   catchSpecies: { common: [3, 5], uncommon: [1, 2], rare: [1, 1] },
   catchAny: [8, 15],

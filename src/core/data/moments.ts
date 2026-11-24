@@ -63,6 +63,7 @@ export const NOTES: readonly NoteDef[] = [
   { id: 'tench-tip', text: 'Tip: the tench bite best when you stop staring at the bobber.' },
   { id: 'lost-bobber', text: 'Lost: one red bobber. Sentimental value. Reward: a nod.' },
   { id: 'raft', text: 'Day 3 on the raft. It is still a lake. I am still lost.' },
+  { id: 'golden-tench', text: 'They say a golden tench rises in the rain, when the light is low.' },
   { id: 'warm-water', text: 'The water was warm tonight. It shouldn\'t be.', eerie: true },
   { id: 'extra-star', text: 'I counted the stars in the lake. There was one more than in the sky.', eerie: true },
 ];

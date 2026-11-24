@@ -65,7 +65,7 @@ export class CatchBarView {
   }
 
   /** `tint` dims everything a little at night (a gentler version of the world tint). */
-  update(bar: CatchBarState, gear: BarGear, tint: number, speciesId: string): void {
+  update(bar: CatchBarState, gear: BarGear, tint: number, speciesId: string, slipAfterMs?: number): void {
     const t = (c: number) => multiplyColor(c, tint);
     const { bg, dyn } = this;
     bg.clear();
@@ -99,6 +99,13 @@ export class CatchBarView {
       .setVisible(true)
       .setTint(tint)
       .setPosition(Math.round(win.x + win.w / 2) + shake, Math.round(toY(bar.fish)));
+
+    // A trophy slips away when it stays out of the green too long (slice 23d): a red meter along the top inside edge of the bar fills while it is outside.
+    if (slipAfterMs !== undefined && bar.outsideMs > 0) {
+      const share = Math.min(1, bar.outsideMs / slipAfterMs);
+      dyn.fillStyle(PAL.outline, 0.85).fillRect(win.x, win.y, win.w, 6);
+      dyn.fillStyle(t(PAL.red), 1).fillRect(win.x + 1, win.y + 1, Math.round((win.w - 2) * share), 4);
+    }
 
     // Progress strip: fills from the bottom, red -> yellow -> green.
     const fillH = Math.round(bar.progress * STRIP_WINDOW.h);

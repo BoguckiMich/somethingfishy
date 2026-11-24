@@ -970,6 +970,11 @@ Also from play (user, 2026-11-24):
   - Burbot: deep, night, rare, erratic/sinker; likes rain and fog.
   Log goes 13 -> 16 (+3 rare = 19); checklist/quests/knowledge data need entries.
 
+**Slice 23d built (rare fish):** rarity `trophy`, rules in `core/data/rare.ts` + `core/rare.ts`, ~0.2 per landed cast when all
+conditions hold (fog = the whole fog day, any hour). The fight is a hard darting/sinker (0.8-0.9) and the fish slips away after
+2.5 s outside the green. Trophies skip the bag (no coins), go on a trophy board by the car, and show a gold frame in the log; the
+three hints come through a bottle note, a Pajkel line and a notice-board "Rumours" block. See HANDOFF for numbers and weak spots.
+
 **Grill round 2 (decided 2026-11-24, user accepted all recommendations):**
 - **Gear gated by finished checklist bundles** (coins still pay): start = fiberglass, worms, baits;
   1 bundle = braided line + smooth reel; 2 bundles = carbon rod (deep 30 m+: Pale One, Old Mossback);

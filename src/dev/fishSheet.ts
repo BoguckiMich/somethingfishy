@@ -2,6 +2,7 @@ import { SPECIES } from '../core/data/fish';
 import { fishHugSprite, isHugged } from '../art/fishArt';
 import { fishIcon, fishSilhouette, fishVariant } from '../art/fishVariants';
 import { PAL } from '../art/palette';
+import { trophyBoardSprite } from '../art/trophyBoardArt';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 
 /**
@@ -80,6 +81,20 @@ for (const sp of SPECIES) {
   const name = document.createElement('div');
   name.className = 'name';
   name.textContent = `${sp.name ?? sp.id} (${sp.id})`;
+  row.append(name);
+  wrap.appendChild(row);
+}
+
+// The trophy board (slice 23d) with nothing, one, and all four mounted fish, on the grass colour.
+if (!only || only.includes('board')) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  for (const [label, ids] of [['empty', []], ['golden tench', ['goldenTench']], ['all four', ['goldenTench', 'mossback', 'silverGhost', 'pale']]] as const) {
+    row.append(cell(`board ${label}`, trophyBoardSprite(ids), scale, PAL.grass0));
+  }
+  const name = document.createElement('div');
+  name.className = 'name';
+  name.textContent = 'Trophy board (slice 23d)';
   row.append(name);
   wrap.appendChild(row);
 }

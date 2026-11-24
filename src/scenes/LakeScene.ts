@@ -50,7 +50,11 @@ import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
-import { isLegendary, speciesById, SPECIES } from '../core/data/fish';
+import { isLegendary, isTrophy, speciesById, SPECIES } from '../core/data/fish';
+import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../core/data/rare';
+import { addTrophy, boardIds, fullBoard } from '../core/rare';
+import { showTrophyCard } from '../ui/trophyCard';
+import { ensureTrophyBoardTexture } from '../art/textures';
 import { PALE_ONE } from '../core/data/legendary';
 import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
@@ -97,7 +101,7 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { carVariant, chairEmpty, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { carVariant, chairEmpty, companionEvent, companionPress, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
 import { WEATHER_IDS, WEATHER_LOOK, type WeatherId } from '../core/data/weather';
 import { fogStrength, weatherEffects, weatherLineDue, weatherOfTheDay, type WeatherEffects } from '../core/daily/weather';
@@ -209,6 +213,12 @@ const CAR_POS = { x: 0, y: 500 };
 /** The notice-board button, top right (a second way in beside the sign): 44 x 44, above the catch bar (it starts at y 50). */
 const BOARD_BTN = new Phaser.Geom.Rectangle(W - 8 - 44, 4, 44, 44);
 const CAR_HIT = new Phaser.Geom.Rectangle(0, 494, 84, 58);
+/**
+ * The trophy board (slice 23d): on the grass above the car at the left, left of the dock (x 116+), clear of the car (y 500+) and of the
+ * fetch lawn (PLAY_AREA x 100+, y 500+). Its feet are at the bottom middle; the tap area is a little bigger than the 40 x 34 sprite.
+ */
+const TROPHY_FEET = { x: 58, y: 492 };
+const TROPHY_HIT = new Phaser.Geom.Rectangle(TROPHY_FEET.x - 28, TROPHY_FEET.y - 46, 56, 48);
 /** The dock lantern's feet, and the centre of its glow (between the lantern and Alex, near the dock end). */
 const LANTERN_FEET = { x: 180, y: 388 };
 const GLOW_CENTER = { x: 194, y: 374 };
@@ -327,6 +337,15 @@ export class LakeScene extends Phaser.Scene {
   private questCueAge = Infinity;
   /** The notice-board sign on the shore and the twinkles of the things not tapped yet (slice 22c). */
   private signImg!: Phaser.GameObjects.Image;
+  /** The trophy board (slice 23d) and the key of the texture it shows now ('' = not shown). */
+  private trophyImg!: Phaser.GameObjects.Image;
+  private trophyKey = '';
+  /** Real ms until Pajkel next says a rare-fish hint while idle (-1 = not set yet). */
+  private hintLineMs = -1;
+  /** Dev flag ?rare=<id>: the next landed cast bites that trophy (once). */
+  private rareDev: string | null = null;
+  /** What the last catch did on the trophy board: not a trophy, first, bigger than the mounted one, or no bigger. */
+  private catchTrophy: 'none' | 'first' | 'better' | 'same' = 'none';
   private glintFx!: Phaser.GameObjects.Graphics;
   /** The idle hint (slice 22c): which line is up, how long it has been, and whether a one-off line has had its turn. */
   private tip: Tip | null = null;
@@ -521,6 +540,16 @@ export class LakeScene extends Phaser.Scene {
     const baitParam = BAITS.find((b) => b.id === params.get('bait'));
     if (baitParam) this.setPlayer({ ...addBait(this.player, baitParam.id, 10), baitId: baitParam.id });
     if (params.get('baits') === 'all') for (const b of BAITS) this.setPlayer(addBait(this.player, b.id, 10));
+    // Dev-only (slice 23d): ?rare=goldenTench|mossback|silverGhost makes that fish bite on the next cast; ?trophies=all fills the board.
+    const rareParam = params.get('rare');
+    if (rareParam && isTrophy(speciesById(rareParam))) this.rareDev = rareParam;
+    if (params.get('trophies') === 'all') {
+      const board = fullBoard(this.today);
+      const log = { ...this.player.log };
+      for (const [id, t] of Object.entries(board)) log[id] ??= { count: 1, bestLengthCm: t.lengthCm, bestWeightG: t.weightG };
+      log.pale ??= { count: 1, bestLengthCm: 182, bestWeightG: 64000 };
+      this.setPlayer({ ...this.player, trophies: board, log });
+    }
     const coinsParam = Number(params.get('coins'));
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
@@ -880,6 +909,14 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /** The road map (slice 18): only from the dock, with Alex idle; "Take a nap..." there opens the nap card. */
+  /** The trophy board's card (slice 23d): only while idle. */
+  private openTrophies(): void {
+    if (this.state.kind !== 'idle' || this.panel) return;
+    this.swallowUp = false;
+    sound.play('boof');
+    this.panel = showTrophyCard(this.player.trophies, this.player.log, () => (this.panel = null));
+  }
+
   private openMap(): void {
     const c = this.companions.state;
     if (this.state.kind !== 'idle' || this.panel || c.mode !== 'dock') return;
@@ -1003,6 +1040,12 @@ export class LakeScene extends Phaser.Scene {
     return this.companions.state.mode !== 'bed';
   }
 
+  /** Real ms until Pajkel's next rare-fish hint: sooner on a foggy day (the weather Old Mossback needs). */
+  private hintGap(): number {
+    const g = this.weatherId() === 'fog' ? HINT_GAP_MS.matching : HINT_GAP_MS.normal;
+    return g.min + Math.random() * (g.max - g.min);
+  }
+
   private storyCalm(): boolean {
     const c = this.companions.state;
     const calmKind = this.state.kind === 'idle' || this.state.kind === 'waiting';
@@ -1028,6 +1071,16 @@ export class LakeScene extends Phaser.Scene {
       this.setPlayer({ ...this.player, weatherSeen: this.today });
       this.companions.say(pickLine(WEATHER_LINES[wid]));
       this.storyLineMs = Math.max(this.storyLineMs, 4000);
+    }
+    // Pajkel hints at Old Mossback now and then while idle (slice 23d), more often on a foggy day; not once it is caught.
+    if (this.hintLineMs < 0) this.hintLineMs = this.hintGap();
+    this.hintLineMs -= deltaMs;
+    if (this.hintLineMs <= 0 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && this.storyLineMs <= 0) {
+      this.hintLineMs = this.hintGap();
+      if (!this.player.log.mossback) {
+        this.companions.say(pickLine(PAJKEL_HINT_LINES.mossback));
+        this.storyLineMs = Math.max(this.storyLineMs, 4000);
+      }
     }
     if (this.storyLineMs <= 0 && calmKind && !this.panel && !this.sleepFade && this.companions.state.bubble === null) {
       const next = nextLine(storyOf(this.player), this.pajCanSpeak());
@@ -1146,7 +1199,10 @@ export class LakeScene extends Phaser.Scene {
 
   private send(input: FishingInput): void {
     const prev = this.state;
-    const { state: next, events } = step(prev, input, this.ctx);
+    // Dev flag ?rare=<id>: the cast that lands now bites that trophy, once.
+    const forceRare = this.rareDev !== null && input.type === 'landed' && prev.kind === 'casting';
+    const { state: next, events } = step(prev, input, forceRare ? { ...this.ctx, speciesOverride: this.rareDev! } : this.ctx);
+    if (forceRare) this.rareDev = null;
     this.fightToasts = next.kind === 'fighting';
     // A release that was too short for a cast: say how it works.
     if (prev.kind === 'charging' && next.kind === 'idle' && input.type === 'release') this.showToast('Hold to charge, release to cast');
@@ -1170,7 +1226,7 @@ export class LakeScene extends Phaser.Scene {
     const species = speciesById(hooked.speciesId);
     this.catchStar = species ? starFor(species, hooked.lengthCm) : 'none';
     this.catchFotd = hooked.speciesId === this.fotdId();
-    this.catchFits = !slipsAway(hooked.speciesId) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked)).length > 0;
+    this.catchFits = !slipsAway(hooked.speciesId) && !isTrophy(species) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked)).length > 0;
     // The catch also moves today's quests (the game clock gives the time of day, the log the record).
     const q = applyCatchToPlayer({ ...this.player, log: r.log }, {
       speciesId: hooked.speciesId,
@@ -1180,13 +1236,27 @@ export class LakeScene extends Phaser.Scene {
     });
     this.setPlayer(q.player);
     this.catchOutcome = r.outcome;
-    const showOffMs = slipsAway(hooked.speciesId) ? PALE_ONE.showOffMs : r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined;
+    // A rare trophy (slice 23d) goes on the board, not in the bag; its first catch gets the longest show-off and a special cheer.
+    let trophyFirst = false;
+    this.catchTrophy = 'none';
+    if (isTrophy(species)) {
+      const t = addTrophy(this.player.trophies, hooked, this.today);
+      if (t.first || t.improved) this.setPlayer({ ...this.player, trophies: t.trophies });
+      this.catchTrophy = t.first ? 'first' : t.improved ? 'better' : 'same';
+      trophyFirst = t.first;
+    }
+    const showOffMs = slipsAway(hooked.speciesId) ? PALE_ONE.showOffMs : trophyFirst ? RARE_TUNING.showOffMs : r.outcome.kind === 'newSpecies' ? NEW_SPECIES_SHOW_OFF_MS : undefined;
     this.ctx = { ...this.ctx, showOffMs };
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
+    if (trophyFirst) {
+      trophyCheer(this.companions.state);
+      const line = TROPHY_TEXT.pajkelFirst[hooked.speciesId];
+      if (line && this.companions.state.mode !== 'bed') this.companions.say(line);
+    }
     // Pajkel praises a record out loud (slice 15a). The dev catch (celebrate = false) speaks too, so ?debug=caught&log=all shows it.
     // Not while he is off to bed or asleep in the car: then the car only puffs a sleepy Zzz.
     const gold = this.catchStar === 'gold' && r.outcome.kind === 'normal';
-    if (r.outcome.kind === 'newRecord' || gold) {
+    if ((r.outcome.kind === 'newRecord' || gold) && !trophyFirst) {
       const c = this.companions.state;
       if (c.mode !== 'bed') this.companions.say(pickLine(gold ? GOLD_LINES : RECORD_LINES));
       else if (isInCar(c)) this.spawnZzz(true);
@@ -1220,6 +1290,12 @@ export class LakeScene extends Phaser.Scene {
     if (slipsAway(hooked.speciesId)) {
       this.slipNoteAge = 0;
       if (paleBeatDue(storyOf(this.player))) this.paleCardPending = true;
+      return;
+    }
+    // A trophy goes straight to the board (it was put there when it was caught): no bag slot, no coins.
+    if (isTrophy(speciesById(hooked.speciesId))) {
+      if (this.catchTrophy === 'better') this.showToast('A bigger one for the board!');
+      else if (this.catchTrophy === 'same') this.showToast(TROPHY_TEXT.backInLake);
       return;
     }
     const r = addCatch(this.player, hooked, this.fotdId());
@@ -1415,7 +1491,7 @@ export class LakeScene extends Phaser.Scene {
         sound.play(this.catchOutcome.kind === 'normal' && this.catchStar !== 'gold' && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
         break;
       case 'fishLost':
-        this.showToast('It got away…');
+        this.showToast(e.slipped ? 'It slipped the hook!' : 'It got away…');
         vibrate(HAPTICS.escaped);
         sound.play('slack');
         break;
@@ -1556,6 +1632,7 @@ export class LakeScene extends Phaser.Scene {
     // The car, the crate, the sign and Pajkel's empty chair: tap = open, hold = cast (see objectTouched).
     if (this.holdHit('car', x, y)) return this.objectTouched('car');
     if (this.holdHit('crate', x, y)) return this.objectTouched('crate');
+    if (this.holdHit('board', x, y)) return this.objectTouched('board');
     // A moment on the lake: a tap on it never starts a cast. The bottle opens a card, so only while idle.
     const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
     if (momentOk && this.story.tap(x, y, this.state.kind === 'idle')) return true;
@@ -1596,6 +1673,8 @@ export class LakeScene extends Phaser.Scene {
         return on && SIGN_HIT.contains(x, y);
       case 'chair':
         return on && chairEmpty(this.companions.state) && this.companions.chairRect().contains(x, y);
+      case 'board':
+        return on && this.trophyKey !== '' && TROPHY_HIT.contains(x, y);
     }
   }
 
@@ -1622,6 +1701,9 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'sign':
         this.tapSign();
+        break;
+      case 'board':
+        this.openTrophies();
         break;
       case 'chair': {
         const r = this.companions.chairRect();
@@ -1789,6 +1871,8 @@ export class LakeScene extends Phaser.Scene {
     this.crateFx = this.add.graphics().setDepth(Z.angler - 0.1);
     this.signImg = this.add.image(SIGN_FEET.x, SIGN_FEET.y, ensureSignTexture(this, this.signLook())).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.signImg);
+    this.trophyImg = this.add.image(TROPHY_FEET.x, TROPHY_FEET.y, ensureTrophyBoardTexture(this, [])).setOrigin(0.5, 1).setDepth(Z.angler - 0.2).setVisible(false);
+    this.worldImgs.push(this.trophyImg);
     this.glintFx = this.add.graphics().setDepth(Z.angler + 0.45);
 
     this.action = this.add.graphics().setDepth(Z.action);
@@ -2023,7 +2107,7 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (s.kind === 'charging') this.drawPowerMeter(g, chargePower(s.heldMs));
-    if (s.kind === 'fighting') this.catchBar.update(s.bar, this.ctx.barGear, lerpColor(0xffffff, look.worldTint, 0.35), s.hooked.speciesId);
+    if (s.kind === 'fighting') this.catchBar.update(s.bar, this.ctx.barGear, lerpColor(0xffffff, look.worldTint, 0.35), s.hooked.speciesId, s.fish.slipAfterMs);
     else this.catchBar.hide();
     const pop = Math.min(1, 0.45 + this.stateAge / 160);
     const popScale = pop + 0.18 * Math.exp(-this.stateAge / 140) * Math.sin(this.stateAge / 40);
@@ -2036,7 +2120,7 @@ export class LakeScene extends Phaser.Scene {
       const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '';
       this.caughtBadge.setText(this.catchStar === 'gold' ? (badge ? `${badge} Gold!` : 'Gold!') : badge);
       this.caughtNote.setText(
-        o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
+        this.catchTrophy === 'first' ? TROPHY_TEXT.firstLine : o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
       );
     }
     if (s.kind === 'caught') {
@@ -2082,6 +2166,7 @@ export class LakeScene extends Phaser.Scene {
 
     this.drawCrate();
     this.drawSign();
+    this.drawTrophyBoard();
     this.drawCar(look, _deltaMs);
     this.drawLantern(look);
     this.drawFade();
@@ -2164,6 +2249,18 @@ export class LakeScene extends Phaser.Scene {
   /** The notice-board sign's look now: a note per open quest (pinned when done), the seal while a chapter waits. */
   private signLook(): SignLook {
     return { slots: signSlots(questsOf(this.player)), seal: this.storyBadge(), flutter: (Math.floor(this.elapsed / 700) % 2) as 0 | 1 };
+  }
+
+  /** The trophy board shows once a rare fish is mounted (slice 23d); its texture changes with the set of mounted fish. */
+  private drawTrophyBoard(): void {
+    // The Pale One alone does not bring the board: it appears with the first rare fish.
+    const shown = this.player.trophies && Object.keys(this.player.trophies).length > 0 ? boardIds(this.player.trophies, this.player.log) : [];
+    const key = shown.length > 0 ? ensureTrophyBoardTexture(this, shown) : '';
+    if (key !== this.trophyKey) {
+      this.trophyKey = key;
+      if (key) this.trophyImg.setTexture(key);
+    }
+    this.trophyImg.setVisible(key !== '');
   }
 
   /** Follows the quests and the story, and twinkles the shore things she has not tapped yet (only while idle). */

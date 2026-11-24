@@ -70,3 +70,8 @@ export function fishIcon(id: string): Sprite {
 export function fishSilhouette(id: string): Sprite {
   return memo(`${id}:silhouette`, () => silhouetteOf(art(id), PAL.outlineSoft));
 }
+
+/** A tiny crisp fish of the given width for mounting on the trophy board (slice 23d); never wider than its large sprite. */
+export function fishMini(id: string, width: number): Sprite {
+  return memo(`${id}:mini:${width}`, () => shrink(id, width));
+}

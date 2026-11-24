@@ -144,7 +144,7 @@ describe('notes', () => {
   it('has unique ids, twelve notes and exactly two eerie ones', () => {
     expect(new Set(NOTES.map((n) => n.id)).size).toBe(NOTES.length);
     expect(NOTES.filter((n) => n.eerie)).toHaveLength(2);
-    expect(NOTES).toHaveLength(12);
+    expect(NOTES).toHaveLength(13);
   });
   it('the eerie ones are allowed only 22:00-05:00', () => {
     const eerie = (m: number) => notesAt(m).some((n) => n.eerie);

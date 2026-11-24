@@ -3,8 +3,11 @@ import type { FishPattern } from '../catchBar';
 import type { ZoneId } from '../location';
 import type { WeatherId } from './weather';
 
-/** `legendary` fish are not in the weighted spawn pool: they have their own rule (core/legendary.ts). */
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+/**
+ * `legendary` and `trophy` fish are not in the weighted spawn pool: they have their own rules (core/legendary.ts,
+ * core/rare.ts). A trophy (slice 23d) is one of the three rare Quiet Lake fish: caught only under special conditions.
+ */
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'trophy';
 
 export interface Species {
   id: string;
@@ -123,6 +126,28 @@ export const SPECIES: Species[] = [
     fact: 'The wels catfish is the largest freshwater fish in Europe and can pass two metres in length.',
   },
   {
+    // Trophies (slice 23d): not in the weighted pool; spawn rules and tunables in core/data/rare.ts. The fight is harder than
+    // the base difficulty suggests (it also slips away after a few seconds outside the green zone). basePrice is the worth;
+    // a trophy is never bagged or sold, it goes on the trophy board. `times` is only informational.
+    id: 'goldenTench', name: 'Golden tench', zone: 'deep', times: ['dawn', 'dusk'], rarity: 'trophy', pattern: 'darting', difficulty: 0.8,
+    lengthCm: [45, 70], nibbles: [2, 4], bodyFactor: 0.0172, basePrice: 400,
+    fact: 'Golden tench are real: a pale, yellow-orange form that breeders prize. This one has a red eye.',
+    logHint: 'They say a golden tench rises in the rain, when the light is low.',
+  },
+  {
+    id: 'mossback', name: 'Old Mossback', zone: 'deep', times: ['dawn', 'day', 'dusk', 'night'], rarity: 'trophy', pattern: 'sinker', difficulty: 0.9,
+    lengthCm: [85, 130], nibbles: [2, 4], bodyFactor: 0.014, basePrice: 600,
+    fact: 'A carp so old that moss grows on its back. Some say it was here before the dock.',
+    logHint: 'An old carp, green as the shore, comes out of the fog for a sweet bite far out.',
+    showOff: 'hug',
+  },
+  {
+    id: 'silverGhost', name: 'Silver ghost', zone: 'shallow', times: ['day'], rarity: 'trophy', pattern: 'darting', difficulty: 0.8,
+    lengthCm: [24, 40], nibbles: [1, 3], bodyFactor: 0.0074, basePrice: 300,
+    fact: 'A bleak so pale it is almost white. It shimmers for a moment and is gone.',
+    logHint: 'On bright noons, something pale flickers in the shallows. It likes maggots.',
+  },
+  {
     // Legendary (slice 12): not in the weighted pool. Spawn rule and tunables: core/data/legendary.ts.
     // basePrice 0: it is never sold. `times` is only informational; the rule is the clock window.
     id: 'pale', name: 'The Pale One', zone: 'deep', times: ['night'], rarity: 'legendary', pattern: 'abyssal', difficulty: 0.9,
@@ -133,8 +158,8 @@ export const SPECIES: Species[] = [
   },
 ];
 
-/** The species that bite through the weighted pool (everything but the legendaries). */
-export const POOL_SPECIES: Species[] = SPECIES.filter((s) => s.rarity !== 'legendary');
+/** The species that bite through the weighted pool (everything but the legendary and the trophies). */
+export const POOL_SPECIES: Species[] = SPECIES.filter((s) => s.rarity !== 'legendary' && s.rarity !== 'trophy');
 
 export function speciesById(id: string): Species | undefined {
   return SPECIES.find((s) => s.id === id);
@@ -142,3 +167,9 @@ export function speciesById(id: string): Species | undefined {
 
 /** True for a legendary species (never in the normal pool, never bagged or sold). */
 export const isLegendary = (s: Species | undefined): boolean => s?.rarity === 'legendary';
+
+/** True for a trophy species (slice 23d): never bagged or sold, it goes on the trophy board. */
+export const isTrophy = (s: Species | undefined): boolean => s?.rarity === 'trophy';
+
+/** A legendary or a trophy: no stars, no checklist slot, no species quest, no fish-knowledge rows. */
+export const isUnique = (s: Species | undefined): boolean => s?.rarity === 'legendary' || s?.rarity === 'trophy';
