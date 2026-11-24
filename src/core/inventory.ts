@@ -13,6 +13,7 @@ import type { Rng } from './random';
 import { newDaily, type DailyState } from './daily/daily';
 import { newQuests, questsOf, questsOnSale, type QuestsState } from './quests/quests';
 import { newNotes, type NotesState } from './moments/moments';
+import type { ChecklistState } from './checklist/checklist';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -49,6 +50,8 @@ export interface PlayerState {
   notes?: NotesState;
   /** Owns the night kit "Lantern & blanket" (slice 16); missing = no. */
   nightKit?: boolean;
+  /** Filled slots per checklist bundle (slice 20); missing = nothing filled. Read with checklistOf(). */
+  checklist?: ChecklistState;
 }
 
 export function newPlayer(): PlayerState {
