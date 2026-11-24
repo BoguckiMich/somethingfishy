@@ -94,11 +94,13 @@ export function signSprite(look: SignLook): Sprite {
     if (s === 'off') return;
     const x = NOTE_X[i];
     if (s === 'claim') {
-      // The corner lifts a pixel in the second frame; a gold pin holds the top.
+      // A gold rim makes it the one to look at; the corner lifts a pixel in the second frame; a gold pin holds the top.
+      for (let ry = -1; ry <= NOTE.length; ry++) for (let rx = -1; rx <= NOTE[0].length; rx++) if (ry < 0 || ry === NOTE.length || rx < 0 || rx === NOTE[0].length) put(x + rx, NOTE_Y + ry, PAL.sandDark);
       drawNote(x, NOTE_Y, NOTE, look.flutter);
-      put(x + 1, NOTE_Y - 1, PAL.gold);
+      put(x + 1, NOTE_Y - 1, PAL.white);
       put(x + 2, NOTE_Y - 1, PAL.gold);
-      put(x + 1, NOTE_Y, PAL.sandDark);
+      put(x + 1, NOTE_Y, PAL.gold);
+      put(x + 2, NOTE_Y, PAL.sandDark);
     } else {
       drawNote(x, NOTE_Y, NOTE);
       put(x + 1, NOTE_Y, PAL.stoneDark);

@@ -8,8 +8,8 @@ import { TEX } from '../art/textures';
 import type { CatchBarState } from '../core/catchBar';
 import type { BarGear } from '../core/gear';
 
-/** Screen layout of the catch bar: right edge, below the clock and pencil, clear of the bobber column. */
-const BAR_FRAME = { x: W - 8 - (BAR_INNER.w + BAR_BORDER * 2), y: 58 };
+/** Screen layout of the catch bar: right edge, clear of the bobber column. The top right is free (slice 22c), so it starts higher. */
+const BAR_FRAME = { x: W - 8 - (BAR_INNER.w + BAR_BORDER * 2), y: 50 };
 const STRIP_BORDER = 3;
 const STRIP_FRAME = { x: BAR_FRAME.x - 3 - (STRIP_INNER.w + STRIP_BORDER * 2), y: BAR_FRAME.y + (BAR_BORDER - STRIP_BORDER) };
 /** Inner windows (where things move), in screen pixels. */
@@ -17,6 +17,8 @@ export const BAR_WINDOW = { x: BAR_FRAME.x + BAR_BORDER, y: BAR_FRAME.y + BAR_BO
 const STRIP_WINDOW = { x: STRIP_FRAME.x + STRIP_BORDER, y: STRIP_FRAME.y + STRIP_BORDER, w: STRIP_INNER.w, h: STRIP_INNER.h };
 
 const DEPTH = 30;
+/** A 9 x 9 fish above the progress strip (what you are after) and a net below it (what fills up), centred on the strip. */
+const ICON_GAP = 2;
 
 /** Multiplies two 0xRRGGBB colours (what setTint does on the GPU). */
 export function multiplyColor(a: number, b: number): number {
@@ -36,6 +38,8 @@ export class CatchBarView {
   private frame: Phaser.GameObjects.Image;
   private strip: Phaser.GameObjects.Image;
   private fishIcon: Phaser.GameObjects.Image;
+  private stripTop: Phaser.GameObjects.Image;
+  private stripBottom: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene) {
     this.bg = scene.add.graphics().setDepth(DEPTH - 1);
@@ -43,6 +47,10 @@ export class CatchBarView {
     this.frame = scene.add.image(BAR_FRAME.x, BAR_FRAME.y, TEX.barFrame).setOrigin(0, 0).setDepth(DEPTH + 0.2);
     this.strip = scene.add.image(STRIP_FRAME.x, STRIP_FRAME.y, TEX.stripFrame).setOrigin(0, 0).setDepth(DEPTH + 0.2);
     this.fishIcon = scene.add.image(0, 0, fishIconKey('perch')).setDepth(DEPTH + 0.1);
+    const cx = STRIP_FRAME.x + Math.floor((STRIP_INNER.w + STRIP_BORDER * 2) / 2);
+    const stripH = STRIP_INNER.h + STRIP_BORDER * 2;
+    this.stripTop = scene.add.image(cx, STRIP_FRAME.y - ICON_GAP, TEX.stripFish).setOrigin(0.5, 1).setDepth(DEPTH + 0.2);
+    this.stripBottom = scene.add.image(cx, STRIP_FRAME.y + stripH + ICON_GAP, TEX.stripNet).setOrigin(0.5, 0).setDepth(DEPTH + 0.2);
     this.hide();
   }
 
@@ -52,6 +60,8 @@ export class CatchBarView {
     this.frame.setVisible(false);
     this.strip.setVisible(false);
     this.fishIcon.setVisible(false);
+    this.stripTop.setVisible(false);
+    this.stripBottom.setVisible(false);
   }
 
   /** `tint` dims everything a little at night (a gentler version of the world tint). */
@@ -62,6 +72,8 @@ export class CatchBarView {
     dyn.clear();
     this.frame.setVisible(true).setTint(tint);
     this.strip.setVisible(true).setTint(tint);
+    this.stripTop.setVisible(true).setTint(tint);
+    this.stripBottom.setVisible(true).setTint(tint);
 
     const win = BAR_WINDOW;
     const toY = (pos: number) => win.y + (1 - pos) * win.h;

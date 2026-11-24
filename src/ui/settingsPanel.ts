@@ -5,6 +5,7 @@ import type { SoundSettings } from '../core/soundSettings';
 import { saveSummary, type SaveData } from '../core/save';
 import { decodeSaveCode, type DecodeResult } from '../core/saveCode';
 import { SPECIES } from '../core/data/fish';
+import { nameFields } from './nameOverlay';
 import { COLORS, el, openPanel, woodButton as baseButton, type ButtonOptions, type PanelHandle } from './panel';
 
 /** Settings buttons are wood (secondary); only the confirming "Yes" buttons are gold: one gold per card. */
@@ -18,8 +19,9 @@ export interface SettingsStore {
   applyImport(save: SaveData, profile: Profile): void;
   /** Resets everything but the names. */
   startOver(): void;
-  /** Closes the panel's job and opens the name card. */
-  openNames(): void;
+  /** The current names, and saving new ones (slice 22c: the Names section edits them in place). */
+  profile(): Profile;
+  saveNames(p: Profile): void;
   /** False when the last write failed or storage is missing. */
   canSave(): boolean;
   /** The Sounds / Ambience volumes, 0..100 (saved by the setter unless sandboxed). */
@@ -198,13 +200,18 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
     );
 
     body.append(sectionTitle('Names'));
+    // The three fields of the first-launch card, plus a button that keeps the typing (nothing is lost on a refresh).
+    const names = nameFields(store.profile());
+    const saved = note('', COLORS.gold);
+    body.append(...names.nodes);
     body.append(
       row(
-        woodButton('Change names', () => {
-          panel.close();
-          store.openNames();
+        woodButton('Save names', () => {
+          store.saveNames(names.read());
+          saved.textContent = 'Names saved';
         }, { variant: 'wood' }),
       ),
+      saved,
     );
 
     // The code boxes are the scariest thing in the game: folded behind a wood button until asked for.

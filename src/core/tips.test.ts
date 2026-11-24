@@ -10,6 +10,7 @@ import {
   normalizeSeen,
   pickTip,
   signAction,
+  TIP_MAX_CHARS,
   type TipFacts,
 } from './tips';
 
@@ -42,11 +43,30 @@ describe('pickTip', () => {
     expect(pickTip({ ...all, bagFull: false, boxWaiting: false, questReady: false })?.once).toBe(true);
   });
   it('the box line goes quiet once the crate was tapped', () => {
-    expect(pickTip({ ...base, boxWaiting: true, seen: ['cast1', 'cast2', 'cast3'] })?.text).toBe('A package on the dock! Tap the crate');
+    expect(pickTip({ ...base, boxWaiting: true, seen: ['cast1', 'cast2', 'cast3'] })?.text).toBe('A package! Tap the crate');
     expect(pickTip({ ...base, boxWaiting: true, seen: allSeen() })).toBeNull();
   });
   it('the cast lesson comes before the one-off lines', () => {
     expect(pickTip({ ...base, seen: [], bagFull: true })?.id).toBe('cast');
+  });
+});
+
+describe('tip texts', () => {
+  it('all fit the game width', () => {
+    const facts: TipFacts[] = [
+      { ...base, canCast: false, baitTotal: 0 },
+      { ...base, canCast: false, baitTotal: 4 },
+      { ...base, seen: [] },
+      { ...base, bagFull: true },
+      { ...base, boxWaiting: true, seen: ['cast1', 'cast2', 'cast3'] },
+      { ...base, questReady: true },
+      { ...base, storyWaiting: true },
+    ];
+    for (const f of facts) {
+      const t = pickTip(f);
+      expect(t).not.toBeNull();
+      expect(t!.text.length).toBeLessThanOrEqual(TIP_MAX_CHARS);
+    }
   });
 });
 

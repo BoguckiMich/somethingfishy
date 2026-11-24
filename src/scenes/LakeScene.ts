@@ -17,7 +17,7 @@ import { MomentsView } from './MomentsView';
 import { applyCatchToPlayer, claimableCount, doneCount, questsOf, syncQuests } from '../core/quests/quests';
 import type { ZoneId } from '../core/location';
 import { sound } from '../audio/sound';
-import { dayLook, lerpColor, moonArc, sunArc, type DayLook } from '../art/dayCycle';
+import { cssColor, dayLook, lerpColor, letterboxBands, moonArc, sunArc, type DayLook } from '../art/dayCycle';
 import {
   BOBBER_X,
   distanceToY,
@@ -34,10 +34,12 @@ import { FONT, FS, textPad } from '../font';
 import { applyCameraZoom, sharpenTexts } from '../renderScale';
 import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
-import { ALEX_FEET_Y, ALEX_HANDS_KEY, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
+import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
-import { createTextures, lanternKey, repaintSky, TEX } from '../art/textures';
+import { createTextures, ensureSignTexture, lanternKey, repaintSky, TEX } from '../art/textures';
+import { SIGN_GLINT, SIGN_SIZE, signSlots, type SignLook } from '../art/signArt';
+import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
 import { crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
@@ -45,7 +47,7 @@ import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/s
 import { showMapPanel } from '../ui/mapPanel';
 import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
-import { advanceClock, formatClock, NEW_GAME_CLOCK, TIME_OF_DAY_NAMES, timeOfDay, type GameClock } from '../core/clock';
+import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
 import { isLegendary, speciesById, SPECIES } from '../core/data/fish';
 import { PALE_ONE } from '../core/data/legendary';
@@ -85,7 +87,7 @@ import { showBagFullCard } from '../ui/bagFullCard';
 import { openBagPanel, openShopPanel } from '../ui/bagShop';
 import { openLogPanel } from '../ui/logPanel';
 import { openSoundBoard } from '../ui/soundBoard';
-import { recordCatch, type CatchOutcome, type FishLog } from '../core/fishLog';
+import { recordCatch, speciesCaught, type CatchOutcome, type FishLog } from '../core/fishLog';
 import { backupSave, clearSave, isSandbox, loadSave, startOver, writeSave, type SaveData } from '../core/save';
 import { encodeSaveCode } from '../core/saveCode';
 import { showNameOverlay } from '../ui/nameOverlay';
@@ -174,13 +176,19 @@ const CATCH_BUBBLE_TOP = 298;
 const CATCH_FITS_GAP = 26;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
-const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
-/** The notice-board (daily quests) button: same size as the pencil, just left of it. */
-const BOARD = new Phaser.Geom.Rectangle(292, 4, 30, 26);
+/**
+ * The notice-board sign (slice 22c): right of the dock on the grass, feet on the shore line. Its sprite (24 x 26)
+ * ends at y 498 and the fetch lawn (PLAY_AREA, y 500-554) starts below it, so the two never overlap; the 48 x 48
+ * tap area is just above the lawn too (y 452-500).
+ */
+const SIGN_FEET = { x: 276, y: 498 };
+const SIGN_HIT = new Phaser.Geom.Rectangle(SIGN_FEET.x - 24, SIGN_FEET.y - 46, 48, 48);
+/** A 9 x 9 sun, half sun or moon in front of the clock (slice 22c), and how big it is drawn. */
+const CLOCK_ICON_SCALE = 2;
 const QUEST_CUE_MS = 1800;
-/** The crate from the bait shop: feet position on the dock, and a finger-sized (~40 px) tap area around it. */
+/** The crate from the bait shop: feet position on the dock, and a finger-sized (44 x 44) tap area around it. */
 const CRATE_FEET = { x: 214, y: 458 };
-const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 20, CRATE_FEET.y - 30, 40, 40);
+const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 22, CRATE_FEET.y - 34, 44, 44);
 /** How often the device date is re-read (a game left open past midnight gets the new crate). */
 const DATE_CHECK_MS = 5000;
 const GLINT_N = 130;
@@ -263,12 +271,10 @@ export class LakeScene extends Phaser.Scene {
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
   private panel: PanelHandle | null = null;
   private bottomBar!: BottomBar;
-  private wormLabel!: Phaser.GameObjects.Text;
-  /** The "-1 bait" cue floats up from the bait chip instead of the worm counter. */
-  private cueAtChip = false;
   private coinLabel!: Phaser.GameObjects.Text;
-  private wormIcon!: Phaser.GameObjects.Image;
   private coinIcon!: Phaser.GameObjects.Image;
+  /** The sun, half sun or moon in front of the clock (slice 22c). */
+  private clockIcon!: Phaser.GameObjects.Image;
   private wormCue!: Phaser.GameObjects.Text;
   private wormCueAge = Infinity;
   private clock: GameClock = NEW_GAME_CLOCK;
@@ -301,7 +307,12 @@ export class LakeScene extends Phaser.Scene {
   private seenDone = 0;
   private questCue!: Phaser.GameObjects.Text;
   private questCueAge = Infinity;
-  private boardImg!: Phaser.GameObjects.Image;
+  /** The notice-board sign on the shore and the twinkles of the things not tapped yet (slice 22c). */
+  private signImg!: Phaser.GameObjects.Image;
+  private glintFx!: Phaser.GameObjects.Graphics;
+  /** The idle hint (slice 22c): which line is up, how long it has been, and whether a one-off line has had its turn. */
+  private tip: Tip | null = null;
+  private tipAge = 0;
   /** The open quest panel, so a day change can refresh it. */
   private questPanel: PanelHandle | null = null;
   /** Lake moments (slice 14): the next-one timer, the one on screen, and the dev spawn flag. */
@@ -425,6 +436,8 @@ export class LakeScene extends Phaser.Scene {
     const params = pageParams();
     this.sandbox = isSandbox([...params.keys()]);
     const saveStatus = this.setupSave(params);
+    // The dev sandbox pretends every hint was seen (a clean lake for the other flags); ?debug=fresh pretends none was.
+    if (this.sandbox) this.setPlayer({ ...this.player, seen: params.get('debug') === 'fresh' ? [] : allSeen() });
     const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
@@ -828,6 +841,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** A tap on the car (never casts): asleep inside makes a "Zzz...", otherwise the road map. */
   private tapCar(): void {
+    this.markHint('car');
     const c = this.companions.state;
     if (isInCar(c)) {
       this.spawnZzz(true);
@@ -1095,9 +1109,8 @@ export class LakeScene extends Phaser.Scene {
     const r = applyEvent(this.player, e, this.ctx.rng);
     this.setPlayer(r.state);
     if (r.baitUsed) {
-      // The "-1" cue: next to the worm counter for worms, above the bait chip for a special bait.
+      // The "-1" cue floats up from the bait chip (the one bait counter, slice 22c).
       this.wormCueAge = 0;
-      this.cueAtChip = r.baitUsed !== WORM_ID;
       this.wormCue.setText(`-1 ${baitById(r.baitUsed)?.name.toLowerCase() ?? 'worm'}`);
       const after = chosenBait(r.state);
       if (after !== before && baitCount(r.state, before) <= 0) {
@@ -1172,7 +1185,8 @@ export class LakeScene extends Phaser.Scene {
       exportCode: () => encodeSaveCode(this.currentSave(), this.profile),
       applyImport: (save: SaveData, profile: Profile) => this.loadGame(save, profile),
       startOver: () => this.startNewGame(),
-      openNames: () => this.openNames(),
+      profile: () => this.profile,
+      saveNames: (p: Profile) => this.applyProfile(p),
       canSave: () => !this.saveFailed && this.safeStorage() !== undefined,
       soundSettings: () => sound.current,
       setSoundSettings: (s: SoundSettings) => sound.set(s),
@@ -1203,10 +1217,6 @@ export class LakeScene extends Phaser.Scene {
     this.syncQuestsNow();
     this.seenDone = doneCount(questsOf(this.player));
     this.showToast('A fresh start');
-  }
-
-  private openNames(): void {
-    showNameOverlay(this.profile, false, (p) => this.applyProfile(p));
   }
 
   /** A press while out of worms: the soft-lock guard may help, otherwise point to the shop. */
@@ -1320,6 +1330,7 @@ export class LakeScene extends Phaser.Scene {
         sound.play('slack');
         break;
       case 'cast':
+        this.setPlayer({ ...this.player, seen: markCast(this.player.seen) });
         // The state is still the charging one: a fuller charge makes a higher, louder whoosh.
         sound.play('cast', { charge: s.kind === 'charging' ? chargePower(s.heldMs) : 0.5 });
         break;
@@ -1391,6 +1402,7 @@ export class LakeScene extends Phaser.Scene {
   private openBaitBox(): void {
     if (this.state.kind !== 'idle' || this.panel || !this.crateVisible()) return;
     this.swallowUp = false;
+    this.markHint('crate');
     const tier = tierFor(dailyOf(this.player), this.today);
     this.panel = showBaitBoxCard(
       tier,
@@ -1419,14 +1431,6 @@ export class LakeScene extends Phaser.Scene {
       if (hit) this.openPlayerPanel(hit);
       return true;
     }
-    if (PENCIL.contains(x, y)) {
-      this.openNames();
-      return true;
-    }
-    if (BOARD.contains(x, y)) {
-      this.openQuests(); // only opens while idle; the tap never casts
-      return true;
-    }
     if (CAR_HIT.contains(x, y)) {
       this.tapCar();
       return true;
@@ -1441,6 +1445,7 @@ export class LakeScene extends Phaser.Scene {
     if (momentOk && this.moments.tap(x, y, this.state.kind === 'idle')) return true;
     const dog = this.companions.dogRect();
     if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
+      this.markHint('dog');
       this.companions.pet();
       sound.play('boof');
       this.showTag(2, this.profile.dog, dog.centerX, dog.y - 14);
@@ -1452,7 +1457,33 @@ export class LakeScene extends Phaser.Scene {
       this.showTag(1, this.profile.companion, paj.centerX, paj.y - 2);
       return true;
     }
+    // The notice-board sign: a tap never casts while idle or waiting; it acts only while idle.
+    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && SIGN_HIT.contains(x, y)) {
+      this.tapSign();
+      return true;
+    }
     return false;
+  }
+
+  /** A first tap on a shore thing stops its glint (saved). */
+  private markHint(id: Glint): void {
+    if (isSeen(this.player.seen, id)) return;
+    this.setPlayer({ ...this.player, seen: markHintSeen(this.player.seen, id) });
+  }
+
+  /** The sign: the sealed bottle when it floats, else today's waiting chapter (the same start as the delivery), else the quests. */
+  private tapSign(): void {
+    if (this.state.kind !== 'idle' || this.panel) return;
+    this.markHint('sign');
+    const chapter = this.dueChapter();
+    const action = signAction({
+      bottleOnWater: this.storyRun !== null && this.story.kind === 'bottle',
+      chapterWaiting: chapter !== null && this.storyRun === null,
+      calm: this.storyCalm(),
+    });
+    if (action === 'bottle') this.openStoryBottle();
+    else if (action === 'chapter' && chapter) this.beginChapter(chapter);
+    else this.openQuests();
   }
 
   /** First launch: ask for names; otherwise use the stored ones. ?reset=profile clears them. */
@@ -1578,6 +1609,9 @@ export class LakeScene extends Phaser.Scene {
     this.crateImg = this.add.image(CRATE_FEET.x, CRATE_FEET.y, TEX.crate).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.crateImg);
     this.crateFx = this.add.graphics().setDepth(Z.angler - 0.1);
+    this.signImg = this.add.image(SIGN_FEET.x, SIGN_FEET.y, ensureSignTexture(this, this.signLook())).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
+    this.worldImgs.push(this.signImg);
+    this.glintFx = this.add.graphics().setDepth(Z.angler + 0.45);
 
     this.action = this.add.graphics().setDepth(Z.action);
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
@@ -1638,11 +1672,11 @@ export class LakeScene extends Phaser.Scene {
     const textStyle = { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT };
     const pad = { padding: textPad(9, 5) };
     this.ui = this.add.graphics().setDepth(Z.uiPanel);
-    this.clockLabel = this.add.text(8, 8, '', { ...textStyle, ...pad }).setDepth(Z.uiText);
+    // The clock: a 9 x 9 sun, half sun or moon sits in the left padding. Coins stay under it in their own frame.
+    this.clockLabel = this.add.text(8, 8, '', { ...textStyle, padding: { ...textPad(9, 5), left: 9 + 9 * CLOCK_ICON_SCALE + 5 } }).setDepth(Z.uiText);
+    this.clockIcon = this.add.image(0, 0, TEX.clockSun).setOrigin(0, 0).setScale(CLOCK_ICON_SCALE).setDepth(Z.uiText);
     const statStyle = { ...textStyle, padding: { ...textPad(8, 4), left: 27 } };
-    this.wormLabel = this.add.text(8, 40, '', statStyle).setDepth(Z.uiText);
-    this.coinLabel = this.add.text(70, 40, '', statStyle).setDepth(Z.uiText);
-    this.wormIcon = this.add.image(0, 0, TEX.worm).setOrigin(0, 0).setDepth(Z.uiText);
+    this.coinLabel = this.add.text(8, 40, '', statStyle).setDepth(Z.uiText);
     this.coinIcon = this.add.image(0, 0, TEX.coin).setOrigin(0, 0).setDepth(Z.uiText);
     this.wormCue = this.add
       .text(0, 0, '-1 worm', { fontFamily: FONT, fontSize: `${FS.body}px`, color: '#ffb0a0', stroke: '#241a2e', strokeThickness: 3 })
@@ -1650,7 +1684,6 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
-    this.boardImg = this.add.image(BOARD.centerX, BOARD.centerY, TEX.board).setDepth(Z.uiText);
     this.questCue = this.add
       .text(W / 2, 150, 'Quest done!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: '#ffd35a', stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5)
@@ -1663,7 +1696,7 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText + 21)
       .setVisible(false);
     this.devTag = this.add
-      .text(W - 8, 38, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
+      .text(W - 8, 8, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
       .setOrigin(1, 0)
       .setDepth(Z.uiText)
       .setVisible(this.sandbox);
@@ -1867,20 +1900,22 @@ export class LakeScene extends Phaser.Scene {
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 
     this.drawCrate();
+    this.drawSign();
     this.drawCar(look, _deltaMs);
     this.drawLantern(look);
     this.drawFade();
 
     // Labels.
-    this.clockLabel.setText(`Day ${this.clock.day}  ${formatClock(this.clock.minute)} · ${TIME_OF_DAY_NAMES[timeOfDay(this.clock.minute)]}`);
+    this.clockLabel.setText(`Day ${this.clock.day} · ${formatClock(this.clock.minute)}`);
+    const tod = timeOfDay(this.clock.minute);
+    this.clockIcon.setTexture(tod === 'day' ? TEX.clockSun : tod === 'night' ? TEX.clockMoon : TEX.clockHalf);
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);
     } else if (s.kind === 'idle' || s.kind === 'caught') {
       this.zoneLabel.setVisible(false);
     }
-    this.wormLabel.setText(String(this.player.worms));
-    this.coinLabel.setText(String(this.player.coins)).setX(this.wormLabel.x + this.wormLabel.width + 4);
+    this.coinLabel.setText(String(this.player.coins));
     // "Quest done!": shown once back at idle with no panel open, after the fight and show-off.
     const doneNow = doneCount(questsOf(this.player));
     if (s.kind === 'idle' && !this.panel) {
@@ -1896,15 +1931,13 @@ export class LakeScene extends Phaser.Scene {
     this.wormCue
       .setVisible(this.wormCueAge < 1200)
       .setAlpha(Math.min(1, (1200 - this.wormCueAge) / 400))
-      .setPosition(
-        this.cueAtChip ? baitChipRect().centerX : this.wormLabel.x + this.wormLabel.width / 2,
-        this.cueAtChip ? baitChipRect().y - 16 - this.wormCueAge / 100 : this.wormLabel.y + this.wormLabel.height + 2 - this.wormCueAge / 100,
-      );
+      .setPosition(baitChipRect().centerX, baitChipRect().y - 16 - this.wormCueAge / 100);
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.warnAge += _deltaMs;
     this.warnText.setVisible(this.warnAge < WARN_MS).setAlpha(Math.min(1, (WARN_MS - this.warnAge) / 400));
+    this.updateTip(_deltaMs);
     this.hint.setText(
-      s.kind === 'idle' ? (canCast(this.player) ? 'Hold to charge, release to cast' : (totalBait(this.player) > 0 ? 'Out of worms, choose another bait' : 'Out of worms, visit the shop'))
+      s.kind === 'idle' ? this.tipText()
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
@@ -1915,6 +1948,71 @@ export class LakeScene extends Phaser.Scene {
     if (s.kind === 'idle' && this.slipNoteAge < SLIP_NOTE_MS) this.hint.setText(SLIP_NOTE);
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
     this.drawPanels();
+  }
+
+  /**
+   * The idle hint (slice 22c): one line by priority (core/tips), none when nothing applies. Lines 3 and later
+   * show for about 6 s once per occasion (an occasion ends when the line stops applying or another one wins).
+   * Out of idle the state is left alone, so a fight does not use up a line.
+   */
+  private updateTip(deltaMs: number): void {
+    if (this.state.kind !== 'idle') return;
+    const next = pickTip({
+      canCast: canCast(this.player),
+      baitTotal: totalBait(this.player),
+      seen: this.player.seen,
+      bagFull: this.player.bag.length >= SHOP.bagSlots,
+      boxWaiting: this.crateVisible(),
+      questReady: claimableCount(questsOf(this.player)) > 0,
+      storyWaiting: this.storyBusy(),
+    });
+    if (next?.id !== this.tip?.id) this.tipAge = 0;
+    else if (!this.panel) this.tipAge += deltaMs;
+    this.tip = next;
+  }
+
+  /** The hint's text: empty (no line, no frame) when nothing applies or a one-off line has had its turn. */
+  private tipText(): string {
+    const t = this.tip;
+    return t && (!t.once || this.tipAge < TIP_TUNING.onceMs) ? t.text : '';
+  }
+
+  /** The notice-board sign's look now: a note per open quest (pinned when done), the seal while a chapter waits. */
+  private signLook(): SignLook {
+    return { slots: signSlots(questsOf(this.player)), seal: this.storyBadge(), flutter: (Math.floor(this.elapsed / 700) % 2) as 0 | 1 };
+  }
+
+  /** Follows the quests and the story, and twinkles the shore things she has not tapped yet (only while idle). */
+  private drawSign(): void {
+    const look = this.signLook();
+    this.signImg.setTexture(ensureSignTexture(this, look));
+    const g = this.glintFx;
+    g.clear();
+    if (this.state.kind !== 'idle' || this.panel || this.sleepFade) return;
+    const c = this.companions.state;
+    const dog = c.dog;
+    const spots: Record<Glint, { x: number; y: number } | null> = {
+      car: { x: CAR_POS.x + CAR_PARTS.window.x + 14, y: CAR_POS.y + CAR_PARTS.window.y - 1 },
+      sign: { x: SIGN_FEET.x - SIGN_SIZE.w / 2 + SIGN_GLINT.x, y: SIGN_FEET.y - SIGN_SIZE.h + SIGN_GLINT.y },
+      dog: { x: dog.x + 6, y: dog.y - DOG_SIZE.h - 2 },
+      crate: null, // the crate has its own, constant twinkle (drawCrate)
+    };
+    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed' });
+    for (const id of live) {
+      const k = glintPhase(this.elapsed, GLINTS.indexOf(id));
+      const at = spots[id];
+      if (k < 0 || !at) continue;
+      this.twinkle(g, Math.round(at.x), Math.round(at.y), Math.sin(k * Math.PI));
+    }
+  }
+
+  /** The little "+" twinkle (the crate's), k 0..1..0. */
+  private twinkle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, k: number): void {
+    const arm = k > 0.6 ? 3 : 2;
+    g.fillStyle(PAL.white, 0.5 + 0.5 * k);
+    g.fillRect(cx, cy - arm, 1, arm * 2 + 1);
+    g.fillRect(cx - arm, cy, arm * 2 + 1, 1);
+    g.fillStyle(PAL.gold, 0.8 * k).fillRect(cx - 1, cy - 1, 3, 3);
   }
 
   /** The car (the variant follows the door and the interior light), its shadow, a dim LED at night, the "Zzz..." floats. */
@@ -2003,14 +2101,23 @@ export class LakeScene extends Phaser.Scene {
     if (!on) return;
     const t = (this.elapsed % 2400) / 2400;
     if (t > 0.45) return;
-    const k = Math.sin((t / 0.45) * Math.PI); // 0..1..0
-    const cx = CRATE_FEET.x + 5;
-    const cy = CRATE_FEET.y - 15;
-    const arm = k > 0.6 ? 3 : 2;
-    this.crateFx.fillStyle(PAL.white, 0.5 + 0.5 * k);
-    this.crateFx.fillRect(cx, cy - arm, 1, arm * 2 + 1);
-    this.crateFx.fillRect(cx - arm, cy, arm * 2 + 1, 1);
-    this.crateFx.fillStyle(PAL.gold, 0.8 * k).fillRect(cx - 1, cy - 1, 3, 3);
+    this.twinkle(this.crateFx, CRATE_FEET.x + 5, CRATE_FEET.y - 15, Math.sin((t / 0.45) * Math.PI)); // 0..1..0
+  }
+
+  /**
+   * Tall phones (slice 22c): the page around the 360 x 640 game is painted like the world, the sky's top colour
+   * above and the grass below, so the letterbox bands read as more lake instead of a navy strip.
+   */
+  private paintBands(look: DayLook): void {
+    try {
+      const b = letterboxBands(look);
+      const css = `linear-gradient(to bottom, ${cssColor(b.top)} 50%, ${cssColor(b.bottom)} 50%)`;
+      document.documentElement.style.background = css;
+      document.body.style.background = css;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', cssColor(b.top));
+    } catch {
+      // no DOM or a locked-down page: the bands just stay navy
+    }
   }
 
   /** Sky, sun, moon, clouds, stars and every tint for the current time of day. */
@@ -2020,6 +2127,7 @@ export class LakeScene extends Phaser.Scene {
     if (skyKey !== this.lastSkyKey) {
       this.lastSkyKey = skyKey;
       repaintSky(this, look.skyTop, look.skyBottom);
+      this.paintBands(look);
     }
     const glowKey = Math.floor(this.clock.minute / 4);
     if (glowKey !== this.lastGlowKey) {
@@ -2398,7 +2506,6 @@ export class LakeScene extends Phaser.Scene {
       drawFrame(g, l, top, w, h, 'hud', a);
     };
     panel(this.clockLabel);
-    panel(this.wormLabel);
     panel(this.coinLabel);
     panel(this.zoneLabel);
     panel(this.toast);
@@ -2410,43 +2517,18 @@ export class LakeScene extends Phaser.Scene {
       t.text.setVisible(t.age < 2400);
       panel(t.text);
     }
-    // Worm and coin icons sit in the left padding of their labels.
-    const place = (icon: Phaser.GameObjects.Image, label: Phaser.GameObjects.Text) =>
-      icon.setPosition(Math.round(label.x) + 5, Math.round(label.y + label.height / 2) - 8).setVisible(label.visible);
-    place(this.wormIcon, this.wormLabel);
-    place(this.coinIcon, this.coinLabel);
+    // The coin icon sits in the left padding of its label; the clock icon too (9 x 9, drawn bigger).
+    this.coinIcon.setPosition(Math.round(this.coinLabel.x) + 5, Math.round(this.coinLabel.y + this.coinLabel.height / 2) - 8);
+    this.clockIcon.setPosition(Math.round(this.clockLabel.x) + 9, Math.round(this.clockLabel.y + this.clockLabel.height / 2) - Math.floor((9 * CLOCK_ICON_SCALE) / 2));
     this.bottomBar.draw(g, {
       enabled: this.state.kind === 'idle' && !this.panel,
       bagCount: this.player.bag.length,
       bagSlots: SHOP.bagSlots,
       baitId: chosenBait(this.player),
       baitCount: baitCount(this.player, chosenBait(this.player)),
+      logFound: speciesCaught(this.player.log),
+      logTotal: SPECIES.length,
     });
-    // Notice-board button (daily quests), left of the pencil: dimmed unless a tap would open it.
-    const boardOn = this.state.kind === 'idle' && !this.panel;
-    drawFrame(g, BOARD.x, BOARD.y, BOARD.width, BOARD.height, 'buttonWood', boardOn ? 1 : 0.6);
-    this.boardImg.setAlpha(boardOn ? 1 : 0.6);
-    if (claimableCount(questsOf(this.player)) > 0) {
-      // A small "!" badge on the corner.
-      const bx = BOARD.right - 8;
-      const by = BOARD.y - 3;
-      g.fillStyle(PAL.outline).fillRect(bx, by, 9, 11);
-      g.fillStyle(PAL.red).fillRect(bx + 1, by + 1, 7, 9);
-      g.fillStyle(PAL.white).fillRect(bx + 4, by + 2, 1, 4).fillRect(bx + 4, by + 7, 1, 2);
-    }
-    if (this.storyBadge()) {
-      // A red wax seal on the board's top-left corner: today's chapter is waiting.
-      const sx = BOARD.x - 4;
-      const sy = BOARD.y - 3;
-      const rows = ['.ooo.', 'oRrRo', 'oRRRo', 'oRRDo', '.ooo.'];
-      const col: Record<string, number> = { o: PAL.outline, R: PAL.red, r: PAL.redLight, D: PAL.redDark };
-      rows.forEach((row, ry) => [...row].forEach((c, rx) => c !== '.' && g.fillStyle(col[c]).fillRect(sx + rx * 2, sy + ry * 2, 2, 2)));
-    }
-    // Pencil button (rename), top right.
-    drawFrame(g, PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height, 'buttonWood');
-    for (let i = 0; i < 9; i++) {
-      g.fillStyle(i < 2 ? PAL.pink : i < 7 ? PAL.gold : PAL.cream).fillRect(PENCIL.x + 8 + i * 1.5, PENCIL.y + 18 - i * 1.5, 3, 3);
-    }
   }
 }
 

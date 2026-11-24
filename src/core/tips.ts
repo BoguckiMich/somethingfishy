@@ -68,6 +68,9 @@ export interface TipFacts {
   storyWaiting: boolean;
 }
 
+/** Every line must fit the 360 px game in the HUD frame (about 10 px a letter): at most 33 letters. */
+export const TIP_MAX_CHARS = 33;
+
 /** The idle hint line, by priority; null when nothing applies (no line, no frame). */
 export function pickTip(f: TipFacts): Tip | null {
   if (!f.canCast) {
@@ -76,9 +79,9 @@ export function pickTip(f: TipFacts): Tip | null {
   }
   if (castCount(f.seen) < HINT_CASTS) return { id: 'cast', text: 'Hold to charge, release to cast', once: false };
   if (f.bagFull) return { id: 'bagFull', text: 'Bag is full: sell at the Shop', once: true };
-  if (f.boxWaiting && !isSeen(f.seen, 'crate')) return { id: 'box', text: 'A package on the dock! Tap the crate', once: true };
-  if (f.questReady) return { id: 'quest', text: 'A quest is done: check the notice board', once: true };
-  if (f.storyWaiting) return { id: 'story', text: 'Something is waiting on the notice board', once: true };
+  if (f.boxWaiting && !isSeen(f.seen, 'crate')) return { id: 'box', text: 'A package! Tap the crate', once: true };
+  if (f.questReady) return { id: 'quest', text: 'A quest is done: see the board', once: true };
+  if (f.storyWaiting) return { id: 'story', text: 'A new note on the notice board', once: true };
   return null;
 }
 

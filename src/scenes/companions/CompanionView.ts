@@ -156,7 +156,10 @@ export class CompanionView {
   /** Screen-space hit boxes for taps. */
   dogRect(): Phaser.Geom.Rectangle {
     const d = this.state.dog;
-    return new Phaser.Geom.Rectangle(d.x - DOG_SIZE.w / 2 - 6, d.y - DOG_SIZE.h - 6, DOG_SIZE.w + 12, DOG_SIZE.h + 12);
+    // At least 44 x 44 around the sprite's middle (a finger), slice 22c.
+    const w = Math.max(DOG_SIZE.w + 12, 44);
+    const h = Math.max(DOG_SIZE.h + 12, 44);
+    return new Phaser.Geom.Rectangle(d.x - w / 2, d.y - DOG_SIZE.h / 2 - h / 2, w, h);
   }
 
   pajRect(): Phaser.Geom.Rectangle {
