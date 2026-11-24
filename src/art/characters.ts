@@ -730,7 +730,7 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const walking = pose.startsWith('walk') || carry;
   const f = walking ? Number(pose.slice(-1)) : 0;
   // Stride: legs apart in frames 0 and 2 (opposite ways), passing under the body in 1 and 3.
-  const swing = walking ? [-5, 0, 5, 0][f] : 0;
+  const swing = walking ? [-3, 0, 3, 0][f] : 0;
   const passing = walking && f % 2 === 1;
   const bob = passing ? 1 : 0;
   // Far leg (darker, behind) then near leg: 5 px wide, the passing leg lifted at the knee.
@@ -744,17 +744,17 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   };
   const farLift = passing && f === 1;
   const nearLift = passing && f === 3;
-  leg(11 - swing, PAL.denimDark, farLift);
+  leg(12 - swing, PAL.denimDark, farLift);
   leg(14 + swing, PAL.jeans, nearLift);
   // Torso: a slim jacket (slice 22a build): narrow shoulders and chest, a taper to the waist, a lighter back.
-  for (let y = 18 + bob; y <= 34; y++) {
+  for (let y = 18 + bob; y <= 36; y++) {
     let [x0, x1] = [9, 23];
     if (y === 18 + bob) [x0, x1] = [11, 21];
     else if (y === 19 + bob) [x0, x1] = [9, 23];
     else if (y >= 29) [x0, x1] = [10, 22];
     for (let x = x0; x <= x1; x++) p.set(x, y, x <= x0 + 2 ? PAL.jacketLight : x >= x1 - 2 ? PAL.jacketDark : PAL.jacket);
   }
-  p.line(10, 34, 22, 34, PAL.jacketDark); // hem
+  p.line(10, 36, 22, 36, PAL.jacketDark); // hem
   // Near arm: sleeve from the shoulder, swinging opposite the near leg, hand at the end.
   if (carry) paintCarriedDog(p, bob);
   else if (stretch) paintStretchArms(p, pose === 'stretch1');

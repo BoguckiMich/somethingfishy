@@ -36,8 +36,8 @@ function play(seed: number): { s: Companions; rng: () => number } {
 const lone = (age = 0): Companions['sticks'][number] => ({ x: 200, y: 520, kind: 'old', variant: 0, ageMs: age, fadeMs: null });
 
 describe('the fetch sticks (slice 22a)', () => {
-  it('the lawn is y 508 to 546, so even the lowest stick clears the hint frame; at most 2 old sticks', () => {
-    expect(PLAY_AREA).toMatchObject({ x0: 100, x1: 322, y0: 508, y1: 546 });
+  it('the lawn is y 500 to 554, so even the lowest stick clears the hint frame; at most 2 old sticks', () => {
+    expect(PLAY_AREA).toMatchObject({ x0: 100, x1: 322, y0: 500, y1: 554 });
     expect(STICK_TUNING.maxOld).toBe(2);
     expect(STICK_TUNING.oldLifeMs).toBe(30_000);
     expect(STICK_TUNING.fadeOutMs).toBe(2000);
