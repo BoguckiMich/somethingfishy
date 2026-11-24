@@ -90,7 +90,7 @@ export const CATCH_BAR_TUNING = {
   patterns: {
     smooth: { speed: [0.12, 2.0], interval: [2.4, 0.35], reach: [0.18, 0.9], response: 4 },
     darting: { speed: [0.5, 2.4], interval: [2.2, 1.5], reach: [0.25, 0.6], response: 14 },
-    sinker: { speed: [0.12, 2.1], interval: [1.9, 0.28], reach: [0.2, 0.9], response: 4 },
+    sinker: { speed: [0.12, 2.1], interval: [1.9, 0.28], reach: [0.2, 0.9], response: 4, fill: 1.25 },
     floater: { speed: [0.12, 1.2], interval: [2.4, 0.5], reach: [0.2, 0.85], response: 4 },
     erratic: { speed: [0.25, 1.15], interval: [0.7, 0.18], reach: [0.2, 0.75], response: 9 },
     // Long calm drifts, then a sudden hard dive to the bottom and a slow climb back.
@@ -103,8 +103,16 @@ export const CATCH_BAR_TUNING = {
   difficultyCurve: 0.75,
   /** The line drains faster for the hardest fish: x(1 + this * difficulty^6), so legends punish slips. */
   drainDifficultyBoost: 1.2,
-  /** Chance that a sinker/floater picks a target anywhere on the bar instead of its favourite half. */
+  /** Chance that a floater picks a target anywhere on the bar instead of its favourite half. */
   strayChance: 0.28,
+  /**
+   * Same for a sinker, but it grows with difficulty: base + perDifficulty * d. Without this a sinker
+   * rests at the bottom, right where a released zone sits, so a player who never touches the screen
+   * won 80-99% of catfish and bream (docs/CATCH_MATH_AUDIT.md, B1).
+   */
+  sinkerStray: { base: 0.28, perDifficulty: 0.65 },
+  /** A sinker's favourite band starts this much x difficulty above the bottom, so a resting zone no longer covers it. */
+  sinkerFloor: 0.15,
   /** Fish stay this far from the very ends. */
   fishMargin: 0.03,
 };
@@ -180,8 +188,11 @@ function pickMove(s: CatchBarState, fish: FishProfile, gear: BarGear, rng: Rng):
     }
     case 'sinker':
     case 'floater': {
-      const stray = rng() < T.strayChance;
-      const favourite = lo + Math.pow(rng(), 1.3) * (0.5 - lo);
+      const strayChance = fish.pattern === 'sinker' ? T.sinkerStray.base + T.sinkerStray.perDifficulty * d : T.strayChance;
+      const stray = rng() < strayChance;
+      // A harder sinker hangs a little higher, just above where a released zone rests.
+      const floor = fish.pattern === 'sinker' ? T.sinkerFloor * d : 0;
+      const favourite = lo + floor + Math.pow(rng(), 1.3) * (0.5 - lo - floor);
       const base = stray ? randRange(rng, 0.1, 0.9) : favourite;
       s.fishTarget = fish.pattern === 'sinker' ? base : 1 - base;
       break;
@@ -214,7 +225,10 @@ export function tickCatchBar(
     s.elapsedMs += T.stepMs;
 
     // Zone: lift while held, gravity otherwise; clamped at the ends, a soft bounce at the bottom.
-    const accel = (holding ? T.lift : -T.gravity) * gear.reelResponse - T.drag * s.zoneVel;
+    // The reel scales how eagerly the zone responds (lift and gravity) but its damping only by sqrt: the
+    // zone gets quicker without overshooting more, so a better reel never makes a fight harder. (Scaling
+    // the lift alone, or lift and gravity with the same drag, made bream and catfish harder; audit B3.)
+    const accel = (holding ? T.lift : -T.gravity) * gear.reelResponse - T.drag * Math.sqrt(gear.reelResponse) * s.zoneVel;
     s.zoneVel = clamp(s.zoneVel + accel * h, -T.maxZoneSpeed, T.maxZoneSpeed);
     s.zone += s.zoneVel * h;
     if (s.zone >= 1 - half) {

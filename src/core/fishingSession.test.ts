@@ -239,7 +239,7 @@ describe('the fight', () => {
     expect(state.bar.holding).toBe(true);
     expect(state.bar.progress).toBe(0.3);
     expect(state.fish).toEqual(fightProfile(speciesById('perch')!, 24));
-    expect(state.fish.difficulty).toBeLessThanOrEqual(0.3); // shallow
+    expect(state.fish.difficulty).toBeLessThanOrEqual(0.4); // shallow
   });
 
   it('uses the dev fish override when given', () => {

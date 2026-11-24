@@ -151,3 +151,65 @@ So the formula and `bodyFactor`s are right: cube law, realistic weights for each
 6. **Tuning, only if desired**: shallow could get a small losable tail (T1); remove or wire `baitCalm` (B5).
 
 Not touched: any file other than this document. The sweeps used the exported `CATCH_BAR_TUNING.strayChance` mutated inside the test only.
+
+## After the fix (branch `fix/catch-math`, 2026-11-24)
+
+Changes: sinker stray chance `0.28 + 0.65 * d` (`CATCH_BAR_TUNING.sinkerStray`, was a flat 0.28), `sinkerFloor` 0.15, sinker `fill` 1.25, reel drag scaled by sqrt(response), `bigLengthSkew` 1.5 for species >= 80 cm (non-legendary), `shallowCap` 0.4. Catfish base difficulty stays 0.85; `baitCalm` is still dead code (nothing sets it above 0) and was left alone.
+
+Same bots and method as above (150 seeded fights per cell, real `rollLength` and `fightProfile`, so the new length skew and shallow cap are in). Win % never / sloppy / good, median seconds of the good bot's won fights, no line or reel.
+
+| species | rod | never | sloppy | good | med s | before (never / sloppy / good) |
+|---|---|---|---|---|---|---|
+| catfish | fiberglass | 1 | 51 | 91 | 11.2 | 80 / 64 / 94 |
+| catfish | carbon | 3 | 80 | 97 | 8.0 | 94 / 87 / 98 |
+| bream | fiberglass | 21 | 89 | 97 | 8.7 | 93 / 90 / 99 |
+| bream | carbon | 50 | 95 | 98 | 6.8 | 99 / 98 / 100 |
+| crucian | bamboo | 60 | 99 | 100 | 4.2 | 66 / 99 / 100 |
+| crucian | fiberglass | 78 | 100 | 100 | 3.9 | 84 / - / - |
+| crucian | carbon | 91 | 100 | 100 | 3.5 | 92 / 100 / 100 |
+| pike | fiberglass | 0 | 19 | 85 | 13.2 | 0 / 23 / 92 |
+| pike | carbon | 2 | 45 | 95 | 11.0 | 1 / 50 / 97 |
+| carp | fiberglass | 29 | 63 | 91 | 12.0 | 29 / 71 / 94 |
+| carp | carbon | 35 | 79 | 96 | 10.4 | 35 / 85 / 98 |
+| zander | fiberglass | 28 | 94 | 99 | 9.4 | 30 / 94 / 99 |
+| tench | fiberglass | 37 | 95 | 100 | 8.1 | 38 / 98 / 100 |
+| eel | bamboo / carbon | 44 / 53 | 99 / 100 | 100 / 100 | 7.0 / 5.6 | never 45 / 53 |
+| perch | bamboo / carbon | 6 / 19 | 99 / 100 | 100 / 100 | 7.6 / 6.3 | never 4 / 17 |
+| pale | fiberglass / carbon | 0 / 1 | 6 / 19 | 72 / 83 | 33.6 / 31.2 | 0 / 0, 9 / 22, 69 / 82 |
+
+(Pike, carp, zander, tench, shallow species and the Pale One are untouched by the sinker change; their small differences come from the new lengths for carp/pike/eel/zander and the 0.4 shallow cap. Roach, rudd and bleak are unchanged within noise.)
+
+What it shows:
+- A passive player now loses nearly every catfish (1 % fiberglass, 3 % carbon, was 80 / 94). Bream: 21 % / 50 % (was 93 / 99), clearly below the sloppy bot. Crucian (shallow, 0.12) is deliberately still easy to win passively.
+- The sinker no longer gets *easier* for a passive player as difficulty rises (test: difficulty 0.85 wins fewer than difficulty 0.3).
+- Catfish for the sloppy bot: 51 % fiberglass (was 64), 80 % carbon (was 87); a good player still lands 91 % / 97 %, within 8-15 s on fiberglass. This is **not yet "at least as hard as pike"** for the sloppy bot (pike 19 / 45): every setting that took catfish that low also pushed the good-bot fight time past the 15 s guard rail or the good win rate below 80 %. Catfish now sits at or just below carp (63 / 79) for the sloppy bot; a good-bot fiberglass catfish takes 11.2 s against pike 13.2 s. If pike-level hardness is wanted, raise catfish base difficulty and accept longer fights (0.9 failed the 8-15 s guard: 16.7 s).
+- Fights stay in the 8-15 s window for every deep species with fiberglass (existing guard test).
+
+Reels (fiberglass, win %, none / smooth / pro):
+
+| species | sloppy bot, before the fix | sloppy bot, after | good bot, after |
+|---|---|---|---|
+| catfish | 62 / 53 / 47 | 51 / 49 / 48 | 91 / 91 / 94 |
+| bream | - | 89 / 88 / 87 | 97 / 97 / 97 |
+| carp | - | 63 / 68 / 75 | 91 / 93 / 96 |
+| pike | 19 / 39 / 52 | 19 / 33 / 47 | 85 / 93 / 97 |
+| zander | - | 94 / 97 / 97 | 99 / 99 / 99 |
+| tench | - | 95 / 97 / 98 | 100 / 100 / 100 |
+
+The reel no longer costs anything measurable: the worst cell is a 2-3 point dip for the sloppy bot on catfish and bream (inside the noise of 150 fights); the good bot never loses. **Deviation from the "lift only" plan:** scaling only the lift was tried first and still hurt sinkers (catfish good 65 -> 55 -> 45 %, bream sloppy 58 -> 43 -> 34 %), because a stronger lift against an unchanged gravity makes the zone overshoot, the more so for a delayed player. A scan over lift, gravity and drag exponents found that scaling lift and gravity by the response and the drag by its square root (damping ratio unchanged) is flat or better on every pattern, so that is what ships. Locked by the test "a better reel never makes a fight harder".
+
+Catfish weights (20000 seeded rolls, `rollLength` with u^1.5):
+
+| | before (u^2) | after (u^1.5) |
+|---|---|---|
+| median length | 90 cm | 103 cm |
+| median weight | 5.4 kg | 8.1 kg |
+| P(< 3 kg) | 35 % | 24 % |
+| P(< 2 kg) | 19 % | 11 % |
+| gold star (share >= 0.8) | 11 % | 14 % |
+
+Same gentler skew for pike (median 58 -> 65 cm), carp (49 -> 55 cm), eel (55 -> 61 cm), zander (46 -> 51 cm). Overall star split over the pool: 50 / 21 / 18 / 11 % none / bronze / silver / gold becomes 45 / 22 / 20 / 12.5 %.
+
+Shallow: `shallowCap` 0.4 gives the biggest eel difficulty 0.4 (was 0.3) and the biggest perch 0.35; the sloppy bot still wins 99-100 % of eel and perch, so shallow stays unlosable, as the user decided.
+
+Tests added (`catchBar.test.ts`, "catch math fixes"; `fish.test.ts`, "big fish stay big"): never-press ceiling for catfish and for every deep species against the sloppy bot, sinker passive win falls with difficulty, catfish no easier than carp for the sloppy bot, bream stays friendly for a good player, a better reel never makes a fight harder (6 species, 2 bots, 2 reels, tolerance 8 points), the pro reel clearly helps pike and carp, shallow cap, catfish length/weight distribution. All use seeded RNG, about 1.5 s in total.

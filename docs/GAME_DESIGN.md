@@ -535,6 +535,20 @@ stick and throw that one. The fetch game (companions `play` mode) becomes that:
 to the car or asleep in it. Now he speaks only outside bed mode; asleep in the car, a record just
 puffs a big Zzz from the car window.
 
+**Fix: catch math (2026-11-24).** Follows `docs/CATCH_MATH_AUDIT.md` (a player who never pressed won
+80-99% of catfish and bream). Tunables: `CATCH_BAR_TUNING.sinkerStray` {base 0.28, perDifficulty
+0.65}: a sinker's stray chance is now 0.28 + 0.65 * d (about 0.85 for catfish, 0.7 for bream;
+floaters keep `strayChance` 0.28); `sinkerFloor` 0.15 (a sinker's favourite band starts 0.15 * d above
+the bottom, out of a resting zone's reach); sinker pattern `fill` 1.25 (keeps good-bot fights inside
+8-15 s). Reel: `reelResponse` still scales lift and gravity, but drag now scales by its square root,
+so a faster zone does not overshoot more (lift-only, and lift+gravity with fixed drag, both made bream
+and catfish harder; measured). Sizes: `FISH_TUNING.bigSpeciesCm` 80 and `bigLengthSkew` 1.5 (u^1.5)
+for non-legendary species with max length 80 cm or more (catfish, pike, carp, eel, zander); the rest
+keep u^2. Median catfish 103 cm / 8.1 kg, P(under 3 kg) 24%; gold odds of those species rise from
+11% to 14% (all species: 50/21/18/11 becomes about 45/22/20/12.5 % none/bronze/silver/gold).
+`FISH_TUNING.shallowCap` 0.3 to 0.4 (big eel and perch fight a bit harder; shallow stays easy to
+land). Catfish difficulty (0.85) unchanged. `baitCalm` is dead code (no bait sets it); left alone.
+
 ### Progression plan: road trips (decided with the user, 2026-11-24)
 Goal: a long-term reason to come back daily for ~15 minutes (one in-game day is 20 real minutes).
 - **Places**, travelled to by the car: Quiet Lake → **River bend** (first new place: current,
@@ -573,8 +587,8 @@ early so Alex sees new places are on the way while we build them. No travel yet.
 Every catch gets a little more exciting, and each real day has one special species.
 - **Size stars.** A fish's star comes from where its length sits in its species range
   (`sizeShare` in `core/fish.ts`, 0 = smallest, 1 = biggest): below 0.25 no star, 0.25 bronze,
-  0.5 silver, 0.8 gold. With the length skew (u², `FISH_TUNING.lengthSkew`) that is about
-  50% none, 21% bronze, 18% silver, 11% gold. Thresholds in data (`core/data/stars.ts`), pure
+  0.5 silver, 0.8 gold. With the length skew (u², `FISH_TUNING.lengthSkew`; u^1.5 for species of 80 cm and over, see Fix: catch math) that is about
+  45% none, 22% bronze, 20% silver, 12.5% gold. Thresholds in data (`core/data/stars.ts`), pure
   `starFor(species, lengthCm)`; the Pale One has no stars.
   - Shown: on the catch screen next to the length (1-3 small pixel stars in bronze/silver/gold,
     plus "Gold!" text for gold), on each fish in the bag/sell list, and in the fish log: each

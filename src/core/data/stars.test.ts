@@ -25,7 +25,7 @@ describe('starFor', () => {
   it('counts 0..3 stars', () => {
     expect(Object.values(STAR_COUNT)).toEqual([0, 1, 2, 3]);
   });
-  it('rolled lengths come out around 50 / 21 / 18 / 11 %', () => {
+  it('rolled lengths come out around 45 / 22 / 20 / 12.5 % (big species use the gentler skew)', () => {
     const rng = seededRng(7);
     const n = 40000;
     const seen: Record<Star, number> = { none: 0, bronze: 0, silver: 0, gold: 0 };

@@ -470,3 +470,77 @@ describe('tackle: lines and reels make fights easier (slice 15a)', () => {
     expect(best.sloppyShare).toBeGreaterThan(none.sloppyShare + 0.1);
   });
 });
+
+describe('catch math fixes (audit B1, B3, 2026-11-24): sinkers, reels, big fish', () => {
+  const species = (id: string) => SPECIES.find((s) => s.id === id)!;
+  /** A player who never touches the screen. */
+  const passive = (fish: FishProfile, seed: number, gear: BarGear): Fight => {
+    const rng = seededRng(seed);
+    let s = newCatchBar(fish, gear, rng);
+    let ms = 0;
+    while (ms < MAX_MS) {
+      s = tickCatchBar(s, TICK_MS, false, fish, gear, rng);
+      ms += TICK_MS;
+      const r = barResult(s);
+      if (r !== 'fighting') return { result: r, ms };
+    }
+    return { result: 'timeout', ms };
+  };
+  const share = (id: string, who: Bot | 'never', gear: BarGear, n = 100) =>
+    caughtShare(seeds(n).map((seed) => (who === 'never' ? passive(speciesFight(species(id))(seed), seed, gear) : playBot(speciesFight(species(id))(seed), who, seed, gear))));
+
+  it('a player who never presses loses almost every catfish (carbon and fiberglass)', () => {
+    expect(share('catfish', 'never', CARBON)).toBeLessThanOrEqual(0.15);
+    expect(share('catfish', 'never', FIBERGLASS)).toBeLessThanOrEqual(0.1);
+  });
+
+  it('on every deep species, never pressing wins clearly less than playing sloppily', () => {
+    for (const sp of deepSpecies) {
+      for (const [label, gear] of [['fiberglass', FIBERGLASS], ['carbon', CARBON]] as const) {
+        expect(share(sp.id, 'never', gear), `${sp.id} ${label}`).toBeLessThanOrEqual(share(sp.id, SLOPPY_BOT, gear) - 0.1);
+      }
+    }
+  });
+
+  it('the sinker does not get easier for a passive player as it gets harder', () => {
+    const wins = (d: number) =>
+      seeds(100).filter((seed) => passive({ pattern: 'sinker', difficulty: d }, seed, CARBON).result === 'caught').length;
+    expect(wins(0.85)).toBeLessThan(wins(0.3));
+    expect(wins(0.85)).toBeLessThan(40);
+  });
+
+  it('catfish (0.85) is no easier than carp (0.70) for the sloppy bot on both rods, yet still fair for a good player', () => {
+    expect(share('catfish', SLOPPY_BOT, FIBERGLASS)).toBeLessThanOrEqual(share('carp', SLOPPY_BOT, FIBERGLASS));
+    expect(share('catfish', SLOPPY_BOT, CARBON)).toBeLessThanOrEqual(share('carp', SLOPPY_BOT, CARBON));
+    expect(share('catfish', GOOD_BOT, FIBERGLASS)).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('the first deep species (bream) stays friendly for a good player', () => {
+    expect(share('bream', GOOD_BOT, FIBERGLASS)).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it('a better reel never makes a fight harder, whatever the pattern (good and sloppy bots, fiberglass)', () => {
+    const withReel = (response: number): BarGear => ({ ...FIBERGLASS, reelResponse: FIBERGLASS.reelResponse * response });
+    for (const id of ['catfish', 'bream', 'carp', 'pike', 'zander', 'tench']) {
+      for (const bot of [GOOD_BOT, SLOPPY_BOT]) {
+        const base = share(id, bot, withReel(1));
+        for (const reel of REELS) {
+          expect(share(id, bot, withReel(reel.response)), `${id} ${reel.id} ${bot.delayMs} ms`).toBeGreaterThanOrEqual(base - 0.08);
+        }
+      }
+    }
+  });
+
+  it('the pro reel clearly helps on the patterns where tracking is the point (pike, carp)', () => {
+    const pro = { ...FIBERGLASS, reelResponse: REELS[1].response };
+    expect(share('pike', SLOPPY_BOT, pro)).toBeGreaterThan(share('pike', SLOPPY_BOT, FIBERGLASS) + 0.1);
+    expect(share('carp', SLOPPY_BOT, pro)).toBeGreaterThan(share('carp', SLOPPY_BOT, FIBERGLASS));
+  });
+
+  it('the shallow cap is 0.4: the biggest eel fights a bit harder, and shallow stays easy to land', () => {
+    const eel = species('eel');
+    expect(fightProfile(eel, eel.lengthCm[1]).difficulty).toBe(0.4);
+    expect(share('eel', SLOPPY_BOT, STARTER_BAR_GEAR)).toBeGreaterThanOrEqual(0.95);
+    expect(share('perch', SLOPPY_BOT, STARTER_BAR_GEAR)).toBeGreaterThanOrEqual(0.95);
+  });
+});
