@@ -29,7 +29,7 @@ The first lake has a beginning, a middle and an end.
     - the wax-seal badge shows before the chapter plays, and tapping the notice board does not open the chapter
     - the Pale One card is untested through a real slip-away catch
   - Overall UI made friendlier: findings and a prompt in `docs/ui-review/` (screenshots + `UI_REVIEW_PROMPT.md`)
-  - Review accepted 2026-11-24 (`docs/ui-review/UI_REVIEW.md`), built as slices **22a** (Pajkel's chair + sticks),
+  - Review accepted 2026-11-24 (`docs/ui-review/UI_REVIEW.md`), built as slices **22a** (Pajkel's chair + sticks, done),
     **22b** (friendlier panels), **22c** (hints, sign, HUD, touch targets, tall-phone bands)
 
 **Done when:** the polish pass is done and a fresh save can play ~2 weeks of daily 15-minute visits on Quiet Lake with something
