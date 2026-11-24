@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**, milestones in [ROADMAP.md](ROADMAP.md), the story in [STORY.md](STORY.md); this file is about *state and how we work*.
 
-_Last updated: 2026-11-24. Slices 15a-20 and the fixes are merged and pushed (18-20 not phone-tested); slice 21 (story chapters) is on branch `slice/21-story-chapters`, not merged. Milestones are in `docs/ROADMAP.md`: we are in M1 "Quiet Lake, complete". Next in M1: phone-test fixes, then the story-chapters engine with the Quiet Lake chapters Q1-Q8 (`docs/STORY.md` §3), then Grzesiu's fish knowledge._
+_Last updated: 2026-11-24. Slices 15a-20 and the fixes are merged and pushed (18-20 not phone-tested); slice 21 (story chapters) is on branch `slice/21-story-chapters`, not merged. Milestones are in `docs/ROADMAP.md`: we are in M1 "Quiet Lake, complete". Slice 21 (story chapters) is merged too. Next in M1: phone-test fixes, the polish pass (UI review in `docs/ui-review/`, Pajkel sitting/thermos, sticks, slice-21 weak spots: see ROADMAP M1), then Grzesiu's fish knowledge._
 
 ## Current state
 
@@ -34,7 +34,7 @@ _Last updated: 2026-11-24. Slices 15a-20 and the fixes are merged and pushed (18
 | 18 | Road map: a car tap opens a map panel (four pins, work-in-progress barriers on the "coming soon" places, "Take a nap..." button) (GAME_DESIGN §3 → Slice 18) | merged and pushed 2026-11-24, not phone-tested |
 | 19 | Size stars (bronze/silver/gold by length) and fish of the day (bites more, sells x2) (GAME_DESIGN §3 → Slice 19) | merged and pushed 2026-11-24, not phone-tested |
 | 20 | Quiet Lake checklist "The Doorstep": 6 bundles of fish/gold/coin slots fix the road to the River bend (GAME_DESIGN §3 → Slice 20; bundles changed by the main session, see docs/STORY.md) | merged and pushed 2026-11-24, not phone-tested |
-| 21 | Story chapters for Quiet Lake: Q1-Q7 (sealed bottle, duck and the sandwich, night blink, wet footprints), Pajkel line queue, Pale One bonus card (GAME_DESIGN §3 → Slice 21; texts in docs/STORY.md) | **on branch `slice/21-story-chapters`, not merged**; not phone-tested, motion seen only by stepping the scene by hand |
+| 21 | Story chapters for Quiet Lake: Q1-Q7 (sealed bottle, duck and the sandwich, night blink, wet footprints), Pajkel line queue, Pale One bonus card (GAME_DESIGN §3 → Slice 21; texts in docs/STORY.md) | merged and pushed 2026-11-24; not phone-tested, motion seen only by stepping the scene by hand |
 | 15a | Prices by rarity, braided/fluoro lines + smooth/pro reels, time-of-day in the clock label, Pajkel's speech bubble (GAME_DESIGN §3 → Slice 15a) | merged before the phone play-test (reels help little in the bot sim: sloppy bot 85% → 87% with the Pro reel vs 97% with fluoro line; may raise the reel numbers) |
 | 15b | Shop icons: 16x16 icons for worm pack, rods, lines, reels; item cards, "Your tackle" strip, fish sprites + coin icon in sell lists, buy pop (GAME_DESIGN §3 → Slice 15b) | merged overnight by the main session (user authorised merges up to 16); not phone-tested. Rod icons are the weakest (reel reads as a grey blob on bamboo/fiberglass), pro reel looks a bit like a coin |
 | 15c | Baits: corn, maggots, fish strip, glow bait; bait chip + picker, shop Bait section, box/quest bait rewards (GAME_DESIGN §3 → Slice 15c) | merged overnight by the main session (user authorised merges up to 16); not phone-tested |
