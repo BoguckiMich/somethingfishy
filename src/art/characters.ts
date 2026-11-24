@@ -825,6 +825,32 @@ function plume(p: Pix, x0: number, y0: number, x1: number, y1: number, side: 1 |
   p.set(x1, y1, PAL.gingerLight); // light tip
 }
 
+/** Bestia's run/carry tail rows ('d' dark back of the plume, 'g' ginger), origin at x 1, y 1; the root joins the rump. */
+const RUN_TAIL = [
+  '....dgg..',
+  '...dggg..',
+  '...dggg..',
+  '..ddgg...',
+  '..dgg....',
+  '...gg....',
+  '...g.....',
+  '....g....',
+  '....g....',
+];
+
+function dogRunTail(p: Pix, bob: number): void {
+  for (let r = 0; r < RUN_TAIL.length; r++) {
+    for (let c = 0; c < RUN_TAIL[r].length; c++) {
+      const ch = RUN_TAIL[r][c];
+      if (ch === '.') continue;
+      // The thin base stays put; the plume (upper rows) follows the stride.
+      const dy = r < 5 ? bob : 0;
+      p.set(1 + c, 1 + r + dy, ch === 'd' ? PAL.beardDark : PAL.ginger);
+    }
+  }
+  p.set(5, 10, PAL.ginger);
+}
+
 export const DOG_SIZE = { w: 32, h: 24 };
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
 export interface DogFrame {
@@ -928,16 +954,10 @@ export function dogSprite(frame: DogFrame): Sprite {
     p.line(9, 14, 7 - stretch, 21, PAL.ginger);
     const up = f.carry ? 1 : 0; // proud: chin up
     head(25, 7 - up);
-    // The tail streams out thin and raised from the rump (a fat plume here read as a blob behind her).
-    if (f.carry) {
-      p.line(5, 9, 3, 4, PAL.ginger); // held high with a curl
-      p.line(3, 4, 2, 2, PAL.ginger);
-      p.set(3, 1, PAL.gingerLight);
-    } else {
-      p.line(5, 9, 2, 5, PAL.ginger);
-      p.line(2, 5, 0, 4, PAL.ginger);
-      p.set(0, 4, PAL.gingerLight);
-    }
+    // Run tail (Bestia's real one): carried high, rising from the rump and curving forward over the back like a
+    // sickle. Thin ginger at the base, a 3-4 px plume over the last part: dark brown on its back side, ginger on
+    // the front. It bobs 1 px with the stride (down in the tucked frame).
+    dogRunTail(p, s === 2 ? 1 : 0);
   }
   return p.outline().done();
 }
