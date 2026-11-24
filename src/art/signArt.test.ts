@@ -51,13 +51,19 @@ describe('signSprite', () => {
     expect(a.pixels).not.toEqual(b.pixels);
   });
   it('shows the red wax seal only when a chapter waits', () => {
-    expect(count(signSprite(look()), PAL.red)).toBe(0);
-    expect(count(signSprite(look({ seal: true })), PAL.red)).toBeGreaterThan(3);
+    // The old "LOST" poster always shows a 2-pixel red bobber; the seal adds a lot more red.
+    const base = count(signSprite(look()), PAL.red);
+    expect(base).toBe(2);
+    expect(count(signSprite(look({ seal: true })), PAL.red)).toBeGreaterThan(base + 3);
   });
   it('has one key per look (flutter only counts for a claimable note)', () => {
     expect(signKey(look({ flutter: 1 }))).toBe(signKey(look({ flutter: 0 })));
     expect(signKey(look({ slots: ['claim', 'off', 'off'], flutter: 1 }))).not.toBe(signKey(look({ slots: ['claim', 'off', 'off'], flutter: 0 })));
     expect(signKey(look({ seal: true }))).not.toBe(signKey(look()));
+  });
+  it('is never empty: the two old notes are always pinned', () => {
+    const empty = signSprite(look({ slots: ['off', 'off', 'off'] }));
+    expect(count(empty, PAL.sandLight)).toBeGreaterThan(40);
   });
 });
 

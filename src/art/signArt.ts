@@ -8,6 +8,9 @@ import { sprite, type Sprite } from './pixelGrid';
  * lines), one per unfinished quest; a quest that can be claimed is a note with a 3 x 3 gold pin and a gold rim that
  * flutters in two frames; a story chapter that is waiting is a bigger cream letter with a red wax seal. Which notes
  * show is `SignLook`, one texture per look. The soft gold glow of a claimable note is drawn by the scene.
+ * Two old notes are always pinned low on the board so it never looks empty: a faded "LOST" poster with a red
+ * bobber (left, a nod to the bottle note) and a child's fish doodle (right); they sit clear of the quest notes
+ * and of the sealed letter.
  */
 export const SIGN_SIZE = { w: 36, h: 38 };
 
@@ -68,6 +71,9 @@ const LETTER = ['cccccccccccc', 'cgggggggcccc', 'cccccccccccc', 'cggggggcgcgc', 
 const SEAL = ['.oooo.', 'oRrRRo', 'oRRRRo', 'oRRRDo', 'oRRDDo', '.oooo.'] as const;
 const SEAL_COLORS: Record<string, number> = { o: PAL.outline, R: PAL.red, r: PAL.redLight, D: PAL.redDark };
 const LETTER_AT = { x: 11, y: 13 };
+// 6 x 7 faded "LOST" poster with a red-and-white bobber, and a 8 x 7 fish doodle (head left, tail right).
+const LOST_POSTER = ['pppppp', 'pggggp', 'pppppp', 'ppRRpp', 'ppWWpp', 'pppgpp', 'pggggp'] as const;
+const FISH_DOODLE = ['pppppppp', 'ppggggpg', 'pgppppgg', 'pgpgpppg', 'pgppppgg', 'ppggggpg', 'pppppppp'] as const;
 
 /** The sign for a look. */
 export function signSprite(look: SignLook): Sprite {
@@ -80,6 +86,14 @@ export function signSprite(look: SignLook): Sprite {
   const drawNote = (x0: number, y0: number, rows: readonly string[], shiftBottom = 0) => {
     rows.forEach((row, ry) => [...row].forEach((ch, rx) => put(x0 + rx + (ry >= rows.length - 2 ? shiftBottom : 0), y0 + ry, paper(ch))));
   };
+  // The permanent old notes, on aged paper (p), drawn first so nothing covers a quest note or the letter.
+  const OLD: Record<string, number> = { p: PAL.sandLight, g: PAL.stoneDark, R: PAL.red, W: PAL.white };
+  const pinOld = (x0: number, y0: number, rows: readonly string[]) =>
+    rows.forEach((row, ry) => [...row].forEach((ch, rx) => ch !== '.' && put(x0 + rx, y0 + ry, OLD[ch])));
+  pinOld(3, 13, LOST_POSTER);
+  put(5, 13, PAL.stoneDark); // its tack
+  pinOld(25, 13, FISH_DOODLE);
+  put(28, 13, PAL.stoneDark);
   look.slots.forEach((s, i) => {
     if (s === 'off') return;
     const x = NOTE_X[i];
