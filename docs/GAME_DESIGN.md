@@ -825,6 +825,17 @@ today's chapter when one is waiting (else the quests).
 - **Two ways into the notice board, for now** (user, 2026-11-24, after tester feedback): the shore sign and the
   top-right button both open it; decide from more feedback which one stays.
 
+- **A red "sweet spot" inside the green zone on better rods** (friend's feedback, 2026-11-24) — the green catch
+  zone gets a smaller red core; while the fish is in the red part the progress fills faster. Better rods
+  (or a new gear stat) make the red core bigger, which gives rods a new, visible parameter.
+  Open questions: size and speed-up of the core, is it on every rod (small on bamboo) or unlocked, does it
+  replace part of what the rods do today.
+- **Switch between owned rods** (friend's feedback, 2026-11-24) — today she always fishes with the best rod she
+  owns. Let her pick any owned rod (and line/reel?), e.g. a light rod for shallow fun or quests. Needs the
+  rod to matter beyond "bigger is better" (ties to the sweet spot above and to cast distance).
+- **Catch math and weights to check** (friend's feedback, 2026-11-24) — "some fish are strangely easy, maybe a
+  formula got tangled" and "weights look odd: I caught a tiny catfish". Audit requested.
+
 - **Species that need a special bait** (user, 2026-11-24, still thinking; no change to bites for now) — some
   fish (maybe new ones at the River bend, or a rare Quiet Lake variant) bite *only* on a given bait,
   e.g. glow bait at night, fish strip for a predator. Would give baits a stronger purpose and the
