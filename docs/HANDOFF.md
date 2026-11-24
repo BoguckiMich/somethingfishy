@@ -45,7 +45,7 @@ _Last updated: 2026-11-24. Slices 15a-20 and the fixes are merged and pushed (18
 | 15c | Baits: corn, maggots, fish strip, glow bait; bait chip + picker, shop Bait section, box/quest bait rewards (GAME_DESIGN §3 → Slice 15c) | merged overnight by the main session (user authorised merges up to 16); not phone-tested |
 | fix | No "New record!" while Pajkel is going to bed or asleep; asleep, the car puffs a Zzz instead (GAME_DESIGN §3 → Fix: no "New record!" from bed) | merged and pushed 2026-11-24, not seen live |
 | fix | Update toast: reload ~1.5 s after the tap if the service-worker hand-over never fires (GAME_DESIGN §3 → Fix: update toast) | merged, not seen on a phone |
-| fix | Catch math (audit): sinker stray/floor rise with difficulty, reel damping, gentler length skew for big species, shallow cap 0.4 (GAME_DESIGN section 3, Fix: catch math; numbers in CATCH_MATH_AUDIT.md, After the fix) | on branch `fix/catch-math`, not merged |
+| fix | Catch math (audit): sinker stray/floor rise with difficulty, reel damping, gentler length skew for big species, shallow cap 0.4 (GAME_DESIGN section 3, Fix: catch math; numbers in CATCH_MATH_AUDIT.md, After the fix) | merged and pushed 2026-11-24, not play-tested |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, retention quests §5) are in GAME_DESIGN.md too.
 
