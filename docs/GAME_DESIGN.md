@@ -667,6 +667,19 @@ STORY.md §3 *Quiet Lake*; copy them exactly (they respect the length limits).
   `&debug=incar` for the night version), `?story=pale` shows the bonus card.
 - Built as: pure engine in `core/story/story.ts` (data `core/data/story.ts`); `PlayerState.story = { done: {chapterId: date}, queue: [lineId], pale }`, "last date" is derived (the latest `done` date), stored only when non-empty. Pictures in `scenes/StoryView.ts`, glue in `LakeScene`. Deviations and choices: (1) the **seal badge** shows from the moment a chapter is due (not only once it is on the water) until it is seen, a 5x5 red wax seal on the notice-board button's top-left corner; the board itself still just opens the quests. (2) **Random moments are held** while a chapter is due or running, including a sealed bottle left unread; no chapter starts while another moment is on screen. (3) The **night Q4** needs Pajkel asleep in the car *and* `timeOfDay === 'night'` (a daytime nap gives the bottle version); the water stills by raising the eerie calm target, the crickets dip like for the uncanny moments, one 9 px star glint fades in, blinks once (open, half, shut, half, open over ~2 s) and sinks on a tap or after 20 s with the float "...it blinked." (4) **Q3**: if Pajkel can speak he says the line and the bottle arrives ~3.6 s later; if he sleeps, the line is queued and the bottle appears at once. (5) **Q2**: the sandwich lies at the dock's left edge by Pajkel's seat, the duck swims in over ~4.5 s, lunges, leaves quacking with the sandwich in its beak. (6) **Q5**: about 15 wet prints per way (7x10, dark blue with a pale edge, 11 px apart) walk from the dock end down the planks and across the grass towards the car, then a second line walks back, hold ~2 s and fade over ~3 s. (7) A chapter cut short by a fight is not seen and retries 20 s later; a bottle is seen when its card opens (the lines are queued at once but wait for the card to close). (8) The line queue plays one line at a time, 3-4 s apart, only when Pajkel is not in bed mode, she is idle or waiting, no panel is open and no bubble is showing; lines after a chapter start ~0.7 s after it ends, after a card ~1 s after it closes. (9) Pale One card title "The Pale One", shown when she is back at idle after the first slip-away (not at the hint). (10) Sandboxed dev runs (any URL flag) have the story off unless `?story=` is given, so other dev flags are never interrupted. Chapter ids and line ids are saved and must not be renamed.
 
+**Polish pass, slices 22a-22c (user accepted `docs/ui-review/UI_REVIEW.md` on 2026-11-24).** The review
+is the spec; its slices "21a/b/c" are renamed **22a/b/c** (21 is the story chapters). Decided with it:
+red camp chair; the idle hint disappears after the first 3 casts; paint the tall-phone bands now;
+the log button says "Log n/13"; the checklist gets a one-line warning when Give would take a
+gold-star fish or the fish of the day. Changes since the review (slice 21 merged after it): 22c
+moves the wax seal from the HUD board button onto the new shore sign, and a tap on the sign opens
+today's chapter when one is waiting (else the quests).
+- **22a "A chair for Pajkel":** UI_REVIEW §2 (camp chair, new sit/sip/pour/cheer/look frames, steam,
+  empty chair while he is away) and §3 (fetch sticks: sprite, spin, puff, play area, max 2 old,
+  30 s life, fades) and §5 "Slice 21a". Bestia's frames and behaviour are not touched.
+- **22b "Friendlier panels":** UI_REVIEW §1 fixes 5-10 and §4, §5 "Slice 21b".
+- **22c "The lake teaches itself":** UI_REVIEW §1 fixes 1-4 and the tall-phone bands, §5 "Slice 21c".
+
 
 ## 4. Roadmap
 
@@ -871,4 +884,5 @@ come once the v2 bait and lure systems provide more interesting rewards.
 19. Size stars + fish of the day (details in §3 → Slice 19)
 20. Lake checklist on Quiet Lake (details in §3 → Slice 20)
 21. Story chapters, Quiet Lake (details in §3 → Slice 21)
-22. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
+22. Polish pass (M1): 22a Pajkel's chair + sticks, 22b friendlier panels, 22c hints + shore sign (§3 → Polish pass; `docs/ui-review/UI_REVIEW.md`)
+23. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
