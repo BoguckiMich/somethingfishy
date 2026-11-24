@@ -6,5 +6,5 @@ export const NIGHT_KIT = {
   price: 2500,
   /** Sold once this rod, or a better one, is owned. */
   needsRodId: 'fiberglass',
-  effect: 'No more bedtime: stay up and fish all night. A warm lantern glows from 20:00 to 05:00',
+  effect: 'No more 02:00 bedtime: stay up and fish all night. A warm lantern glows from 20:00 to 05:00',
 };

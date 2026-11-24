@@ -125,6 +125,8 @@ interface CardOptions {
   note?: string;
   coins: number;
   buy?: () => void;
+  /** A locked card: dimmed icon and a disabled button saying what is missing (e.g. "Needs the Fiberglass Rod"). */
+  locked?: string;
 }
 
 /** A shop card: icon slot on the left, name + price + effect beside it, the Buy button underneath. */
@@ -137,9 +139,13 @@ function itemCard(o: CardOptions): HTMLElement {
   if (o.price !== undefined) info.append(coinAmount(o.price));
   if (o.note) info.append(el('div', `color:${COLORS.gold}`, o.note));
   info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream};margin-top:2px`, o.effect));
-  top.append(iconSlot(o.id, 48, missing > 0), info);
+  top.append(iconSlot(o.id, 48, missing > 0 || o.locked !== undefined), info);
   card.append(top);
-  if (o.buy) {
+  if (o.locked !== undefined) {
+    const b = woodButton(o.locked, () => undefined, { disabledReason: '' });
+    b.style.cssText += ';width:100%';
+    card.append(b);
+  } else if (o.buy) {
     const buy = o.buy;
     const b = woodButton('Buy', buy, { disabledReason: missing ? `need ${missing} more` : undefined, sfx: 'coin' });
     b.style.cssText += ';width:100%';
@@ -320,24 +326,23 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
       if (lineCard) body.append(lineCard);
       if (reelCard) body.append(reelCard);
 
-      // The night kit (slice 16): shown once the fiberglass rod (or better) is owned.
-      if (nightKitForSale(p)) {
-        body.append(
-          hasNightKit(p)
-            ? itemCard({ id: NIGHT_KIT.id, name: NIGHT_KIT.name, note: 'Owned', effect: NIGHT_KIT.effect, coins: p.coins })
-            : itemCard({
-                id: NIGHT_KIT.id,
-                name: NIGHT_KIT.name,
-                price: NIGHT_KIT.price,
-                effect: NIGHT_KIT.effect,
-                coins: p.coins,
-                buy: () => {
-                  apply(buyNightKit(store.get()), NIGHT_KIT.id);
-                  panel.refresh();
-                },
-              }),
-        );
-      }
+      // The night kit (slice 16): always shown; locked until the fiberglass rod (or better) is owned.
+      body.append(
+        hasNightKit(p)
+          ? itemCard({ id: NIGHT_KIT.id, name: NIGHT_KIT.name, note: 'Owned', effect: NIGHT_KIT.effect, coins: p.coins })
+          : itemCard({
+              id: NIGHT_KIT.id,
+              name: NIGHT_KIT.name,
+              price: NIGHT_KIT.price,
+              effect: NIGHT_KIT.effect,
+              coins: p.coins,
+              locked: nightKitForSale(p) ? undefined : `Needs the ${RODS.find((r) => r.id === NIGHT_KIT.needsRodId)?.name ?? 'Fiberglass Rod'}`,
+              buy: () => {
+                apply(buyNightKit(store.get()), NIGHT_KIT.id);
+                panel.refresh();
+              },
+            }),
+      );
     },
     onClose,
   );

@@ -35,7 +35,7 @@ import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
 import { createTextures, lanternKey, repaintSky, TEX } from '../art/textures';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
-import { crossedBedtime, inSleepWindow, lanternGlow, morningClock, napWakeClock, wakeGreeting, type NapOption } from '../core/bedtime';
+import { crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
 import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/sleepFade';
 import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
@@ -63,6 +63,7 @@ import {
   equippedRod,
   freeWormsIfStuck,
   hasNightKit,
+  nightKitForSale,
   totalBait,
   newPlayer,
   releasePending,
@@ -94,6 +95,8 @@ import { HAPTICS, vibrate } from './haptics';
 
 const NIBBLE_ANIM_MS = 260;
 const TOAST_MS = 1800;
+/** How long the 01:00 bedtime warning stays up. */
+const WARN_MS = 5000;
 /** The show-off of a first-of-its-kind catch stays up longer (tap works after the usual guard). */
 const NEW_SPECIES_SHOW_OFF_MS = 8000;
 const RIPPLE_MS = 1200;
@@ -302,10 +305,12 @@ export class LakeScene extends Phaser.Scene {
   private fadeWoke = false;
   /** The nap's wake-up time, set when the nap starts. */
   private napTarget: NapOption | null = null;
-  /** 02:00 passed and the sequence is waiting for a fight, the show-off or a panel to end. */
+  /** 00:00 passed and the sequence is waiting for a fight, the show-off or a panel to end. */
   private bedPending = false;
-  /** After a nap that ends inside 02:00-05:00 (kit only) they stay up: no going back to the car until 05:00. */
-  private skipBedWindow = false;
+  /** 01:00 passed without the kit and the warning is waiting for a fight, a panel or a card to end. */
+  private warnPending = false;
+  private warnAge = Infinity;
+  private warnText!: Phaser.GameObjects.Text;
   private lastBedPhase: string | null = null;
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
@@ -382,10 +387,13 @@ export class LakeScene extends Phaser.Scene {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
     }
 
-    // Slice 16 dev flags: ?kit=1 owns the night kit, ?debug=bedtime starts the clock at 01:59:30,
+    // Slice 16 dev flags: ?kit=1 owns the night kit, ?debug=bedtime starts the clock at 23:59:30 (the companions'
+    // midnight), ?debug=warn at 00:59:50 (the 01:00 warning), ?debug=sleep at 01:59:30 (Alex's 02:00),
     // ?debug=incar starts with Pajkel and Bestia asleep in the car (at 03:00, with the kit).
     if (params.get('kit') === '1') this.setPlayer({ ...this.player, nightKit: true });
-    if (params.get('debug') === 'bedtime') this.clock = { ...this.clock, minute: 119.5 };
+    if (params.get('debug') === 'bedtime') this.clock = { ...this.clock, minute: 23 * 60 + 59.5 };
+    if (params.get('debug') === 'warn') this.clock = { ...this.clock, minute: 59 + 50 / 60 };
+    if (params.get('debug') === 'sleep') this.clock = { ...this.clock, minute: 119.5 };
     if (params.get('debug') === 'incar') {
       this.setPlayer({ ...this.player, nightKit: true });
       if (!params.get('time')) this.clock = { ...this.clock, minute: 3 * 60 };
@@ -465,8 +473,8 @@ export class LakeScene extends Phaser.Scene {
     for (let t = 0; t < 2000; t += 50) {
       tickCompanions(this.companions.state, 50, { fishing: 'idle', night: timeOfDay(this.clock.minute) === 'night' });
     }
-    // The kit owner who opens the game between 02:00 and 05:00 finds them already asleep in the car.
-    if (hasNightKit(this.player) && inSleepWindow(this.clock.minute)) startInCar(this.companions.state);
+    // Opening the game between 00:00 and 05:00 finds them already asleep in the car.
+    if (inCarWindow(this.clock.minute)) startInCar(this.companions.state);
     if (params.get('debug') === 'afk') {
       // Dev-only: jump into the grass play and fast-forward to a fetch in progress.
       startPlayNow(this.companions.state);
@@ -523,7 +531,7 @@ export class LakeScene extends Phaser.Scene {
     this.player = loaded.save.player;
     this.clock = loaded.save.clock;
     // A save loaded between 02:00 and 05:00 without the night kit wakes at 05:00 (no sequence).
-    if (!hasNightKit(this.player) && inSleepWindow(this.clock.minute)) this.clock = morningClock(this.clock);
+    this.clock = loadClock(this.clock, hasNightKit(this.player));
     this.persist();
     const onHide = () => {
       if (document.visibilityState === 'hidden') this.persist();
@@ -612,30 +620,44 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /**
-   * 02:00 starts the sequence (waiting out a fight, the show-off or a panel first); the kit owner's
-   * companions stay in the car until 05:00; without the kit the fade starts once they are in.
+   * 00:00 starts the companions' sequence to the car (waiting out a fight, the show-off or a panel
+   * first); they stay there until 05:00. At 01:00 without the kit a warning toast; at 02:00 without
+   * the kit the screen fades once they are in the car (just fades if for some reason they are not).
    */
   private updateBedtime(deltaMs: number, minuteBefore: number): void {
     const c = this.companions.state;
     const kit = hasNightKit(this.player);
     const m = this.clock.minute;
-    if (crossedBedtime(minuteBefore, m)) this.bedPending = true;
-    if (!inSleepWindow(m)) {
-      this.bedPending = false;
-      this.skipBedWindow = false;
-    }
+    if (crossedCompanionBedtime(minuteBefore, m)) this.bedPending = true;
+    if (!kit && crossedWarning(minuteBefore, m)) this.warnPending = true;
+    if (!inCarWindow(m)) this.bedPending = false;
+    if (!inWarnHour(m) || kit) this.warnPending = false;
     if (c.mode === 'bed') this.bedPending = false;
-    if (this.bedPending && c.mode !== 'bed' && this.calmForBed()) {
+    const alexSleepy = !kit && inSleepWindow(m);
+    if (this.bedPending && c.mode !== 'bed' && !alexSleepy && this.calmForBed()) {
       this.bedPending = false;
       startBedtime(c, pickLine(BEDTIME_LINES));
     }
-    // Bought (or loaded) with the kit inside the window: they simply start in the car.
-    if (kit && inSleepWindow(m) && c.mode === 'dock' && !this.bedPending && !this.skipBedWindow) startInCar(c);
-    // The kit owner's night: they wake at 05:00.
-    if (kit && c.mode === 'bed' && c.bed?.kind === 'night' && isInCar(c) && !inSleepWindow(m)) wakeUp(c);
-    // Asleep in the car without the kit (bedtime) or for a nap: the screen fades once Alex has nothing in hand.
-    if (isInCar(c) && !this.sleepFade && (c.bed?.kind === 'nap' || !kit) && this.calmForBed()) this.startSleepFade(c.bed?.kind === 'nap' ? 'nap' : 'night');
+    // Loaded, bought the kit or woke from a nap inside the night: they simply start in the car.
+    if (inCarWindow(m) && c.mode === 'dock' && !this.bedPending) startInCar(c);
+    // Everybody is up at 05:00 (with a fade running they climb out as the screen clears instead).
+    if (c.mode === 'bed' && c.bed?.kind === 'night' && isInCar(c) && !inCarWindow(m) && !this.sleepFade) wakeUp(c);
+    // The warning at 01:00 (once a night; it waits for a calm moment).
+    if (this.warnPending && this.calmForBed()) {
+      this.warnPending = false;
+      this.showWarning();
+    }
+    // Asleep in the car for a nap, or Alex's own 02:00 without the kit: the screen fades once she has nothing in hand.
+    if (!this.sleepFade && this.calmForBed()) {
+      if (isInCar(c) && c.bed?.kind === 'nap') this.startSleepFade('nap');
+      else if (alexSleepy && (c.mode !== 'bed' || (isInCar(c) && c.bed?.kind === 'night'))) this.startSleepFade('night');
+    }
     if (this.sleepFade) this.tickFade(deltaMs);
+  }
+
+  private showWarning(): void {
+    this.warnText.setText(warningLines(nightKitForSale(this.player)).join('\n'));
+    this.warnAge = 0;
   }
 
   private startSleepFade(kind: 'night' | 'nap'): void {
@@ -660,9 +682,14 @@ export class LakeScene extends Phaser.Scene {
       const kit = hasNightKit(this.player);
       const nap = c.bed?.kind === 'nap' && this.napTarget;
       this.clock = nap ? napWakeClock(this.clock, this.napTarget!.minute, kit) : morningClock(this.clock);
-      // A nap that ends in the kit owner's deep night: they stay up until 05:00.
-      this.skipBedWindow = inSleepWindow(this.clock.minute);
       this.napTarget = null;
+      // Alex's 02:00 where they were not in the car yet (the screen is black): they are in it now.
+      if (c.mode !== 'bed') startInCar(c);
+      // A nap that ends in the night: they stay in the car until 05:00.
+      if (c.bed && inCarWindow(this.clock.minute)) {
+        c.bed.kind = 'night';
+        this.fadeWoke = true;
+      }
       this.persist();
     }
     // They climb out while the screen clears.
@@ -1395,6 +1422,12 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     this.hint = this.add.text(W / 2, BAR_TOP - 18, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
+    // The 01:00 bedtime warning: a gentle toast just above the hint line.
+    this.warnText = this.add
+      .text(W / 2, BAR_TOP - 44, '', { ...textStyle, ...pad, align: 'center', wordWrap: { width: W - 40 } })
+      .setOrigin(0.5, 1)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     for (let i = 0; i < 3; i++) {
       const text = this.add
         .text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.body}px`, color: TEXT, padding: textPad(6, 3) })
@@ -1539,6 +1572,8 @@ export class LakeScene extends Phaser.Scene {
         this.cueAtChip ? baitChipRect().y - 16 - this.wormCueAge / 100 : this.wormLabel.y + this.wormLabel.height + 2 - this.wormCueAge / 100,
       );
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
+    this.warnAge += _deltaMs;
+    this.warnText.setVisible(this.warnAge < WARN_MS).setAlpha(Math.min(1, (WARN_MS - this.warnAge) / 400));
     this.hint.setText(
       s.kind === 'idle' ? (canCast(this.player) ? 'Hold to charge, release to cast' : (totalBait(this.player) > 0 ? 'Out of worms, choose another bait' : 'Out of worms, visit the shop'))
       : s.kind === 'charging' ? 'Release to cast!'
@@ -2038,6 +2073,7 @@ export class LakeScene extends Phaser.Scene {
     panel(this.coinLabel);
     panel(this.zoneLabel);
     panel(this.toast);
+    panel(this.warnText);
     panel(this.hint);
     panel(this.devTag);
     for (const t of this.tags) {
