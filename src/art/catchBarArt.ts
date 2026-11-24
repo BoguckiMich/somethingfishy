@@ -1,5 +1,5 @@
 import { PAL } from './palette';
-import { TRANSPARENT, type Sprite } from './pixelGrid';
+import { TRANSPARENT, sprite, type Sprite } from './pixelGrid';
 
 /** Pure art for the catch bar: a pixel-art wooden frame around a transparent window. */
 
@@ -39,3 +39,33 @@ export function barFrameSprite(innerW: number, innerH: number, border = BAR_BORD
   }
   return { width, height, pixels };
 }
+
+/** 9 x 9 icons for the ends of the progress strip (slice 22c): a fish at the top (what you are after) and a net at the bottom. */
+export const STRIP_ICON_SIZE = 9;
+
+const FISH_ICON = `
+.........
+.........
+..ooooo.o
+.oggggooo
+oggeggggo
+.oggggooo
+..ooooo.o
+.........
+.........
+`;
+
+const NET_ICON = `
+..ooooo..
+.ocmcmco.
+.omcmcmo.
+.ocmcmco.
+..omcmo..
+...ooo...
+....w....
+....w....
+....w....
+`;
+
+export const stripFishSprite = (): Sprite => sprite(FISH_ICON, { o: PAL.outline, g: PAL.gold, e: PAL.outline });
+export const stripNetSprite = (): Sprite => sprite(NET_ICON, { o: PAL.outline, c: PAL.cream, m: PAL.stoneLight, w: PAL.woodLight });

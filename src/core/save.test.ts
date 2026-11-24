@@ -272,3 +272,18 @@ describe('normalizeSave: night kit', () => {
     expect('nightKit' in normalizeSave({ version: 1, player: {} }).player).toBe(false);
   });
 });
+
+describe('normalizeSave: seen hints', () => {
+  const seenOf = (v: unknown) => normalizeSave({ player: { seen: v } }).player.seen;
+  it('stores nothing when nothing was seen (an old save has no key)', () => {
+    expect('seen' in normalizeSave({ player: {} }).player).toBe(false);
+    expect('seen' in newPlayer()).toBe(false);
+    expect(seenOf('car')).toBeUndefined();
+    expect(seenOf([])).toBeUndefined();
+  });
+  it('keeps known ids once, drops the rest, and round-trips', () => {
+    expect(seenOf(['sign', 'zzz', 'car', 'sign', 4, 'cast1'])).toEqual(['car', 'sign', 'cast1']);
+    const s = normalizeSave({ player: { seen: ['dog', 'cast1', 'cast2'] } });
+    expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+});

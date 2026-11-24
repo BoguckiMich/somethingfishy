@@ -13,6 +13,7 @@ import { speciesCaught, type FishLog } from './fishLog';
 import { normalizeChecklist } from './checklist/checklist';
 import { normalizeNotes } from './moments/moments';
 import { normalizeStory, storyIsEmpty } from './story/story';
+import { normalizeSeen } from './tips';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
 /**
@@ -157,6 +158,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(Object.values(normalizeChecklist(p.checklist)).some((a) => a.some(Boolean)) ? { checklist: normalizeChecklist(p.checklist) } : {}),
     // The story (slice 21): stored only when something happened (older saves have no key).
     ...(storyIsEmpty(normalizeStory(p.story)) ? {} : { story: normalizeStory(p.story) }),
+    // The hints (slice 22c): first-tap flags and the casts made; stored only when something was seen.
+    ...(normalizeSeen(p.seen).length > 0 ? { seen: normalizeSeen(p.seen) } : {}),
   };
 }
 
