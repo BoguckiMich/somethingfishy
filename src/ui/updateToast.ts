@@ -5,7 +5,6 @@
 import { registerSW } from 'virtual:pwa-register';
 import { FONT, FS, LINE } from '../font';
 import { H } from '../art/layout';
-import { BAR_TOP } from '../scenes/BottomBar';
 import { installFrameStyles } from './frames';
 
 export const UPDATE_TOAST_TEXT = 'New version — tap to reload';
@@ -14,16 +13,19 @@ export const UPDATE_TOAST_TEXT = 'New version — tap to reload';
 const RELOAD_FALLBACK_MS = 1500;
 
 /**
- * Sits the toast centred just above the bottom bar and its hint line, measured from the canvas's own
- * on-screen rect, so it covers neither the top HUD nor the bar. Safe-area insets keep it clear of notches.
+ * Sits the toast in the top right corner of the game (slice 22c: the pencil and board buttons are gone, so the
+ * corner is free; the clock and coins are on the left), measured from the canvas's own on-screen rect so it
+ * follows the letterbox on tall phones. Safe-area insets keep it clear of notches.
  */
-function placeAboveBar(btn: HTMLButtonElement): void {
+function placeTopRight(btn: HTMLButtonElement): void {
   const canvas = document.querySelector('#game canvas');
   if (!canvas) return;
   const r = canvas.getBoundingClientRect();
   const scale = r.height / H;
-  const fromBottom = window.innerHeight - r.top - (BAR_TOP - 42) * scale; // 42 game px: hint line + gap
-  btn.style.bottom = `max(${Math.round(fromBottom)}px, calc(8px + env(safe-area-inset-bottom, 0px)))`;
+  const fromTop = r.top + 8 * scale;
+  const fromRight = window.innerWidth - r.right + 8 * scale;
+  btn.style.top = `max(${Math.round(fromTop)}px, calc(8px + env(safe-area-inset-top, 0px)))`;
+  btn.style.right = `max(${Math.round(fromRight)}px, calc(8px + env(safe-area-inset-right, 0px)))`;
 }
 
 /** Builds the (hidden) toast button; `onTap` runs when it is pressed. */
@@ -35,9 +37,8 @@ function buildToast(onTap: () => void): HTMLButtonElement {
   btn.textContent = UPDATE_TOAST_TEXT;
   btn.style.cssText = [
     'position:fixed',
-    'bottom:calc(120px + env(safe-area-inset-bottom, 0px))', // placed by placeAboveBar() once the canvas exists
-    'left:50%',
-    'transform:translateX(-50%)',
+    'top:calc(8px + env(safe-area-inset-top, 0px))', // placed by placeTopRight() once the canvas exists
+    'right:8px',
     'z-index:20', // above the canvas and the panels (z-index 10)
     'display:none', // hidden: takes no taps from the game
     'padding:6px 10px',
@@ -68,8 +69,8 @@ export function setupUpdateToast(): void {
         window.setTimeout(() => window.location.reload(), RELOAD_FALLBACK_MS);
       });
       toast.style.display = 'block';
-      placeAboveBar(toast);
-      window.addEventListener('resize', () => toast && placeAboveBar(toast));
+      placeTopRight(toast);
+      window.addEventListener('resize', () => toast && placeTopRight(toast));
     },
     onRegisteredSW(_url, registration) {
       if (!registration) return;

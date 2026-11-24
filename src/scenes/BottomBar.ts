@@ -7,18 +7,26 @@ import { drawFrame } from './frameDraw';
 
 export type BarButton = 'bag' | 'shop' | 'log' | 'bait' | 'settings';
 
-const BTN = { y: 602, h: 30, gap: 6 };
+/** The buttons draw 34 px tall (y 600-634) but hit 44 px tall (y 596-640, the canvas edge); each gap belongs to the nearer button. */
+const BTN = { y: 600, h: 34, gap: 5, hitY: 596, hitH: 44 };
 const ORDER: BarButton[] = ['bag', 'shop', 'log', 'bait', 'settings'];
 /**
- * Widths in ORDER; the gear is square. "Bag 10/10" needs ~92 px at the body size, the bait chip holds a
- * 16 px icon and up to three digits. Together with the gaps they span 342 of the 360 px.
+ * Widths in ORDER; the gear is square. "Bag 10/10" and "Log 13/13" need ~80 px at the body size, the bait chip
+ * holds a 16 px icon and up to three digits. Together with the gaps they span 340 of the 360 px.
  */
-const WIDTHS = [98, 64, 56, 70, 30];
+const WIDTHS = [90, 54, 86, 56, 34];
 const X0 = Math.round((W - (WIDTHS.reduce((a, b) => a + b, 0) + BTN.gap * (WIDTHS.length - 1))) / 2);
 
 const rectOf = (i: number) => {
   const x = X0 + WIDTHS.slice(0, i).reduce((a, b) => a + b + BTN.gap, 0);
   return new Phaser.Geom.Rectangle(x, BTN.y, WIDTHS[i], BTN.h);
+};
+
+/** What a finger may hit: the button widened by half a gap on each side and 44 px tall. */
+const hitRectOf = (i: number) => {
+  const r = rectOf(i);
+  const pad = BTN.gap / 2;
+  return new Phaser.Geom.Rectangle(r.x - pad, BTN.hitY, r.width + pad * 2, BTN.hitH);
 };
 
 /** The bait chip's rectangle, for the "-1" cue that floats up from it. */
@@ -35,6 +43,9 @@ export interface BarView {
   /** The bait on the hook (slice 15c) and how many are left; shown on the chip. */
   baitId: string;
   baitCount: number;
+  /** The fish log: species found and how many there are (the label reads "Log 6/13"). */
+  logFound: number;
+  logTotal: number;
 }
 
 /** The bottom bar: Bag (n/10), Shop, Log, the bait chip and the gear (settings). Drawn with Phaser; taps come from the scene. */
@@ -61,25 +72,27 @@ export class BottomBar {
 
   /** Which button is under (x, y), or null. Every button counts as a hit so the tap never casts. */
   hit(x: number, y: number): BarButton | null {
-    const i = ORDER.findIndex((_, k) => rectOf(k).contains(x, y));
+    const i = ORDER.findIndex((_, k) => hitRectOf(k).contains(x, y));
     return i < 0 ? null : ORDER[i];
   }
 
   /** True when the pointer is over the bar strip at all (so a near-miss never casts). */
   covers(_x: number, y: number): boolean {
-    return y >= BTN.y - 4;
+    return y >= BTN.hitY;
   }
 
   draw(g: Phaser.GameObjects.Graphics, v: BarView): void {
     ORDER.forEach((id, i) => {
       const r = rectOf(i);
-      const a = v.enabled ? 1 : 0.6;
+      // Disabled: the frame is shaded and the label stays readable at 85 % (over dark night grass too).
+      const a = v.enabled ? 1 : 0.85;
       // Always opaque (a see-through frame lets the grass show through as stains); disabled = shaded.
       drawFrame(g, r.x, r.y, r.width, r.height, 'buttonWood');
-      if (!v.enabled) g.fillStyle(PAL.outline, 0.45).fillRect(r.x + 1, r.y + 1, r.width - 2, r.height - 2);
+      if (!v.enabled) g.fillStyle(PAL.outline, 0.4).fillRect(r.x + 1, r.y + 1, r.width - 2, r.height - 2);
       const label = this.labels[i];
-      const full = id === 'bag' && v.bagCount >= v.bagSlots;
-      label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : id === 'log' ? 'Log' : id === 'bait' ? String(v.baitCount) : '');
+      // Amber from 8 of 10 on, so the warning comes before the bag-full card.
+      const full = id === 'bag' && v.bagCount >= v.bagSlots - 2;
+      label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : id === 'log' ? `Log ${v.logFound}/${v.logTotal}` : id === 'bait' ? String(v.baitCount) : '');
       if (id === 'settings') this.gear.setAlpha(a);
       if (id === 'bait') this.baitIcon.setTexture(baitIconKey(v.baitId)).setAlpha(a);
       label.setColor(full ? '#ffb347' : '#fff6e4');

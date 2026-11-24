@@ -2,7 +2,9 @@ import type Phaser from 'phaser';
 import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VARIANTS, emptyChairSprite, stickCarrySprite, stickGroundSprite, stickPuffSprite, stickSpinSprite, type StickVariant, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
 import { lanternSprite } from './lanternArt';
-import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
+import { BAR_INNER, STRIP_INNER, barFrameSprite, stripFishSprite, stripNetSprite } from './catchBarArt';
+import { sunSprite, halfSunSprite, moonSprite } from './clockIconArt';
+import { signKey, signSprite, type SignLook } from './signArt';
 import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
 import { BAITS } from '../core/data/baits';
 import { SPECIES } from '../core/data/fish';
@@ -67,10 +69,23 @@ export const TEX = {
   coin: 'coin',
   zSmall: 'zSmall',
   zBig: 'zBig',
+  /** 9 x 9 icons in front of the clock (slice 22c), and at the ends of the catch strip. */
+  clockSun: 'clockSun',
+  clockHalf: 'clockHalf',
+  clockMoon: 'clockMoon',
+  stripFish: 'stripFish',
+  stripNet: 'stripNet',
 } as const;
 
 /** Texture key of a bait's 16 x 16 icon (the bottom-bar chip); worms use the plain worm icon. */
 export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `bait:${id}`);
+
+/** The notice-board sign for a look (slice 22c): baked the first time it is needed, then reused. Returns its key. */
+export function ensureSignTexture(scene: Phaser.Scene, look: SignLook): string {
+  const key = signKey(look);
+  addRaster(scene, key, Raster.fromSprite(signSprite(look)));
+  return key;
+}
 
 /** Texture key of the dock lantern (unlit / lit). */
 export const lanternKey = (lit: boolean) => `lantern:${lit ? 'on' : 'off'}`;
@@ -120,6 +135,11 @@ export function createTextures(scene: Phaser.Scene): void {
   for (const v of CAR_VARIANTS) addRaster(scene, carKey(v), Raster.fromSprite(carSprite(v)));
   for (const lit of [false, true]) addRaster(scene, lanternKey(lit), Raster.fromSprite(lanternSprite(lit)));
   for (const [name, s] of Object.entries(MOMENT_SPRITES)) addRaster(scene, momentKey(name), Raster.fromSprite(s));
+  addRaster(scene, TEX.clockSun, Raster.fromSprite(sunSprite()));
+  addRaster(scene, TEX.clockHalf, Raster.fromSprite(halfSunSprite()));
+  addRaster(scene, TEX.clockMoon, Raster.fromSprite(moonSprite()));
+  addRaster(scene, TEX.stripFish, Raster.fromSprite(stripFishSprite()));
+  addRaster(scene, TEX.stripNet, Raster.fromSprite(stripNetSprite()));
   addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
   addRaster(scene, TEX.stripFrame, Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
   if (!scene.textures.exists(TEX.sky)) {

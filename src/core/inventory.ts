@@ -55,6 +55,8 @@ export interface PlayerState {
   checklist?: ChecklistState;
   /** Story chapters seen, queued Pajkel lines and the Pale One beat (slice 21); missing = nothing yet. Read with storyOf(). */
   story?: StoryState;
+  /** Hints seen (slice 22c): shore things tapped once and the first casts made (ids of core/tips); missing = nothing yet. */
+  seen?: string[];
 }
 
 export function newPlayer(): PlayerState {

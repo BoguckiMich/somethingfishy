@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayLook, KEYFRAMES, lerpColor, moonArc, sunArc } from './dayCycle';
+import { cssColor, dayLook, KEYFRAMES, letterboxBands, lerpColor, moonArc, sunArc } from './dayCycle';
 
 describe('dayLook', () => {
   it('hits every keyframe exactly', () => {
@@ -51,5 +51,21 @@ describe('celestial arcs', () => {
     expect(moonArc(0).up).toBe(true);
     expect(moonArc(22 * 60).x).toBeLessThan(moonArc(3 * 60).x);
     expect(moonArc(12 * 60).up).toBe(false);
+  });
+});
+
+describe('letterbox bands', () => {
+  it('the top follows the sky top and the bottom the lawn', () => {
+    const noon = letterboxBands(dayLook(12 * 60));
+    expect(noon.top).toBe(dayLook(12 * 60).skyTop);
+    expect(noon.bottom).toBeGreaterThan(0);
+  });
+  it('the lawn band darkens at night', () => {
+    const lum = (c: number) => ((c >> 16) & 255) + ((c >> 8) & 255) + (c & 255);
+    expect(lum(letterboxBands(dayLook(0)).bottom)).toBeLessThan(lum(letterboxBands(dayLook(12 * 60)).bottom));
+  });
+  it('writes a CSS colour', () => {
+    expect(cssColor(0x3a7436)).toBe('#3a7436');
+    expect(cssColor(0x00ff0a)).toBe('#00ff0a');
   });
 });

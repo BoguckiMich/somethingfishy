@@ -99,3 +99,16 @@ export function moonArc(minute: number): ArcPosition {
   const since = (((minute - hm(19)) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   return arc(since / hm(11));
 }
+
+/**
+ * The colours of the letterbox bands on a tall phone (slice 22c): the page above the game follows the sky's
+ * top colour, the page below follows the grass the game ends in (darkened by the world tint at night).
+ */
+export function letterboxBands(look: DayLook): { top: number; bottom: number } {
+  const grass = lerpColor(0x3a7436, 0x56963e, 0.5); // between PAL.grass0 and grass1: the mottled lawn along the bottom edge reads as this
+  const ch = (s: number) => Math.round((((grass >> s) & 255) * ((look.worldTint >> s) & 255)) / 255);
+  return { top: look.skyTop, bottom: (ch(16) << 16) | (ch(8) << 8) | ch(0) };
+}
+
+/** 0xRRGGBB as a CSS colour. */
+export const cssColor = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
