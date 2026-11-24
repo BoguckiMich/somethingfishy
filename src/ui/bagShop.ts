@@ -1,6 +1,6 @@
 import { FONT, FS, LINE } from '../font';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
-import { coinSprite, wormSprite } from '../art/iconArt';
+import { coinSprite, lockSprite, wormSprite } from '../art/iconArt';
 import { shopIconSprite } from '../art/shopIconArt';
 import type { Sprite } from '../art/pixelGrid';
 import { SHOP_BAITS } from '../core/data/baits';
@@ -10,6 +10,7 @@ import { starFor } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import type { Line, Reel, Rod } from '../core/gear';
+import { bundlesDone, gateFor, gearUnlocked } from '../core/gearGates';
 import {
   bagValue,
   baitCount,
@@ -134,11 +135,14 @@ interface CardOptions {
   buy?: () => void;
   /** A locked card: dimmed icon and a disabled button saying what is missing (e.g. "Needs the Fiberglass Rod"). */
   locked?: string;
+  /** A checklist gate (slice 23a): greyed card, a lock and what is missing, no button and no price button. */
+  gate?: { need: number; have: number };
 }
 
 /** A shop card: icon slot on the left, name + price + effect beside it, the Buy button underneath. */
 function itemCard(o: CardOptions): HTMLElement {
   const missing = o.price === undefined ? 0 : Math.max(0, o.price - o.coins);
+  if (o.gate) return gateCard(o, o.gate);
   const card = el('div', `display:flex;flex-direction:column;gap:6px;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight}`);
   const top = el('div', 'display:flex;gap:8px;align-items:flex-start');
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
@@ -158,6 +162,24 @@ function itemCard(o: CardOptions): HTMLElement {
     b.style.cssText += ';width:100%';
     card.append(b);
   }
+  return card;
+}
+
+/** A card for an item behind the checklist: dim icon, price in dim, a lock line, no Buy button. */
+function gateCard(o: CardOptions, gate: { need: number; have: number }): HTMLElement {
+  const card = el('div', `display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight};opacity:0.8`);
+  card.dataset.locked = o.id;
+  const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
+  info.append(el('div', `color:${COLORS.dim}`, o.name));
+  if (o.price !== undefined) info.append(coinAmount(o.price, COLORS.dim));
+  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.dim};margin-top:2px`, o.effect));
+  const lock = el('div', `display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream}`);
+  lock.append(
+    spriteCanvas(lockSprite(), 16),
+    el('span', '', `Unlocks after ${gate.need} checklist ${gate.need === 1 ? 'bundle' : 'bundles'} (${Math.min(gate.have, gate.need)}/${gate.need})`),
+  );
+  info.append(lock);
+  card.append(iconSlot(o.id, 48, true), info);
   return card;
 }
 
@@ -183,8 +205,9 @@ function tackleCard(
   next: Line | Reel | undefined,
   coins: number,
   buy: () => void,
+  gate?: { need: number; have: number },
 ): HTMLElement | undefined {
-  if (next) return itemCard({ id: next.id, name: next.name, price: next.price, effect: next.effect, coins, buy });
+  if (next) return itemCard({ id: next.id, name: next.name, price: next.price, effect: next.effect, coins, buy, gate });
   if (owned) return itemCard({ id: owned.id, name: owned.name, note: 'Best owned', effect: owned.effect, coins });
   return undefined;
 }
@@ -355,9 +378,11 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
 
       body.append(sectionTitle('Upgrades'));
       const rod = nextRod(p);
+      const gateOf = (id: string) => (gearUnlocked(id, p) ? undefined : { need: gateFor(id), have: bundlesDone(p) });
       body.append(
         rod
           ? itemCard({
+              gate: gateOf(rod.id),
               id: rod.id,
               name: rod.name,
               price: rod.price,
@@ -381,11 +406,11 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
       const lineCard = tackleCard(equippedLine(p), line, p.coins, () => {
         apply(buyLine(store.get()), line?.id);
         panel.refresh();
-      });
+      }, line ? gateOf(line.id) : undefined);
       const reelCard = tackleCard(equippedReel(p), reel, p.coins, () => {
         apply(buyReel(store.get()), reel?.id);
         panel.refresh();
-      });
+      }, reel ? gateOf(reel.id) : undefined);
       if (lineCard) body.append(lineCard);
       if (reelCard) body.append(reelCard);
 

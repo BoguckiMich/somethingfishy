@@ -1,5 +1,5 @@
 import { PAL } from './palette';
-import { TRANSPARENT, type Sprite } from './pixelGrid';
+import { TRANSPARENT, sprite, type Sprite } from './pixelGrid';
 
 /** Pure art for the small UI icons (gear, worm, coin) and the sleep "z", drawn at 16 x 16 on the 360 px canvas. */
 
@@ -92,6 +92,31 @@ export function coinSprite(): Sprite {
     if (dx + dy < -4.4 && r < 4.8 && r > 2.8) return PAL.sun; // shine
     return PAL.gold;
   });
+}
+
+/** A padlock (shop gates, slice 23a), 16 x 16: grey shackle, gold body with a keyhole. */
+export function lockSprite(): Sprite {
+  return sprite(
+    `
+    ................
+    ................
+    .....oooooo.....
+    ....osssssso....
+    ...oss....sso...
+    ...os......so...
+    ...os......so...
+    ..oooooooooooo..
+    ..oggggggggggo..
+    ..ogggg..ggggo..
+    ..ogggo..oggdo..
+    ..oggggooggggo..
+    ..oggggoogggdo..
+    ..ogdddddddddo..
+    ..oooooooooooo..
+    ................
+    `,
+    { o: PAL.outline, s: PAL.whiteShade, g: PAL.gold, d: PAL.strawDark },
+  );
 }
 
 /**
