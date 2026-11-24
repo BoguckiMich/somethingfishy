@@ -1,4 +1,4 @@
-import { isLegendary, type Species } from './fish';
+import { isUnique, type Species } from './fish';
 import { sizeShare } from '../fish';
 
 /** Size stars (slice 19): none, or bronze / silver / gold by where the length sits in the species range. */
@@ -12,7 +12,7 @@ export const STAR_COUNT: Record<Star, number> = { none: 0, bronze: 1, silver: 2,
 
 /** The star of a fish; the legendary has none. */
 export function starFor(species: Species, lengthCm: number): Star {
-  if (isLegendary(species)) return 'none';
+  if (isUnique(species)) return 'none';
   const share = sizeShare(species, lengthCm);
   if (share >= STAR_THRESHOLDS.gold) return 'gold';
   if (share >= STAR_THRESHOLDS.silver) return 'silver';

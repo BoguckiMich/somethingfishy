@@ -44,6 +44,9 @@ export const HOP_MS = 1500;
 /** A new species or a record: a longer clap and a longer, higher hop. */
 export const CLAP_BIG_MS = 3600;
 export const HOP_BIG_MS = 2800;
+/** Bestia's happy spin when a fish is hooked, and her long one at the first catch of a rare fish (slice 23d). */
+export const REACT_SPIN_MS = 2200;
+export const REACT_SPIN_TROPHY_MS = 6000;
 
 /**
  * The sip (slice 22a): lift the cup, drink, lower it. Every 4th sip starts with a pour: he reaches for
@@ -265,6 +268,8 @@ export interface Companions {
     hop: number;
     /** How long and how high the current 'hop' reaction goes. */
     hopTotalMs: number;
+    /** How long the 'spin' reaction lasts (the hooked cheer is short, the first-trophy zoomies long). */
+    spinTotalMs: number;
     hopHeight: number;
     /** Dock rest time since last reaction (to lie back down). */
     restMs: number;
@@ -373,6 +378,7 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       petMs: 0,
       hop: 0,
       hopTotalMs: HOP_MS,
+      spinTotalMs: REACT_SPIN_MS,
       hopHeight: 7,
       restMs: 0,
       sleeping: false,
@@ -410,6 +416,7 @@ export function companionEvent(s: Companions, e: GameEventKind, big = false): vo
     s.paj.reactMs = 0;
   } else if (e === 'hooked') {
     setReaction(s, 'spin');
+    d.spinTotalMs = REACT_SPIN_MS;
     s.paj.shape = 'cheer';
     s.paj.reactMs = 0;
   } else if (e === 'fishEscaped') {
@@ -429,6 +436,20 @@ export function companionEvent(s: Companions, e: GameEventKind, big = false): vo
     s.paj.shape = 'look';
     s.paj.reactMs = 0;
   }
+}
+
+/** The first catch of a rare trophy fish (slice 23d): after the catch reaction, Bestia does her happy spin for a long time and Pajkel keeps cheering. */
+export function trophyCheer(s: Companions): void {
+  if (s.mode !== 'dock') return;
+  const d = s.dog;
+  d.sleeping = false;
+  d.restMs = 0;
+  setReaction(s, 'spin');
+  d.spinTotalMs = REACT_SPIN_TROPHY_MS;
+  s.paj.clapTotalMs = Math.max(s.paj.clapTotalMs, CLAP_BIG_MS);
+  s.paj.clapMs = s.paj.clapTotalMs;
+  s.paj.shape = 'cheer';
+  s.paj.reactMs = 0;
 }
 
 /** Pajkel says something: a bubble over his head for BUBBLE_MS. A new line replaces the one showing. */
@@ -710,7 +731,7 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
       d.shape = 'stand';
       d.hop = Math.abs(Math.sin(d.reactMs / 130)) * 6;
       d.face = Math.floor(d.reactMs / 220) % 2 === 0 ? 1 : -1;
-      if (d.reactMs > 2200) setReaction(s, 'sit');
+      if (d.reactMs > d.spinTotalMs) setReaction(s, 'sit');
       break;
     case 'hop':
       d.shape = 'stand';

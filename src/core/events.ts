@@ -23,4 +23,4 @@ export type GameEvent =
       weightG: number;
     }
   /** The catch bar ran empty. Slice 7 hooks losing the bait onto this. */
-  | { type: 'fishLost'; zone: ZoneId; pattern: FishPattern; difficulty: number; speciesId: string };
+  | { type: 'fishLost'; zone: ZoneId; pattern: FishPattern; difficulty: number; speciesId: string; slipped?: boolean };

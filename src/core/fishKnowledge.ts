@@ -1,5 +1,5 @@
 import { BAITS, type Bait } from './data/baits';
-import { isLegendary, type Species } from './data/fish';
+import { isUnique, type Species } from './data/fish';
 import { KNOWLEDGE_TIERS, NOT_FUSSY } from './data/fishKnowledge';
 import { WEATHER_WORDS, type WeatherId } from './data/weather';
 import { starFor } from './data/stars';
@@ -53,7 +53,7 @@ export function goldFromCm(species: Species): number {
 
 /** The extra lines of the card, unlocked by `count` catches. The legendary has none; old saves unlock from their counts. */
 export function knowledgeRows(species: Species, count: number): KnowledgeRow[] {
-  if (isLegendary(species)) return [];
+  if (isUnique(species)) return [];
   const lock = (need: number) => `??? · catch ${need} to learn`;
   const baits = favouriteBaits(species);
   const likes = species.likes ?? [];

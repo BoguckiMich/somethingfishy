@@ -17,4 +17,4 @@ export const SHOP = {
 };
 
 /** Price multiplier by rarity (slice 15a). The Pale One is never sold (basePrice 0), so its 0 is a formality. */
-export const RARITY_PRICE_MULT = { common: 1, uncommon: 1.3, rare: 2, legendary: 0 } as const;
+export const RARITY_PRICE_MULT = { common: 1, uncommon: 1.3, rare: 2, legendary: 0, trophy: 1 } as const;

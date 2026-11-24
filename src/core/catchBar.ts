@@ -16,6 +16,8 @@ export interface FishProfile {
   pattern: FishPattern;
   /** 0 (docile) .. 1 (legendary). */
   difficulty: number;
+  /** Trophy fish (slice 23d): outside the green zone for longer than this, in one go, and it slips away. Missing = never. */
+  slipAfterMs?: number;
 }
 
 export interface CatchBarState {
@@ -37,6 +39,10 @@ export interface CatchBarState {
   elapsedMs: number;
   /** Leftover time that did not fill a whole substep. */
   accMs: number;
+  /** How long the fish has been outside the zone in one go (resets as soon as it is back inside). */
+  outsideMs: number;
+  /** The fight ended because the fish slipped away (outside too long), not because the line ran out. */
+  slipped: boolean;
 }
 
 export type BarResult = 'fighting' | 'caught' | 'lost';
@@ -135,6 +141,8 @@ export function newCatchBar(fish: FishProfile, gear: BarGear, rng: Rng): CatchBa
     holding: false,
     elapsedMs: 0,
     accMs: 0,
+    outsideMs: 0,
+    slipped: false,
   };
   pickMove(s, fish, gear, rng);
   s.fishTimer = Math.min(s.fishTimer, 0.6); // the first move comes soon
@@ -254,6 +262,13 @@ export function tickCatchBar(
     // Progress: fills while the fish is inside the zone, drains whenever it is outside.
     const inside = Math.abs(s.fish - s.zone) <= half + T.fishTolerance;
     s.progress += (inside ? T.fillPerSec * (cfg.fill ?? 1) : -drain) * h;
+    // A trophy slips the hook when it stays out of the green for too long (slice 23d).
+    s.outsideMs = inside ? 0 : s.outsideMs + T.stepMs;
+    if (fish.slipAfterMs !== undefined && s.outsideMs > fish.slipAfterMs) {
+      s.slipped = true;
+      s.progress = 0;
+      break;
+    }
     if (s.progress >= 1) {
       s.progress = 1;
       break;

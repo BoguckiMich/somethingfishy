@@ -1,3 +1,4 @@
+import type { TrophyState } from './rare';
 import { speciesById, type Species } from './data/fish';
 import { BAITS, WORM_ID, baitById, type Bait } from './data/baits';
 import { RODS } from './data/rods';
@@ -60,6 +61,8 @@ export interface PlayerState {
   seen?: string[];
   /** The real date (YYYY-MM-DD) Pajkel last said the weather line (slice 23b); missing = never. */
   weatherSeen?: string;
+  /** The trophy board (slice 23d): the biggest catch of each rare fish; missing = none caught yet. */
+  trophies?: TrophyState;
 }
 
 export function newPlayer(): PlayerState {

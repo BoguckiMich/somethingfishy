@@ -223,7 +223,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (result === 'lost') {
         return {
           state: { kind: 'lost', distanceM, ageMs: 0 },
-          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty, speciesId: hooked.speciesId }],
+          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty, speciesId: hooked.speciesId, ...(bar.slipped ? { slipped: true } : {}) }],
         };
       }
       return same({ ...state, bar });

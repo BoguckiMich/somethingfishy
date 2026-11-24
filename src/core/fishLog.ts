@@ -2,6 +2,7 @@ import type { TimeOfDay } from './clock';
 import { POOL_SPECIES, type Species } from './data/fish';
 import { starFor, type Star } from './data/stars';
 import { PALE_ONE } from './data/legendary';
+import { RARE_RULES } from './data/rare';
 import type { HookedFish } from './fish';
 
 /**
@@ -78,6 +79,7 @@ export function whereWhen(species: Species): string {
     const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
     return `Deep water, ${PALE_ONE.minDistanceM} m or more · ${hh(PALE_ONE.fromHour)} to ${hh(PALE_ONE.toHour)}`;
   }
+  if (species.rarity === 'trophy') return RARE_RULES.find((r) => r.speciesId === species.id)?.where ?? 'Quiet Lake';
   const where = species.zone === 'deep' ? 'Deep water' : 'Shallow water';
   const when = species.times.length >= 4 ? 'any time' : species.times.join(', ');
   return `${where} · ${when}`;
