@@ -5,7 +5,7 @@ import { PAL } from '../art/palette';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 
 /**
- * Dev-only contact sheet of the 12 fish (served at /dev/fish-sheet.html, not part of the build):
+ * Dev-only contact sheet of every fish (served at /dev/fish-sheet.html, not part of the build):
  * large / medium / small / bar icon / silhouette at x4, plus the large one at x2 on light water and
  * dark wood. `?mode=large&scale=6` shows only the large sprites for close inspection; `?only=pike,eel` limits the species.
  */

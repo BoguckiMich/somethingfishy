@@ -2,7 +2,7 @@ import { PAL } from './palette';
 import { sprite, TRANSPARENT, type Sprite } from './pixelGrid';
 
 /**
- * The 13 fish, hand-authored at their LARGE size, facing right. Every grid is the fish without
+ * The 16 fish, hand-authored at their LARGE size, facing right. Every grid is the fish without
  * its outline (`.` transparent); `outlined()` wraps it in the 1 px `PAL.outline` ring. Letters are
  * local to each species (see its colour map); fish colours stay in this file, not in PAL.
  * Medium, small and icon sizes are derived in `fishVariants.ts` (code shrink + hand overrides).
@@ -132,6 +132,43 @@ export const FISH_ART: Record<string, FishArt> = {
     colors: { K: 0x2a3820, M: 0x4e6030, L: 0x7a8a40, B: 0xc4bc70, f: 0x5a6a38, p: 0x9a9a50, E: 0xf2eaa8, D: 0x1c2616 },
     eye: 'E',
   },
+  // Ide: silvery-bronze body, reddish fins
+  ide: {
+    grid: `
+      ..........ffgff.........
+      ........KKKKKKKKKK......
+      .......KKKKKKKKKKKKK....
+      f.....KKKKKKKKKKKKKKKK..
+      ff...KKKKKKKKKKKKKKKKKK.
+      fff..MMMMMHMMMMHMMMMEMMM
+      .ffgLLLLLLLLLLLLLLLLLLLL
+      .ffgLLLLLLLLLLLLLLLLLLL.
+      fff..BBBBBBBBBBBBBBBBB..
+      ff....BBBBBBBBBBBBBBB...
+      f.....ggg..fgg..........
+      ......gg....gg..........
+`,
+    colors: { K: 0x73634a, M: 0xb9aa84, L: 0xd8dccc, B: 0xeceadc, f: 0xd8502e, g: 0xa8402a, H: 0xd2b684, E: 0xe04a2a },
+    eye: 'E',
+  },
+  // Asp: long slim silver predator, big mouth
+  asp: {
+    grid: `
+      ................ff..............
+      ...............ffff.............
+      f..............KKKKKKKKKKKK.....
+      ff......KKKKKKKKKKKKKKKKKKKKK...
+      .ff...KKKKKKKKKKKKKKKKKKKKKKKKK.
+      ..fffMMMMMMMMMMMMMMMMMMMMMMEMMMM
+      ...ffLLLLLLLLLLLLLLLLLLLLLLLDDDD
+      ..fffBBBBBBBBBBBBBBBBBBBBBBDDDBB
+      .ff....BBBBBBBBBBBBBBBBBBBBBB...
+      f.........rrr..rrrr.............
+      ...........rr...rr..............
+`,
+    colors: { K: 0x4a6478, M: 0x9eb2b8, L: 0xcdd8da, B: 0xf0f2ee, f: 0x7a7e88, r: 0xd9533e, E: 0xf0c040, D: 0x241a22 },
+    eye: 'E',
+  },
   // Bream
   bream: {
     grid: `
@@ -236,6 +273,23 @@ export const FISH_ART: Record<string, FishArt> = {
       ...................f............
 `,
     colors: { K: 0x44564c, M: 0x80927a, L: 0x98a890, B: 0xdadecb, f: 0x76867a, g: 0x56665a, T: 0x2a3430, E: 0xeff0c8, P: 0x120e18, D: 0x120e18, S: 0xffffff, N: 0x364238 },
+    eye: 'E',
+  },
+  // Burbot: mottled brown-olive, eel-like body, one chin barbel
+  burbot: {
+    grid: `
+      ...............gfgfgfgf.....fff.....
+      ...........gfgffgfgfgfgfg..fgfgf....
+      ...g....gfgfgfgKSSKKKKKKKKSSKKKK....
+      .fgfgKKKSSKKKKKMMMSSMMMMMMMMSSMMKK..
+      fgfgfMMMMMSSMMMMMMMMSSMMMMMMMMSSMEKK
+      gfgfgBBBBBBBSSMLLLLLMMSSMMMMMMMMSSMM
+      .gfgf.....fgBBBBBBBBLLLLLLLLLLLLBBBS
+      ............fgfgfgfgBBBBBBBBBBBB..W.
+      ....................fgfg..........W.
+`,
+    colors: { K: 0x4a4426, M: 0x7e7436, L: 0x988c48, B: 0xc2b878, S: 0x2c2814, f: 0x5e5a30, g: 0x46421e, E: 0xe8d070, W: 0xd8cc88 },
+    thin: 'W',
     eye: 'E',
   },
   // Catfish (wels)

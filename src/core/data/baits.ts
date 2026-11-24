@@ -10,7 +10,7 @@ import type { Rarity } from './fish';
  * a lost fight). So a bait must cost clearly less than the fish it is meant to attract:
  *   corn     3 coins each, for crucian (~8) and bream / tench / carp (20-70)
  *   maggots  2 coins each, speeds up shallow fishing where fish sell for ~4-14
- *   strip    4 coins each, for pike / zander / eel / catfish (22-170)
+ *   strip    4 coins each, for pike / zander / asp / burbot / eel / catfish (22-170)
  * Glow bait is not sold (daily box and quests only).
  */
 export interface Bait {
@@ -45,9 +45,9 @@ export const BAITS: Bait[] = [
     waitFactor: { zone: 'shallow', factor: 0.6 },
   },
   {
-    id: 'strip', name: 'Fish strip', effect: 'Pike, zander, eel and catfish bite 3x as often', short: 'Pike, zander, eel, catfish x3',
+    id: 'strip', name: 'Fish strip', effect: 'Pike, zander, asp, burbot, eel and catfish bite 3x as often', short: 'Predator fish x3',
     pack: { size: 10, price: 40 },
-    speciesBoost: { ids: ['pike', 'zander', 'eel', 'catfish'], factor: 3 },
+    speciesBoost: { ids: ['pike', 'zander', 'asp', 'burbot', 'eel', 'catfish'], factor: 3 },
   },
   {
     id: 'glow', name: 'Glow bait', effect: 'Rare fish bite 3x as often', short: 'Rare fish x3',

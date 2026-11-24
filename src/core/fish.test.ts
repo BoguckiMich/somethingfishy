@@ -10,10 +10,10 @@ const TIMES: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 describe('roster data', () => {
-  it('has the 12 pool species plus the legendary, unique ids and sane ranges', () => {
-    expect(SPECIES).toHaveLength(13);
-    expect(POOL_SPECIES).toHaveLength(12);
-    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(13);
+  it('has the 15 pool species plus the legendary, unique ids and sane ranges', () => {
+    expect(SPECIES).toHaveLength(16);
+    expect(POOL_SPECIES).toHaveLength(15);
+    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(16);
     expect(SPECIES.filter((s) => s.rarity === 'legendary').map((s) => s.id)).toEqual(['pale']);
     for (const s of SPECIES) {
       expect(s.lengthCm[0]).toBeLessThan(s.lengthCm[1]);
@@ -64,6 +64,24 @@ describe('spawn rules', () => {
     expect(candidates('shallow', 'day').map((s) => s.id)).not.toContain('eel');
     expect(candidates('deep', 'dawn').map((s) => s.id)).toContain('tench');
     expect(candidates('deep', 'day').map((s) => s.id)).not.toContain('catfish');
+  });
+
+  it('the three newest species (slice 23c) bite in their own zone and time window', () => {
+    const can = (id: string, zone: ZoneId, time: TimeOfDay) => candidates(zone, time).map((s) => s.id).includes(id);
+    for (const t of ['dawn', 'dusk'] as TimeOfDay[]) expect(can('ide', 'shallow', t), `ide ${t}`).toBe(true);
+    for (const t of ['day', 'night'] as TimeOfDay[]) expect(can('ide', 'shallow', t), `ide ${t}`).toBe(false);
+    expect(can('ide', 'deep', 'dawn')).toBe(false);
+    expect(can('asp', 'shallow', 'day')).toBe(true);
+    for (const t of ['dawn', 'dusk', 'night'] as TimeOfDay[]) expect(can('asp', 'shallow', t), `asp ${t}`).toBe(false);
+    expect(can('asp', 'deep', 'day')).toBe(false);
+    expect(can('burbot', 'deep', 'night')).toBe(true);
+    for (const t of ['dawn', 'day', 'dusk'] as TimeOfDay[]) expect(can('burbot', 'deep', t), `burbot ${t}`).toBe(false);
+    expect(can('burbot', 'shallow', 'night')).toBe(false);
+    // and the picker really rolls them there
+    const seen = (zone: ZoneId, time: TimeOfDay, id: string) => seeds(1500).some((i) => pickSpecies(zone, time, seededRng(i)).id === id);
+    expect(seen('shallow', 'dawn', 'ide')).toBe(true);
+    expect(seen('shallow', 'day', 'asp')).toBe(true);
+    expect(seen('deep', 'night', 'burbot')).toBe(true);
   });
 
   it('weights are 60/30/10, and the legendary has none', () => {

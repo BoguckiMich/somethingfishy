@@ -70,6 +70,18 @@ export const SPECIES: Species[] = [
     fact: 'European eels are born in the Sargasso Sea and travel thousands of kilometres to reach our waters.',
   },
   {
+    id: 'ide', name: 'Ide', zone: 'shallow', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.35,
+    lengthCm: [20, 55], nibbles: [1, 3], bodyFactor: 0.012, basePrice: 18,
+    fact: 'The ide is a silvery cousin of the roach that swims in schools and runs up rivers in spring.',
+    likes: ['overcast'],
+  },
+  {
+    id: 'asp', name: 'Asp', zone: 'shallow', times: ['day'], rarity: 'rare', pattern: 'darting', difficulty: 0.5,
+    lengthCm: [30, 85], nibbles: [0, 1], bodyFactor: 0.0085, basePrice: 25,
+    fact: 'The asp is a carp relative that hunts small fish and slaps the surface to stun them.',
+    likes: ['windy'],
+  },
+  {
     id: 'bream', name: 'Bream', zone: 'deep', times: ANY, rarity: 'common', pattern: 'sinker', difficulty: 0.66,
     lengthCm: [25, 60], nibbles: [2, 4], bodyFactor: 0.0144, basePrice: 20,
     fact: 'Bream graze along the bottom for insect larvae and worms.',
@@ -98,6 +110,12 @@ export const SPECIES: Species[] = [
     lengthCm: [35, 80], nibbles: [0, 3], bodyFactor: 0.0106, basePrice: 48,
     fact: 'Zander have large glassy eyes that help them hunt in murky water and at dusk.',
     likes: ['windy', 'overcast'],
+  },
+  {
+    id: 'burbot', name: 'Burbot', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'erratic', difficulty: 0.6,
+    lengthCm: [25, 75], nibbles: [0, 2], bodyFactor: 0.0088, basePrice: 60,
+    fact: 'The burbot is the only freshwater cod and is most active at night and in winter.',
+    likes: ['rain', 'fog'],
   },
   {
     id: 'catfish', name: 'Catfish', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'sinker', difficulty: 0.85,
