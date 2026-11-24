@@ -562,6 +562,35 @@ early so Alex sees new places are on the way while we build them. No travel yet.
   cliffs, sea strip at the top), shown on a dev contact sheet; panel in `src/ui/mapPanel.ts`.
 - Dev flag `?debug=map` opens the map at load.
 
+**Slice 19: size stars + fish of the day (details picked by Claude 2026-11-24, user may adjust).**
+Every catch gets a little more exciting, and each real day has one special species.
+- **Size stars.** A fish's star comes from where its length sits in its species range
+  (`sizeShare` in `core/fish.ts`, 0 = smallest, 1 = biggest): below 0.25 no star, 0.25 bronze,
+  0.5 silver, 0.8 gold. With the length skew (u², `FISH_TUNING.lengthSkew`) that is about
+  50% none, 21% bronze, 18% silver, 11% gold. Thresholds in data (`core/data/stars.ts`), pure
+  `starFor(species, lengthCm)`; the Pale One has no stars.
+  - Shown: on the catch screen next to the length (1-3 small pixel stars in bronze/silver/gold,
+    plus "Gold!" text for gold), on each fish in the bag/sell list, and in the fish log: each
+    filled tile shows the species' best star (derived from `bestLengthCm`, so **no save change**
+    and old saves get their stars at once), and the log header gets a "Gold ★ x/12" counter.
+  - A gold catch plays the record jingle if it is not already a new species / record, and
+    Pajkel may say a gold line (only when not in bed, like the record line).
+  - Price unchanged (size already sets the price).
+- **Fish of the day.** One species a day, seeded from the real date like the quests (same day,
+  same fish), chosen among non-legendary species she can reach with her rod (shallow only before
+  the carbon rod), any time of day. Today's fish:
+  - bites more: spawn weight ×2 (stacks with bait boosts);
+  - sells for ×2: doubled when it goes into the bag (`toBagFish`), so the bag price shows it;
+  - is shown at the top of the quest (notice-board) panel with its sprite: "Fish of the day:
+    Tench · bites more, sells ×2", and a "Fish of the day! ×2" float/line on the catch screen.
+  - Pure `fishOfTheDay(today, player)` in `core/daily/` or `core/quests/`; nothing saved (it is
+    recomputed from the date and the gear; changing rod mid-day may change it, acceptable, or seed
+    from the date only and fall back to a reachable species if the pick is unreachable: builder's call, keep it stable within a day if cheap).
+- Dev flags: `?fotd=<speciesId>` forces today's fish; `?debug=caught&star=gold|silver|bronze|none`
+  shows the show-off with a fish of that star.
+- Later (not in this slice): quests and lake checklists asking for stars ("Catch a silver-star
+  perch"), Grzesiu's log knowledge (size ranges revealed after N catches).
+
 
 ## 4. Roadmap
 
