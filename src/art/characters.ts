@@ -733,11 +733,11 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const swing = walking ? [-5, 0, 5, 0][f] : 0;
   const passing = walking && f % 2 === 1;
   const bob = passing ? 1 : 0;
-  // Far leg (darker, behind) then near leg: 6 px wide, the passing leg lifted at the knee.
+  // Far leg (darker, behind) then near leg: 5 px wide, the passing leg lifted at the knee.
   const leg = (x: number, c: number, lifted: boolean) => {
     const top = 32 + bob;
     const foot = lifted ? 46 : 48;
-    p.rect(x, top, 6, foot - top + 1, c);
+    p.rect(x, top, 5, foot - top + 1, c);
     p.rect(x, foot - 5, 1, 6, c === PAL.jeans ? PAL.denimLight : c);
     p.rect(x + (lifted ? 1 : 0), foot + 1, 8, 3, PAL.shoeDark);
     p.rect(x + (lifted ? 1 : 0), foot + 1, 8, 1, PAL.shoe);
@@ -746,16 +746,15 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const nearLift = passing && f === 3;
   leg(11 - swing, PAL.denimDark, farLift);
   leg(14 + swing, PAL.jeans, nearLift);
-  // Torso: a broad jacket with a belly in front and a lighter back.
+  // Torso: a slim jacket (slice 22a build): narrow shoulders and chest, a taper to the waist, a lighter back.
   for (let y = 18 + bob; y <= 34; y++) {
-    let x0 = 7;
-    let x1 = y >= 24 ? 26 : 24;
-    if (y === 18 + bob) [x0, x1] = [10, 22];
-    else if (y === 19 + bob) [x0, x1] = [8, 24];
-    else if (y >= 33) [x0, x1] = [8, 24];
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 10 ? PAL.jacketLight : x >= 22 ? PAL.jacketDark : PAL.jacket);
+    let [x0, x1] = [9, 23];
+    if (y === 18 + bob) [x0, x1] = [11, 21];
+    else if (y === 19 + bob) [x0, x1] = [9, 23];
+    else if (y >= 29) [x0, x1] = [10, 22];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= x0 + 2 ? PAL.jacketLight : x >= x1 - 2 ? PAL.jacketDark : PAL.jacket);
   }
-  p.line(8, 34, 24, 34, PAL.jacketDark); // hem
+  p.line(10, 34, 22, 34, PAL.jacketDark); // hem
   // Near arm: sleeve from the shoulder, swinging opposite the near leg, hand at the end.
   if (carry) paintCarriedDog(p, bob);
   else if (stretch) paintStretchArms(p, pose === 'stretch1');
@@ -771,12 +770,14 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
     p.rect(hx, 28 + bob, 5, 4, PAL.skin);
     p.rect(hx + 4, 28 + bob, 1, 4, PAL.skinShade);
   }
-  // Head: hair, a profile face (no glasses), the long beard.
+  // Head: hair, a profile face with the sunglasses (as seated), the long beard.
   p.ell(15, 9 + bob, 7, 7, pajHair);
   for (let y = 12; y <= 21; y++) for (let x = 7; x <= 13; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.03) p.set(x, y + bob, pajHair(x, y));
   p.ell(19, 11 + bob, 4, 5, PAL.skin);
   p.rect(23, 11 + bob, 2, 2, PAL.skin); // nose
-  p.set(21, 9 + bob, PAL.outline); // eye
+  p.rect(21, 9 + bob, 3, 1, PAL.outline); // sunglasses
+  p.set(20, 9 + bob, PAL.outline); // the arm of the glasses
+  p.set(22, 10 + bob, PAL.skinShade); // cheek under them
   p.line(20, 7 + bob, 23, 7 + bob, PAL.pajHairDark); // brow
   for (let y = 12; y <= 25; y++) {
     let x0 = 13;
