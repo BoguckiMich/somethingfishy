@@ -6,7 +6,7 @@ import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { openBaitPicker } from '../ui/baitPicker';
 import { showQuestPanel, type NoticeTab } from '../ui/questPanel';
 import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
-import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots } from '../core/checklist/checklist';
+import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots, withBundlesDone } from '../core/checklist/checklist';
 import { showBottleCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
 import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
@@ -512,6 +512,8 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?cl=done fills every checklist slot but the petrol payment; ?cl=all fills them all (road fixed).
     if (params.get('cl') === 'done') this.setPlayer(allButPetrol(this.player));
     if (params.get('cl') === 'all') this.setPlayer(allButPetrol({ ...this.player, checklist: undefined }, true));
+    // Dev-only: ?bundles=N finishes the first N checklist bundles (shop gear gates, slice 23a; applied after ?cl=).
+    if (params.has('bundles')) this.setPlayer(withBundlesDone(this.player, Math.max(0, Math.floor(Number(params.get('bundles')) || 0))));
     // Dev-only: ?story=Q1..Q7 makes that chapter today's and starts it in ~3 s; ?story=pale shows the Pale One card.
     const storyParam = params.get('story');
     if (storyParam === 'pale') this.paleCardPending = true;

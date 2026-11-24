@@ -174,3 +174,12 @@ export function allButPetrol(p: PlayerState, includePetrol = false): PlayerState
   for (const b of CHECKLIST) state[b.id] = b.slots.map(() => includePetrol || b.id !== PETROL_ID);
   return { ...p, checklist: state };
 }
+
+/** Dev (?bundles=N): the first N bundles finished, the rest empty (shop gear gates, slice 23a). */
+export function withBundlesDone(p: PlayerState, n: number): PlayerState {
+  const state: ChecklistState = {};
+  CHECKLIST.forEach((b, i) => {
+    state[b.id] = b.slots.map(() => i < n);
+  });
+  return { ...p, checklist: state };
+}
