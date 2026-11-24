@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BAITS } from '../core/data/baits';
 import { LINES, REELS } from '../core/data/tackle';
+import { CAMP_ITEMS } from '../core/data/camp';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { RODS } from '../core/data/rods';
 import { PAL } from './palette';
@@ -18,6 +19,7 @@ const GROUPS: Record<string, string[]> = {
   reels: REELS.map((r) => r.id),
   baits: BAITS.map((b) => b.id),
   nightKit: [NIGHT_KIT.id],
+  camp: CAMP_ITEMS.map((c) => c.id),
 };
 
 describe('shop icons', () => {
@@ -87,5 +89,11 @@ describe('shop icons', () => {
     expect(colours(icon('strip')).has(PAL.pink)).toBe(true);
     expect(colours(icon('strip')).has(PAL.stoneLight)).toBe(true); // the silver skin
     expect(colours(icon('glow')).has(PAL.firefly)).toBe(true);
+    expect(colours(icon('campfire')).has(PAL.gold)).toBe(true);
+    expect(colours(icon('deckchair')).has(PAL.mug)).toBe(true);
+    expect(colours(icon('dogbed')).has(PAL.denimLight)).toBe(true);
+    expect(colours(icon('tent')).has(PAL.cream)).toBe(true);
+    expect(colours(icon('lights')).has(PAL.blueFlower)).toBe(true);
+    expect(colours(icon('windsock')).has(PAL.white)).toBe(true);
   });
 });

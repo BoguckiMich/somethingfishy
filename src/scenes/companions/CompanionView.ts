@@ -53,6 +53,8 @@ export class CompanionView {
   private stick: Phaser.GameObjects.Image;
   /** The empty camp chair at his dock spot, shown while he is away or in the car. */
   private chair: Phaser.GameObjects.Image;
+  /** The deck chair from the camp shop (slice 23e): only the chair art changes, his seated frames are the same. */
+  private deck = false;
   private steam: { img: Phaser.GameObjects.Image; age: number; x: number; y: number }[] = [];
   private steamClock = 0;
   private puff: Phaser.GameObjects.Image;
@@ -86,6 +88,11 @@ export class CompanionView {
       .setVisible(false);
   }
 
+
+  /** Swaps his red camp chair for the striped deck chair (or back). */
+  setDeckChair(on: boolean): void {
+    this.deck = on;
+  }
 
   /** Pajkel says a line in a speech bubble (a new one replaces the one showing). */
   say(text: string): void {
@@ -191,7 +198,7 @@ export class CompanionView {
       // 'cheer' alternates its two frames quickly (the clap); the others breathe.
       const frame = p.shape === 'cheer' ? ((Math.floor(elapsed / 180) % 2) as 0 | 1) : breath;
       this.paj
-        .setTexture(pajSitKey(p.shape as PajPose, frame))
+        .setTexture(pajSitKey(p.shape as PajPose, frame, this.deck))
         .setOrigin(0.5, PAJ_ORIGIN_Y / PAJ_SIZE.h)
         .setFlipX(false);
     } else {
@@ -207,7 +214,7 @@ export class CompanionView {
     }
     this.paj.setPosition(Math.round(p.x), Math.round(p.y)).setTint(tint).setVisible(pajVisible(s)).setAlpha(s.bed?.pajA ?? 1);
     // His chair stays on the dock when he walks off (and while they sleep in the car), the thermos beside it.
-    this.chair.setVisible(chairEmpty(s)).setTint(tint);
+    this.chair.setVisible(chairEmpty(s)).setTexture(this.deck ? TEX.emptyChairDeck : TEX.emptyChair).setTint(tint);
     this.updateSteam(dtMs, steam && holdsCup(p.shape) && pajVisible(s) && !chairEmpty(s) ? PAJ_CUP[p.shape as PajPose] : undefined);
 
     // The dog.

@@ -63,6 +63,8 @@ export interface PlayerState {
   weatherSeen?: string;
   /** The trophy board (slice 23d): the biggest catch of each rare fish; missing = none caught yet. */
   trophies?: TrophyState;
+  /** The camp items owned (slice 23e), ids of core/data/camp in shop order; missing = none. Read with campOwned(). */
+  camp?: string[];
 }
 
 export function newPlayer(): PlayerState {

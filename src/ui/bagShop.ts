@@ -9,6 +9,8 @@ import { SHOP } from '../core/data/shop';
 import { starFor } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
+import { CAMP_ITEMS } from '../core/data/camp';
+import { buyCampItem, hasCamp } from '../core/camp';
 import type { Line, Reel, Rod } from '../core/gear';
 import { bundlesDone, gateFor, gearUnlocked } from '../core/gearGates';
 import {
@@ -431,6 +433,26 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
               },
             }),
       );
+
+      // The camp (slice 23e): small things for the grass by the car, mostly cosmetic; each is bought once.
+      body.append(sectionTitle('Camp'));
+      for (const item of CAMP_ITEMS) {
+        body.append(
+          hasCamp(p, item.id)
+            ? itemCard({ id: item.id, name: item.name, note: 'Owned', effect: item.effect, coins: p.coins })
+            : itemCard({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                effect: item.effect,
+                coins: p.coins,
+                buy: () => {
+                  apply(buyCampItem(store.get(), item.id), item.id);
+                  panel.refresh();
+                },
+              }),
+        );
+      }
     },
     onClose,
   );

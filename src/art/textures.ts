@@ -1,5 +1,6 @@
 import { trophyBoardKey, trophyBoardSprite } from './trophyBoardArt';
 import type Phaser from 'phaser';
+import { CAMPFIRE_FRAMES, WINDSOCK_LEVELS, campfireSprite, dogBedSprite, lightPoleSprite, tentSprite, windsockSprite } from './campArt';
 import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VARIANTS, emptyChairSprite, stickCarrySprite, stickGroundSprite, stickPuffSprite, stickSpinSprite, type StickVariant, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
 import { lanternSprite } from './lanternArt';
@@ -58,6 +59,10 @@ export const TEX = {
   stickSpin: ['stickSpin0', 'stickSpin1', 'stickSpin2', 'stickSpin3'],
   stickPuff: ['stickPuff0', 'stickPuff1'],
   emptyChair: 'emptyChair',
+  emptyChairDeck: 'emptyChairDeck',
+  campTent: 'camp:tent',
+  campPole: 'camp:pole',
+  campBed: 'camp:bed',
   steam: 'steam',
   lilyA: 'lilyA',
   lilyB: 'lilyB',
@@ -172,7 +177,10 @@ export function repaintSky(scene: Phaser.Scene, top: number, bottom: number): vo
   tex.refresh();
 }
 
-export const pajSitKey = (pose: PajPose, breath: 0 | 1) => `paj:${pose}:${breath}`;
+export const pajSitKey = (pose: PajPose, breath: 0 | 1, deck = false) => `paj:${deck ? 'deck:' : ''}${pose}:${breath}`;
+/** Camp textures (slice 23e): the campfire's flicker frames and the windsock's strength and flap. */
+export const campfireKey = (frame: number) => `camp:fire:${frame}`;
+export const windsockKey = (level: number, flap: 0 | 1) => `camp:sock:${level}:${flap}`;
 export const stickGroundKey = (variant: StickVariant) => `stickGround${variant}`;
 export const pajWalkKey = (pose: PajWalkPose) => `pajw:${pose}`;
 export { dogKey };
@@ -190,7 +198,10 @@ function createCharacterTextures(scene: Phaser.Scene): void {
     if (isHugged(sp.id)) addRaster(scene, fishHugKey(sp.id), Raster.fromSprite(fishHugSprite(sp.id)));
   }
   for (const pose of PAJ_POSES) {
-    for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
+    for (const b of [0, 1] as const) {
+      addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
+      addRaster(scene, pajSitKey(pose, b, true), Raster.fromSprite(pajkelSittingSprite(pose, b, true)));
+    }
   }
   for (const pose of PAJ_WALK_POSES) {
     addRaster(scene, pajWalkKey(pose), Raster.fromSprite(pajkelWalkSprite(pose)));
@@ -200,6 +211,12 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   for (let i = 0; i < 4; i++) addRaster(scene, TEX.stickSpin[i], Raster.fromSprite(stickSpinSprite(i)));
   for (const f of [0, 1] as const) addRaster(scene, TEX.stickPuff[f], Raster.fromSprite(stickPuffSprite(f)));
   addRaster(scene, TEX.emptyChair, Raster.fromSprite(emptyChairSprite()));
+  addRaster(scene, TEX.emptyChairDeck, Raster.fromSprite(emptyChairSprite(true)));
+  for (let f = 0; f < CAMPFIRE_FRAMES; f++) addRaster(scene, campfireKey(f), Raster.fromSprite(campfireSprite(f)));
+  addRaster(scene, TEX.campTent, Raster.fromSprite(tentSprite()));
+  addRaster(scene, TEX.campPole, Raster.fromSprite(lightPoleSprite()));
+  addRaster(scene, TEX.campBed, Raster.fromSprite(dogBedSprite()));
+  for (let l = 0; l < WINDSOCK_LEVELS; l++) for (const f of [0, 1] as const) addRaster(scene, windsockKey(l, f), Raster.fromSprite(windsockSprite(l, f)));
   addRaster(scene, TEX.steam, Raster.fromSprite(sprite('.w\nww\nw.', { w: PAL.white })));
   addRaster(scene, TEX.stickCarry, Raster.fromSprite(stickCarrySprite()));
   for (let v = 0; v < STICK_VARIANTS; v++) addRaster(scene, stickGroundKey(v as StickVariant), Raster.fromSprite(stickGroundSprite(v as StickVariant)));
