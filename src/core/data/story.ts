@@ -74,6 +74,47 @@ export const PALE_BEAT = {
   after: ['pale'],
 } as const;
 
+/** The icons of the journal (slice 22d): a picture per way a chapter is told. */
+export type JournalIcon = 'bottle' | 'duck' | 'star' | 'prints' | 'car' | 'pale';
+
+/** Who thinks the thought: Alex is the player, Pajkel the companion. */
+export type Thinker = 'alex' | 'paj';
+
+export interface JournalDef {
+  icon: JournalIcon;
+  /** One-line description of a moment (bottles show their own note instead). */
+  text?: string;
+  by: Thinker;
+  /** The thought (<= 60 characters). */
+  thought: string;
+}
+
+/** What the journal says about each chapter (ids are saved: never rename). Q4 has a night and a day version. */
+export const JOURNAL: Record<string, JournalDef> = {
+  Q1: { icon: 'bottle', by: 'alex', thought: 'A pen pal who signs with one letter. Who are you, W.?' },
+  Q2: { icon: 'duck', by: 'paj', text: 'The duck paddled up to the dock, took the sandwich and left, quacking.', thought: 'Note to self: never trust a duck.' },
+  Q3: { icon: 'bottle', by: 'alex', thought: 'Forty metres down in a nine-metre lake?' },
+  Q5: { icon: 'prints', by: 'paj', text: 'Wet footprints crossed the dock to the car and back, then dried.', thought: "Wet footprints. Not mine, not Bestia's. Hm." },
+  Q6: { icon: 'bottle', by: 'alex', thought: 'How do you forget catching something like that?' },
+  Q7: { icon: 'bottle', by: 'paj', thought: "A doorstep to what? I'm fixing the road anyway." },
+  Q8: { icon: 'car', by: 'paj', text: 'The road to the river is open. The car is packed, stick and all.', thought: 'Car packed. Stick packed. Duck not invited.' },
+};
+export const JOURNAL_BLINK_NIGHT: JournalDef = {
+  icon: 'star',
+  by: 'alex',
+  text: 'A star in the lake with no star above it. It blinked once, slowly, and sank.',
+  thought: 'A star in the water with no star above it. It blinked.',
+};
+export const JOURNAL_BLINK_DAY: JournalDef = { icon: 'bottle', by: 'alex', thought: 'Count the stars tonight. Maybe. Probably.' };
+export const JOURNAL_PALE: JournalDef = {
+  icon: 'pale',
+  by: 'alex',
+  text: 'It slipped back into the dark. For a moment it looked at you. Then you forgot why.',
+  thought: 'I caught it. I think. Why is it so hard to remember?',
+};
+/** The journal counts the eight chapters Q1-Q8 (the Pale One page is a bonus). */
+export const JOURNAL_TOTAL = 8;
+
 export const STORY_TUNING = {
   /** Real ms of calm play before today's chapter shows up. */
   delayMs: { min: 60_000, max: 90_000 },

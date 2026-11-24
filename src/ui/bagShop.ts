@@ -216,7 +216,7 @@ export function openBagPanel(store: PlayerStore, onClose: () => void, goShop?: (
 }
 
 /** One of the two shop tabs: 44 px tall, the active one lighter wood with a gold underline. */
-function shopTab(label: string, active: boolean, onPick: () => void): HTMLButtonElement {
+export function shopTab(label: string, active: boolean, onPick: () => void): HTMLButtonElement {
   const b = el(
     'button',
     [

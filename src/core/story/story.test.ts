@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { CHAPTERS, PALE_BEAT, STORY_LINES, STORY_TUNING } from '../data/story';
+import { CHAPTERS, JOURNAL, JOURNAL_BLINK_DAY, JOURNAL_BLINK_NIGHT, JOURNAL_PALE, PALE_BEAT, STORY_LINES, STORY_TUNING } from '../data/story';
 import { newPlayer } from '../inventory';
 import { normalizeSave } from '../save';
 import {
   blinkIsNight,
   blinkLines,
+  journalChapterCount,
+  journalEntries,
+  journalHasNew,
+  markJournalLooked,
   chapterById,
   lastSeenDate,
   markPaleSeen,
@@ -206,5 +210,81 @@ describe('the story in the save', () => {
   it('chapterById finds Q-chapters only', () => {
     expect(chapterById('Q5')?.kind).toBe('prints');
     expect(chapterById('Q8')).toBeUndefined();
+  });
+});
+
+describe('the story journal (22d)', () => {
+  const seen = (ids: string[], night = false): ReturnType<typeof newStory> => {
+    let s = newStory();
+    ids.forEach((id, i) => (s = markSeen(s, id, `2026-12-0${i + 1}`, undefined, night)));
+    return s;
+  };
+  it('is empty for a fresh game: unseen chapters never show', () => {
+    expect(journalEntries(newStory())).toEqual([]);
+    expect(journalChapterCount(newStory())).toBe(0);
+    expect(journalEntries(seen(['Q1'])).map((e) => e.id)).toEqual(['Q1']);
+  });
+  it('lists seen chapters oldest first, by the date seen', () => {
+    // Q2 seen before Q1 (a clock oddity): the date wins.
+    const s = markSeen(markSeen(newStory(), 'Q2', '2026-12-01'), 'Q1', '2026-12-02');
+    expect(journalEntries(s).map((e) => e.id)).toEqual(['Q2', 'Q1']);
+  });
+  it('shows the bottle note for bottles and a description for moments', () => {
+    const [q1, q2] = journalEntries(seen(['Q1', 'Q2']));
+    expect(q1.text).toBe(CHAPTERS['quiet-lake'][0].text);
+    expect(q1.icon).toBe('bottle');
+    expect(q2.icon).toBe('duck');
+    expect(q2.text).toBe(JOURNAL.Q2.text);
+    expect(q2.by).toBe('paj');
+  });
+  it('Q4 has a night and a day version, stored when it was seen', () => {
+    const day = journalEntries(seen(['Q4']))[0];
+    expect(day.thought).toBe(JOURNAL_BLINK_DAY.thought);
+    expect(day.icon).toBe('bottle');
+    expect(day.text).toBe(chapterById('Q4')?.text);
+    const night = markSeen(newStory(), 'Q4', '2026-12-04', blinkLines(true), true);
+    expect(night.blinkNight).toBe(true);
+    expect(journalEntries(night)[0]).toMatchObject({ icon: 'star', thought: JOURNAL_BLINK_NIGHT.thought });
+    expect(normalizeStory(JSON.parse(JSON.stringify(night))).blinkNight).toBe(true);
+    expect(normalizeStory({ done: { Q1: '2026-12-01' }, blinkNight: true }).blinkNight).toBeUndefined();
+  });
+  it('the Pale One page sits by its date (or last without one) and is a bonus; Q8 comes last and needs the road', () => {
+    let s = markSeen(newStory(), 'Q1', '2026-12-01');
+    s = markPaleSeen(s, '2026-12-02');
+    s = markSeen(s, 'Q2', '2026-12-03');
+    expect(journalEntries(s).map((e) => e.id)).toEqual(['Q1', 'pale', 'Q2']);
+    expect(journalEntries(s)[1].thought).toBe(JOURNAL_PALE.thought);
+    expect(journalEntries(markPaleSeen(markSeen(newStory(), 'Q1', '2026-12-01'))).map((e) => e.id)).toEqual(['Q1', 'pale']);
+    expect(journalChapterCount(s)).toBe(2);
+    expect(journalEntries(s, true).map((e) => e.id)).toEqual(['Q1', 'pale', 'Q2', 'Q8']);
+    expect(journalChapterCount(s, true)).toBe(3);
+  });
+  it('all eight chapters make 8 of 8', () => {
+    const s = seen(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']);
+    expect(journalChapterCount(s, true)).toBe(8);
+    expect(journalEntries(s, true).map((e) => e.id)).toEqual(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8']);
+  });
+  it('every thought fits 60 characters and every page has a text', () => {
+    const s = { ...seen(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']), pale: true };
+    for (const e of [...journalEntries(s, true), ...journalEntries({ ...s, blinkNight: true }, true)]) {
+      expect(e.thought.length, e.id).toBeLessThanOrEqual(60);
+      expect(e.text.length, e.id).toBeGreaterThan(0);
+    }
+  });
+  it('the dot: new pages since she last looked', () => {
+    let s = seen(['Q1']);
+    expect(journalHasNew(s)).toBe(true);
+    s = markJournalLooked(s);
+    expect(journalHasNew(s)).toBe(false);
+    expect(markJournalLooked(s)).toBe(s);
+    s = markSeen(s, 'Q2', '2026-12-09');
+    expect(journalHasNew(s)).toBe(true);
+    expect(journalHasNew(newStory())).toBe(false);
+    expect(journalHasNew(markJournalLooked(s), true)).toBe(true); // the road is fixed: Q8
+  });
+  it('looked survives a save round trip', () => {
+    const s = markJournalLooked(seen(['Q1', 'Q2']));
+    expect(normalizeStory(JSON.parse(JSON.stringify(s))).looked).toBe(2);
+    expect(normalizeStory({ done: {}, looked: -3 }).looked).toBeUndefined();
   });
 });

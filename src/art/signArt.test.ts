@@ -30,7 +30,7 @@ describe('signSlots', () => {
 });
 
 describe('signSprite', () => {
-  it('is 24 x 26 with transparent corners', () => {
+  it('is 36 x 38 with transparent corners', () => {
     const s = signSprite(look());
     expect([s.width, s.height]).toEqual([SIGN_SIZE.w, SIGN_SIZE.h]);
     expect(s.pixels[0]).toBe(TRANSPARENT);

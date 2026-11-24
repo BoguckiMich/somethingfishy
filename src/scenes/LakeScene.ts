@@ -4,7 +4,7 @@ import { todayLocal } from '../localDate';
 import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { openBaitPicker } from '../ui/baitPicker';
-import { showQuestPanel } from '../ui/questPanel';
+import { showQuestPanel, type NoticeTab } from '../ui/questPanel';
 import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
 import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots } from '../core/checklist/checklist';
 import { showBottleCard, showStoryCard } from '../ui/bottleCard';
@@ -38,7 +38,7 @@ import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR,
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
 import { createTextures, ensureSignTexture, lanternKey, repaintSky, TEX } from '../art/textures';
-import { SIGN_GLINT, SIGN_SIZE, signSlots, type SignLook } from '../art/signArt';
+import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from '../art/signArt';
 import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
@@ -177,12 +177,12 @@ const CATCH_FITS_GAP = 26;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 /**
- * The notice-board sign (slice 22c): right of the dock on the grass, feet on the shore line. Its sprite (24 x 26)
- * ends at y 498 and the fetch lawn (PLAY_AREA, y 500-554) starts below it, so the two never overlap; the 48 x 48
- * tap area is just above the lawn too (y 452-500).
+ * The notice-board sign (slice 22c, 1.5x bigger in 22d): right of the dock on the grass, feet on the shore line. Its
+ * sprite (36 x 38) ends at y 498 and the fetch lawn (PLAY_AREA, y 500-554) starts below it, so the two never overlap;
+ * the 56 x 56 tap area is just above the lawn too (y 444-500), right of the dock (x 116-244) and the crate's tap area.
  */
 const SIGN_FEET = { x: 276, y: 498 };
-const SIGN_HIT = new Phaser.Geom.Rectangle(SIGN_FEET.x - 24, SIGN_FEET.y - 46, 48, 48);
+const SIGN_HIT = new Phaser.Geom.Rectangle(SIGN_FEET.x - 28, SIGN_FEET.y - 54, 56, 56);
 /** A 9 x 9 sun, half sun or moon in front of the clock (slice 22c), and how big it is drawn. */
 const CLOCK_ICON_SCALE = 2;
 const QUEST_CUE_MS = 1800;
@@ -323,6 +323,8 @@ export class LakeScene extends Phaser.Scene {
   /** Story chapters (slice 21): the pictures, the chapter being told, the delivery timer and the line queue clock. */
   private story!: StoryView;
   private storyOn = true;
+  /** Dev flag ?journal=all: the road counts as fixed for the Story tab. */
+  private journalAll = false;
   private storyRun: { chapter: ChapterDef; night: boolean; preMs: number } | null = null;
   private storyTimerMs = rollStoryDelay();
   private storyLineMs = 0;
@@ -507,6 +509,13 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     this.storyOn = !this.sandbox || storyParam !== null;
+    // Dev-only: ?journal=all marks every chapter seen (the night Q4, the Pale One and the road fixed) so the Story tab is full;
+    // with `&looked=1` the dot is already read. Nothing is queued, so Pajkel stays quiet.
+    if (params.get('journal') === 'all') {
+      const done = Object.fromEntries(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7'].map((id, i) => [id, `2026-11-0${i + 1}`]));
+      this.journalAll = true;
+      this.setPlayer({ ...this.player, story: { done, queue: [], pale: true, paleOn: '2026-11-04', blinkNight: true } });
+    }
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
     // Dev-only: ?logcount=N sets every caught species' count to N (fish knowledge tiers).
@@ -941,7 +950,7 @@ export class LakeScene extends Phaser.Scene {
     if (this.paleCardPending && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
       this.paleCardPending = false;
       this.swallowUp = false;
-      this.setPlayer({ ...this.player, story: markPaleSeen(storyOf(this.player)) });
+      this.setPlayer({ ...this.player, story: markPaleSeen(storyOf(this.player), this.today) });
       this.panel = showStoryCard(PALE_BEAT.title, PALE_BEAT.lines, () => {
         this.panel = null;
         this.storyLineMs = Math.max(this.storyLineMs, 1000);
@@ -1027,7 +1036,7 @@ export class LakeScene extends Phaser.Scene {
     const run = this.storyRun;
     if (!run) return;
     const lines = run.chapter.kind === 'blink' ? blinkLines(run.night) : undefined;
-    this.setPlayer({ ...this.player, story: markSeen(storyOf(this.player), run.chapter.id, this.today, lines) });
+    this.setPlayer({ ...this.player, story: markSeen(storyOf(this.player), run.chapter.id, this.today, lines, run.night) });
     if (this.storyDev?.id === run.chapter.id) this.storyDev = null;
     this.storyRun = null;
     this.storyTimerMs = rollStoryDelay();
@@ -1269,7 +1278,7 @@ export class LakeScene extends Phaser.Scene {
       return;
     }
     if (dbg === 'quests') {
-      this.openQuests();
+      this.openQuests(new URLSearchParams(window.location.search).get('tab') === 'story' ? 'story' : 'quests');
       return;
     }
     if (dbg === 'baits') {
@@ -1380,7 +1389,7 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /** The quest panel from the notice-board button. Only while idle. */
-  private openQuests(): void {
+  private openQuests(startTab?: NoticeTab): void {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
     const handle = showQuestPanel(
@@ -1391,14 +1400,22 @@ export class LakeScene extends Phaser.Scene {
         fotdId: () => this.fotdId(),
         openChecklist: () => this.openChecklist(),
         checklist: () => ({ done: checklistDone(this.player), total: bundleTotal }),
+        roadFixed: () => this.roadFixed(),
+        names: () => ({ alex: this.profile.player, paj: this.profile.companion }),
       },
       () => {
         this.panel = null;
         this.questPanel = null;
       },
+      startTab,
     );
     this.panel = handle;
     this.questPanel = handle;
+  }
+
+  /** The Quiet Lake checklist is done: the road is fixed (the last journal page). */
+  private roadFixed(): boolean {
+    return this.journalAll || checklistDone(this.player) >= bundleTotal;
   }
 
   private crateVisible(): boolean {
@@ -1450,6 +1467,12 @@ export class LakeScene extends Phaser.Scene {
     const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
     if (momentOk && this.story.tap(x, y, this.state.kind === 'idle')) return true;
     if (momentOk && this.moments.tap(x, y, this.state.kind === 'idle')) return true;
+    // The notice-board sign: a tap never casts while idle or waiting; it acts only while idle. It wins over petting
+    // Bestia (or tagging Pajkel) inside its box, so it is checked before them.
+    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && SIGN_HIT.contains(x, y)) {
+      this.tapSign();
+      return true;
+    }
     const dog = this.companions.dogRect();
     if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
       this.markHint('dog');
@@ -1462,11 +1485,6 @@ export class LakeScene extends Phaser.Scene {
     const paj = this.companions.pajRect();
     if (pajVisible(this.companions.state) && this.companions.state.mode !== 'bed' && paj.contains(x, y)) {
       this.showTag(1, this.profile.companion, paj.centerX, paj.y - 2);
-      return true;
-    }
-    // The notice-board sign: a tap never casts while idle or waiting; it acts only while idle.
-    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && SIGN_HIT.contains(x, y)) {
-      this.tapSign();
       return true;
     }
     return false;
@@ -1995,6 +2013,19 @@ export class LakeScene extends Phaser.Scene {
     this.signImg.setTexture(ensureSignTexture(this, look));
     const g = this.glintFx;
     g.clear();
+    // A soft gold glow behind each claimable note that breathes, and a small twinkle on its pin (always, so the sign
+    // says "something to claim" even while fishing).
+    look.slots.forEach((s, i) => {
+      if (s !== 'claim') return;
+      const at = signNoteCenter(i);
+      const cx = SIGN_FEET.x - SIGN_SIZE.w / 2 + at.x;
+      const cy = SIGN_FEET.y - SIGN_SIZE.h + at.y;
+      const k = 0.5 + 0.5 * Math.sin((this.elapsed / 1400) * Math.PI * 2);
+      g.fillStyle(PAL.gold, 0.14 + 0.14 * k).fillRect(cx - 9, cy - 10, 18, 20);
+      g.fillStyle(PAL.gold, 0.18 + 0.18 * k).fillRect(cx - 6, cy - 7, 12, 14);
+      const t = (this.elapsed / 1000) % 2.4;
+      if (t < 0.5) this.twinkle(g, cx + 4, cy - 6, Math.sin((t / 0.5) * Math.PI));
+    });
     if (this.state.kind !== 'idle' || this.panel || this.sleepFade) return;
     const c = this.companions.state;
     const dog = c.dog;

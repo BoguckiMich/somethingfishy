@@ -1,5 +1,21 @@
 import { daysBetween, isValidDate } from '../daily/dates';
-import { BLINK_DAY_LINES, BLINK_NIGHT_LINES, CHAPTERS, PALE_BEAT, STORY_LINES, STORY_TUNING, type ChapterDef } from '../data/story';
+import {
+  BLINK_DAY_LINES,
+  BLINK_NIGHT_LINES,
+  CHAPTERS,
+  JOURNAL,
+  JOURNAL_BLINK_DAY,
+  JOURNAL_BLINK_NIGHT,
+  JOURNAL_PALE,
+  JOURNAL_TOTAL,
+  PALE_BEAT,
+  STORY_LINES,
+  STORY_TUNING,
+  type ChapterDef,
+  type JournalDef,
+  type JournalIcon,
+  type Thinker,
+} from '../data/story';
 import type { PlayerState } from '../inventory';
 
 /**
@@ -15,6 +31,12 @@ export interface StoryState {
   queue: string[];
   /** The Pale One bonus card was shown. */
   pale: boolean;
+  /** The date the Pale One card was shown (the journal's order); older saves have none. */
+  paleOn?: string;
+  /** Q4 was told as the night blink (the journal's version); missing = the day bottle. */
+  blinkNight?: boolean;
+  /** How many journal pages she had seen when she last opened the Story tab (the dot). */
+  looked?: number;
 }
 
 const has = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
@@ -67,10 +89,11 @@ export function nextLine(s: StoryState, canSpeak: boolean): { story: StoryState;
  * She has seen a chapter: it is recorded with today's date and its Pajkel lines are queued
  * (`lines` overrides the chapter's own, for the two versions of Q4). Seeing it twice changes nothing.
  */
-export function markSeen(s: StoryState, id: string, today: string, lines?: readonly string[]): StoryState {
+export function markSeen(s: StoryState, id: string, today: string, lines?: readonly string[], night?: boolean): StoryState {
   const chapter = chapterById(id);
   if (!chapter || !isValidDate(today) || has(s.done, id)) return s;
-  return queueLines({ ...s, done: { ...s.done, [id]: today } }, lines ?? chapter.after);
+  const next: StoryState = { ...s, done: { ...s.done, [id]: today }, ...(id === 'Q4' && night ? { blinkNight: true } : {}) };
+  return queueLines(next, lines ?? chapter.after);
 }
 
 /** The lines Q4 queues, by version. */
@@ -83,9 +106,9 @@ export const blinkIsNight = (pajkelAsleepInCar: boolean, nightSky: boolean): boo
 export const paleBeatDue = (s: StoryState): boolean => !s.pale;
 
 /** The card was shown: remembered once, and Pajkel's line queued. */
-export function markPaleSeen(s: StoryState): StoryState {
+export function markPaleSeen(s: StoryState, today?: string): StoryState {
   if (s.pale) return s;
-  return queueLines({ ...s, pale: true }, PALE_BEAT.after);
+  return queueLines({ ...s, pale: true, ...(today !== undefined && isValidDate(today) ? { paleOn: today } : {}) }, PALE_BEAT.after);
 }
 
 /** Anything saved -> a valid StoryState (never throws): unknown chapters, bad dates and unknown lines are dropped. */
@@ -97,7 +120,57 @@ export function normalizeStory(v: unknown): StoryState {
     for (const [id, date] of Object.entries(o.done)) if (chapterById(id) && isValidDate(date)) done[id] = date;
   }
   const queue = Array.isArray(o.queue) ? o.queue.filter((id): id is string => typeof id === 'string' && has(STORY_LINES, id)) : [];
-  return { done, queue: queue.slice(-STORY_TUNING.queueMax), pale: o.pale === true };
+  const out: StoryState = { done, queue: queue.slice(-STORY_TUNING.queueMax), pale: o.pale === true };
+  if (o.pale === true && isValidDate(o.paleOn)) out.paleOn = o.paleOn;
+  if (o.blinkNight === true && has(done, 'Q4')) out.blinkNight = true;
+  if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), JOURNAL_TOTAL + 1);
+  return out;
+}
+
+/** One page of the story journal (slice 22d). */
+export interface JournalEntry {
+  /** The chapter id, or 'pale' for the bonus page. */
+  id: string;
+  icon: JournalIcon;
+  /** The bottle's note, or the one-line description of the moment. */
+  text: string;
+  by: Thinker;
+  thought: string;
+}
+
+/**
+ * The pages she has seen, oldest first (by the date each was seen on; chapter order inside a day; a page with no date,
+ * the Pale One of an older save, goes after the others; Q8 is last). Unseen chapters never show. `roadFixed` is the
+ * Q8 card: it is not a daily chapter, so it is not in the story state.
+ */
+export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[] {
+  const page = (id: string, def: JournalDef, text: string): JournalEntry => ({ id, icon: def.icon, text, by: def.by, thought: def.thought });
+  const rows: { entry: JournalEntry; date: string | null; rank: number }[] = [];
+  ALL.forEach((chapter, rank) => {
+    if (!has(s.done, chapter.id)) return;
+    const def = chapter.id === 'Q4' ? (s.blinkNight ? JOURNAL_BLINK_NIGHT : JOURNAL_BLINK_DAY) : has(JOURNAL, chapter.id) ? JOURNAL[chapter.id] : undefined;
+    if (def) rows.push({ entry: page(chapter.id, def, def.text ?? chapter.text ?? ''), date: s.done[chapter.id], rank });
+  });
+  if (s.pale) rows.push({ entry: page('pale', JOURNAL_PALE, JOURNAL_PALE.text ?? ''), date: s.paleOn ?? null, rank: ALL.length });
+  rows.sort((a, b) => {
+    if (a.date === null || b.date === null) return a.date === b.date ? a.rank - b.rank : a.date === null ? 1 : -1;
+    return a.date < b.date ? -1 : a.date > b.date ? 1 : a.rank - b.rank;
+  });
+  const out = rows.map((r) => r.entry);
+  if (roadFixed) out.push(page('Q8', JOURNAL.Q8, JOURNAL.Q8.text ?? ''));
+  return out;
+}
+
+/** "Chapter n of 8": the chapters seen (the Pale One page is a bonus and does not count). */
+export const journalChapterCount = (s: StoryState, roadFixed = false): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale').length;
+
+/** A page was added since she last opened the Story tab. */
+export const journalHasNew = (s: StoryState, roadFixed = false): boolean => journalEntries(s, roadFixed).length > (s.looked ?? 0);
+
+/** She opened the Story tab: everything so far is read. */
+export function markJournalLooked(s: StoryState, roadFixed = false): StoryState {
+  const n = journalEntries(s, roadFixed).length;
+  return n === (s.looked ?? 0) ? s : { ...s, looked: n };
 }
 
 /** Nothing worth saving (a fresh game stores no key). */
