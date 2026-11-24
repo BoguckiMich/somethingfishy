@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**, milestones in [ROADMAP.md](ROADMAP.md), the story in [STORY.md](STORY.md); this file is about *state and how we work*.
 
-_Last updated: 2026-11-24. Slices 15a-19, the record-from-bed fix and the car-tree fix are merged and pushed (not phone-tested). Next: the checklist board on Quiet Lake (slice 20), see GAME_DESIGN §3 → Progression plan. The storyline is written in a separate session from `docs/STORY_AGENT_PROMPT.md` into `docs/STORY.md`._
+_Last updated: 2026-11-24. Slices 15a-20 and the fixes are merged and pushed (18-20 not phone-tested). Milestones are in `docs/ROADMAP.md`: we are in M1 "Quiet Lake, complete". Next in M1: phone-test fixes, then the story-chapters engine with the Quiet Lake chapters Q1-Q8 (`docs/STORY.md` §3), then Grzesiu's fish knowledge._
 
 ## Current state
 
@@ -33,7 +33,7 @@ _Last updated: 2026-11-24. Slices 15a-19, the record-from-bed fix and the car-tr
 | 17 | "No take, only throw" fetch: keep-away, chase, give-up lines, spare stick, old sticks on the grass, rare give-back (GAME_DESIGN §3 → Slice 17) | merged on the user's word (2026-11-24), before the phone test — (531 tests pass; seen only as stills) |
 | 18 | Road map: a car tap opens a map panel (four pins, work-in-progress barriers on the "coming soon" places, "Take a nap..." button) (GAME_DESIGN §3 → Slice 18) | merged and pushed 2026-11-24, not phone-tested |
 | 19 | Size stars (bronze/silver/gold by length) and fish of the day (bites more, sells x2) (GAME_DESIGN §3 → Slice 19) | merged and pushed 2026-11-24, not phone-tested |
-| 20 | Quiet Lake checklist "The Doorstep": 6 bundles of fish/gold/coin slots fix the road to the River bend (GAME_DESIGN §3 → Slice 20; bundles changed by the main session, see docs/STORY.md) | on branch `slice/20-checklist`, not merged, not phone-tested |
+| 20 | Quiet Lake checklist "The Doorstep": 6 bundles of fish/gold/coin slots fix the road to the River bend (GAME_DESIGN §3 → Slice 20; bundles changed by the main session, see docs/STORY.md) | merged and pushed 2026-11-24, not phone-tested |
 | 15a | Prices by rarity, braided/fluoro lines + smooth/pro reels, time-of-day in the clock label, Pajkel's speech bubble (GAME_DESIGN §3 → Slice 15a) | merged before the phone play-test (reels help little in the bot sim: sloppy bot 85% → 87% with the Pro reel vs 97% with fluoro line; may raise the reel numbers) |
 | 15b | Shop icons: 16x16 icons for worm pack, rods, lines, reels; item cards, "Your tackle" strip, fish sprites + coin icon in sell lists, buy pop (GAME_DESIGN §3 → Slice 15b) | merged overnight by the main session (user authorised merges up to 16); not phone-tested. Rod icons are the weakest (reel reads as a grey blob on bamboo/fiberglass), pro reel looks a bit like a coin |
 | 15c | Baits: corn, maggots, fish strip, glow bait; bait chip + picker, shop Bait section, box/quest bait rewards (GAME_DESIGN §3 → Slice 15c) | merged overnight by the main session (user authorised merges up to 16); not phone-tested |

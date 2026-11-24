@@ -14,7 +14,7 @@ even if we stopped there.
 The first lake has a beginning, a middle and an end.
 - [x] Road map with places "coming soon" (slice 18)
 - [x] Size stars + fish of the day (slice 19)
-- [ ] The Doorstep checklist (slice 20, building)
+- [x] The Doorstep checklist (slice 20)
 - [ ] Phone-test fixes for 15a-20
 - [ ] Story chapters engine + Quiet Lake chapters Q1-Q8 (sealed story bottle, wax-seal badge on the
       notice board, one chapter per real day, STORY.md §3) and the Pale One bonus beat
