@@ -502,6 +502,15 @@ describe('catch math fixes (audit B1, B3, 2026-11-24): sinkers, reels, big fish'
     }
   });
 
+  it('slice 23c: never pressing wins the asp almost never, and the ide and burbot no more than the old smooth/erratic species', () => {
+    // Measured: asp 0.07, ide 0.53 (as roach 0.61, eel 0.54: shallow stays gentle), burbot 0.34 / 0.45 (zander 0.27 / 0.38, tench 0.40 / 0.45).
+    expect(share('asp', 'never', STARTER_BAR_GEAR)).toBeLessThanOrEqual(0.2);
+    expect(share('ide', 'never', STARTER_BAR_GEAR)).toBeLessThanOrEqual(0.65);
+    expect(share('burbot', 'never', FIBERGLASS)).toBeLessThanOrEqual(0.45);
+    expect(share('burbot', 'never', CARBON)).toBeLessThanOrEqual(0.55);
+    for (const id of ['asp', 'ide']) expect(share(id, 'never', STARTER_BAR_GEAR)).toBeLessThan(share(id, SLOPPY_BOT, STARTER_BAR_GEAR) - 0.35);
+  });
+
   it('the sinker does not get easier for a passive player as it gets harder', () => {
     const wins = (d: number) =>
       seeds(100).filter((seed) => passive({ pattern: 'sinker', difficulty: d }, seed, CARBON).result === 'caught').length;
