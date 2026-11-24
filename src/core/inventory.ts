@@ -14,6 +14,7 @@ import { newDaily, type DailyState } from './daily/daily';
 import { newQuests, questsOf, questsOnSale, type QuestsState } from './quests/quests';
 import { newNotes, type NotesState } from './moments/moments';
 import type { ChecklistState } from './checklist/checklist';
+import type { StoryState } from './story/story';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -52,6 +53,8 @@ export interface PlayerState {
   nightKit?: boolean;
   /** Filled slots per checklist bundle (slice 20); missing = nothing filled. Read with checklistOf(). */
   checklist?: ChecklistState;
+  /** Story chapters seen, queued Pajkel lines and the Pale One beat (slice 21); missing = nothing yet. Read with storyOf(). */
+  story?: StoryState;
 }
 
 export function newPlayer(): PlayerState {
