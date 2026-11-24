@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHARGE_HALF_CYCLE_MS } from './casting';
+import { CHARGE_HALF_CYCLE_MS, MIN_HOLD_MS } from './casting';
 import type { FishProfile } from './catchBar';
 import { STARTER_BAR_GEAR } from './data/barGear';
 import { speciesById } from './data/fish';
@@ -73,6 +73,36 @@ describe('casting', () => {
     expect(step(INITIAL_STATE, { type: 'release' }, ctx).state).toBe(INITIAL_STATE);
     const casting = run(fullPowerCast, ctx).state;
     expect(step(casting, { type: 'press' }, ctx).state).toBe(casting);
+  });
+});
+
+describe('minimum hold and cancel', () => {
+  const held = (ms: number): FishingInput[] => [{ type: 'press' }, { type: 'tick', dtMs: ms }];
+
+  it('a release at 100 ms is a tap: back to idle, no cast event', () => {
+    const { state, events } = run([...held(100), { type: 'release' }], ctxWith());
+    expect(state).toEqual(INITIAL_STATE);
+    expect(events).toEqual([]);
+  });
+
+  it('a release at 200 ms casts', () => {
+    expect(MIN_HOLD_MS).toBeLessThanOrEqual(200);
+    const { state, events } = run([...held(200), { type: 'release' }], ctxWith());
+    expect(state.kind).toBe('casting');
+    expect(events.map((e) => e.type)).toEqual(['cast']);
+  });
+
+  it('a cancel while charging goes back to idle with no cast, however long it was held', () => {
+    const { state, events } = run([...held(700), { type: 'cancel' }], ctxWith());
+    expect(state).toEqual(INITIAL_STATE);
+    expect(events).toEqual([]);
+  });
+
+  it('a cancel outside charging changes nothing except letting go of the bar in a fight', () => {
+    const ctx = ctxWith();
+    expect(step(INITIAL_STATE, { type: 'cancel' }, ctx).state).toBe(INITIAL_STATE);
+    const casting = run(fullPowerCast, ctx).state;
+    expect(step(casting, { type: 'cancel' }, ctx).state).toBe(casting);
   });
 });
 

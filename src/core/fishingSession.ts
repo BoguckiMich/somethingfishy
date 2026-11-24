@@ -1,4 +1,4 @@
-import { castDistance, chargePower } from './casting';
+import { castDistance, chargePower, MIN_HOLD_MS } from './casting';
 import { barResult, newCatchBar, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
 import type { TimeOfDay } from './clock';
 import { speciesById } from './data/fish';
@@ -34,6 +34,8 @@ export type FishingState =
 export type FishingInput =
   | { type: 'press' }
   | { type: 'release' }
+  /** The browser took the touch away (pointercancel, long-press menu, leaving the canvas on a phone): charging stops with no cast, a held fight press lets go. */
+  | { type: 'cancel' }
   | { type: 'tick'; dtMs: number }
   | { type: 'landed' }
   | { type: 'retrieved' };
@@ -105,7 +107,10 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
 
     case 'charging':
       if (input.type === 'tick') return same({ kind: 'charging', heldMs: state.heldMs + input.dtMs });
+      if (input.type === 'cancel') return same(INITIAL_STATE);
       if (input.type === 'release') {
+        // Too short a hold is a tap: back to idle, no cast and (the bait is used on the cast event) no bait spent.
+        if (state.heldMs < MIN_HOLD_MS) return same(INITIAL_STATE);
         const power = chargePower(state.heldMs);
         const distanceM = castDistance(power, ctx.rod);
         const zone = zoneAt(ctx.location, distanceM).id;
@@ -186,7 +191,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
     }
 
     case 'fighting': {
-      if (input.type === 'press' || input.type === 'release') {
+      if (input.type === 'press' || input.type === 'release' || input.type === 'cancel') {
         return same({ ...state, bar: { ...state.bar, holding: input.type === 'press' } });
       }
       if (input.type !== 'tick') return same(state);
