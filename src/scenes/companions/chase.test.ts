@@ -110,3 +110,40 @@ describe('the chase never gets stuck (seeded simulations)', () => {
     expect(n).toBeGreaterThan(runs.length * 0.9);
   });
 });
+
+/**
+ * Frame time differs between devices (a 120/144 Hz screen ticks every 7-8 ms, a slow phone every 33 ms):
+ * the dog must not freeze at the edge on any of them. At 8 ms her step towards her waypoint and her slide
+ * round him were opposite ways and undid each other every other frame (a two-frame limit cycle: both
+ * standing, she "runs" on the spot).
+ */
+describe('the chase never freezes at any frame time', () => {
+  for (const dt of [8, 11, 16, 33]) {
+    it(`the dog covers more than 20 px in any 1.5 s of the chase at ${dt} ms frames`, () => {
+      const win = Math.round(1500 / dt);
+      for (const start of STARTS) {
+        for (let seed = 1; seed <= 40; seed++) {
+          const rng = seededRng(seed);
+          const s: Companions = createCompanions(rng);
+          startPlayNow(s);
+          Object.assign(s.paj, start.paj);
+          Object.assign(s.dog, start.dog);
+          const h: { chase: boolean; x: number; y: number }[] = [];
+          for (let t = 0; t < 60_000; t += dt) {
+            tickCompanions(s, dt, idle, rng);
+            h.push({ chase: s.mode === 'play' && s.play.phase === 'keepAway', x: s.dog.x, y: s.dog.y });
+          }
+          for (let i = 0; i + win < h.length; i += 2) {
+            let ok = true;
+            let far = 0;
+            for (let k = i; k <= i + win && ok; k++) {
+              ok = h[k].chase;
+              far = Math.max(far, dist(h[k], h[i]));
+            }
+            if (ok && far <= 20) throw new Error(`${start.name}, seed ${seed}, ${dt} ms: dog stuck near ${Math.round(h[i].x)},${Math.round(h[i].y)} at ${i * dt} ms`);
+          }
+        }
+      }
+    });
+  }
+});
