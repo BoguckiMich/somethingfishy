@@ -104,3 +104,10 @@ export function openBox(player: PlayerState, today: string, rng: Rng): { player:
   for (const [id, n] of Object.entries(contents.baits)) next = addBait(next, id, n);
   return { contents, player: next };
 }
+
+/** The line under the streak squares (slice 22b): what the next day in a row brings, or that the top tier is reached. */
+export function tierHint(tier: number): string {
+  if (tier >= DAILY_BOX.maxTier) return 'Top tier: the biggest box';
+  if (tier < DAILY_BOX.glow.minTier) return `${tier + 1} days in a row: a chance of glow bait`;
+  return `${tier + 1} days in a row: a bigger box`;
+}

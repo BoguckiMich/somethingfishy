@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SPECIES } from './data/fish';
-import { newFishLog, recordCatch, speciesCaught, whereWhen, type FishLog } from './fishLog';
+import { newFishLog, recordCatch, speciesCaught, lockedHint, whereWhen, type FishLog } from './fishLog';
 
 const roach = (lengthCm: number, weightG = lengthCm * 10) => ({ speciesId: 'roach', lengthCm, weightG });
 
@@ -61,5 +61,20 @@ describe('whereWhen', () => {
   it('says any time when it bites all day', () => {
     expect(of('bream')).toBe('Deep water · any time');
     expect(of('crucian')).toBe('Shallow water · any time');
+  });
+});
+
+describe('lockedHint', () => {
+  const of = (id: string) => lockedHint(SPECIES.find((s) => s.id === id)!);
+  it('gives icons and words for the depth and the times', () => {
+    expect(of('roach')).toMatchObject({ depth: 'shallow', times: ['sun'], text: 'Shallow water · by day' });
+    expect(of('zander')).toMatchObject({ depth: 'deep', times: ['half', 'moon'], text: 'Deep water · at dusk and night' });
+    expect(of('tench')).toMatchObject({ depth: 'deep', times: ['half'], text: 'Deep water · at dawn and dusk' });
+  });
+  it('shows all three time icons for any time', () => {
+    expect(of('bream')).toMatchObject({ depth: 'deep', times: ['sun', 'half', 'moon'], text: 'Deep water · any time' });
+  });
+  it('keeps the riddle of the legendary', () => {
+    expect(of('pale').text).toMatch(/clock shows 3/);
   });
 });

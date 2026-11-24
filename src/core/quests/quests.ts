@@ -314,7 +314,7 @@ export function rerollQuest(player: PlayerState, index: number, today: string): 
 
 // ---- Words -----------------------------------------------------------------------------------
 
-/** "Catch 3 roach", "Catch a fish at dusk", "Sell 100 coins' worth of fish", "Beat a personal best". */
+/** "Catch 3 roach", "Catch a fish at dusk", "Sell fish for 100 coins", "Beat a personal best". */
 export function questText(quest: Quest): string {
   const n = quest.params.target;
   switch (quest.kind) {
@@ -329,7 +329,7 @@ export function questText(quest: Quest): string {
       return n === 1 ? `Catch a fish ${when}` : `Catch ${n} fish ${when}`;
     }
     case 'catchDeep': return `Catch ${n} fish in deep water`;
-    case 'sellCoins': return `Sell ${n} coins' worth of fish`;
+    case 'sellCoins': return `Sell fish for ${n} coins`;
     case 'beatRecord': return 'Beat a personal best';
   }
 }

@@ -1,3 +1,4 @@
+import type { TimeOfDay } from './clock';
 import { POOL_SPECIES, type Species } from './data/fish';
 import { starFor, type Star } from './data/stars';
 import { PALE_ONE } from './data/legendary';
@@ -48,6 +49,28 @@ export const goldCount = (log: FishLog): number => POOL_SPECIES.filter((s) => be
 
 /** How many different species are in the log ("7" of "7/12"). */
 export const speciesCaught = (log: FishLog): number => Object.keys(log).length;
+
+/** What a locked log tile tells (slice 22b): icons for the depth and the times, and the same said in words for the tap card. */
+export interface LockedHint {
+  depth: 'shallow' | 'deep';
+  /** The kinds of time to draw: day = sun, dawn and dusk = one half sun, night = moon. All four times = all three icons. */
+  times: ('sun' | 'half' | 'moon')[];
+  text: string;
+}
+
+const TIME_ICON: Record<TimeOfDay, 'sun' | 'half' | 'moon'> = { dawn: 'half', day: 'sun', dusk: 'half', night: 'moon' };
+const TIME_PHRASE: Record<TimeOfDay, string> = { dawn: 'at dawn', day: 'by day', dusk: 'at dusk', night: 'at night' };
+
+/** "Shallow water · by day", "Deep water · at dusk and night", "Shallow water · any time"; the Pale One keeps its riddle. */
+export function lockedHint(species: Species): LockedHint {
+  const depth = species.zone === 'deep' ? 'deep' : 'shallow';
+  const anyTime = species.times.length >= 4;
+  const times = [...new Set(species.times.map((t) => TIME_ICON[t]))];
+  const where = depth === 'deep' ? 'Deep water' : 'Shallow water';
+  const when = anyTime ? 'any time' : species.times.map((t, i) => (i === 0 ? TIME_PHRASE[t] : TIME_PHRASE[t].replace(/^(at|by) /, ''))).join(' and ');
+  const text = species.logHint ?? `${where} · ${when}`;
+  return { depth, times: anyTime ? ['sun', 'half', 'moon'] : times, text };
+}
 
 /** "Shallow water · day", "Deep water · dusk, night", "Deep water · any time". */
 export function whereWhen(species: Species): string {

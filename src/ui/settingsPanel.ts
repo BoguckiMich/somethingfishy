@@ -5,7 +5,10 @@ import type { SoundSettings } from '../core/soundSettings';
 import { saveSummary, type SaveData } from '../core/save';
 import { decodeSaveCode, type DecodeResult } from '../core/saveCode';
 import { SPECIES } from '../core/data/fish';
-import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
+import { COLORS, el, openPanel, woodButton as baseButton, type ButtonOptions, type PanelHandle } from './panel';
+
+/** Settings buttons are wood (secondary); only the confirming "Yes" buttons are gold: one gold per card. */
+const woodButton = (label: string, onClick: () => void, opts: ButtonOptions = {}) => baseButton(label, onClick, { variant: 'wood', ...opts });
 
 /** What the settings panel needs from the scene; the rules live in core and the scene. */
 export interface SettingsStore {
@@ -104,7 +107,7 @@ const row = (...kids: HTMLElement[]) => {
 const volumeRow = (label: string, initial: number, onInput: (v: number) => void, onRelease: (v: number) => void): HTMLElement => {
   const r = el('div', 'display:flex;align-items:center;gap:10px;margin-top:8px');
   r.append(el('div', `font-size:${FS.body}px;color:${COLORS.text};width:76px;flex:none`, label));
-  const slider = el('input', `flex:1;min-width:0;margin:0;accent-color:${COLORS.gold};height:24px`);
+  const slider = el('input', `flex:1;min-width:0;margin:0;accent-color:${COLORS.gold};height:44px`);
   slider.type = 'range';
   slider.min = '0';
   slider.max = '100';
@@ -131,6 +134,7 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
   let importMessage = '';
   let importText = '';
   let copyNote = '';
+  let saveOpen = false;
 
   const panel: PanelHandle = openPanel(
     'Settings',
@@ -154,7 +158,7 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
           woodButton('Yes, load it', () => {
             store.applyImport(p.save, p.profile);
             panel.close();
-          }),
+          }, { variant: 'gold' }),
           cancel,
         ),
       );
@@ -165,7 +169,7 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
           woodButton('Yes, start over', () => {
             store.startOver();
             panel.close();
-          }),
+          }, { variant: 'gold' }),
           cancel,
         ),
       );
@@ -193,12 +197,24 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
       ),
     );
 
-    body.append(sectionTitle('Export'));
-    body.append(note('Copy this code to keep your game or move it to another device.'));
+    body.append(sectionTitle('Names'));
+    body.append(
+      row(
+        woodButton('Change names', () => {
+          panel.close();
+          store.openNames();
+        }, { variant: 'wood' }),
+      ),
+    );
+
+    // The code boxes are the scariest thing in the game: folded behind a wood button until asked for.
+    const saveBox = el('div', '');
+    saveBox.append(sectionTitle('Export'));
+    saveBox.append(note('Copy this code to keep your game or move it to another device.'));
     const code = store.exportCode();
     const out = textArea(true);
     out.value = code;
-    body.append(out);
+    saveBox.append(out);
     const copied = () => {
       copyBtn.textContent = 'Copied!';
       status.textContent = '';
@@ -216,16 +232,16 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
       clip.writeText(code).then(copied, legacy);
     });
     const status = note(copyNote, COLORS.gold);
-    body.append(row(copyBtn), status);
+    saveBox.append(row(copyBtn), status);
 
-    body.append(sectionTitle('Import'));
+    saveBox.append(sectionTitle('Import'));
     const inp = textArea(false);
     inp.placeholder = 'Paste a code here';
     inp.value = importText;
     inp.addEventListener('input', () => (importText = inp.value));
-    body.append(inp);
+    saveBox.append(inp);
     const msg = note(importMessage, COLORS.amber);
-    body.append(
+    saveBox.append(
       row(
         woodButton('Load', () => {
           const r = decodeSaveCode(inp.value);
@@ -243,13 +259,14 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
       msg,
     );
 
-    body.append(sectionTitle('Names'));
+    body.append(sectionTitle('Save code'));
+    if (saveOpen) body.append(saveBox);
     body.append(
       row(
-        woodButton('Change names', () => {
-          panel.close();
-          store.openNames();
-        }),
+        woodButton(saveOpen ? 'Hide save code' : 'Save code...', () => {
+          saveOpen = !saveOpen;
+          panel.refresh();
+        }, { variant: 'wood' }),
       ),
     );
 

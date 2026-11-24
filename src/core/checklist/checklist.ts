@@ -112,6 +112,51 @@ export function canFill(p: PlayerState, bundleId: string, slot: number): boolean
   return s.kind === 'coins' ? p.coins >= s.amount : cheapestFitting(p.bag, s) >= 0;
 }
 
+/** Bundles in the order the panel lists them (slice 22b): unfinished ones in their own order, finished ones sink to the bottom. */
+export function checklistOrder(p: PlayerState): ChecklistBundle[] {
+  return [...CHECKLIST.filter((b) => !bundleDone(p, b.id)), ...CHECKLIST.filter((b) => bundleDone(p, b.id))];
+}
+
+/** The bundle the panel opens first: the first one she can give something to now, else the first unfinished one, else none. */
+export function firstOpenBundle(p: PlayerState): string | undefined {
+  const open = checklistOrder(p).filter((b) => !bundleDone(p, b.id));
+  return (open.find((b) => b.slots.some((_, i) => canFill(p, b.id, i))) ?? open[0])?.id;
+}
+
+/** How many of a bundle's slots are filled. */
+export const filledCount = (p: PlayerState, bundleId: string): number => (checklistOf(p)[bundleId] ?? []).filter(Boolean).length;
+
+export interface GiveWarning {
+  fish: BagFish;
+  gold: boolean;
+  fotd: boolean;
+  /** "Gives your 33 cm perch, a gold fish" */
+  text: string;
+}
+
+/** When Give would take a gold-star fish or the fish of the day (the cheapest fitting fish), says so; otherwise undefined. */
+export function giveWarning(p: PlayerState, bundleId: string, slot: number, fotdId?: string): GiveWarning | undefined {
+  const s = bundleById(bundleId)?.slots[slot];
+  if (!s || s.kind === 'coins' || slotFilled(p, bundleId, slot)) return undefined;
+  const i = cheapestFitting(p.bag, s);
+  if (i < 0) return undefined;
+  const fish = p.bag[i];
+  const sp = speciesById(fish.speciesId);
+  if (!sp) return undefined;
+  const gold = starFor(sp, fish.lengthCm) === 'gold';
+  const fotd = fotdId !== undefined && fish.speciesId === fotdId;
+  if (!gold && !fotd) return undefined;
+  const what = gold && fotd ? 'a gold fish, and the fish of the day' : gold ? 'a gold fish' : 'the fish of the day';
+  return { fish, gold, fotd, text: `Gives your ${fish.lengthCm} cm ${sp.name.toLowerCase()}, ${what}` };
+}
+
+/** Why a slot's button is off ("not in bag", "need 120 more"), or undefined when it can be filled. */
+export function slotBlockReason(p: PlayerState, bundleId: string, slot: number): string | undefined {
+  const s = bundleById(bundleId)?.slots[slot];
+  if (!s || slotFilled(p, bundleId, slot) || canFill(p, bundleId, slot)) return undefined;
+  return s.kind === 'coins' ? `need ${s.amount - p.coins} more` : 'not in bag';
+}
+
 const BAIT_WORDS: Record<string, string> = { strip: 'fish strip', glow: 'glow bait', corn: 'corn', maggots: 'maggots' };
 
 /** "+10 corn · +60 coins" style text for a reward ('' for none). */

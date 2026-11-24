@@ -5,10 +5,11 @@ import { TRANSPARENT, sprite, type Sprite } from './pixelGrid';
 /** Pure art for the size stars (slice 19): a 9 x 9 pixel star per tier, and a row of 1-3 of them. Usable in Phaser and on DOM canvases. */
 
 type Tier = Exclude<Star, 'none'>;
-const FILL: Record<Tier, { f: number; h: number }> = {
-  bronze: { f: 0xcd7f45, h: 0xefb27d },
-  silver: { f: 0xb8c4d2, h: 0xffffff },
-  gold: { f: 0xffc72c, h: 0xfff3a6 },
+/** Body, highlight and edge per tier. Silver is a grey star (stone body, white highlight, dark stone edge) so it stays visible on bright water. */
+const FILL: Record<Tier, { f: number; h: number; o: number }> = {
+  bronze: { f: 0xcd7f45, h: 0xefb27d, o: PAL.outline },
+  silver: { f: PAL.stoneLight, h: PAL.white, o: PAL.stoneDark },
+  gold: { f: 0xffc72c, h: 0xfff3a6, o: PAL.outline },
 };
 
 const STAR = `
@@ -27,7 +28,7 @@ export const STAR_SIZE = 9;
 
 /** One star of the tier. */
 export function starSprite(tier: Tier): Sprite {
-  return sprite(STAR, { o: PAL.outline, f: FILL[tier].f, h: FILL[tier].h });
+  return sprite(STAR, { o: FILL[tier].o, f: FILL[tier].f, h: FILL[tier].h });
 }
 
 /** The stars a fish of this star shows, side by side with a 1 px gap (1 bronze, 2 silver, 3 gold); undefined for none. */

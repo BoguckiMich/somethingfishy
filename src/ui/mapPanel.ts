@@ -126,10 +126,10 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
           panel.close();
           onChecklist();
         }),
-        woodButton('Take a nap...', () => {
+        woodButton('Nap in the car...', () => {
           panel.close();
           onNap();
-        }),
+        }, { variant: 'wood' }),
       );
       body.append(
         nap,

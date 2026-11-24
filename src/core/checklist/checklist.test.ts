@@ -5,7 +5,7 @@ import { lengthForStar } from '../data/stars';
 import { newPlayer, type BagFish, type PlayerState } from '../inventory';
 import { normalizeSave } from '../save';
 import {
-  allButPetrol, allDone, bundleDone, canFill, checklistOf, checklistRewardText, doneCount, fits, fittingSlots, giveFish, normalizeChecklist, payCoins, slotFilled,
+  allButPetrol, checklistOrder, firstOpenBundle, giveWarning, slotBlockReason, allDone, bundleDone, canFill, checklistOf, checklistRewardText, doneCount, fits, fittingSlots, giveFish, normalizeChecklist, payCoins, slotFilled,
 } from './checklist';
 
 const fish = (speciesId: string, price = 10, lengthCm = 15): BagFish => ({ speciesId, lengthCm, weightG: 100, price });
@@ -160,5 +160,39 @@ describe('normalising', () => {
     expect(p.checklist).toBeDefined();
     expect(Object.keys(p.checklist!)).not.toContain('ghost');
     expect(checklistOf(p)['duck-tax']).toEqual([true]);
+  });
+});
+
+describe('panel order and warnings (slice 22b)', () => {
+  it('lists unfinished bundles first and sinks finished ones', () => {
+    const p = withBag([], { checklist: { 'dawn-chorus': [true, true, true] } });
+    const ids = checklistOrder(p).map((b) => b.id);
+    expect(ids[ids.length - 1]).toBe('dawn-chorus');
+    expect(ids[0]).toBe('night-shift');
+    expect(ids).toHaveLength(6);
+  });
+  it('opens the first bundle she can give to, else the first unfinished one' + ', else none', () => {
+    expect(firstOpenBundle(withBag([]))).toBe('dawn-chorus');
+    expect(firstOpenBundle(withBag([fish('eel')]))).toBe('night-shift');
+    expect(firstOpenBundle(withBag([fish('bleak')], { checklist: { 'dawn-chorus': [true, true, false] } }))).toBe('dawn-chorus');
+    const all = allButPetrol(withBag([]), true);
+    expect(firstOpenBundle(all)).toBeUndefined();
+  });
+  it('warns when Give would take a gold fish or the fish of the day' + ', not otherwise', () => {
+    expect(giveWarning(withBag([fish('roach')]), 'dawn-chorus', 0)).toBeUndefined();
+    const g = giveWarning(withBag([gold('roach')]), 'dawn-chorus', 0);
+    expect(g?.gold).toBe(true);
+    expect(g?.text).toMatch(/^Gives your \d+ cm roach, a gold fish/);
+    const f = giveWarning(withBag([fish('roach')]), 'dawn-chorus', 0, 'roach');
+    expect(f?.fotd).toBe(true);
+    expect(f?.text).toMatch(/fish of the day/);
+    // The cheapest fitting fish is the one given: a plain roach in the bag means no warning.
+    expect(giveWarning(withBag([gold('roach', 90), fish('roach', 5)]), 'dawn-chorus', 0)).toBeUndefined();
+    expect(giveWarning(withBag([gold('roach')]), 'petrol', 0)).toBeUndefined();
+  });
+  it('says why a slot cannot be filled', () => {
+    expect(slotBlockReason(withBag([]), 'dawn-chorus', 0)).toBe('not in bag');
+    expect(slotBlockReason(withBag([fish('roach')]), 'dawn-chorus', 0)).toBeUndefined();
+    expect(slotBlockReason(withBag([], { coins: 100 }), 'petrol', 0)).toBe('need 400 more');
   });
 });

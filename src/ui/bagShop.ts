@@ -1,5 +1,5 @@
 import { FONT, FS, LINE } from '../font';
-import { fishIconSprite } from '../art/fishArt';
+import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { coinSprite, wormSprite } from '../art/iconArt';
 import { shopIconSprite } from '../art/shopIconArt';
 import type { Sprite } from '../art/pixelGrid';
@@ -29,11 +29,13 @@ import {
   nextRod,
   sellAll,
   sellOne,
+  shopStartTab,
   type BagFish,
   type Outcome,
   type PlayerState,
 } from '../core/inventory';
-import { fishCanvas } from './logPanel';
+import { sound } from '../audio/sound';
+import { fishBoxCanvas } from './logPanel';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import { installFrameStyles } from './frames';
 import { spriteCanvas } from './spriteCanvas';
@@ -52,7 +54,7 @@ const sectionTitle = (text: string) =>
   el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:12px 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, text);
 
 /** A number with the small coin icon in front (prices, purse, totals). */
-function coinAmount(n: number | string, color: string = COLORS.gold): HTMLElement {
+export function coinAmount(n: number | string, color: string = COLORS.gold): HTMLElement {
   const box = el('span', `display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:${FS.body}px;color:${color}`);
   box.append(spriteCanvas(coinSprite(), 16), el('span', '', String(n)));
   return box;
@@ -66,8 +68,7 @@ function coinButtonLabel(button: HTMLButtonElement, prefix: string, n: number): 
 
 function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
   const row = el('div', `display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid ${COLORS.woodLight}`);
-  const pic = el('div', 'flex:none;width:34px;height:28px;display:flex;align-items:center;justify-content:center');
-  pic.append(fishCanvas(fishIconSprite(f.speciesId), 36, 2));
+  const pic = fishBoxCanvas(fishSprite(f.speciesId, fishSizeClass(f.speciesId, f.lengthCm)), 32);
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
   const sp = speciesById(f.speciesId);
   const stars = sp ? starRow(starFor(sp, f.lengthCm), 2) : undefined;
@@ -190,32 +191,71 @@ function tackleCard(
 
 const emptyNote = (text: string) => el('div', `font-size:${FS.body}px;color:${COLORS.cream};padding:6px 0`, text);
 
-/** The bag: what she caught, its size and price, and the total value. */
-export function openBagPanel(store: PlayerStore, onClose: () => void): PanelHandle {
+/** The bag: what she caught, its size and price, and the total value. Once there is fish, a footer sends her to the Shop (`goShop`). */
+export function openBagPanel(store: PlayerStore, onClose: () => void, goShop?: () => void): PanelHandle {
   return openPanel(
     `Bag (${store.get().bag.length}/${SHOP.bagSlots})`,
-    (body) => {
+    (body, _pinned, footer) => {
       const { bag } = store.get();
       if (bag.length === 0) body.append(emptyNote('The bag is empty. Go catch something!'));
       for (const f of bag) body.append(fishRow(f));
       const total = el('div', `margin-top:10px;font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};display:flex;justify-content:flex-end;align-items:center;gap:6px`, 'Total value:');
       total.append(coinAmount(bagValue(bag)));
       body.append(total);
+      if (bag.length > 0 && goShop) {
+        const go = el('div', `display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:2px solid ${COLORS.woodLight}`);
+        go.append(el('div', `flex:1;min-width:0;font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream}`, 'Sell fish at the Shop'));
+        const b = woodButton('Go to Shop', goShop, { small: true, variant: 'wood' });
+        b.style.flex = 'none';
+        go.append(b);
+        footer.append(go);
+      }
     },
     onClose,
   );
 }
 
-/** The shop: sell fish, buy worms, buy the next rod, line and reel. */
-export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHandle {
+/** One of the two shop tabs: 44 px tall, the active one lighter wood with a gold underline. */
+function shopTab(label: string, active: boolean, onPick: () => void): HTMLButtonElement {
+  const b = el(
+    'button',
+    [
+      'flex:1',
+      'height:44px',
+      'box-sizing:border-box',
+      'padding:0 6px',
+      'cursor:pointer',
+      `font:${FS.body}px/${LINE} ${FONT}`,
+      `color:${active ? COLORS.text : COLORS.cream}`,
+      `background:${active ? COLORS.woodLight : '#2a1a12'}`,
+      `border:2px solid ${COLORS.outline}`,
+      `border-bottom:3px solid ${active ? COLORS.gold : COLORS.outline}`,
+    ].join(';'),
+    label,
+  );
+  b.type = 'button';
+  b.setAttribute('role', 'tab');
+  b.setAttribute('aria-selected', String(active));
+  b.addEventListener('click', () => {
+    if (!active) {
+      sound.play('tap');
+      onPick();
+    }
+  });
+  return b;
+}
+
+/** The shop: Sell and Buy tabs (opens on Sell when the bag has fish, else Buy; `startTab` forces one). */
+export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?: 'sell' | 'buy'): PanelHandle {
   let ownerNote = '';
+  let tab: 'sell' | 'buy' = startTab ?? shopStartTab(store.get());
   const apply = (r: Outcome, boughtId?: string) => {
     store.set(r.state);
     if (r.ok && boughtId) popId = boughtId;
   };
   const panel: PanelHandle = openPanel(
     'Shop',
-    (body) => {
+    (body, pinned) => {
       // Soft-lock guard: runs every time the shop is (re)drawn.
       const guard = freeWormsIfStuck(store.get());
       if (guard.granted) {
@@ -227,33 +267,50 @@ export function openShopPanel(store: PlayerStore, onClose: () => void): PanelHan
       const worms = el('span', 'display:inline-flex;align-items:center;gap:4px');
       worms.append(spriteCanvas(wormSprite(), 16), el('span', '', String(p.worms)));
       purse.append(coinAmount(p.coins, COLORS.cream), worms);
-      body.append(purse);
-      if (ownerNote) body.append(el('div', `font-size:${FS.body}px;color:${COLORS.gold};margin-top:6px`, ownerNote));
+      pinned.append(purse);
+      if (ownerNote) pinned.append(el('div', `font-size:${FS.body}px;color:${COLORS.gold};margin-top:6px`, ownerNote));
 
-      body.append(sectionTitle('Sell'));
-      if (p.bag.length === 0) body.append(emptyNote('Nothing to sell.'));
-      p.bag.forEach((f, i) => {
-        body.append(
-          fishRow(
-            f,
-            woodButton('Sell', () => {
-              apply(sellOne(store.get(), i));
-              panel.refresh();
-            }, { small: true, sfx: 'coin' }),
-          ),
-        );
-      });
-      if (p.bag.length > 0) {
+      const tabs = el('div', 'display:flex;gap:4px;margin:8px 0 6px');
+      tabs.append(
+        shopTab(`Sell (${p.bag.length})`, tab === 'sell', () => {
+          tab = 'sell';
+          panel.refresh(true);
+        }),
+        shopTab('Buy', tab === 'buy', () => {
+          tab = 'buy';
+          panel.refresh(true);
+        }),
+      );
+      pinned.append(tabs);
+
+      if (tab === 'sell') {
+        if (p.bag.length === 0) {
+          body.append(emptyNote('Nothing to sell.'));
+          return;
+        }
+        // "Sell all" is pinned above the list; each row's own Sell is wood so it is the only gold button.
         const all = woodButton('Sell all', () => {
           apply(sellAll(store.get()));
           panel.refresh();
         }, { sfx: 'coin' });
         coinButtonLabel(all, 'Sell all +', bagValue(p.bag));
-        all.style.cssText += ';width:100%;margin-top:8px';
-        body.append(all);
+        all.style.cssText += ';width:100%;margin-bottom:4px';
+        pinned.append(all);
+        p.bag.forEach((f, i) => {
+          body.append(
+            fishRow(
+              f,
+              woodButton('Sell', () => {
+                apply(sellOne(store.get(), i));
+                panel.refresh();
+              }, { small: true, sfx: 'coin', variant: 'wood' }),
+            ),
+          );
+        });
+        return;
       }
 
-      body.append(sectionTitle('Bait'));
+      body.append(el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:0 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, 'Bait'));
       body.append(
         itemCard({
           id: 'worms',

@@ -22,18 +22,19 @@ export function openBaitPicker(store: PlayerStore, onClose: () => void): PanelHa
       for (const { id, count } of ownedBaits(p)) {
         const bait = baitById(id);
         const name = bait?.name ?? 'Worms';
-        const effect = bait?.effect ?? WORM_EFFECT;
+        const effect = bait?.short ?? bait?.effect ?? WORM_EFFECT;
         const usable = count > 0;
         const on = id === current;
         const row = el(
-          'div',
+          "div",
           [
-            'display:flex;align-items:center;gap:8px;padding:6px;margin-bottom:6px;box-sizing:border-box',
-            `background:${on ? COLORS.woodLight : COLORS.wood}`,
-            `border:2px solid ${on ? COLORS.gold : COLORS.outline}`,
-            `cursor:${usable ? 'pointer' : 'default'}`,
-            usable ? '' : 'opacity:0.5',
-          ].join(';'),
+            "display:flex;align-items:center;gap:8px;padding:6px 4px;box-sizing:border-box",
+            `border-bottom:1px solid ${COLORS.woodLight}`,
+            `background:${on ? COLORS.woodLight : "transparent"}`,
+            `box-shadow:${on ? `inset 3px 0 ${COLORS.gold}` : "none"}`,
+            `cursor:${usable ? "pointer" : "default"}`,
+            usable ? "" : "opacity:0.5",
+          ].join(";"),
         );
         row.setAttribute('role', 'button');
         row.dataset.baitId = id;

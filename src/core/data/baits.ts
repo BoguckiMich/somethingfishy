@@ -18,6 +18,8 @@ export interface Bait {
   name: string;
   /** Capitalised, shown in the shop and the picker. */
   effect: string;
+  /** A shorter effect line for the bait picker (slice 22b). */
+  short?: string;
   /** Shop pack; absent = not sold. */
   pack?: { size: number; price: number };
   /** Spawn weight x`factor` for these species... */
@@ -33,22 +35,22 @@ export const WORM_ID = 'worm';
 
 export const BAITS: Bait[] = [
   {
-    id: 'corn', name: 'Corn', effect: 'Carp, tench, bream and crucian bite 3x as often',
+    id: 'corn', name: 'Corn', effect: 'Carp, tench, bream and crucian bite 3x as often', short: 'Carp, tench, bream, crucian x3',
     pack: { size: 10, price: 30 },
     speciesBoost: { ids: ['carp', 'tench', 'bream', 'crucian'], factor: 3 },
   },
   {
-    id: 'maggots', name: 'Maggots', effect: 'Bites come sooner in shallow water',
+    id: 'maggots', name: 'Maggots', effect: 'Bites come sooner in shallow water', short: 'Faster bites in shallow water',
     pack: { size: 10, price: 20 },
     waitFactor: { zone: 'shallow', factor: 0.6 },
   },
   {
-    id: 'strip', name: 'Fish strip', effect: 'Pike, zander, eel and catfish bite 3x as often',
+    id: 'strip', name: 'Fish strip', effect: 'Pike, zander, eel and catfish bite 3x as often', short: 'Pike, zander, eel, catfish x3',
     pack: { size: 10, price: 40 },
     speciesBoost: { ids: ['pike', 'zander', 'eel', 'catfish'], factor: 3 },
   },
   {
-    id: 'glow', name: 'Glow bait', effect: 'Rare fish bite 3x as often',
+    id: 'glow', name: 'Glow bait', effect: 'Rare fish bite 3x as often', short: 'Rare fish x3',
     rarityBoost: { rarity: 'rare', factor: 3 },
   },
 ];

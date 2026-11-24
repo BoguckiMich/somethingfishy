@@ -9,6 +9,7 @@ import {
   addCatch,
   applyEvent,
   bagValue,
+  shopStartTab,
   buyLine,
   buyNightKit,
   hasNightKit,
@@ -303,5 +304,12 @@ describe('the night kit', () => {
     const bought = buyNightKit(rich('carbon')).state;
     expect(buyNightKit(bought)).toMatchObject({ ok: false, error: 'owned' });
     expect(bought.coins).toBe(500);
+  });
+});
+
+describe('shopStartTab', () => {
+  it('opens on Sell with fish in the bag and on Buy when it is empty', () => {
+    expect(shopStartTab(newPlayer())).toBe('buy');
+    expect(shopStartTab({ ...newPlayer(), bag: [{ speciesId: 'roach', lengthCm: 15, weightG: 50, price: 10 }] })).toBe('sell');
   });
 });
