@@ -489,6 +489,18 @@ open. Fix: after `updateSW(true)`, reload anyway if the page is still there ~1.5
 - **Night kit: "Lantern & blanket", 2500 coins,** in the shop once the fiberglass rod is owned. It
   removes the bedtime, and from 20:00 a warm lantern glow sits around Alex and the dock end.
   No tent (the car is where they sleep).
+- **Change after the phone test (user, 2026-11-24): bedtime was too sudden.**
+  - Pajkel and Bestia go to the car at **00:00** (same sequence: his line, the chase, the carry),
+    with or without the night kit. Alex keeps fishing alone after that.
+  - At **01:00**, without the kit, a gentle warning: "Bedtime at 02:00 - one more hour" (a toast
+    above the bar, ~5 s; if a fight/panel is up, it shows when it ends). If the shop sells the kit
+    to her, a second line hints at it ("A lantern would let you stay up").
+  - At **02:00** without the kit: the "Time for bed..." fade to 05:00 as before (no companion
+    sequence then; they are already in the car).
+  - A save loaded between 00:00 and 05:00 starts with them in the car (and without the kit,
+    02:00-05:00 still wakes at 05:00).
+  - The shop always shows the Lantern & blanket card; before the fiberglass rod it is locked with
+    "Needs the Fiberglass Rod" (the user didn't find it while it was hidden).
 - **No tiredness:** the "no energy" rule stays; staying up costs nothing.
 - Deviation (built): the nap card opens whenever they are on the dock and she is idle, also at night (not only by day); a kit owner's nap to "Deep night (02:00)" leaves them awake on the dock until 05:00. Bedtime sets the clock to 05:00 with `day + 1` literally, so the day label advances twice in a night.
 - **Consequence (intended):** the Pale One (02–04) and most uncanny moments (01–05) now need the
