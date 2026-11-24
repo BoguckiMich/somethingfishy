@@ -166,7 +166,6 @@ const CATCH_SUB_Y = 234;
 const CATCH_BADGE_Y = 258;
 const CATCH_NOTE_Y = 274;
 const CATCH_FOTD_Y = 182;
-const CATCH_FITS_Y = 166;
 const FOTD_TEXT = '#8fe3b0';
 const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
@@ -361,6 +360,8 @@ export class LakeScene extends Phaser.Scene {
   /** The caught fish fits an open checklist slot and has room in the bag (slice 20). */
   private catchFits = false;
   private caughtFits!: Phaser.GameObjects.Text;
+  private caughtFitsBack!: Phaser.GameObjects.Graphics;
+  private caughtStarsBack!: Phaser.GameObjects.Graphics;
   private caughtStars!: Phaser.GameObjects.Image;
   private caughtFotd!: Phaser.GameObjects.Text;
   /** Dev flag ?fotd=<id>: forces today's fish. */
@@ -1700,12 +1701,15 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setDepth(Z.uiText)
       .setVisible(false);
-    // Size stars sit right of the length line; the fish-of-the-day line tops the text stack (slice 19).
+    // Size stars sit right of the length line on a dark backing; the fish-of-the-day line tops the text stack (slice 19);
+    // "Fits the checklist!" is a small wood tag at the bottom of the stack (slice 22b).
+    this.caughtFitsBack = this.add.graphics().setDepth(Z.uiText).setVisible(false);
     this.caughtFits = this.add
-      .text(W / 2, CATCH_FITS_Y, 'Fits the checklist!', { fontFamily: FONT, fontSize: `${FS.small}px`, color: FOTD_TEXT, stroke: '#241a2e', strokeThickness: 4 })
+      .text(W / 2, 0, 'Fits the checklist!', { fontFamily: FONT, fontSize: `${FS.small}px`, color: '#f3e3bf', padding: textPad(0, 0, FS.small) })
       .setOrigin(0.5)
       .setDepth(Z.uiText)
       .setVisible(false);
+    this.caughtStarsBack = this.add.graphics().setDepth(Z.uiText).setVisible(false);
     this.caughtStars = this.add.image(0, CATCH_SUB_Y, starKey('bronze')).setOrigin(0, 0.5).setScale(2).setDepth(Z.uiText).setVisible(false);
     this.caughtFotd = this.add
       .text(W / 2, CATCH_FOTD_Y, 'Fish of the day! x2', { fontFamily: FONT, fontSize: `${FS.body}px`, color: FOTD_TEXT, stroke: '#241a2e', strokeThickness: 4 })
@@ -1821,22 +1825,38 @@ export class LakeScene extends Phaser.Scene {
       // A long fact (up to 3 lines at VT323 25 px) would run into Alex's head: lift the whole text stack so the
       // fact ends CATCH_TEXT_LIMIT, the stack's bottom limit (her head top).
       const noteBottom = CATCH_NOTE_Y + this.caughtNote.height;
-      const lift = this.caughtNote.text ? Math.min(0, CATCH_TEXT_LIMIT - noteBottom) : 0;
+      // The checklist tag hangs under the last line of the stack (record, fact, or the size line).
+      const stackBottom = this.caughtNote.text ? noteBottom : this.caughtBadge.text ? CATCH_BADGE_Y + 12 : CATCH_SUB_Y + 14;
+      const fitsY = stackBottom + 16;
+      const bottom = this.catchFits ? fitsY + 12 : noteBottom;
+      const lift = this.caughtNote.text || this.catchFits ? Math.min(0, CATCH_TEXT_LIMIT - bottom) : 0;
       this.caughtText.setY(CATCH_TITLE_Y + lift);
       this.caughtSub.setY(CATCH_SUB_Y + lift);
       this.caughtBadge.setY(CATCH_BADGE_Y + lift);
       this.caughtNote.setY(CATCH_NOTE_Y + lift);
       this.caughtFotd.setY(CATCH_FOTD_Y + lift);
-      this.caughtFits.setY(CATCH_FITS_Y + lift);
+      this.caughtFits.setY(fitsY + lift);
+      this.caughtFitsBack.clear();
+      if (this.catchFits) {
+        const w = Math.round(this.caughtFits.width) + 14;
+        this.caughtFitsBack.fillStyle(0x241a2e, 1).fillRect(W / 2 - w / 2 - 2, fitsY + lift - 12, w + 4, 24);
+        this.caughtFitsBack.fillStyle(0x5c3a22, 1).fillRect(W / 2 - w / 2, fitsY + lift - 10, w, 20);
+        this.caughtFitsBack.fillStyle(0xcb9c5a, 1).fillRect(W / 2 - w / 2, fitsY + lift - 10, w, 2);
+      }
       // The stars sit just right of the length line, popping with it.
       if (this.catchStar !== 'none') {
         this.caughtStars.setTexture(starKey(this.catchStar)).setScale(2 * popScale);
         this.caughtStars.setPosition(W / 2 + (this.caughtSub.displayWidth / 2) + 6, CATCH_SUB_Y + lift);
+        // A dark backing so the stars stay readable on bright midday water.
+        const sb = this.caughtStars;
+        this.caughtStarsBack.clear().fillStyle(0x241a2e, 0.75).fillRect(sb.x - 3, sb.y - sb.displayHeight / 2 - 2, sb.displayWidth + 6, sb.displayHeight + 4);
       }
     }
     this.caughtStars.setVisible(s.kind === 'caught' && this.catchStar !== 'none');
     this.caughtFotd.setVisible(s.kind === 'caught' && this.catchFotd).setScale(popScale);
     this.caughtFits.setVisible(s.kind === 'caught' && this.catchFits).setScale(popScale);
+    this.caughtFitsBack.setVisible(s.kind === 'caught' && this.catchFits);
+    this.caughtStarsBack.setVisible(s.kind === 'caught' && this.catchStar !== 'none');
     this.caughtBadge.setVisible(s.kind === 'caught' && this.caughtBadge.text !== '').setScale(popScale);
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 

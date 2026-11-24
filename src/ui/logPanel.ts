@@ -4,7 +4,8 @@ import { fishSilhouette } from '../art/fishVariants';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 import { isLegendary, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
-import { bestStar, goldCount, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { bestStar, goldCount, lockedHint, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { halfSunSprite, moonSprite, sunSprite, wavesSprite } from '../art/clockIconArt';
 
 import { starRow } from './starRow';
 import { starSprite } from '../art/starArt';
@@ -41,6 +42,17 @@ const artOf =(s: Species, log: FishLog, maxW: number, maxScale: number): HTMLCan
   return fishCanvas(fishSprite(s.id, isLegendary(s) ? 2 : fishSizeClass(s.id, entry.bestLengthCm)), maxW, maxScale);
 };
 
+const TIME_SPRITES = { sun: sunSprite, half: halfSunSprite, moon: moonSprite } as const;
+
+/** The depth icon and the time icons of a locked species, each 9 x 9 drawn at 2x (18 px). */
+function hintIcons(s: Species, px: number): HTMLElement {
+  const h = lockedHint(s);
+  const row = el('div', 'display:flex;align-items:center;justify-content:center;gap:4px');
+  row.append(spriteCanvas(wavesSprite(h.depth === 'deep' ? 3 : 1), px));
+  for (const t of h.times) row.append(spriteCanvas(TIME_SPRITES[t](), px));
+  return row;
+}
+
 function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLElement {
   const entry = log[s.id];
   const base = [
@@ -58,12 +70,10 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     `font:${FS.small}px/${LINE} ${FONT}`,
     'text-align:center',
   ].join(';');
-  const t = el(entry ? 'button' : 'div', base + (entry ? ';cursor:pointer' : ''));
+  const t = el('button', base + ';cursor:pointer');
   t.className = entry && isLegendary(s) ? 'rb-box rb-legend' : 'rb-box';
-  if (t instanceof HTMLButtonElement) {
-    t.type = 'button';
-    t.addEventListener('click', () => onOpen(s.id));
-  }
+  t.type = 'button';
+  t.addEventListener('click', () => onOpen(s.id));
   const art = el('div', 'height:44px;display:flex;align-items:center;justify-content:center');
   art.append(artOf(s, log, 66, 3));
   t.append(art);
@@ -73,11 +83,23 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     if (stars) t.append(stars);
   } else {
     t.append(el('div', `color:${COLORS.dim};line-height:0.8`, '???'));
-    const [where, when] = s.logHint ? s.logHint.split(/(?<=\.) /) : whereWhen(s).split(' · ');
-    const hint = `font-size:${FS.tiny}px;line-height:1.2;color:${COLORS.dim}`;
-    t.append(el('div', hint, where), el('div', hint, when));
+    t.append(hintIcons(s, 18));
   }
   return t;
+}
+
+/** The card a tap on a locked tile opens: the depth and time spelled out at body size. */
+function lockedCard(s: Species, onBack: () => void): HTMLElement {
+  const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
+  col.append(
+    el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${COLORS.dim}`, '???'),
+    hintIcons(s, 36),
+    el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, lockedHint(s).text),
+  );
+  const back = woodButton('Back', onBack, { variant: 'wood' });
+  back.style.cssText += ';width:100%;margin-top:4px';
+  col.append(back);
+  return col;
 }
 
 function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
@@ -95,7 +117,7 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
     el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, s.fact),
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
   );
-  const back = woodButton('Back', onBack);
+  const back = woodButton('Back', onBack, { variant: 'wood' });
   back.style.cssText += ';width:100%;margin-top:4px';
   col.append(back);
   return col;
@@ -109,6 +131,10 @@ export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWi
     (body) => {
       const log = getLog();
       const open = SPECIES.find((s) => s.id === selected);
+      if (open && !log[open.id]) {
+        body.append(lockedCard(open, () => { selected = null; panel.refresh(true); }));
+        return;
+      }
       if (open && log[open.id]) {
         body.append(detail(open, log, () => { selected = null; panel.refresh(); }));
         return;

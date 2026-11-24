@@ -1,6 +1,6 @@
 import { FS, LINE } from '../font';
 import { DAILY_BOX } from '../core/data/daily';
-import type { BoxContents } from '../core/daily/daily';
+import { tierHint, type BoxContents } from '../core/daily/daily';
 import { sound } from '../audio/sound';
 import { baitById } from '../core/data/baits';
 import { shopIconSprite } from '../art/shopIconArt';
@@ -10,14 +10,16 @@ import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 /** Five pips, the first `filled` of them gold: the "Day-in-a-row" streak tier. */
 function streakRow(tier: number): HTMLElement {
   const row = el('div', 'display:flex;align-items:center;gap:8px;margin-top:10px');
-  row.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream}`, `Day-in-a-row: ${tier}`));
+  row.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream}`, `Days in a row: ${tier}`));
   const pips = el('div', 'display:flex;gap:4px;margin-left:auto');
   for (let i = 1; i <= DAILY_BOX.maxTier; i++) {
     const on = i <= tier;
     pips.append(el('div', `width:14px;height:14px;box-sizing:border-box;border:2px solid ${on ? COLORS.goldShade : COLORS.outline};background:${on ? COLORS.gold : COLORS.wood}`));
   }
   row.append(pips);
-  return row;
+  const wrap = el('div', '');
+  wrap.append(row, el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};margin-top:2px`, tierHint(tier)));
+  return wrap;
 }
 
 /**
@@ -63,7 +65,7 @@ export function showBaitBoxCard(tier: number, take: () => BoxContents | null, on
       }
       body.append(streakRow(opened.tier));
       const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:12px');
-      col.append(woodButton('Close', () => panel.close()));
+      col.append(woodButton('Close', () => panel.close(), { variant: 'wood' }));
       body.append(col);
     },
     onClose,
