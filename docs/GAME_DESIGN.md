@@ -815,6 +815,9 @@ today's chapter when one is waiting (else the quests).
   what is hidden before (shown as "???"), and whether old saves (counts only) unlock at once
   (probably yes, counts are kept).
 
+- **Two ways into the notice board, for now** (user, 2026-11-24, after tester feedback): the shore sign and the
+  top-right button both open it; decide from more feedback which one stays.
+
 - **Species that need a special bait** (user, 2026-11-24, still thinking; no change to bites for now) — some
   fish (maybe new ones at the River bend, or a rare Quiet Lake variant) bite *only* on a given bait,
   e.g. glow bait at night, fish strip for a predator. Would give baits a stronger purpose and the
