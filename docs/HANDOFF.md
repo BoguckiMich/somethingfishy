@@ -157,6 +157,10 @@ reviewed by the main session (tsc, tests, build, screenshots) but none play-test
 - **17 fetch** — try it with `?debug=afk` (`&giveback=1` forces the rare round). Weak: the bend pose, the play-bow frame, chase speeds untested.
 
 ### Next candidates (nothing decided)
+- **Bestia sleeps in her bed** (user, 2026-11-24): when we make her actually use the camp bed (rest/nap
+  phase, slice 23e left it as a sprite only), also redraw the bed: it reads too FLAT now. Give it depth: a
+  raised round rim (cushion bolster) with a visible inner hollow, a darker inside, a highlight on the rim
+  top; size so she fits curled up in it. `src/art/campArt.ts`, `/dev/camp-sheet.html`.
 - **Cast hold: done on branch `fix/cast-hold`** (not merged): the charge meter holds at full power for `FULL_POWER_HOLD_MS` (250 ms, `src/core/casting.ts`) before falling back; a gold cap glows on the meter's end during the hold. Needs a phone play-test.
 - **Bestia's run/carry tail: DONE** (`fix/bestia-tail` merged 2026-11-24; weak: curl only 2-3 px, plume dark brown not near black, seen only as stills). Brief it was built from (user, reference photo in chat):
   her real tail is carried HIGH, rising straight up from the rump then curving forward over the back (sickle);
