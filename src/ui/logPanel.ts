@@ -5,6 +5,8 @@ import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 import { isLegendary, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
 import { bestStar, goldCount, lockedHint, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { knowledgeRows, type KnowledgeRow } from '../core/fishKnowledge';
+import { shopIconSprite } from '../art/shopIconArt';
 import { halfSunSprite, moonSprite, sunSprite, wavesSprite } from '../art/clockIconArt';
 
 import { starRow } from './starRow';
@@ -102,6 +104,17 @@ function lockedCard(s: Species, onBack: () => void): HTMLElement {
   return col;
 }
 
+/** One knowledge line: dim "???" when locked, else the text (with the bait's icon). */
+function knowledgeLine(r: KnowledgeRow): HTMLElement {
+  const row = el('div', `display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 6px;font-size:${FS.small}px;line-height:${LINE};color:${r.unlocked ? COLORS.cream : COLORS.dim}`);
+  for (const id of r.baitIds) {
+    const icon = shopIconSprite(id);
+    if (icon) row.append(spriteCanvas(icon, 16));
+  }
+  row.append(el('span', '', r.text));
+  return row;
+}
+
 function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   const entry = log[s.id]!;
   const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
@@ -117,6 +130,12 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
     el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, s.fact),
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
   );
+  const rows = knowledgeRows(s, entry.count);
+  if (rows.length) {
+    const know = el('div', 'display:flex;flex-direction:column;gap:3px;width:100%;margin-top:2px');
+    for (const r of rows) know.append(knowledgeLine(r));
+    col.append(know);
+  }
   const back = woodButton('Back', onBack, { variant: 'wood' });
   back.style.cssText += ';width:100%;margin-top:4px';
   col.append(back);

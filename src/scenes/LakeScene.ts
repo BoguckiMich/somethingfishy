@@ -509,6 +509,13 @@ export class LakeScene extends Phaser.Scene {
     this.storyOn = !this.sandbox || storyParam !== null;
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
+    // Dev-only: ?logcount=N sets every caught species' count to N (fish knowledge tiers).
+    const logCount = Number(params.get('logcount'));
+    if (logCount >= 1) {
+      const log: FishLog = {};
+      for (const [id, e] of Object.entries(this.player.log)) log[id] = { ...e, count: Math.floor(logCount) };
+      this.setPlayer({ ...this.player, log });
+    }
     this.syncRod();
     this.syncQuestsNow();
     // Dev-only: ?qdone=1 finishes the first quest (see the Claim button).
