@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHAPTERS, JOURNAL, JOURNAL_BLINK_DAY, JOURNAL_BLINK_NIGHT, JOURNAL_PALE, PALE_BEAT, STORY_LINES, STORY_TUNING } from '../data/story';
 import { newPlayer } from '../inventory';
+import { withBundlesDone } from '../checklist/checklist';
 import { normalizeSave } from '../save';
 import {
   blinkIsNight,
@@ -21,7 +22,10 @@ import {
   slotFree,
   storyIsEmpty,
   storyOf,
+  storyMilestones,
   todaysChapter,
+  withFlag,
+  recordMilestones,
 } from './story';
 
 const LAKE = 'quiet-lake';
@@ -46,55 +50,59 @@ describe('the chapter data', () => {
   });
 });
 
-describe('todaysChapter: one per date, the next unseen one', () => {
-  it('a fresh game gets Q1 on any valid date', () => {
-    expect(todaysChapter(newStory(), '2026-11-24', LAKE)?.id).toBe('Q1');
-  });
-  it('Q1 waits for the first catch; later chapters do not', () => {
-    expect(todaysChapter(newStory(), '2026-11-24', LAKE, false)).toBeNull();
-    expect(todaysChapter(newStory(), '2026-11-24', LAKE, true)?.id).toBe('Q1');
-    const s = markSeen(newStory(), 'Q1', '2026-12-01');
-    expect(todaysChapter(s, '2026-12-02', LAKE, false)?.id).toBe('Q2'); // an old save with Q1 done is unaffected
-  });
-  it('gives one chapter per date, in order, over seven days', () => {
+const ALL = { Q1: true, Q2: true, Q3: true, Q4: true, Q5: true, Q6: true, Q7: true };
+const only = (...ids: string[]) => Object.fromEntries(ids.map((id) => [id, true]));
+const seenIds = (ids: string[]) => ids.reduce((s, id, i) => markSeen(s, id, `2026-11-${String(i + 1).padStart(2, '0')}`), newStory());
+
+describe('todaysChapter: milestones, strict order, two per date', () => {
+  it('each chapter waits for its own milestone', () => {
     let s = newStory();
-    const seen: string[] = [];
-    for (let d = 1; d <= 9; d++) {
-      const today = `2026-12-${String(d).padStart(2, '0')}`;
-      const c = todaysChapter(s, today, LAKE);
-      if (!c) continue;
-      seen.push(c.id);
-      s = markSeen(s, c.id, today);
-      expect(todaysChapter(s, today, LAKE)).toBeNull(); // nothing more the same day
+    expect(todaysChapter(s, '2026-11-24', LAKE, {})).toBeNull();
+    for (let i = 0; i < IDS.length; i++) {
+      const id = IDS[i];
+      const day = `2026-12-${String(10 + i).padStart(2, '0')}`;
+      expect(todaysChapter(s, day, LAKE, { ...ALL, [id]: false })).toBeNull(); // everything else met, this one not
+      expect(todaysChapter(s, day, LAKE, only(id))?.id).toBe(id);
+      s = markSeen(s, id, day);
     }
-    expect(seen).toEqual(IDS); // Q8 is not a daily chapter; after Q7 nothing comes
   });
-  it('replays the same chapter while it is unseen (the game was closed before)', () => {
+  it('strict order: a later milestone never brings its chapter before the previous one is seen', () => {
+    expect(todaysChapter(newStory(), '2026-12-01', LAKE, only('Q2', 'Q3', 'Q7'))).toBeNull();
     const s = markSeen(newStory(), 'Q1', '2026-12-01');
-    expect(todaysChapter(s, '2026-12-02', LAKE)?.id).toBe('Q2');
-    expect(todaysChapter(s, '2026-12-03', LAKE)?.id).toBe('Q2');
-    expect(todaysChapter(s, '2026-12-09', LAKE)?.id).toBe('Q2');
+    expect(todaysChapter(s, '2026-12-02', LAKE, only('Q1', 'Q3'))).toBeNull(); // Q2 is next, its milestone is open
+    expect(todaysChapter(s, '2026-12-02', LAKE, only('Q2', 'Q3'))?.id).toBe('Q2');
   });
-  it('skipped days never pile up or skip chapters', () => {
-    let s = markSeen(newStory(), 'Q1', '2026-12-01');
-    const c = todaysChapter(s, '2027-03-01', LAKE)!;
-    expect(c.id).toBe('Q2');
-    s = markSeen(s, c.id, '2027-03-01');
-    expect(todaysChapter(s, '2027-03-01', LAKE)).toBeNull();
-    expect(todaysChapter(s, '2027-03-02', LAKE)?.id).toBe('Q3');
+  it('at most 2 chapters per real date; the third waits for the next date', () => {
+    let s = newStory();
+    for (const id of ['Q1', 'Q2']) {
+      const c = todaysChapter(s, '2026-12-01', LAKE, ALL)!;
+      expect(c.id).toBe(id);
+      s = markSeen(s, c.id, '2026-12-01');
+    }
+    expect(slotFree(s, '2026-12-01')).toBe(false);
+    expect(todaysChapter(s, '2026-12-01', LAKE, ALL)).toBeNull();
+    expect(todaysChapter(s, '2026-12-02', LAKE, ALL)?.id).toBe('Q3');
   });
-  it('the clock going backwards gives nothing', () => {
-    const s = markSeen(newStory(), 'Q1', '2026-12-10');
+  it('after Q7 nothing more comes', () => {
+    expect(todaysChapter(seenIds(IDS), '2027-01-01', LAKE, ALL)).toBeNull();
+  });
+  it('keeps offering the same chapter while it is unseen, and skipped days never pile up', () => {
+    const s = markSeen(newStory(), 'Q1', '2026-12-01');
+    expect(todaysChapter(s, '2026-12-03', LAKE, ALL)?.id).toBe('Q2');
+    expect(todaysChapter(s, '2027-03-09', LAKE, ALL)?.id).toBe('Q2');
+  });
+  it('the clock going backwards cannot add chapters past the cap', () => {
+    let s = markSeen(newStory(), 'Q1', '2026-12-10');
+    s = markSeen(s, 'Q2', '2026-12-10');
     expect(slotFree(s, '2026-12-09')).toBe(false);
-    expect(todaysChapter(s, '2026-12-09', LAKE)).toBeNull();
-    expect(todaysChapter(s, '2026-12-10', LAKE)).toBeNull();
-    expect(todaysChapter(s, '2026-12-11', LAKE)?.id).toBe('Q2');
+    expect(todaysChapter(s, '2026-12-09', LAKE, ALL)).toBeNull();
+    expect(todaysChapter(s, '2026-12-11', LAKE, ALL)?.id).toBe('Q3');
   });
   it('a bad date or an unknown place gives nothing', () => {
-    expect(todaysChapter(newStory(), 'tomorrow', LAKE)).toBeNull();
-    expect(todaysChapter(newStory(), '2026-02-30', LAKE)).toBeNull();
-    expect(todaysChapter(newStory(), '2026-12-01', 'river-bend')).toBeNull();
-    expect(todaysChapter(newStory(), '2026-12-01', 'constructor')).toBeNull();
+    expect(todaysChapter(newStory(), 'tomorrow', LAKE, ALL)).toBeNull();
+    expect(todaysChapter(newStory(), '2026-02-30', LAKE, ALL)).toBeNull();
+    expect(todaysChapter(newStory(), '2026-12-01', 'river-bend', ALL)).toBeNull();
+    expect(todaysChapter(newStory(), '2026-12-01', 'constructor', ALL)).toBeNull();
   });
   it('the last seen date is the latest one', () => {
     let s = markSeen(newStory(), 'Q1', '2026-12-01');
@@ -169,7 +177,7 @@ describe('Q4 version and the Pale One beat', () => {
   });
   it('uses no daily slot (a beat does not count as a chapter)', () => {
     const s = markPaleSeen(newStory());
-    expect(todaysChapter(s, '2026-12-01', LAKE)?.id).toBe('Q1');
+    expect(todaysChapter(s, '2026-12-01', LAKE, ALL)?.id).toBe('Q1');
   });
 });
 
@@ -263,11 +271,11 @@ describe('the story journal (22d)', () => {
     expect(journalEntries(markPaleSeen(markSeen(newStory(), 'Q1', '2026-12-01'))).map((e) => e.id)).toEqual(['Q1', 'pale']);
     expect(journalChapterCount(s)).toBe(2);
     expect(journalEntries(s, true).map((e) => e.id)).toEqual(['Q1', 'pale', 'Q2', 'Q8']);
-    expect(journalChapterCount(s, true)).toBe(3);
+    expect(journalChapterCount(s, true)).toBe(2);
   });
-  it('all eight chapters make 8 of 8', () => {
+  it('all seven chapters make 7 of 7 (the road-fixed page is a bonus)', () => {
     const s = seen(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']);
-    expect(journalChapterCount(s, true)).toBe(8);
+    expect(journalChapterCount(s, true)).toBe(7);
     expect(journalEntries(s, true).map((e) => e.id)).toEqual(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8']);
   });
   it('every thought fits 60 characters and every page has a text', () => {
@@ -292,5 +300,55 @@ describe('the story journal (22d)', () => {
     const s = markJournalLooked(seen(['Q1', 'Q2']));
     expect(normalizeStory(JSON.parse(JSON.stringify(s))).looked).toBe(2);
     expect(normalizeStory({ done: {}, looked: -3 }).looked).toBeUndefined();
+  });
+});
+
+describe('storyMilestones (derived from the player, old saves included)', () => {
+  const deepLog = { bream: { count: 1, bestLengthCm: 30, bestWeightG: 500 } };
+  const perch = { perch: { count: 1, bestLengthCm: 20, bestWeightG: 100 } };
+  it('a fresh player has none', () => {
+    expect(Object.values(storyMilestones(newPlayer())).some(Boolean)).toBe(false);
+  });
+  it('Q1: any catch in the log', () => {
+    expect(storyMilestones({ ...newPlayer(), log: perch }).Q1).toBe(true);
+  });
+  it('Q3: a deep species in the log (an old save) or the flag; a shallow one is not enough', () => {
+    expect(storyMilestones({ ...newPlayer(), log: perch }).Q3).toBe(false);
+    expect(storyMilestones({ ...newPlayer(), log: deepLog }).Q3).toBe(true);
+    expect(storyMilestones(withFlag(newPlayer(), 'deep')).Q3).toBe(true);
+  });
+  it('Q2: a claimed quest in the stored list or the flag', () => {
+    const p = newPlayer();
+    const quest = { kind: 'catchAny', params: {}, progress: 1, done: true, claimed: true, reward: { coins: 1 } } as never;
+    expect(storyMilestones({ ...p, quests: { date: '2026-12-01', rerollUsed: false, list: [quest] } }).Q2).toBe(true);
+    expect(storyMilestones(withFlag(p, 'quest')).Q2).toBe(true);
+    expect(storyMilestones(p).Q2).toBe(false);
+  });
+  it('Q4: only the night flag', () => {
+    expect(storyMilestones(newPlayer()).Q4).toBe(false);
+    expect(storyMilestones(withFlag(newPlayer(), 'night')).Q4).toBe(true);
+  });
+  it('Q5 / Q7: checklist bundles done (1 and 5)', () => {
+    expect(storyMilestones(withBundlesDone(newPlayer(), 0)).Q5).toBe(false);
+    const one = storyMilestones(withBundlesDone(newPlayer(), 1));
+    expect([one.Q5, one.Q7]).toEqual([true, false]);
+    expect(storyMilestones(withBundlesDone(newPlayer(), 4)).Q7).toBe(false);
+    expect(storyMilestones(withBundlesDone(newPlayer(), 5)).Q7).toBe(true);
+  });
+  it('Q6: the carbon rod', () => {
+    expect(storyMilestones({ ...newPlayer(), rodId: 'fiberglass' }).Q6).toBe(false);
+    expect(storyMilestones({ ...newPlayer(), rodId: 'carbon' }).Q6).toBe(true);
+  });
+  it('an old save with Q1-Q3 seen: Q4 waits for the night, the flags survive a save round trip', () => {
+    const old = { ...newPlayer(), log: deepLog, story: seenIds(['Q1', 'Q2', 'Q3']) };
+    expect(todaysChapter(storyOf(old), '2027-01-01', LAKE, storyMilestones(old))).toBeNull();
+    const night = withFlag(old, 'night');
+    expect(todaysChapter(storyOf(night), '2027-01-01', LAKE, storyMilestones(night))?.id).toBe('Q4');
+    expect(normalizeSave({ version: 1, player: night, clock: {} }).player.milestones).toEqual({ night: true });
+  });
+  it('recordMilestones keeps the same object when nothing is new', () => {
+    const p = newPlayer();
+    expect(recordMilestones(p)).toBe(p);
+    expect(recordMilestones({ ...p, log: deepLog }).milestones).toEqual({ deep: true });
   });
 });
