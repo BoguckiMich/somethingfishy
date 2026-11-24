@@ -925,6 +925,24 @@ come once the v2 bait and lure systems provide more interesting rewards.
 **Design implication for earlier slices:** the core should emit game events (`fishCaught`,
 `fishSold`, …) from the start, so quests can subscribe to them later without refactoring.
 
+### Pacing rework (decided 2026-11-24, after friends' play)
+
+Friends bought the whole shop within a few in-game days and had nothing to do daily. Decisions:
+1. **Quiet Lake lasts ~3-5 real days**, not 2 weeks; then River bend opens. New places carry retention.
+2. **Goals gate progress, coins second**: gear (e.g. the carbon rod) appears in the shop only after a
+   checklist bundle or story chapter; coins still pay for it.
+3. **Prices**: light rebalance only, after the catch-math sim. No grind.
+4. **Daily pull** (user's pick):
+   - **Daily conditions** seeded by the real date (weather / wind / etc.) that change which fish bite and where,
+     so each day plays differently.
+   - **A few rare fish** per lake, catchable only under a special condition (night, a bait, a weather),
+     each with a **special reward**.
+5. **Coin sink once the shop is done**: upgradeable camp (tent, fire, Pajkel's chair, Bestia's kennel), cosmetic.
+6. **M1 "done when"** rewritten: a fresh save has a goal every visit for ~4 days, then the road opens.
+
+Open questions (grill before the spec): which conditions and how many per day, how they show on screen;
+which rare fish, their conditions and rewards; which gear goes behind which goal; camp items and prices.
+
 ---
 
 ## 6. Workflow

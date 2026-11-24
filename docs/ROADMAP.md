@@ -33,8 +33,11 @@ The first lake has a beginning, a middle and an end.
   - Review accepted 2026-11-24 (`docs/ui-review/UI_REVIEW.md`), built as slices **22a** (Pajkel's chair + sticks, done),
     **22b** (friendlier panels, done), **22c** (hints, sign, HUD, touch targets, tall-phone bands, done)
 
-**Done when:** the polish pass is done and a fresh save can play ~2 weeks of daily 15-minute visits on Quiet Lake with something
-new each day, and finishing the checklist shows the "road is fixed" card.
+- [ ] **Pacing rework** (GAME_DESIGN §5 "Pacing rework", decided 2026-11-24): daily conditions, a few rare
+      fish with special rewards, gear gated by goals, camp upgrades as a coin sink, light price rebalance
+
+**Done when:** the polish pass and the pacing rework are done and a fresh save has a goal on every visit for
+~4 real days, then finishing the checklist shows the "road is fixed" card.
 
 ## M2 · "Road trip: River bend"
 The first real travel.
