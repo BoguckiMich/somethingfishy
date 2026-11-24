@@ -15,7 +15,7 @@ import { newDaily, type DailyState } from './daily/daily';
 import { newQuests, questsOf, questsOnSale, type QuestsState } from './quests/quests';
 import { newNotes, type NotesState } from './moments/moments';
 import type { ChecklistState } from './checklist/checklist';
-import type { StoryState } from './story/story';
+import type { MilestoneFlags, StoryState } from './story/story';
 import { gearUnlocked } from './gearGates';
 
 /**
@@ -59,6 +59,8 @@ export interface PlayerState {
   checklist?: ChecklistState;
   /** Story chapters seen, queued Pajkel lines and the Pale One beat (slice 21); missing = nothing yet. Read with storyOf(). */
   story?: StoryState;
+  /** Progress flags for the story chapters (slice 24); missing = none recorded yet. Read with storyMilestones(). */
+  milestones?: MilestoneFlags;
   /** Hints seen (slice 22c): shore things tapped once and the first casts made (ids of core/tips); missing = nothing yet. */
   seen?: string[];
   /** The real date (YYYY-MM-DD) Pajkel last said the weather line (slice 23b); missing = never. */

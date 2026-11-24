@@ -714,7 +714,7 @@ today's chapter when one is waiting (else the quests).
     every chapter she has seen, oldest first: a small icon (sealed bottle / duck / star / footprints
     / car / pale fish), the chapter's text (the W. note for bottles, a one-line description for
     moments) and one **thought** from Alex or Pajkel in italics. Unseen chapters are not shown (no
-    spoilers); the header says "Chapter n of 8". A dot on the Story tab when a new page was added
+    spoilers); the header says "Chapter n of 7". A dot on the Story tab when a new page was added
     since she last looked. Thoughts (≤ 60 chars, the user may rewrite them later), in `core/data/story.ts`:
     - Q1 Alex: "A pen pal who signs with one letter. Who are you, W.?"
     - Q2 Pajkel: "Note to self: never trust a duck."
@@ -728,7 +728,7 @@ today's chapter when one is waiting (else the quests).
     - Pale One beat Alex: "I caught it. I think. Why is it so hard to remember?"
     Pure: `journalEntries(story)` in `core/story/`, unit-tested; no save change (the seen chapters and
     the Q4 version are already saved; if the Q4 version is not, store it).
-- Built as (22d): sign 36x38 (feet (276, 498)), notes 6x7 at x 5/15/25 with dark writing lines, the claimable note has a gold rim, a 3x3 gold pin and a breathing gold glow (two translucent rectangles, drawn by the scene), the waiting chapter is a 12x8 cream letter with a 6x6 red wax seal; tap area 56x56 (x 248-304, y 444-500), checked before the dog and Pajkel. The notice board ("Notice board") has Quests and Story tabs (the shop's tab style); Story shows the seen pages oldest first (by the date seen, chapter order within a day; Q8 last once the checklist is done; the Pale One by `paleOn`, or after the dated pages when an older save has none), each with an icon (story bottle, duck, blink star, footprints, car, pale fish), the bottle's note or a one-line description, and the thought in italics signed with the player's or companion's profile name; subtitle "Chapter n of 8" (the Pale One page is a bonus and not counted); an empty journal says "No pages yet"; a gold square on the Story tab while a page is new (opening the tab marks it read). `StoryState` gained `blinkNight`, `paleOn`, `looked`. Dev: `?journal=all`, `?debug=quests&tab=story`.
+- Built as (22d): sign 36x38 (feet (276, 498)), notes 6x7 at x 5/15/25 with dark writing lines, the claimable note has a gold rim, a 3x3 gold pin and a breathing gold glow (two translucent rectangles, drawn by the scene), the waiting chapter is a 12x8 cream letter with a 6x6 red wax seal; tap area 56x56 (x 248-304, y 444-500), checked before the dog and Pajkel. The notice board ("Notice board") has Quests and Story tabs (the shop's tab style); Story shows the seen pages oldest first (by the date seen, chapter order within a day; Q8 last once the checklist is done; the Pale One by `paleOn`, or after the dated pages when an older save has none), each with an icon (story bottle, duck, blink star, footprints, car, pale fish), the bottle's note or a one-line description, and the thought in italics signed with the player's or companion's profile name; subtitle "Chapter n of 7" (the Pale One page is a bonus and not counted); an empty journal says "No pages yet"; a gold square on the Story tab while a page is new (opening the tab marks it read). `StoryState` gained `blinkNight`, `paleOn`, `looked`. Dev: `?journal=all`, `?debug=quests&tab=story`.
 - **22e "Fish knowledge" (tester Grzesiu's idea).** A species' log card reveals more the more she
   catches it; old saves unlock at once from their counts. Tiers (pure `core/fishKnowledge.ts`, data
   in `core/data/`):
@@ -1000,6 +1000,22 @@ knowledge, quests) -> 23d rare fish (3, conditions, half-hints, "?" silhouettes 
 trophy board) -> 23e camp items -> 23f perfect catch + medal + sweet spot -> pacing sim + price rebalance.
 
 ---
+
+**Story pacing (decided 2026-11-24): chapters follow milestones, not the calendar.** Each chapter Q1-Q7 comes
+only when its milestone is met, strictly in order (never before the previous one is seen), and at most 2
+chapters are seen per real day (the rest wait for the next date). Old saves keep their seen chapters; the next
+one waits for its milestone. Slice 24; the journal counts seven chapters ("Chapter n of 7").
+
+| Chapter | Milestone | Source |
+|---|---|---|
+| Q1 | first catch | fish log |
+| Q2 | first daily quest claimed | flag `milestones.quest` (also derived from a claimed quest in today's list) |
+| Q3 | first catch in deep water | flag `milestones.deep` (also derived: a deep species in the log) |
+| Q4 | first night visit (game clock 21:00 or later while playing; day/night versions unchanged) | flag `milestones.night` |
+| Q5 | first finished checklist bundle | checklist state |
+| Q6 | carbon rod owned | `rodId` |
+| Q7 | 5 of 6 checklist bundles done | checklist state |
+
 
 ## 6. Workflow
 

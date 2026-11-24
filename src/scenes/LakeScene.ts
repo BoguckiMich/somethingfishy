@@ -10,7 +10,7 @@ import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistD
 import { showBottleCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
 import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
-import { blinkIsNight, blinkLines, chapterById, lineText, markPaleSeen, markSeen, nextLine, paleBeatDue, queueLines, storyOf, todaysChapter } from '../core/story/story';
+import { blinkIsNight, blinkLines, chapterById, lineText, markPaleSeen, markSeen, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
 import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
@@ -279,6 +279,8 @@ function rollStoryDelay(): number {
 }
 
 /** Lake screen: the angler on the dock, casting a float into the lake. */
+const ALL_MILESTONES: Record<string, boolean> = { Q1: true, Q2: true, Q3: true, Q4: true, Q5: true, Q6: true, Q7: true };
+
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
   /** Coins, worms, bag, rod and log: one plain object, saved on every change via setPlayer. */
@@ -315,6 +317,8 @@ export class LakeScene extends Phaser.Scene {
   private clock: GameClock = NEW_GAME_CLOCK;
   /** Dev flags in the URL: nothing is loaded or saved (see isSandbox). */
   private sandbox = false;
+  /** Dev flag ?milestones=all: every story milestone counts as met (sandboxed). */
+  private milestonesAll = false;
   /** The last write to storage failed (the settings panel says so). */
   private saveFailed = false;
   private sinceClockSave = 0;
@@ -594,7 +598,8 @@ export class LakeScene extends Phaser.Scene {
         this.storyTimerMs = 3000;
       }
     }
-    this.storyOn = !this.sandbox || storyParam !== null;
+    this.milestonesAll = params.get('milestones') === 'all';
+    this.storyOn = !this.sandbox || storyParam !== null || this.milestonesAll;
     // Dev-only: ?journal=all marks every chapter seen (the night Q4, the Pale One and the road fixed) so the Story tab is full;
     // with `&looked=1` the dot is already read. Nothing is queued, so Pajkel stays quiet.
     if (params.get('journal') === 'all') {
@@ -772,7 +777,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** The one way the player state changes: it is saved right after. */
   private setPlayer(p: PlayerState): void {
-    this.player = p;
+    this.player = recordMilestones(p);
     this.persist();
   }
 
@@ -1062,7 +1067,7 @@ export class LakeScene extends Phaser.Scene {
   /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
   private dueChapter(): ChapterDef | null {
     if (!this.storyOn) return null;
-    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, QUIET_LAKE.id, speciesCaught(this.player.log) > 0);
+    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, QUIET_LAKE.id, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player));
   }
 
   /** A chapter is due or being told: random moments wait. */
@@ -1093,6 +1098,8 @@ export class LakeScene extends Phaser.Scene {
   }
 
   private updateStory(deltaMs: number): void {
+    // First night visit: the game clock at or after 21:00 while playing (Q4's milestone).
+    if (this.player.milestones?.night !== true && isNightVisit(this.clock.minute)) this.setPlayer(withFlag(this.player, 'night'));
     // The Pale One card and Pajkel's queued lines.
     if (this.paleCardPending && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
       this.paleCardPending = false;
@@ -1275,7 +1282,7 @@ export class LakeScene extends Phaser.Scene {
       timeOfDay: timeOfDay(this.clock.minute),
       isRecord: r.outcome.kind === 'newRecord',
     });
-    this.setPlayer(q.player);
+    this.setPlayer(zone === 'deep' ? withFlag(q.player, 'deep') : q.player);
     this.catchOutcome = r.outcome;
     // A rare trophy (slice 23d) goes on the board, not in the bag; its first catch gets the longest show-off and a special cheer.
     let trophyFirst = false;

@@ -112,10 +112,16 @@ export const JOURNAL_PALE: JournalDef = {
   text: 'It slipped back into the dark. For a moment it looked at you. Then you forgot why.',
   thought: 'I caught it. I think. Why is it so hard to remember?',
 };
-/** The journal counts the eight chapters Q1-Q8 (the Pale One page is a bonus). */
-export const JOURNAL_TOTAL = 8;
+/** The journal counts the seven chapters Q1-Q7 (the Pale One and the road-fixed pages are bonuses). */
+export const JOURNAL_TOTAL = 7;
 
 export const STORY_TUNING = {
+  /** Chapters that may be seen on one real date (they follow progress, not the calendar). */
+  perDay: 2,
+  /** The in-game minute from which a visit counts as a night visit (21:00; Q4's milestone). */
+  nightFromMinute: 21 * 60,
+  /** Q7 comes when this many checklist bundles are done. */
+  q7Bundles: 5,
   /** Real ms of calm play before today's chapter shows up. */
   delayMs: { min: 60_000, max: 90_000 },
   /** After a chapter was interrupted (a fight, a panel) the next try comes this much later. */

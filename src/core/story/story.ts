@@ -1,4 +1,4 @@
-import { daysBetween, isValidDate } from '../daily/dates';
+import { isValidDate } from '../daily/dates';
 import {
   BLINK_DAY_LINES,
   BLINK_NIGHT_LINES,
@@ -17,12 +17,16 @@ import {
   type Thinker,
 } from '../data/story';
 import type { PlayerState } from '../inventory';
+import { speciesById } from '../data/fish';
+import { doneCount as bundlesDone } from '../checklist/checklist';
+import { questsOf } from '../quests/quests';
+import { speciesCaught } from '../fishLog';
 
 /**
  * Story chapters (slice 21), pure. "Today" is injected (the device's real local date, as for the bait
  * box); nothing here reads a clock. The save keeps the date each chapter was *seen* on, so a chapter
- * the player never saw is offered again, the clock going backwards never gives a second chapter, and
- * skipped days never pile up (one chapter per date, always the next unseen one).
+ * the player never saw is offered again. Chapters follow PROGRESS (milestones), strictly in order, and at
+ * most `STORY_TUNING.perDay` are seen per real date.
  */
 export interface StoryState {
   /** Chapter id -> the date it was seen on. */
@@ -56,23 +60,75 @@ export function lastSeenDate(s: StoryState): string | null {
   return last;
 }
 
-/** True when a chapter may be told on this date: none was seen today, and the clock was not set back. */
+/** Progress flags recorded once (stored only when true; older saves have none, see storyMilestones for what is derived). */
+export interface MilestoneFlags {
+  /** A daily quest was claimed. */
+  quest?: true;
+  /** A fish was caught in deep water. */
+  deep?: true;
+  /** She played at 21:00 or later on the game clock. */
+  night?: true;
+}
+
+export function normalizeMilestones(v: unknown): MilestoneFlags {
+  const o = typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  const out: MilestoneFlags = {};
+  if (o.quest === true) out.quest = true;
+  if (o.deep === true) out.deep = true;
+  if (o.night === true) out.night = true;
+  return out;
+}
+
+/** A flag was reached: the new player (the same object when nothing changes). */
+export function withFlag(p: PlayerState, flag: keyof MilestoneFlags): PlayerState {
+  const m = normalizeMilestones(p.milestones);
+  return m[flag] ? p : { ...p, milestones: { ...m, [flag]: true } };
+}
+
+/** The minute of the game clock counts as a night visit (21:00 or later). */
+export const isNightVisit = (minute: number): boolean => minute >= STORY_TUNING.nightFromMinute;
+
+/** Flags that can be read off the rest of the save (a claimed quest today, a deep species in the log), merged with the stored ones. */
+export function recordMilestones(p: PlayerState): PlayerState {
+  let out = p;
+  if (questsOf(p).list.some((q) => q.claimed)) out = withFlag(out, 'quest');
+  if (Object.keys(p.log).some((id) => speciesById(id)?.zone === 'deep')) out = withFlag(out, 'deep');
+  return out;
+}
+
+/** Which chapter's milestone is met, by chapter id; pure, derived from the player (old saves included). */
+export function storyMilestones(p: PlayerState): Record<string, boolean> {
+  const m = normalizeMilestones(recordMilestones(p).milestones);
+  const bundles = bundlesDone(p);
+  return {
+    Q1: speciesCaught(p.log) > 0,
+    Q2: m.quest === true,
+    Q3: m.deep === true,
+    Q4: m.night === true,
+    Q5: bundles >= 1,
+    Q6: p.rodId === 'carbon',
+    Q7: bundles >= STORY_TUNING.q7Bundles,
+  };
+}
+
+/** How many chapters were seen on this real date (a clock set back counts later dates too). */
+export function seenToday(s: StoryState, today: string): number {
+  return Object.values(s.done).filter((d) => d >= today).length;
+}
+
+/** True when another chapter may be told on this date: fewer than `STORY_TUNING.perDay` were seen today. */
 export function slotFree(s: StoryState, today: string): boolean {
-  if (!isValidDate(today)) return false;
-  const last = lastSeenDate(s);
-  return last === null || daysBetween(last, today) >= 1;
+  return isValidDate(today) && seenToday(s, today) < STORY_TUNING.perDay;
 }
 
 /**
- * Today's chapter at this place: the first one not seen yet, when today's slot is free; else null.
- * The very first chapter waits for the first catch (`caughtAny`, default true so older callers are unchanged):
- * a fresh save gets its first-cast hints before the sealed bottle. Later chapters keep the one-per-date rule.
+ * Today's chapter at this place: the next unseen one (strict order, never skipping), when its milestone is met
+ * (`milestones`, by chapter id; see storyMilestones) and the day's cap is not reached; else null.
  */
-export function todaysChapter(s: StoryState, today: string, place: string, caughtAny = true): ChapterDef | null {
+export function todaysChapter(s: StoryState, today: string, place: string, milestones: Readonly<Record<string, boolean>>): ChapterDef | null {
   if (!slotFree(s, today)) return null;
   const next = chaptersOf(place).find((c) => !has(s.done, c.id)) ?? null;
-  if (next && !caughtAny && Object.keys(s.done).length === 0) return null;
-  return next;
+  return next && milestones[next.id] === true ? next : null;
 }
 
 /** Appends lines to the queue (unknown ids dropped, the oldest dropped past the cap). */
@@ -129,7 +185,7 @@ export function normalizeStory(v: unknown): StoryState {
   const out: StoryState = { done, queue: queue.slice(-STORY_TUNING.queueMax), pale: o.pale === true };
   if (o.pale === true && isValidDate(o.paleOn)) out.paleOn = o.paleOn;
   if (o.blinkNight === true && has(done, 'Q4')) out.blinkNight = true;
-  if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), JOURNAL_TOTAL + 1);
+  if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), JOURNAL_TOTAL + 2);
   return out;
 }
 
@@ -167,8 +223,8 @@ export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[]
   return out;
 }
 
-/** "Chapter n of 8": the chapters seen (the Pale One page is a bonus and does not count). */
-export const journalChapterCount = (s: StoryState, roadFixed = false): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale').length;
+/** "Chapter n of 7": the chapters seen (the Pale One and the road-fixed pages are bonuses and do not count). */
+export const journalChapterCount = (s: StoryState, roadFixed = false): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale' && e.id !== 'Q8').length;
 
 /** A page was added since she last opened the Story tab. */
 export const journalHasNew = (s: StoryState, roadFixed = false): boolean => journalEntries(s, roadFixed).length > (s.looked ?? 0);

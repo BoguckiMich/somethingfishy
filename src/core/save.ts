@@ -15,7 +15,7 @@ import { QUEST_TUNING } from './data/quests';
 import { speciesCaught, type FishLog } from './fishLog';
 import { normalizeChecklist } from './checklist/checklist';
 import { normalizeNotes } from './moments/moments';
-import { normalizeStory, storyIsEmpty } from './story/story';
+import { normalizeMilestones, normalizeStory, storyIsEmpty } from './story/story';
 import { normalizeSeen } from './tips';
 import { normalizeWeatherSeen } from './daily/weather';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
@@ -166,6 +166,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(Object.values(normalizeChecklist(p.checklist)).some((a) => a.some(Boolean)) ? { checklist: normalizeChecklist(p.checklist) } : {}),
     // The story (slice 21): stored only when something happened (older saves have no key).
     ...(storyIsEmpty(normalizeStory(p.story)) ? {} : { story: normalizeStory(p.story) }),
+    // Story milestone flags (slice 24): stored only when one was reached.
+    ...(Object.keys(normalizeMilestones(p.milestones)).length > 0 ? { milestones: normalizeMilestones(p.milestones) } : {}),
     // The hints (slice 22c): first-tap flags and the casts made; stored only when something was seen.
     ...(normalizeSeen(p.seen).length > 0 ? { seen: normalizeSeen(p.seen) } : {}),
     // The date of Pajkel's weather line (slice 23b): a valid date or no key.
