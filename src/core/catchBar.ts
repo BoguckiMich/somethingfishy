@@ -43,6 +43,8 @@ export interface CatchBarState {
   outsideMs: number;
   /** The fight ended because the fish slipped away (outside too long), not because the line ran out. */
   slipped: boolean;
+  /** The fish has been outside the green zone at least once this fight (slice 23f): a catch without it is a perfect catch. */
+  leftZone: boolean;
 }
 
 export type BarResult = 'fighting' | 'caught' | 'lost';
@@ -77,8 +79,10 @@ export const CATCH_BAR_TUNING = {
   /** Fixed physics step. */
   stepMs: 1000 / 120,
   startProgress: 0.3,
-  /** Progress per second while the fish is inside the zone. */
-  fillPerSec: 0.16,
+  /** Progress per second while the fish is inside the zone. Was 0.16 before the red core (slice 23f): the core's x1.5 would have shortened every fight a good player tracks well, so the base was lowered to keep the 8-15 s window. */
+  fillPerSec: 0.135,
+  /** Progress fills this many times faster while the fish is inside the red core of the zone (slice 23f). */
+  coreFillMult: 1.5,
   /** Progress per second lost while it is outside (times the line's drain). */
   drainPerSec: 0.13,
   /** Zone acceleration (bar units/s²) while holding, and the pull of gravity while released. */
@@ -143,11 +147,18 @@ export function newCatchBar(fish: FishProfile, gear: BarGear, rng: Rng): CatchBa
     accMs: 0,
     outsideMs: 0,
     slipped: false,
+    leftZone: false,
   };
   pickMove(s, fish, gear, rng);
   s.fishTimer = Math.min(s.fishTimer, 0.6); // the first move comes soon
   return s;
 }
+
+/** Half the height of the red core (bar units): the zone's half height times the rod's core share. */
+export const coreHalf = (gear: BarGear): number => (gear.zoneSize / 2) * clamp(gear.coreShare ?? 0, 0, 1);
+
+/** A perfect catch: a won fight in which the fish never left the green zone (the same test that lets progress fill). */
+export const isPerfect = (s: CatchBarState): boolean => s.progress >= 1 && !s.leftZone;
 
 export function barResult(s: CatchBarState): BarResult {
   return s.progress >= 1 ? 'caught' : s.progress <= 0 ? 'lost' : 'fighting';
@@ -261,7 +272,11 @@ export function tickCatchBar(
 
     // Progress: fills while the fish is inside the zone, drains whenever it is outside.
     const inside = Math.abs(s.fish - s.zone) <= half + T.fishTolerance;
-    s.progress += (inside ? T.fillPerSec * (cfg.fill ?? 1) : -drain) * h;
+    if (!inside) s.leftZone = true;
+    // The sweet spot: the fish dead centre in the zone fills faster.
+    const coreH = coreHalf(gear);
+    const core = inside && coreH > 0 && Math.abs(s.fish - s.zone) <= coreH ? T.coreFillMult : 1;
+    s.progress += (inside ? T.fillPerSec * (cfg.fill ?? 1) * core : -drain) * h;
     // A trophy slips the hook when it stays out of the green for too long (slice 23d).
     s.outsideMs = inside ? 0 : s.outsideMs + T.stepMs;
     if (fish.slipAfterMs !== undefined && s.outsideMs > fish.slipAfterMs) {

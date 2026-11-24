@@ -13,6 +13,8 @@ export interface Rod {
 export interface BarGear {
   /** Rod: height of the catch zone as a fraction of the bar (0..1). */
   zoneSize: number;
+  /** Rod: the red "sweet spot" core, as a share of the zone's height (slice 23f); missing = none. While the fish is in it progress fills faster. */
+  coreShare?: number;
   /** Reel: how eagerly the zone follows the thumb (scales both lift and gravity). */
   reelResponse: number;
   /** Line: how fast progress drains while the fish is outside the zone (1 = normal). */

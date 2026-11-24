@@ -1,5 +1,5 @@
 import { castDistance, chargePower, MIN_HOLD_MS } from './casting';
-import { barResult, newCatchBar, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
+import { barResult, isPerfect, newCatchBar, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
 import type { TimeOfDay } from './clock';
 import { speciesById } from './data/fish';
 import type { GameEvent } from './events';
@@ -216,6 +216,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
               speciesId: hooked.speciesId,
               lengthCm: hooked.lengthCm,
               weightG: hooked.weightG,
+              ...(isPerfect(bar) ? { perfect: true } : {}),
             },
           ],
         };

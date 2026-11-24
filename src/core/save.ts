@@ -4,6 +4,7 @@ import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
 import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
+import { TIER_RANK, isTier, starFor } from './data/stars';
 import { SHOP } from './data/shop';
 import { LINES, REELS } from './data/tackle';
 import { newPlayer, type BagFish, type PlayerState } from './inventory';
@@ -60,7 +61,7 @@ function normalizeBagFish(v: unknown): BagFish | null {
   if (!isObj(v) || typeof v.speciesId !== 'string' || !speciesById(v.speciesId)) return null;
   if (!isNum(v.lengthCm) || !isNum(v.weightG) || !isNum(v.price)) return null;
   if (v.lengthCm <= 0 || v.weightG <= 0 || v.price < 0) return null;
-  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price };
+  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price, ...(v.perfect === true ? { perfect: true as const } : {}) };
 }
 
 function normalizeLog(v: unknown): FishLog {
@@ -70,7 +71,11 @@ function normalizeLog(v: unknown): FishLog {
     if (!speciesById(id) || !isObj(e)) continue;
     if (!isNum(e.count) || !isNum(e.bestLengthCm) || !isNum(e.bestWeightG)) continue;
     if (e.count < 1 || e.bestLengthCm <= 0 || e.bestWeightG <= 0) continue;
-    log[id] = { count: Math.floor(e.count), bestLengthCm: e.bestLengthCm, bestWeightG: e.bestWeightG };
+    // The best tier of a perfect catch (slice 23f): a known tier that beats what the record length earns, else no key.
+    const sp = speciesById(id)!;
+    const base = starFor(sp, e.bestLengthCm);
+    const bestTier = isTier(e.bestTier) && TIER_RANK[e.bestTier] > TIER_RANK[base] ? { bestTier: e.bestTier } : {};
+    log[id] = { count: Math.floor(e.count), bestLengthCm: e.bestLengthCm, bestWeightG: e.bestWeightG, ...bestTier };
   }
   return log;
 }

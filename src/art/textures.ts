@@ -142,7 +142,7 @@ export function createTextures(scene: Phaser.Scene): void {
   for (const b of BAITS) addRaster(scene, baitIconKey(b.id), Raster.fromSprite(shopIconSprite(b.id)!));
   addRaster(scene, TEX.zSmall, Raster.fromSprite(zSprite(false)));
   addRaster(scene, TEX.zBig, Raster.fromSprite(zSprite(true)));
-  for (const star of ['bronze', 'silver', 'gold'] as const) addRaster(scene, starKey(star), Raster.fromSprite(starRowSprite(star)!));
+  for (const star of ['bronze', 'silver', 'gold', 'medal'] as const) addRaster(scene, starKey(star), Raster.fromSprite(starRowSprite(star)!));
   createCharacterTextures(scene);
   addRaster(scene, TEX.lilyA, Raster.fromSprite(LILY_A));
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));

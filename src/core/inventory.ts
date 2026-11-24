@@ -29,6 +29,8 @@ export interface BagFish {
   weightG: number;
   /** Coins when sold, fixed at catch time. */
   price: number;
+  /** Caught perfectly (the fish never left the green zone, slice 23f): its tier is one higher. Stored only when true. The price stays by size. */
+  perfect?: true;
 }
 
 export interface PlayerState {
@@ -146,10 +148,10 @@ export function priceFor(species: Species, lengthCm: number): number {
 }
 
 /** A caught fish as a bag entry; today's fish (slice 19) sells for double, fixed here at catch time. */
-export function toBagFish(hooked: HookedFish, fotdId?: string): BagFish {
+export function toBagFish(hooked: HookedFish, fotdId?: string, perfect = false): BagFish {
   const species = speciesById(hooked.speciesId)!;
   const mult = fotdId && hooked.speciesId === fotdId ? FOTD_TUNING.priceMult : 1;
-  return { ...hooked, price: priceFor(species, hooked.lengthCm) * mult };
+  return { ...hooked, price: priceFor(species, hooked.lengthCm) * mult, ...(perfect ? { perfect: true as const } : {}) };
 }
 
 export const bagValue = (bag: BagFish[]): number => bag.reduce((sum, f) => sum + f.price, 0);
@@ -177,8 +179,9 @@ export function addCatch(
   state: PlayerState,
   hooked: HookedFish,
   fotdId?: string,
+  perfect = false,
 ): { state: PlayerState; result: 'added' | 'bagFull'; fish: BagFish } {
-  const fish = toBagFish(hooked, fotdId);
+  const fish = toBagFish(hooked, fotdId, perfect);
   if (state.bag.length >= SHOP.bagSlots) return { state, result: 'bagFull', fish };
   return { state: { ...state, bag: [...state.bag, fish] }, result: 'added', fish };
 }

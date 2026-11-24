@@ -3,7 +3,7 @@ import { fishIconSprite } from '../art/fishArt';
 import { coinSprite } from '../art/iconArt';
 import { CHECKLIST_TITLE, type ChecklistBundle, type ChecklistSlot } from '../core/data/checklist';
 import { speciesById } from '../core/data/fish';
-import { starFor } from '../core/data/stars';
+import { bagTier } from '../core/data/stars';
 import {
   allDone, bundleDone, bundleTotal, canFill, checklistOrder, checklistOf, checklistRewardText, doneCount, firstOpenBundle, giveFish, giveWarning,
   payCoins, slotBlockReason, slotFilled, type HandIn,
@@ -71,7 +71,7 @@ function slotRow(store: ChecklistStore, bundle: ChecklistBundle, i: number, act:
     if (warn) {
       const line = el('div', `display:flex;flex-wrap:wrap;align-items:center;gap:2px 5px;font-size:${FS.small}px;line-height:1.1;color:${COLORS.amber}`, warn.text);
       const sp = speciesById(warn.fish.speciesId);
-      const stars = warn.gold && sp ? starRow(starFor(sp, warn.fish.lengthCm), 1) : undefined;
+      const stars = warn.gold && sp ? starRow(bagTier(warn.fish), 1) : undefined;
       if (stars) line.append(stars);
       label.append(line);
     }

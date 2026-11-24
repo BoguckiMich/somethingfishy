@@ -5,7 +5,7 @@ import { W } from '../art/layout';
 import { PAL } from '../art/palette';
 import { fishIconKey } from '../art/fishArt';
 import { TEX } from '../art/textures';
-import type { CatchBarState } from '../core/catchBar';
+import { coreHalf, type CatchBarState } from '../core/catchBar';
 import type { BarGear } from '../core/gear';
 
 /** Screen layout of the catch bar: right edge, clear of the bobber column. The top right is free (slice 22c), so it starts higher. */
@@ -91,6 +91,16 @@ export class CatchBarView {
     dyn.fillStyle(t(PAL.leafLight), bar.holding ? 0.62 : 0.5).fillRect(win.x, top, win.w, bottom - top);
     dyn.fillStyle(t(PAL.leafHi), 0.95).fillRect(win.x, top, win.w, 2).fillRect(win.x, bottom - 2, win.w, 2);
     dyn.fillStyle(t(PAL.leafHi), 0.35).fillRect(win.x, top + 2, 2, bottom - top - 4).fillRect(win.x + win.w - 2, top + 2, 2, bottom - top - 4);
+
+    // The sweet spot (slice 23f): a red core inside the green band, riding with it. The fish in it fills progress faster.
+    const core = coreHalf(gear);
+    if (core > 0) {
+      const cTop = Math.round(toY(bar.zone + core));
+      const cBottom = Math.max(cTop + 3, Math.round(toY(bar.zone - core)));
+      dyn.fillStyle(t(PAL.redDark), 1).fillRect(win.x + 3, cTop, win.w - 6, cBottom - cTop);
+      dyn.fillStyle(t(PAL.red), 1).fillRect(win.x + 4, cTop + 1, win.w - 8, cBottom - cTop - 2);
+      dyn.fillStyle(PAL.white, 0.35).fillRect(win.x + 4, cTop + 1, win.w - 8, 1);
+    }
 
     // The fish, a little shaken when it is moving fast.
     const shake = Math.abs(bar.fishVel) > 0.5 ? Math.round(Math.sin(bar.elapsedMs / 35)) : 0;
