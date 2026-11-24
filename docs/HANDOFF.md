@@ -145,6 +145,11 @@ reviewed by the main session (tsc, tests, build, screenshots) but none play-test
 - **17 fetch** — try it with `?debug=afk` (`&giveback=1` forces the rare round). Weak: the bend pose, the play-bow frame, chase speeds untested.
 
 ### Next candidates (nothing decided)
+- **Bestia's run/carry tail still not right** (user, 2026-11-24, after the merged 1 px fix; reference photo in chat):
+  her real tail is carried HIGH, rising straight up from the rump then curving forward over the back (sickle);
+  thin ginger at the base, getting **fluffier towards the end** (a 3-4 px plume), the plume darker brown/near
+  black on its back side, ginger on the front. Not a thin whip line, not a light tip. `src/art/characters.ts`
+  run/carry tail, check on `/dev/char-sheet.html` at x3. Standing/wiggle tails stay.
 - **Plan after 2026-11-24 16:30 (user agreed):** 1) Bestia/Pajkel weird walking and stuck near the lawn edges
   (screenshot in repo root, `fix/chase-stuck` did not fully solve it) + **Bestia's tail in the run frames looks like
   poop** (standing/wiggle tail is fine; fix only the running frames, `src/art/characters.ts`, `/dev/char-sheet.html`);
