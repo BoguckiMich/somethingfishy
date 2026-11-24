@@ -1,5 +1,6 @@
 import { BARRIER_SIZE, HERE_SIZE, PIN_SIZE, RING_SIZE, barrierSprite, hereCarSprite, mapSprite, pinSprite, selectRingSprite } from '../art/mapArt';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
+import type { NapStatus } from '../core/carMap';
 import { MAP_PLACES, MAP_SIZE, QUIET_LAKE } from '../core/data/locations';
 import { FS, LINE } from '../font';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
@@ -28,6 +29,8 @@ export interface MapOptions {
   onChecklist: () => void;
   /** Bundles done (of `total`) and whether the road is fixed (all done): they change the River bend pin. */
   checklist: { done: number; total: number };
+  /** Whether a nap is possible right now, and why not (read on every render). */
+  nap: () => NapStatus;
 }
 
 export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle {
@@ -120,6 +123,7 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
       );
       body.append(info);
 
+      const napNow = opts.nap();
       const nap = el('div', 'display:flex;flex-direction:column;gap:8px');
       nap.append(
         woodButton(`Quiet Lake checklist ${checklist.done}/${checklist.total}`, () => {
@@ -129,7 +133,7 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
         woodButton('Nap in the car...', () => {
           panel.close();
           onNap();
-        }, { variant: 'wood' }),
+        }, napNow.available ? { variant: 'wood' } : { variant: 'wood', disabledReason: napNow.reason }),
       );
       body.append(
         nap,
