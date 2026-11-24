@@ -48,6 +48,8 @@ export interface SessionContext {
   rng: Rng;
   /** The bait on the hook (slice 15c): undefined or 'worm' is the plain worm. Absent means worms. */
   baitId?: () => string | undefined;
+  /** Today's fish (slice 19): bites more. Absent means none. */
+  fotdId?: () => string | undefined;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
   timeOfDay: () => TimeOfDay;
   /** The in-game minute of the day; the legendary's clock window needs it. Absent means no legendary. */
@@ -125,6 +127,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         ctx.speciesOverride,
         ctx.minute ? { distanceM: state.distanceM, minute: ctx.minute() } : undefined,
         bait,
+        ctx.fotdId?.(),
       );
       return same({
         kind: 'waiting',

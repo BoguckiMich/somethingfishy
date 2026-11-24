@@ -1,12 +1,30 @@
 import { FS, LINE } from '../font';
 import { claimQuest, questText, questsOf, rerollQuest, rewardText, canReroll, type Quest } from '../core/quests/quests';
 import type { PlayerState } from '../core/inventory';
+import { fishIconSprite } from '../art/fishArt';
+import { speciesById } from '../core/data/fish';
+import { fishCanvas } from './logPanel';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import type { PlayerStore } from './bagShop';
 
 /** What the quest panel needs: the player (read and written back) and today's date. */
 export interface QuestStore extends PlayerStore {
   today(): string;
+  /** Today's fish (slice 19), if any. */
+  fotdId(): string | undefined;
+}
+
+/** The top row: today's fish with its sprite. */
+function fotdRow(id: string): HTMLElement | undefined {
+  const sp = speciesById(id);
+  if (!sp) return undefined;
+  const row = el('div', `display:flex;align-items:center;gap:8px;padding:6px 0 8px;border-bottom:2px solid ${COLORS.woodLight}`);
+  const pic = el('div', 'flex:none;width:40px;display:flex;align-items:center;justify-content:center');
+  pic.append(fishCanvas(fishIconSprite(id), 40, 2));
+  const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px;line-height:${LINE}`);
+  info.append(el('div', `color:${COLORS.gold}`, 'Fish of the day'), el('div', `color:${COLORS.text}`, sp.name), el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, 'bites more, sells x2'));
+  row.append(pic, info);
+  return row;
 }
 
 function bar(q: Quest): HTMLElement {
@@ -48,6 +66,9 @@ export function showQuestPanel(store: QuestStore, onClose: () => void): PanelHan
         store.set(next);
         panel.refresh();
       };
+      const fid = store.fotdId();
+      const frow = fid ? fotdRow(fid) : undefined;
+      if (frow) body.append(frow);
       if (quests.list.length === 0) {
         body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};padding:6px 0`, 'No quests today.'));
       }

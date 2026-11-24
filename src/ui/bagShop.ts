@@ -6,6 +6,7 @@ import type { Sprite } from '../art/pixelGrid';
 import { SHOP_BAITS } from '../core/data/baits';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
+import { starFor } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import type { Line, Reel, Rod } from '../core/gear';
@@ -36,6 +37,7 @@ import { fishCanvas } from './logPanel';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import { installFrameStyles } from './frames';
 import { spriteCanvas } from './spriteCanvas';
+import { starRow } from './starRow';
 
 /** The player state lives in the scene; panels read it and write it back through this. */
 export interface PlayerStore {
@@ -67,7 +69,11 @@ function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
   const pic = el('div', 'flex:none;width:34px;height:28px;display:flex;align-items:center;justify-content:center');
   pic.append(fishCanvas(fishIconSprite(f.speciesId), 36, 2));
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
-  info.append(el('div', `color:${COLORS.text}`, fishName(f)), el('div', `font-size:${FS.small}px;color:${COLORS.cream};white-space:nowrap`, `${sizeText(f)} · ${f.weightG}g`));
+  const sp = speciesById(f.speciesId);
+  const stars = sp ? starRow(starFor(sp, f.lengthCm), 2) : undefined;
+  const size = el('div', `display:flex;flex-wrap:wrap;align-items:center;column-gap:5px;font-size:${FS.small}px;color:${COLORS.cream}`, `${sizeText(f)} · ${f.weightG}g`);
+  if (stars) size.append(stars);
+  info.append(el('div', `color:${COLORS.text}`, fishName(f)), size);
   row.append(pic, info, coinAmount(f.price));
   if (action) row.append(action);
   return row;

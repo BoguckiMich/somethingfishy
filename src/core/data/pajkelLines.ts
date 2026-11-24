@@ -12,3 +12,6 @@ export const GIVE_UP_LINES: readonly string[] = ['Bestia, give!', 'No take, only
 
 /** The rare round where she does drop the stick at his feet. */
 export const GIVE_BACK_LINE = '...thank you?';
+
+/** Pajkel on a gold-star fish that is not also a new species or record (slice 19). Short: one line of the bubble. */
+export const GOLD_LINES: readonly string[] = ['Gold! Look at that one!', 'A gold one! Wow!', 'Gold star, Alex!'];
