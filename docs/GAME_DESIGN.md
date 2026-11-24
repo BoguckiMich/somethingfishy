@@ -964,7 +964,7 @@ Also from play (user, 2026-11-24):
   silhouette with the hint in the log. Reward: a **trophy at the camp** (mounted fish by the car), a
   gold-framed log entry, a special Pajkel/Bestia moment; no extra coins. Harder fight: a new pattern and
   it escapes if it stays out of the green too long (perfect catch of a rare fish = top achievement).
-- **3 new normal species** (user: uncommon/rare, not legendary). Proposal, not yet confirmed:
+- **3 new normal species** (user: uncommon/rare, not legendary). Confirmed by the user 2026-11-24:
   - Ide: shallow, dawn/dusk, uncommon, smooth-darting; likes overcast.
   - Asp: shallow surface predator, day, rare, darting (fast); likes windy.
   - Burbot: deep, night, rare, erratic/sinker; likes rain and fog.
