@@ -947,7 +947,12 @@ Also from play (user, 2026-11-24):
 8. **Max-distance cast is too hard**: the charge meter pauses briefly at full power (~150-300 ms). Small tweak.
 
 **Grill round 1 (decided 2026-11-24, user accepted all recommendations):**
-- **Daily condition** keyed by the REAL date (like fish of the day), one per day from 5:
+- **Weather per real hour, decided 2026-11-24** (was once per real date): the weather is keyed by the real date + hour
+  (one real hour = 3 in-game days, a day being 20 real minutes), so it changes while she plays. The previous hour's
+  weather counts for 1/3 in the next pick (repeats are rare but possible). A flip waits until Alex is idle or waiting
+  (never mid-fight, bite, cast or show-off, or with a panel open), then crossfades over ~10 s; Pajkel says one line per
+  change. Fog stays "until 10:00 in-game each morning" (the look and the rare-fish weight); Old Mossback's fog
+  condition holds the whole fog hour. Fish of the day stays daily. One per hour, from 5 conditions:
   - Sunny & calm: shallow fish bite more, deep ones slower.
   - Overcast: even mix; time-of-day fish (tench, zander) bite all day.
   - Light rain: faster bites, carp/bream more; rain sound + drops on the water.
@@ -994,7 +999,7 @@ three hints come through a bottle note, a Pajkel line and a notice-board "Rumour
   carbon 40 %); while the fish is in the core progress fills x1.5.
 - **Switching owned rods**: postponed until rods differ by more than "better".
 
-**Slices (in order):** 23a gear gates in the shop -> 23b daily weather (pick by real date, icon by the
+**Slices (in order):** 23a gear gates in the shop -> 23b weather (picked by real date + hour since 2026-11-24, icon by the
 clock, Pajkel line, species weights, lake visuals) -> 23c new species ide/asp/burbot (data, art, log,
 knowledge, quests) -> 23d rare fish (3, conditions, half-hints, "?" silhouettes in the log, harder fight,
 trophy board) -> 23e camp items -> 23f perfect catch + medal + sweet spot -> pacing sim + price rebalance.

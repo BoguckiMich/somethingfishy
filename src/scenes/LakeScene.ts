@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { pageParams } from '../urlParams';
-import { todayLocal } from '../localDate';
+import { hourLocal, todayLocal } from '../localDate';
 import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { openBaitPicker } from '../ui/baitPicker';
@@ -108,7 +108,7 @@ import { CatchBarView } from './CatchBarView';
 import { carVariant, chairEmpty, companionEvent, companionPress, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
 import { WEATHER_IDS, WEATHER_LOOK, type WeatherId } from '../core/data/weather';
-import { fogStrength, weatherEffects, weatherLineDue, weatherOfTheDay, type WeatherEffects } from '../core/daily/weather';
+import { fogStrength, weatherEffects, weatherFlipAllowed, weatherForHour, weatherHourKey, weatherLineDue, type WeatherEffects } from '../core/daily/weather';
 import { weatherLook } from '../art/weatherArt';
 import { fishOfTheDay } from '../core/daily/fotd';
 import { isGoldOrBetter, lengthForStar, tierFor as catchTierFor, type Tier } from '../core/data/stars';
@@ -207,6 +207,8 @@ const CRATE_FEET = { x: 214, y: 458 };
 const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 22, CRATE_FEET.y - 34, 44, 44);
 /** How often the device date is re-read (a game left open past midnight gets the new crate). */
 const DATE_CHECK_MS = 5000;
+/** The weather crossfade when the real hour flips (rain, fog, grey, wind). */
+const WEATHER_FADE_MS = 10000;
 const GLINT_N = 130;
 /**
  * The car (slice 16): its front quarter peeks in from the LEFT screen edge, on the grass between the
@@ -308,8 +310,18 @@ export class LakeScene extends Phaser.Scene {
   private weatherIcon!: Phaser.GameObjects.Image;
   private weatherFxG!: Phaser.GameObjects.Graphics;
   private fogFx!: Phaser.GameObjects.Graphics;
-  /** Dev flag ?weather=: that weather today (null = by the date). */
+  /** Dev flag ?weather=: that weather for the whole session (null = by the real hour). */
   private weatherOverride: WeatherId | null = null;
+  /** The weather in force (hourly, decided 2026-11-24) and the real hour it belongs to (`YYYY-MM-DD-HH`). */
+  private weatherCur: WeatherId | undefined;
+  private weatherKey: string | undefined;
+  /** During a crossfade: the weather leaving, and how far the new one has come in (1 = done). */
+  private weatherFrom: WeatherId | undefined;
+  private weatherBlend = 1;
+  /** A new real hour (or the dev flip) waiting for Alex to be idle or waiting. */
+  private weatherWant: { key: string | undefined; id: WeatherId | undefined } | null = null;
+  /** Dev flag ?weatherflip=<sec>: force a flip to a different weather after that many seconds (once). */
+  private weatherFlipMs = -1;
   /** The first-launch name card is up: Pajkel keeps his weather line for after it. */
   private nameCardOpen = false;
   private wormCue!: Phaser.GameObjects.Text;
@@ -342,6 +354,8 @@ export class LakeScene extends Phaser.Scene {
   private swallowUp = false;
   /** Today's date on the device (YYYY-MM-DD), re-read every few seconds. */
   private today = todayLocal();
+  /** The real hour on the device (0-23), re-read with the date. */
+  private hourNow = hourLocal();
   private sinceDateCheck = 0;
   /** Number of finished quests last time we looked: a rise means "Quest done!" once back at idle. */
   private seenDone = 0;
@@ -512,7 +526,7 @@ export class LakeScene extends Phaser.Scene {
     // The dev sandbox pretends every hint was seen (a clean lake for the other flags); ?debug=fresh pretends none was.
     if (this.sandbox) this.setPlayer({ ...this.player, seen: params.get('debug') === 'fresh' ? (params.get('casts') === '3' ? ['cast1', 'cast2', 'cast3', 'crate', 'sign', 'dog'] : []) : allSeen() });
     // Same for Pajkel's weather line (slice 23b): only ?weather= (or ?debug=weatherline) lets him say it in the sandbox.
-    if (this.sandbox && !params.has('weather') && params.get('debug') !== 'weatherline') this.setPlayer({ ...this.player, weatherSeen: this.today });
+    if (this.sandbox && !params.has('weather') && params.get('debug') !== 'weatherline') this.setPlayer({ ...this.player, weatherSeen: weatherHourKey(this.today, this.hourNow) });
     const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
@@ -553,6 +567,10 @@ export class LakeScene extends Phaser.Scene {
     const fotdParam = params.get('fotd');
     if (fotdParam && speciesById(fotdParam)) this.fotdOverride = fotdParam;
     this.weatherOverride = WEATHER_IDS.find((w) => w === params.get('weather')) ?? null;
+    this.weatherKey = weatherHourKey(this.today, this.hourNow);
+    this.weatherCur = this.weatherOverride ?? weatherForHour(this.today, this.hourNow);
+    const flipSec = Number(params.get('weatherflip'));
+    if (params.has('weatherflip') && Number.isFinite(flipSec) && flipSec >= 0) this.weatherFlipMs = flipSec * 1000;
     const speciesParam = params.get('species') === 'legendary' ? PALE_ONE.speciesId : params.get('species');
     if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
@@ -789,6 +807,7 @@ export class LakeScene extends Phaser.Scene {
     this.sinceClockSave += deltaMs;
     this.sinceDateCheck += deltaMs;
     if (this.sinceDateCheck >= DATE_CHECK_MS) this.refreshDate();
+    this.updateWeather(deltaMs);
     if (this.sinceClockSave >= CLOCK_SAVE_MS) this.persist();
     // A map opened over a waiting line holds the line: no nibble or bite is missed behind the panel.
     const lineHeld = this.panel !== null && this.state.kind === 'waiting';
@@ -1112,10 +1131,10 @@ export class LakeScene extends Phaser.Scene {
     }
     this.storyLineMs = Math.max(0, this.storyLineMs - deltaMs);
     const calmKind = this.state.kind === 'idle' || this.state.kind === 'waiting';
-    // Pajkel's weather line, once per real date, a few seconds after the first calm moment (slice 23b).
+    // Pajkel's weather line, once per weather change (real hour), a few seconds after the first calm moment (slice 23b).
     const wid = this.weatherId();
-    if (wid && this.elapsed > 3500 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && weatherLineDue(this.player.weatherSeen, this.today)) {
-      this.setPlayer({ ...this.player, weatherSeen: this.today });
+    if (wid && this.elapsed > 3500 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && weatherLineDue(this.player.weatherSeen, this.weatherKey)) {
+      this.setPlayer({ ...this.player, weatherSeen: this.weatherKey });
       this.companions.say(pickLine(WEATHER_LINES[wid]));
       this.storyLineMs = Math.max(this.storyLineMs, 4000);
     }
@@ -1567,10 +1586,47 @@ export class LakeScene extends Phaser.Scene {
 
   private refreshDate(): void {
     this.sinceDateCheck = 0;
-    const before = this.weatherId();
     this.today = todayLocal();
-    if (this.weatherId() !== before) this.lastSkyKey = -1;
+    this.hourNow = hourLocal();
+    // A new real hour has a new weather; it waits for a calm moment (see updateWeather).
+    const key = weatherHourKey(this.today, this.hourNow);
+    this.weatherWant = key !== this.weatherKey ? { key, id: this.weatherOverride ?? weatherForHour(this.today, this.hourNow) } : null;
     this.syncQuestsNow();
+  }
+
+  /**
+   * The weather changes only while Alex is idle or waiting, with no panel up (never in a fight, bite, cast or show-off),
+   * crossfading over WEATHER_FADE_MS. The session's effects (`weatherNow`) switch at once; Pajkel's line follows by the key.
+   */
+  private updateWeather(deltaMs: number): void {
+    if (this.weatherFlipMs >= 0 && this.elapsed >= this.weatherFlipMs) {
+      // Dev: a forced flip to the next weather in the list.
+      this.weatherFlipMs = -1;
+      const i = this.weatherCur ? WEATHER_IDS.indexOf(this.weatherCur) : -1;
+      this.weatherWant = { key: this.weatherKey, id: WEATHER_IDS[(i + 1) % WEATHER_IDS.length] };
+    }
+    if (this.weatherBlend < 1) this.weatherBlend = Math.min(1, this.weatherBlend + deltaMs / WEATHER_FADE_MS);
+    if (!this.weatherWant || !weatherFlipAllowed(this.state.kind, !!this.panel || this.nameCardOpen || !!this.sleepFade)) return;
+    const { key, id } = this.weatherWant;
+    this.weatherWant = null;
+    this.weatherKey = key;
+    if (id !== this.weatherCur) {
+      this.weatherFrom = this.weatherCur;
+      this.weatherCur = id;
+      this.weatherBlend = 0;
+    }
+  }
+
+  /** How much of `id` shows right now (1 when it is the settled weather, fading in and out during a crossfade). */
+  private weatherVis(id: WeatherId): number {
+    if (this.weatherBlend >= 1) return this.weatherCur === id ? 1 : 0;
+    return (this.weatherCur === id ? this.weatherBlend : 0) + (this.weatherFrom === id ? 1 - this.weatherBlend : 0);
+  }
+
+  /** How grey the sky and water are now (the old and new weather mixed during a crossfade). */
+  private weatherGrey(): number {
+    const g = (id: WeatherId | undefined) => (id ? WEATHER_LOOK.grey[id] : 0);
+    return this.weatherBlend >= 1 ? g(this.weatherCur) : g(this.weatherFrom) + (g(this.weatherCur) - g(this.weatherFrom)) * this.weatherBlend;
   }
 
   /** Makes the stored quests today's: a new day pays what was finished and rolls three new ones. */
@@ -1586,9 +1642,9 @@ export class LakeScene extends Phaser.Scene {
     this.questPanel?.refresh();
   }
 
-  /** Today's weather (slice 23b): the dev flag, else the pure pick from the date. */
+  /** The weather in force (slice 23b): the dev flag, else the pure pick from the real date and hour, switched in by `updateWeather`. */
   private weatherId(): WeatherId | undefined {
-    return this.weatherOverride ?? weatherOfTheDay(this.today);
+    return this.weatherCur;
   }
 
   /** What today's weather does to the bites right now (the fog rule knows the clock). */
@@ -1599,8 +1655,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** The day look with today's weather on it (overcast and rain go grey). */
   private look2(): DayLook {
-    const id = this.weatherId();
-    return id ? weatherLook(dayLook(this.clock.minute), WEATHER_LOOK.grey[id]) : dayLook(this.clock.minute);
+    return weatherLook(dayLook(this.clock.minute), this.weatherGrey());
   }
 
   /** Today's fish (slice 19): the dev flag, else the pure pick from the date and her gear. */
@@ -2603,7 +2658,7 @@ export class LakeScene extends Phaser.Scene {
   /** Sky, sun, moon, clouds, stars and every tint for the current time of day. */
   private applyLook(look: DayLook): void {
     // Repaint the sky gradient when its colours moved (about every 2 in-game minutes).
-    const skyKey = Math.floor(this.clock.minute / 2);
+    const skyKey = Math.floor(this.clock.minute / 2) * 64 + Math.round(this.weatherBlend * 40);
     if (skyKey !== this.lastSkyKey) {
       this.lastSkyKey = skyKey;
       repaintSky(this, look.skyTop, look.skyBottom);
@@ -2639,7 +2694,7 @@ export class LakeScene extends Phaser.Scene {
       .setAlpha(look.moonAlpha);
 
     for (const c of this.cloudImgs) {
-      const x = ((c.x + (this.elapsed / 1000) * c.speed * (this.weatherId() === 'windy' ? 2.2 : 1)) % (W + 80)) - 60;
+      const x = ((c.x + (this.elapsed / 1000) * c.speed * (1 + 1.2 * this.weatherVis('windy'))) % (W + 80)) - 60;
       c.img.setPosition(Math.round(x), c.y).setTint(look.cloudTint).setAlpha(0.94 - look.starAlpha * 0.3);
     }
 
@@ -2678,16 +2733,17 @@ export class LakeScene extends Phaser.Scene {
     }
 
     // Drifting dashes (a windy day: more of them, and faster).
-    const windy = this.weatherId() === 'windy';
-    g.fillStyle(sparkleColor, (windy ? 0.3 : 0.22) * lightLevel * still);
-    for (let i = 0; i < (windy ? 26 : 12); i++) {
+    const windy = this.weatherVis('windy');
+    g.fillStyle(sparkleColor, (0.22 + 0.08 * windy) * lightLevel * still);
+    for (let i = 0; i < Math.round(12 + 14 * windy); i++) {
       const y = FAR_SHORE_Y + 14 + ((i * 97) % (SHORE_Y - FAR_SHORE_Y - 40));
       const speed = 4 + (i % 3) * 3;
-      const x = ((i * 53 + this.driftT * speed * (windy ? 2.6 : 1)) % (W + 40)) - 20;
+      const x = ((i * 53 + this.driftT * speed * (1 + 1.6 * windy)) % (W + 40)) - 20;
       g.fillRect(Math.round(x), y, 5 + (i % 4) * 3, 1);
     }
 
-    if (this.weatherId() === 'rain') this.drawRainRipples(g, sparkleColor, lightLevel, still);
+    const rainVis = this.weatherVis('rain');
+    if (rainVis > 0) this.drawRainRipples(g, sparkleColor, lightLevel, still * rainVis);
 
     // Glitter under whichever body is up: short twinkling sparkles, densest at the horizon.
     const sun = sunArc(this.clock.minute);
@@ -2741,12 +2797,14 @@ export class LakeScene extends Phaser.Scene {
     const fg = this.fogFx;
     rg.clear();
     fg.clear();
-    if (!id) return;
     const t = this.elapsed / 1000;
     const calmLeft = 1 - this.eerieCalm;
-    if (id === 'rain') {
+    const rainVis = this.weatherVis('rain');
+    const fogVis = this.weatherVis('fog');
+    if (!id && this.weatherBlend >= 1) return;
+    if (rainVis > 0) {
       const color = multiply(0xcfe3f2, look.worldTint);
-      rg.fillStyle(color, 0.65 * calmLeft);
+      rg.fillStyle(color, 0.65 * calmLeft * rainVis);
       for (let i = 0; i < 70; i++) {
         const speed = 230 + hash01(i * 3.7) * 110;
         const y = ((t * speed + hash01(i * 7.7) * (H + 30)) % (H + 30)) - 12;
@@ -2755,9 +2813,9 @@ export class LakeScene extends Phaser.Scene {
         rg.fillRect(x - 1, Math.round(y) + 3, 1, 2);
       }
     }
-    if (id === 'fog') {
+    if (fogVis > 0) {
       // Full until 08:30, gone by 10:00, and off at night (the daylight factor) and in the Pale One's window.
-      const strength = fogStrength(this.clock.minute) * daylight(this.clock.minute) * calmLeft;
+      const strength = fogStrength(this.clock.minute) * daylight(this.clock.minute) * calmLeft * fogVis;
       if (strength < 0.01) return;
       const top = FAR_SHORE_Y - 52;
       const bands = 24;
@@ -2834,7 +2892,7 @@ export class LakeScene extends Phaser.Scene {
       // A nibble tugs the bobber down briefly.
       const dip = this.nibbleAge < NIBBLE_ANIM_MS ? Math.round(Math.sin((this.nibbleAge / NIBBLE_ANIM_MS) * Math.PI) * 3) : 0;
       // A windy day pushes the bobber a few px sideways (purely visual; the line follows it).
-      const drift = this.weatherId() === 'windy' ? Math.round(Math.sin(this.elapsed / 1700) * 2.2 + Math.sin(this.elapsed / 610) * 0.8) : 0;
+      const drift = Math.round(this.weatherVis('windy') * (Math.sin(this.elapsed / 1700) * 2.2 + Math.sin(this.elapsed / 610) * 0.8));
       return { x: BOBBER_X + drift, y: distanceToY(s.distanceM) + bob + dip };
     }
     if (s.kind === 'bite') {

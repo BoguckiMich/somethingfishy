@@ -13,3 +13,12 @@ export function todayLocal(): string {
   const dd = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${mm}-${dd}`;
 }
+
+/**
+ * The current real hour on this device (0-23); the weather changes with it. The dev flag `?hour=HH` fakes it.
+ */
+export function hourLocal(): number {
+  const fake = pageParams().get('hour');
+  if (fake !== null && /^\d{1,2}$/.test(fake) && Number(fake) <= 23) return Number(fake);
+  return new Date().getHours();
+}
