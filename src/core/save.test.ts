@@ -287,3 +287,11 @@ describe('normalizeSave: seen hints', () => {
     expect(normalizeSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 });
+
+describe('weather line date (slice 23b)', () => {
+  it('keeps a valid date, drops a bad one, and stores nothing by default', () => {
+    expect(normalizeSave({ version: 1, player: { weatherSeen: '2026-11-24' }, clock: {} })?.player.weatherSeen).toBe('2026-11-24');
+    expect(normalizeSave({ version: 1, player: { weatherSeen: 'yesterday' }, clock: {} })?.player).not.toHaveProperty('weatherSeen');
+    expect(normalizeSave({ version: 1, player: {}, clock: {} })?.player).not.toHaveProperty('weatherSeen');
+  });
+});

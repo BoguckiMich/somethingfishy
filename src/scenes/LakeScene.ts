@@ -27,6 +27,7 @@ import {
   NEAR_SHORE_TOP,
   ROD_TIP,
   SHORE_Y,
+  H,
   W,
 } from '../art/layout';
 import { PAL } from '../art/palette';
@@ -37,7 +38,7 @@ import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
-import { createTextures, ensureSignTexture, lanternKey, repaintSky, TEX } from '../art/textures';
+import { createTextures, ensureSignTexture, lanternKey, repaintSky, TEX, weatherKey } from '../art/textures';
 import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from '../art/signArt';
 import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
@@ -47,7 +48,7 @@ import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/s
 import { showMapPanel } from '../ui/mapPanel';
 import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
-import { advanceClock, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
+import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
 import { isLegendary, speciesById, SPECIES } from '../core/data/fish';
 import { PALE_ONE } from '../core/data/legendary';
@@ -97,7 +98,10 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { carVariant, chairEmpty, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
-import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES } from '../core/data/pajkelLines';
+import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
+import { WEATHER_IDS, WEATHER_LOOK, type WeatherId } from '../core/data/weather';
+import { fogStrength, weatherEffects, weatherLineDue, weatherOfTheDay, type WeatherEffects } from '../core/daily/weather';
+import { weatherLook } from '../art/weatherArt';
 import { fishOfTheDay } from '../core/daily/fotd';
 import { lengthForStar, starFor, type Star } from '../core/data/stars';
 import { starKey } from '../art/starArt';
@@ -271,6 +275,7 @@ export class LakeScene extends Phaser.Scene {
     canCast: () => canCast(this.player),
     baitId: () => chosenBait(this.player),
     fotdId: () => this.fotdId(),
+    weatherFx: () => this.weatherNow(),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
   private panel: PanelHandle | null = null;
@@ -279,6 +284,14 @@ export class LakeScene extends Phaser.Scene {
   private coinIcon!: Phaser.GameObjects.Image;
   /** The sun, half sun or moon in front of the clock (slice 22c). */
   private clockIcon!: Phaser.GameObjects.Image;
+  /** Today's weather (slice 23b): its icon next to the clock, the rain/wind overlay and the fog. */
+  private weatherIcon!: Phaser.GameObjects.Image;
+  private weatherFxG!: Phaser.GameObjects.Graphics;
+  private fogFx!: Phaser.GameObjects.Graphics;
+  /** Dev flag ?weather=: that weather today (null = by the date). */
+  private weatherOverride: WeatherId | null = null;
+  /** The first-launch name card is up: Pajkel keeps his weather line for after it. */
+  private nameCardOpen = false;
   private wormCue!: Phaser.GameObjects.Text;
   private wormCueAge = Infinity;
   private clock: GameClock = NEW_GAME_CLOCK;
@@ -452,6 +465,8 @@ export class LakeScene extends Phaser.Scene {
     const saveStatus = this.setupSave(params);
     // The dev sandbox pretends every hint was seen (a clean lake for the other flags); ?debug=fresh pretends none was.
     if (this.sandbox) this.setPlayer({ ...this.player, seen: params.get('debug') === 'fresh' ? (params.get('casts') === '3' ? ['cast1', 'cast2', 'cast3', 'crate', 'sign', 'dog'] : []) : allSeen() });
+    // Same for Pajkel's weather line (slice 23b): only ?weather= (or ?debug=weatherline) lets him say it in the sandbox.
+    if (this.sandbox && !params.has('weather') && params.get('debug') !== 'weatherline') this.setPlayer({ ...this.player, weatherSeen: this.today });
     const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
@@ -491,6 +506,7 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?species=<id> forces the species that bites; ?rod=<id> picks a rod (carbon reaches deep water).
     const fotdParam = params.get('fotd');
     if (fotdParam && speciesById(fotdParam)) this.fotdOverride = fotdParam;
+    this.weatherOverride = WEATHER_IDS.find((w) => w === params.get('weather')) ?? null;
     const speciesParam = params.get('species') === 'legendary' ? PALE_ONE.speciesId : params.get('species');
     if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
@@ -753,7 +769,7 @@ export class LakeScene extends Phaser.Scene {
       deltaMs,
       { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
       this.elapsed,
-      dayLook(this.clock.minute).worldTint,
+      this.look2().worldTint,
       steamShows(timeOfDay(this.clock.minute)),
     );
     this.render(deltaMs);
@@ -1006,6 +1022,13 @@ export class LakeScene extends Phaser.Scene {
     }
     this.storyLineMs = Math.max(0, this.storyLineMs - deltaMs);
     const calmKind = this.state.kind === 'idle' || this.state.kind === 'waiting';
+    // Pajkel's weather line, once per real date, a few seconds after the first calm moment (slice 23b).
+    const wid = this.weatherId();
+    if (wid && this.elapsed > 3500 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && weatherLineDue(this.player.weatherSeen, this.today)) {
+      this.setPlayer({ ...this.player, weatherSeen: this.today });
+      this.companions.say(pickLine(WEATHER_LINES[wid]));
+      this.storyLineMs = Math.max(this.storyLineMs, 4000);
+    }
     if (this.storyLineMs <= 0 && calmKind && !this.panel && !this.sleepFade && this.companions.state.bubble === null) {
       const next = nextLine(storyOf(this.player), this.pajCanSpeak());
       if (next) {
@@ -1417,7 +1440,9 @@ export class LakeScene extends Phaser.Scene {
 
   private refreshDate(): void {
     this.sinceDateCheck = 0;
+    const before = this.weatherId();
     this.today = todayLocal();
+    if (this.weatherId() !== before) this.lastSkyKey = -1;
     this.syncQuestsNow();
   }
 
@@ -1432,6 +1457,23 @@ export class LakeScene extends Phaser.Scene {
       this.showToast(`Yesterday's quests paid: +${r.paid.coins} coins, +${r.paid.worms} worms${bait > 0 ? `, +${bait} bait` : ''}`);
     }
     this.questPanel?.refresh();
+  }
+
+  /** Today's weather (slice 23b): the dev flag, else the pure pick from the date. */
+  private weatherId(): WeatherId | undefined {
+    return this.weatherOverride ?? weatherOfTheDay(this.today);
+  }
+
+  /** What today's weather does to the bites right now (the fog rule knows the clock). */
+  private weatherNow(): WeatherEffects | undefined {
+    const id = this.weatherId();
+    return id ? weatherEffects(id, this.clock.minute) : undefined;
+  }
+
+  /** The day look with today's weather on it (overcast and rain go grey). */
+  private look2(): DayLook {
+    const id = this.weatherId();
+    return id ? weatherLook(dayLook(this.clock.minute), WEATHER_LOOK.grey[id]) : dayLook(this.clock.minute);
   }
 
   /** Today's fish (slice 19): the dev flag, else the pure pick from the date and her gear. */
@@ -1619,7 +1661,11 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?skipnames (or any ?debug=) skips the first-launch card.
     const skip = params.has('skipnames') || params.has('debug') || params.has('story');
     if (!stored && !skip) {
-      showNameOverlay(DEFAULT_PROFILE, true, (p) => this.applyProfile(p, true));
+      this.nameCardOpen = true;
+      showNameOverlay(DEFAULT_PROFILE, true, (p) => {
+        this.nameCardOpen = false;
+        this.applyProfile(p, true);
+      });
     }
   }
 
@@ -1682,6 +1728,9 @@ export class LakeScene extends Phaser.Scene {
     this.reflectionImg = this.add.image(0, FAR_SHORE_Y + 4, TEX.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(0.7);
     this.waterFx = this.add.graphics().setDepth(Z.waterFx);
     this.eerieFx = this.add.graphics().setDepth(Z.waterFx + 0.5);
+    // Weather (slice 23b): fog over the water and far shore, and the rain over the whole scene (under the UI).
+    this.fogFx = this.add.graphics().setDepth(Z.waterDecor + 0.5);
+    this.weatherFxG = this.add.graphics().setDepth(Z.fireflies + 0.5);
 
     // Decor on the water, away from the bobber column.
     const decor: [string, number, number][] = [
@@ -1802,8 +1851,9 @@ export class LakeScene extends Phaser.Scene {
     const pad = { padding: textPad(9, 5) };
     this.ui = this.add.graphics().setDepth(Z.uiPanel);
     // The clock: a 9 x 9 sun, half sun or moon sits in the left padding. Coins stay under it in their own frame.
-    this.clockLabel = this.add.text(8, 8, '', { ...textStyle, padding: { ...textPad(9, 5), left: 9 + 9 * CLOCK_ICON_SCALE + 5 } }).setDepth(Z.uiText);
+    this.clockLabel = this.add.text(8, 8, '', { ...textStyle, padding: { ...textPad(9, 5), left: 9 + 9 * CLOCK_ICON_SCALE + 5, right: 9 + 9 * CLOCK_ICON_SCALE + 5 } }).setDepth(Z.uiText);
     this.clockIcon = this.add.image(0, 0, TEX.clockSun).setOrigin(0, 0).setScale(CLOCK_ICON_SCALE).setDepth(Z.uiText);
+    this.weatherIcon = this.add.image(0, 0, weatherKey('sunny')).setOrigin(0, 0).setScale(CLOCK_ICON_SCALE).setDepth(Z.uiText);
     const statStyle = { ...textStyle, padding: { ...textPad(8, 4), left: 27 } };
     this.coinLabel = this.add.text(8, 40, '', statStyle).setDepth(Z.uiText);
     this.coinIcon = this.add.image(0, 0, TEX.coin).setOrigin(0, 0).setDepth(Z.uiText);
@@ -1903,10 +1953,11 @@ export class LakeScene extends Phaser.Scene {
   // ---- Rendering ---------------------------------------------------------------------------
 
   private render(_deltaMs = 0): void {
-    const look = dayLook(this.clock.minute);
+    const look = this.look2();
     this.applyLook(look);
     this.drawWaterFx(look);
     this.drawEerie();
+    this.drawWeather(look);
     this.drawPosts(look);
     this.drawFireflies(look);
     this.moments.update(_deltaMs, look.worldTint);
@@ -2038,6 +2089,9 @@ export class LakeScene extends Phaser.Scene {
     // Labels.
     this.clockLabel.setText(`Day ${this.clock.day} · ${formatClock(this.clock.minute)}`);
     const tod = timeOfDay(this.clock.minute);
+    const wid = this.weatherId();
+    this.weatherIcon.setVisible(!!wid);
+    if (wid) this.weatherIcon.setTexture(weatherKey(wid));
     this.clockIcon.setTexture(tod === 'day' ? TEX.clockSun : tod === 'night' ? TEX.clockMoon : TEX.clockHalf);
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
@@ -2319,7 +2373,7 @@ export class LakeScene extends Phaser.Scene {
       .setAlpha(look.moonAlpha);
 
     for (const c of this.cloudImgs) {
-      const x = ((c.x + (this.elapsed / 1000) * c.speed) % (W + 80)) - 60;
+      const x = ((c.x + (this.elapsed / 1000) * c.speed * (this.weatherId() === 'windy' ? 2.2 : 1)) % (W + 80)) - 60;
       c.img.setPosition(Math.round(x), c.y).setTint(look.cloudTint).setAlpha(0.94 - look.starAlpha * 0.3);
     }
 
@@ -2357,14 +2411,17 @@ export class LakeScene extends Phaser.Scene {
       g.fillStyle(sparkleColor, a * 0.85 * lightLevel * still).fillRect(sp.x, sp.y, a > 0.7 ? 2 : 1, 1);
     }
 
-    // Drifting dashes.
-    g.fillStyle(sparkleColor, 0.22 * lightLevel * still);
-    for (let i = 0; i < 12; i++) {
+    // Drifting dashes (a windy day: more of them, and faster).
+    const windy = this.weatherId() === 'windy';
+    g.fillStyle(sparkleColor, (windy ? 0.3 : 0.22) * lightLevel * still);
+    for (let i = 0; i < (windy ? 26 : 12); i++) {
       const y = FAR_SHORE_Y + 14 + ((i * 97) % (SHORE_Y - FAR_SHORE_Y - 40));
       const speed = 4 + (i % 3) * 3;
-      const x = ((i * 53 + this.driftT * speed) % (W + 40)) - 20;
+      const x = ((i * 53 + this.driftT * speed * (windy ? 2.6 : 1)) % (W + 40)) - 20;
       g.fillRect(Math.round(x), y, 5 + (i % 4) * 3, 1);
     }
+
+    if (this.weatherId() === 'rain') this.drawRainRipples(g, sparkleColor, lightLevel, still);
 
     // Glitter under whichever body is up: short twinkling sparkles, densest at the horizon.
     const sun = sunArc(this.clock.minute);
@@ -2391,6 +2448,68 @@ export class LakeScene extends Phaser.Scene {
       const x = cx + (r2 - 0.5) * 2 * (4 + u * 28);
       const len = 1 + Math.floor(r3 * 3);
       g.fillStyle(color, v * strength * (1 - u * 0.7)).fillRect(Math.round(x), Math.round(y), len, 1);
+    }
+  }
+
+  /** Rain rings on the lake: a fixed set of slots that each bloom and fade, in a new spot every round (no state). */
+  private drawRainRipples(g: Phaser.GameObjects.Graphics, color: number, lightLevel: number, still: number): void {
+    const t = this.elapsed / 1000;
+    const span = SHORE_Y - FAR_SHORE_Y - 40;
+    for (let i = 0; i < 16; i++) {
+      const len = 1.5 + hash01(i * 2.3) * 0.9;
+      const u = t / len + hash01(i * 5.1);
+      const cyc = Math.floor(u);
+      const p = u - cyc;
+      const depth = Math.pow(hash01(i * 9.7 + cyc * 3.3), 0.8);
+      const x = 8 + hash01(i * 1.9 + cyc * 7.7 + 4) * (W - 16);
+      const y = FAR_SHORE_Y + 12 + depth * span;
+      const k = 0.5 + depth * 0.8;
+      pixelEllipse(g, Math.round(x), Math.round(y), (1 + p * 5) * k, (0.5 + p * 1.6) * k, color, (1 - p) * 0.95 * Math.max(0.5, lightLevel) * still);
+    }
+  }
+
+  /** Weather over the lake (slice 23b): falling rain streaks, and the morning fog that thins out by 10:00. Both are skipped by the eerie night. */
+  private drawWeather(look: DayLook): void {
+    const id = this.weatherId();
+    const rg = this.weatherFxG;
+    const fg = this.fogFx;
+    rg.clear();
+    fg.clear();
+    if (!id) return;
+    const t = this.elapsed / 1000;
+    const calmLeft = 1 - this.eerieCalm;
+    if (id === 'rain') {
+      const color = multiply(0xcfe3f2, look.worldTint);
+      rg.fillStyle(color, 0.65 * calmLeft);
+      for (let i = 0; i < 70; i++) {
+        const speed = 230 + hash01(i * 3.7) * 110;
+        const y = ((t * speed + hash01(i * 7.7) * (H + 30)) % (H + 30)) - 12;
+        const x = Math.round(hash01(i * 2.9) * (W + 20) - y * 0.12);
+        rg.fillRect(x, Math.round(y), 1, 3);
+        rg.fillRect(x - 1, Math.round(y) + 3, 1, 2);
+      }
+    }
+    if (id === 'fog') {
+      // Full until 08:30, gone by 10:00, and off at night (the daylight factor) and in the Pale One's window.
+      const strength = fogStrength(this.clock.minute) * daylight(this.clock.minute) * calmLeft;
+      if (strength < 0.01) return;
+      const top = FAR_SHORE_Y - 52;
+      const bands = 24;
+      const bandH = Math.ceil((SHORE_Y - top) / bands);
+      const color = multiply(0xe4ebee, look.worldTint);
+      for (let i = 0; i < bands; i++) {
+        const u = i / (bands - 1);
+        // Thickest low over the far shore, thinner toward the near water.
+        const a = 0.7 * strength * Math.min(1, u * 2.5) * (1 - 0.65 * u);
+        fg.fillStyle(color, a).fillRect(0, top + i * bandH, W, bandH);
+      }
+      // A few slow wisps on top.
+      for (let i = 0; i < 6; i++) {
+        const w = 90 + hash01(i * 4.1) * 80;
+        const x = ((hash01(i * 1.3) * (W + w) + t * (3 + (i % 3) * 2)) % (W + w)) - w;
+        const y = FAR_SHORE_Y + 8 + hash01(i * 8.9) * (SHORE_Y - FAR_SHORE_Y - 90);
+        fg.fillStyle(color, 0.16 * strength).fillRect(Math.round(x), Math.round(y), Math.round(w), 7);
+      }
     }
   }
 
@@ -2448,7 +2567,9 @@ export class LakeScene extends Phaser.Scene {
       const bob = Math.round(Math.sin(this.elapsed / 400) * 1.2);
       // A nibble tugs the bobber down briefly.
       const dip = this.nibbleAge < NIBBLE_ANIM_MS ? Math.round(Math.sin((this.nibbleAge / NIBBLE_ANIM_MS) * Math.PI) * 3) : 0;
-      return { x: BOBBER_X, y: distanceToY(s.distanceM) + bob + dip };
+      // A windy day pushes the bobber a few px sideways (purely visual; the line follows it).
+      const drift = this.weatherId() === 'windy' ? Math.round(Math.sin(this.elapsed / 1700) * 2.2 + Math.sin(this.elapsed / 610) * 0.8) : 0;
+      return { x: BOBBER_X + drift, y: distanceToY(s.distanceM) + bob + dip };
     }
     if (s.kind === 'bite') {
       const shake = Math.round(Math.sin(this.elapsed / 30));
@@ -2707,6 +2828,7 @@ export class LakeScene extends Phaser.Scene {
     // The coin icon sits in the left padding of its label; the clock icon too (9 x 9, drawn bigger).
     this.coinIcon.setPosition(Math.round(this.coinLabel.x) + 5, Math.round(this.coinLabel.y + this.coinLabel.height / 2) - 8);
     this.clockIcon.setPosition(Math.round(this.clockLabel.x) + 9, Math.round(this.clockLabel.y + this.clockLabel.height / 2) - Math.floor((9 * CLOCK_ICON_SCALE) / 2));
+    this.weatherIcon.setPosition(Math.round(this.clockLabel.x + this.clockLabel.width) - 9 * CLOCK_ICON_SCALE - 9, Math.round(this.clockLabel.y + this.clockLabel.height / 2) - Math.floor((9 * CLOCK_ICON_SCALE) / 2));
     this.drawBoardButton(g);
     this.bottomBar.draw(g, {
       enabled: this.state.kind === 'idle' && !this.panel,

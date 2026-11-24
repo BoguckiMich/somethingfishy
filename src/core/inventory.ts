@@ -58,6 +58,8 @@ export interface PlayerState {
   story?: StoryState;
   /** Hints seen (slice 22c): shore things tapped once and the first casts made (ids of core/tips); missing = nothing yet. */
   seen?: string[];
+  /** The real date (YYYY-MM-DD) Pajkel last said the weather line (slice 23b); missing = never. */
+  weatherSeen?: string;
 }
 
 export function newPlayer(): PlayerState {

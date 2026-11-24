@@ -3,6 +3,8 @@ import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VAR
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
 import { lanternSprite } from './lanternArt';
 import { BAR_INNER, STRIP_INNER, barFrameSprite, stripFishSprite, stripNetSprite } from './catchBarArt';
+import { WEATHER_IDS, type WeatherId } from '../core/data/weather';
+import { weatherSprite } from './weatherArt';
 import { sunSprite, halfSunSprite, moonSprite } from './clockIconArt';
 import { signKey, signSprite, type SignLook } from './signArt';
 import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
@@ -77,6 +79,9 @@ export const TEX = {
   stripNet: 'stripNet',
 } as const;
 
+/** Texture key of a weather's 9 x 9 icon (slice 23b). */
+export const weatherKey = (id: WeatherId): string => `weather-${id}`;
+
 /** Texture key of a bait's 16 x 16 icon (the bottom-bar chip); worms use the plain worm icon. */
 export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `bait:${id}`);
 
@@ -138,6 +143,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.clockSun, Raster.fromSprite(sunSprite()));
   addRaster(scene, TEX.clockHalf, Raster.fromSprite(halfSunSprite()));
   addRaster(scene, TEX.clockMoon, Raster.fromSprite(moonSprite()));
+  for (const id of WEATHER_IDS) addRaster(scene, weatherKey(id), Raster.fromSprite(weatherSprite(id)));
   addRaster(scene, TEX.stripFish, Raster.fromSprite(stripFishSprite()));
   addRaster(scene, TEX.stripNet, Raster.fromSprite(stripNetSprite()));
   addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));

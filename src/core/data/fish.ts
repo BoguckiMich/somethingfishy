@@ -1,6 +1,7 @@
 import type { TimeOfDay } from '../clock';
 import type { FishPattern } from '../catchBar';
 import type { ZoneId } from '../location';
+import type { WeatherId } from './weather';
 
 /** `legendary` fish are not in the weighted spawn pool: they have their own rule (core/legendary.ts). */
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
@@ -29,6 +30,8 @@ export interface Species {
   logHint?: string;
   /** How Alex shows it off: at her chest (default), or hugged head-up with the tail on the dock (too big for the chest). */
   showOff?: 'chest' | 'hug';
+  /** The weather it bites best in (slice 23b): the multiplier lives in data/weather.ts. Missing = no favourite. */
+  likes?: WeatherId[];
 }
 
 const ANY: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
@@ -54,6 +57,7 @@ export const SPECIES: Species[] = [
     id: 'perch', name: 'Perch', zone: 'shallow', times: ['day'], rarity: 'uncommon', pattern: 'darting', difficulty: 0.25,
     lengthCm: [10, 35], nibbles: [2, 4], bodyFactor: 0.0128, basePrice: 14,
     fact: 'Perch have dark vertical stripes and hunt small fish in groups.',
+    likes: ['windy'],
   },
   {
     id: 'crucian', name: 'Crucian carp', zone: 'shallow', times: ANY, rarity: 'common', pattern: 'sinker', difficulty: 0.12,
@@ -69,26 +73,31 @@ export const SPECIES: Species[] = [
     id: 'bream', name: 'Bream', zone: 'deep', times: ANY, rarity: 'common', pattern: 'sinker', difficulty: 0.66,
     lengthCm: [25, 60], nibbles: [2, 4], bodyFactor: 0.0144, basePrice: 20,
     fact: 'Bream graze along the bottom for insect larvae and worms.',
+    likes: ['rain'],
   },
   {
     id: 'tench', name: 'Tench', zone: 'deep', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.55,
     lengthCm: [25, 55], nibbles: [2, 4], bodyFactor: 0.0172, basePrice: 30,
     fact: 'The tench is covered in thick slime, and old folklore called it the doctor fish.',
+    likes: ['overcast'],
   },
   {
     id: 'carp', name: 'Carp', zone: 'deep', times: ANY, rarity: 'uncommon', pattern: 'smooth', difficulty: 0.7,
     lengthCm: [35, 90], nibbles: [2, 4], bodyFactor: 0.0175, basePrice: 38,
     fact: 'Common carp can live for several decades.',
+    likes: ['rain'],
   },
   {
     id: 'pike', name: 'Pike', zone: 'deep', times: ['day'], rarity: 'uncommon', pattern: 'darting', difficulty: 0.75,
     lengthCm: [40, 110], nibbles: [0, 1], bodyFactor: 0.008, basePrice: 45,
     fact: 'Pike are ambush predators that strike in a fraction of a second.',
+    likes: ['windy'],
   },
   {
     id: 'zander', name: 'Zander', zone: 'deep', times: ['dusk', 'night'], rarity: 'uncommon', pattern: 'erratic', difficulty: 0.7,
     lengthCm: [35, 80], nibbles: [0, 3], bodyFactor: 0.0106, basePrice: 48,
     fact: 'Zander have large glassy eyes that help them hunt in murky water and at dusk.',
+    likes: ['windy', 'overcast'],
   },
   {
     id: 'catfish', name: 'Catfish', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'sinker', difficulty: 0.85,
