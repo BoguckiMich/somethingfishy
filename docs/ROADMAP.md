@@ -19,8 +19,12 @@ The first lake has a beginning, a middle and an end.
 - [ ] Story chapters engine + Quiet Lake chapters Q1-Q8 (sealed story bottle, wax-seal badge on the
       notice board, one chapter per real day, STORY.md §3) and the Pale One bonus beat
 - [ ] Grzesiu's fish knowledge in the log (size ranges after N catches)
+- [ ] **Polish pass before M1 ends** (user, 2026-11-24):
+  - Pajkel: the sitting pose and the thermos-drinking animation
+  - Bestia is perfect as she is; the fetch sticks need fixing (look and placement)
+  - Overall UI made friendlier: findings and a prompt in `docs/ui-review/` (screenshots + `UI_REVIEW_PROMPT.md`)
 
-**Done when:** a fresh save can play ~2 weeks of daily 15-minute visits on Quiet Lake with something
+**Done when:** the polish pass is done and a fresh save can play ~2 weeks of daily 15-minute visits on Quiet Lake with something
 new each day, and finishing the checklist shows the "road is fixed" card.
 
 ## M2 · "Road trip: River bend"
