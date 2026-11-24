@@ -4,7 +4,7 @@ import { PAL } from './palette';
 import { TRANSPARENT } from './pixelGrid';
 import { Raster } from './raster';
 import { cloudRaster, dockRaster, farShoreRaster, nearShoreRaster, paintSky, reflectionRaster, waterRaster } from './scenery';
-import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffHandsSprite, alexShowOffSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite } from './characters';
+import { ALEX_FEET_Y, ALEX_HEADS, ALEX_SIZE, SHOW_OFF_FISH_ANCHOR, alexShowOffHandsSprite, alexShowOffSprite, type AlexHead, DOG_SIZE, PAJ_SIZE, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, PAJ_POSES, emptyChairSprite, stickGroundSprite, stickSpinSprite, stickCarrySprite, STICK_GROUND_SIZE } from './characters';
 import { SPECIES } from '../core/data/fish';
 import { FISH_SIZE_CLASSES, fishIconSprite, fishSizeClass, fishSprite } from './fishArt';
 import { BOBBER, CRATE, NOTICE_BOARD, PINE_A, PINE_TALL, REED } from './sprites';
@@ -41,8 +41,32 @@ describe('sprites', () => {
     expect(px('left')).not.toEqual(px('right'));
     const p = pajkelSittingSprite('sit', 0);
     expect([p.width, p.height]).toEqual([PAJ_SIZE.w, PAJ_SIZE.h]);
-    expect(Array.from(pajkelSittingSprite('sip', 0).pixels)).not.toEqual(Array.from(p.pixels));
+    expect(Array.from(pajkelSittingSprite('sipLift', 0).pixels)).not.toEqual(Array.from(p.pixels));
     expect(pajkelWalkSprite('walk1').width).toBeGreaterThan(0);
+  });
+
+  it("Pajkel's chair frames are 40x48, differ from each other, and the empty chair and fetch sticks have their sizes and colours (22a)", () => {
+    const frames = PAJ_POSES.map((pose) => pajkelSittingSprite(pose, 0));
+    for (const f of frames) expect([f.width, f.height]).toEqual([PAJ_SIZE.w, PAJ_SIZE.h]);
+    expect(new Set(frames.map((f) => Array.from(f.pixels).join(','))).size).toBe(PAJ_POSES.length);
+    // The chair is red canvas on a stone frame in every frame.
+    for (const f of frames) {
+      expect(Array.from(f.pixels)).toContain(PAL.shirtDark);
+      expect(Array.from(f.pixels)).toContain(PAL.stone);
+    }
+    const chair = emptyChairSprite();
+    expect(chair.width).toBeGreaterThan(24);
+    expect(chair.height).toBeLessThanOrEqual(20);
+    expect(Array.from(chair.pixels)).toContain(PAL.mug); // the thermos beside it
+    for (const v of [0, 1, 2] as const) {
+      const s = stickGroundSprite(v);
+      expect([s.width, s.height]).toEqual([STICK_GROUND_SIZE.w, STICK_GROUND_SIZE.h]);
+      expect(Array.from(s.pixels)).not.toContain(PAL.outline); // wood colours, no outline
+      expect(Array.from(s.pixels)).toContain(PAL.grass0); // the shadow row
+    }
+    expect(new Set([0, 1, 2].map((v) => Array.from(stickGroundSprite(v as 0 | 1 | 2).pixels).join(','))).size).toBe(3);
+    expect(new Set([0, 1, 2, 3].map((i) => Array.from(stickSpinSprite(i).pixels).join(','))).size).toBe(4);
+    expect(Array.from(stickCarrySprite().pixels)).not.toContain(PAL.outline);
   });
 
   it("Alex's hair moves as one block when she breathes", () => {

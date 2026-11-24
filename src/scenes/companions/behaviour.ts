@@ -20,7 +20,7 @@ export const DOG_SPOT: Point = { x: 178, y: 430 };
 const PAJ_PATH_DOWN: Point[] = [{ x: 148, y: 440 }, { x: 148, y: 484 }];
 const DOG_PATH_DOWN: Point[] = [{ x: 178, y: 444 }, { x: 178, y: 486 }];
 export const PLAY_PAJ: Point = { x: 112, y: 540 };
-const PLAY_DOG: Point = { x: 140, y: 548 };
+const PLAY_DOG: Point = { x: 140, y: 544 };
 
 export const IDLE_BEFORE_PLAY_MS = 25_000;
 /** The happy spin after the last fetch: the dog flips to face the other way this many times over this long. */
@@ -45,6 +45,45 @@ export const HOP_MS = 1500;
 export const CLAP_BIG_MS = 3600;
 export const HOP_BIG_MS = 2800;
 
+/**
+ * The sip (slice 22a): lift the cup, drink, lower it. Every 4th sip starts with a pour: he reaches for
+ * the thermos, tips it over the cup in his lap, and puts it back down.
+ */
+export const SIP_FRAMES: readonly { shape: PajShape; ms: number }[] = [
+  { shape: 'sipLift', ms: 200 },
+  { shape: 'sipDrink', ms: 900 },
+  { shape: 'sipLift', ms: 200 },
+];
+export const POUR_FRAMES: readonly { shape: PajShape; ms: number }[] = [
+  { shape: 'pourReach', ms: 300 },
+  { shape: 'pour', ms: 800 },
+  { shape: 'pourReach', ms: 300 },
+];
+/** Every this-many-th sip starts with a pour. */
+export const POUR_EVERY = 4;
+const frameSum = (f: readonly { ms: number }[]) => f.reduce((a, b) => a + b.ms, 0);
+/** How long one sip lasts, with or without the pour in front. */
+export const sipTotalMs = (pour: boolean): number => frameSum(SIP_FRAMES) + (pour ? frameSum(POUR_FRAMES) : 0);
+
+/** The frame at `ms` into a sip (null once it is over). */
+export function sipFrameAt(ms: number, pour: boolean): PajShape | null {
+  let t = ms;
+  for (const f of pour ? [...POUR_FRAMES, ...SIP_FRAMES] : SIP_FRAMES) {
+    if (t < f.ms) return f.shape;
+    t -= f.ms;
+  }
+  return null;
+}
+
+/** Part of a sip or a pour. */
+export const isSipShape = (shape: PajShape): boolean => shape === 'sipLift' || shape === 'sipDrink' || shape === 'pourReach' || shape === 'pour';
+/** Sitting in the chair, whatever he is doing there. */
+export const isSeatedShape = (shape: PajShape): boolean => shape === 'sit' || shape === 'cheer' || shape === 'look' || isSipShape(shape);
+/** Is the cup at his chest or mouth (so it steams on a cool morning or evening)? */
+export const holdsCup = (shape: PajShape): boolean => shape === 'sit' || shape === 'sipLift' || shape === 'sipDrink';
+/** The steam shows at dawn, dusk and night; by day the cup is just a cup. */
+export const steamShows = (period: 'dawn' | 'day' | 'dusk' | 'night'): boolean => period !== 'day';
+
 /** Pajkel's speech bubble stays this long (the last FADE ms fade out). */
 export const BUBBLE_MS = 3000;
 export const BUBBLE_FADE_MS = 300;
@@ -56,7 +95,7 @@ export interface Bubble {
 }
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
-export type PajShape = 'sit' | 'sip' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend';
+export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed';
 /**
  * One round of "no take, only throw" (slice 17): he throws, she fetches (`throw`), trots back (`bring`)
@@ -74,6 +113,8 @@ interface Actor extends Point {
 
 export interface Stick extends Point {
   state: 'hidden' | 'flying' | 'ground' | 'carried';
+  /** Which of the three shapes it is (it keeps its shape when she drops it). */
+  variant: number;
 }
 
 /**
@@ -82,19 +123,26 @@ export interface Stick extends Point {
  */
 export interface GroundStick extends Point {
   kind: 'old' | 'spare';
+  /** Which of the three stick shapes (0..2). */
+  variant: number;
   ageMs: number;
   fadeMs: number | null;
 }
 
 export const STICK_TUNING = {
-  /** Old sticks lying on the grass at once; the oldest fades out when a fourth would land. */
-  maxOld: 3,
+  /** Old sticks lying on the grass at once; the oldest fades out when a third would land. */
+  maxOld: 2,
   fadeInMs: 300,
-  fadeOutMs: 1500,
+  /** An old stick lies this long, then fades out over fadeOutMs. */
+  oldLifeMs: 30_000,
+  fadeOutMs: 2000,
 };
 
+/** Which of the three stick shapes lies where: seeded by the spot, so it is the same every time. */
+export const stickVariantAt = (p: Point): number => Math.abs(Math.round(p.x) * 7 + Math.round(p.y) * 13) % 3;
+
 /** Where the companions play: the grass between the car (left), the dock (top), the right bushes and the hint line (bottom). */
-export const PLAY_AREA = { x0: 100, x1: 322, y0: 508, y1: 558 };
+export const PLAY_AREA = { x0: 100, x1: 322, y0: 508, y1: 546 };
 
 export const PLAY_TUNING = {
   /** A round ends with her bringing it back and dropping it at his feet this often. */
@@ -137,7 +185,9 @@ export const PLAY_TUNING = {
   dropMs: 1700,
   /** The spare stick lies this far from him (min, max), and sticks keep this far apart. */
   spareDist: [44, 90] as [number, number],
-  stickGap: 22,
+  stickGap: 18,
+  /** A spare stick keeps this far from Bestia. */
+  dogGap: 14,
   /** A throw lands this far from him (min, max). */
   throwDist: [80, 200] as [number, number],
 };
@@ -221,6 +271,9 @@ export interface Companions {
     shape: PajShape;
     reactMs: number;
     nextSipIn: number;
+    /** How many sips he has started (every POUR_EVERY-th starts with a pour), and whether the one under way pours. */
+    sips: number;
+    sipPour: boolean;
     /** Distance walked, in pixels: drives the walk cycle so his feet match his speed. */
     walkDist: number;
     /** Time left clapping (alternating the cheer and sit frames). */
@@ -314,8 +367,8 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       restMs: 0,
       sleeping: false,
     },
-    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
-    stick: { x: 0, y: 0, state: 'hidden' },
+    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), sips: 0, sipPour: false, walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
+    stick: { x: 0, y: 0, state: 'hidden', variant: 0 },
     bubble: null,
     sticks: [],
     giveBackChance: PLAY_TUNING.giveBackChance,
@@ -482,6 +535,9 @@ export function carVariant(s: Companions): 'closed' | 'open' | 'light' {
 export const pajVisible = (s: Companions): boolean => s.mode !== 'bed' || (s.bed?.pajA ?? 1) > 0.01;
 export const dogVisible = (s: Companions): boolean => s.mode !== 'bed' || (!s.bed?.carried && (s.bed?.dogA ?? 1) > 0.01);
 
+/** The camp chair stands empty (the thermos beside it) whenever he is not sitting in it: away, or in the car. */
+export const chairEmpty = (s: Companions): boolean => !(isSeatedShape(s.paj.shape) && (s.mode === 'dock' || (s.mode === 'bed' && s.bed?.phase === 'say')));
+
 /** True while Pajkel's arms are up high in the stretch (else out). */
 export function pajStretchHigh(s: Companions): boolean {
   const t = s.bed?.phaseMs ?? 0;
@@ -495,8 +551,11 @@ function setReaction(s: Companions, r: Companions['dog']['reaction']): void {
 
 function beginReturn(s: Companions): void {
   s.mode = 'returning';
+  // Every stick on the grass fades out over fadeOutMs instead of popping away; the one in her mouth is dropped.
+  if (s.stick.state === 'carried') dropCarried(s);
+  else if (s.stick.state === 'ground') layStick(s, clampArea(s.stick), 'old', s.stick.variant);
   s.stick.state = 'hidden';
-  s.sticks = [];
+  for (const g of s.sticks) if (g.fadeMs === null) g.fadeMs = STICK_TUNING.fadeOutMs;
   s.paj.path = [{ x: PAJ_PATH_DOWN[1].x, y: PAJ_PATH_DOWN[1].y }, PAJ_PATH_DOWN[0], PAJ_SPOT];
   s.dog.path = [DOG_PATH_DOWN[1], DOG_PATH_DOWN[0], DOG_SPOT];
   s.dog.reaction = 'none';
@@ -694,15 +753,21 @@ function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
   }
   if (p.shape === 'look' && p.reactMs > 1600) p.shape = 'sit';
   if (p.shape === 'cheer' && p.reactMs > 1900) p.shape = 'sit';
-  if (p.shape === 'sip') {
-    if (p.reactMs > 1500) {
+  if (isSipShape(p.shape)) {
+    // A reaction (look / cheer) has already replaced the shape and ends the sip; here it just runs on.
+    const f = sipFrameAt(p.reactMs, p.sipPour);
+    if (f) p.shape = f;
+    else {
       p.shape = 'sit';
-      p.nextSipIn = rand(rng, 8000, 14000);
+      p.reactMs = 0;
     }
   } else if (p.shape === 'sit') {
     p.nextSipIn -= dtMs;
     if (p.nextSipIn <= 0) {
-      p.shape = 'sip';
+      p.sips++;
+      p.sipPour = p.sips % POUR_EVERY === 0;
+      p.nextSipIn = rand(rng, 8000, 14000);
+      p.shape = sipFrameAt(0, p.sipPour) ?? 'sit';
       p.reactMs = 0;
     }
   }
@@ -902,6 +967,7 @@ function tickSticks(s: Companions, dtMs: number): void {
   for (const g of s.sticks) {
     g.ageMs += dtMs;
     if (g.fadeMs !== null) g.fadeMs -= dtMs;
+    else if (g.kind === 'old' && g.ageMs >= STICK_TUNING.oldLifeMs) g.fadeMs = STICK_TUNING.fadeOutMs; // it has lain long enough
   }
   s.sticks = s.sticks.filter((g) => g.fadeMs === null || g.fadeMs > 0);
 }
@@ -910,12 +976,18 @@ function tickSticks(s: Companions, dtMs: number): void {
 export const oldSticks = (s: Companions): GroundStick[] => s.sticks.filter((g) => g.kind === 'old' && g.fadeMs === null);
 
 /** Puts a stick on the grass; more than the cap of old ones makes the oldest start fading. */
-function layStick(s: Companions, at: Point, kind: GroundStick['kind']): GroundStick {
-  const g: GroundStick = { x: at.x, y: at.y, kind, ageMs: 0, fadeMs: null };
+function layStick(s: Companions, at: Point, kind: GroundStick['kind'], variant: number = stickVariantAt(at)): GroundStick {
+  const g: GroundStick = { x: at.x, y: at.y, kind, variant, ageMs: 0, fadeMs: null };
   s.sticks.push(g);
   const old = oldSticks(s);
   for (let i = 0; i < old.length - STICK_TUNING.maxOld; i++) old[i].fadeMs = STICK_TUNING.fadeOutMs;
   return g;
+}
+
+/** The oldest old stick still lying there starts to fade (nothing fitted, so the lawn makes room). */
+function fadeOldest(s: Companions): void {
+  const oldest = oldSticks(s)[0];
+  if (oldest) oldest.fadeMs = STICK_TUNING.fadeOutMs;
 }
 
 /** A spare stick he has not picked up yet becomes an old one (the game moves on without it). */
@@ -923,7 +995,7 @@ function settleSpares(s: Companions): void {
   for (const g of [...s.sticks]) {
     if (g.kind !== 'spare') continue;
     s.sticks = s.sticks.filter((k) => k !== g);
-    layStick(s, g, 'old');
+    layStick(s, g, 'old', g.variant);
   }
 }
 
@@ -939,7 +1011,7 @@ function holdStick(s: Companions): void {
 /** She lets go of the stick she carries: it lies on the grass as an old one. */
 function dropCarried(s: Companions): void {
   if (s.stick.state !== 'carried') return;
-  layStick(s, clampArea({ x: s.dog.x + s.dog.face * 10, y: s.dog.y }), 'old');
+  layStick(s, clampArea({ x: s.dog.x + s.dog.face * 10, y: s.dog.y }), 'old', s.stick.variant);
   s.stick.state = 'hidden';
 }
 
@@ -950,11 +1022,11 @@ function pickSpot(s: Companions, from: Point, range: [number, number], rng: Rng)
     const ang = rng() * Math.PI * 2;
     const r = rand(rng, range[0], range[1]);
     spot = { x: from.x + Math.cos(ang) * r, y: from.y + Math.sin(ang) * r * 0.55 };
-    if (inArea(spot) && s.sticks.every((g) => dist(g, spot) >= PLAY_TUNING.stickGap) && dist(s.dog, spot) >= PLAY_TUNING.stickGap) return spot;
+    if (inArea(spot) && s.sticks.every((g) => dist(g, spot) >= PLAY_TUNING.stickGap) && dist(s.dog, spot) >= PLAY_TUNING.dogGap) return spot;
   }
-  // Nothing fitted (a cramped corner): a spot to the roomier side.
-  const dx = from.x < (PLAY_AREA.x0 + PLAY_AREA.x1) / 2 ? range[0] : -range[0];
-  return clampArea({ x: from.x + dx, y: spot.y });
+  // Nothing fitted (a cramped lawn): it lies where it would, and the oldest old stick fades to make room.
+  fadeOldest(s);
+  return clampArea(spot);
 }
 
 /**
@@ -979,6 +1051,7 @@ function pickTarget(s: Companions, rng: Rng): Point {
       best = t;
     }
   }
+  fadeOldest(s); // nothing landed clear of the others: the oldest old stick fades to make room
   return best ?? farthest;
 }
 
@@ -1050,6 +1123,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
         dropCarried(s);
         d.hop = 0;
         s.stick.state = 'flying';
+        s.stick.variant = stickVariantAt(pl.target);
         s.stick.x = p.x + p.face * 6;
         s.stick.y = p.y - 44;
       }
@@ -1090,7 +1164,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
       if (done) {
         if (pl.giveBack) {
           // She drops it at his feet; he is so surprised he says thank you.
-          layStick(s, { x: p.x + p.face * T.stickStop, y: p.y }, 'spare');
+          layStick(s, { x: p.x + p.face * T.stickStop, y: p.y }, 'spare', s.stick.variant);
           s.stick.state = 'hidden';
           endRound(s, rng);
           pajSay(s, GIVE_BACK_LINE);

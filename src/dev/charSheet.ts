@@ -8,11 +8,15 @@ import {
   dogKey,
   dogSprite,
   pajkelSittingSprite,
+  emptyChairSprite,
+  stickGroundSprite,
+  stickSpinSprite,
+  stickPuffSprite,
+  PAJ_POSES,
   pajkelWalkSprite,
   stickCarrySprite,
   STICK_CARRY_SIZE,
   DOG_SIZE,
-  type PajPose,
   PAJ_WALK_POSES,
 } from '../art/characters';
 import { DOG_MOUTH } from '../scenes/companions/behaviour';
@@ -106,12 +110,26 @@ if (mode === 'all' || mode === 'alex') {
 }
 
 if (mode === 'all' || mode === 'paj') {
+  // Seated frames (breath 0/1 only where it shows): on planks.
   row(
-    (['sit', 'sip', 'cheer', 'look'] as PajPose[]).flatMap((pose): [string, Sprite, number?][] =>
-      [0, 1].map((b) => [`${pose}${b}`, pajkelSittingSprite(pose, b as 0 | 1), PAL.woodLight] as [string, Sprite, number?]),
-    ),
+    PAJ_POSES.flatMap((pose): [string, Sprite, number?][] =>
+      [0, 1].map((b) => [pose + b, pajkelSittingSprite(pose, b as 0 | 1), PAL.woodLight] as [string, Sprite, number?]),
+    ).slice(0, 8),
   );
+  row(
+    PAJ_POSES.flatMap((pose): [string, Sprite, number?][] =>
+      [0, 1].map((b) => [pose + b, pajkelSittingSprite(pose, b as 0 | 1), PAL.woodLight] as [string, Sprite, number?]),
+    ).slice(8),
+  );
+  row([['empty chair', emptyChairSprite(), PAL.woodLight]]);
   row(PAJ_WALK_POSES.map((p): [string, Sprite, number?] => [p, pajkelWalkSprite(p), PAL.grass1]));
+  // The fetch sticks on grass: three shapes, the four spin frames, the landing puff.
+  row([
+    ...([0, 1, 2] as const).map((v): [string, Sprite, number?] => ['stick ' + v, stickGroundSprite(v), PAL.grass2]),
+    ...[0, 1, 2, 3].map((i): [string, Sprite, number?] => ['spin ' + i, stickSpinSprite(i), PAL.grass2]),
+    ...([0, 1] as const).map((f): [string, Sprite, number?] => ['puff ' + f, stickPuffSprite(f), PAL.grass1]),
+    ['carry', stickCarrySprite(), PAL.grass1],
+  ]);
 }
 
 if (mode === 'all' || mode === 'dog') {

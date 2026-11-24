@@ -97,7 +97,7 @@ describe('Pajkel', () => {
       tickCompanions(s, 50, { fishing: 'charging', night: false }, rng);
       shapes.add(s.paj.shape);
     }
-    expect(shapes.has('sip')).toBe(true);
+    expect(shapes.has('sipDrink')).toBe(true);
   });
 });
 

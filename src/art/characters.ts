@@ -100,32 +100,114 @@ export const HEART = sprite(
   { h: PAL.heart },
 );
 
-export const STICK = sprite('sLsssss', { s: PAL.woodLight, L: PAL.woodHi });
+/** The stick in Pajkel's fist in the throw frame (slice 17). */
+export const STICK = sprite('sLsssss', { s: PAL.wood, L: PAL.woodLight });
 
 /**
  * The stick as the dog carries it: gripped across the mouth, the front end up and ahead of the
  * snout, the back end trailing behind the head, a small twig on top. Centred on its middle
- * (the mouth); faces right, flipped with the dog.
+ * (the mouth); faces right, flipped with the dog. Wood colours, no outline (slice 22a).
  */
 export const STICK_CARRY_SIZE = { w: 17, h: 8 };
 export function stickCarrySprite(): Sprite {
   const p = new Pix(STICK_CARRY_SIZE.w, STICK_CARRY_SIZE.h);
-  p.line(4, 6, 16, 3, PAL.woodLight);
-  p.line(4, 5, 16, 2, PAL.woodHi);
+  p.line(4, 6, 16, 3, PAL.wood);
+  p.line(4, 5, 16, 2, PAL.woodLight);
   p.line(12, 3, 14, 0, PAL.woodLight); // a twig
-  p.set(4, 6, PAL.wood);
-  return p.outline().done();
+  p.set(4, 6, PAL.woodDark);
+  p.set(4, 5, PAL.woodDark);
+  p.set(16, 3, PAL.woodDark);
+  return p.done();
 }
 
-/** A stick lying on the grass (slice 17): a bit bigger than the thrown one, slightly tilted, with a twig. */
-export const STICK_GROUND_SIZE = { w: 11, h: 5 };
-export function stickGroundSprite(): Sprite {
+/** A stick lying on the grass (slice 22a): 13x4, three shapes, wood colours, no outline, a grass shadow row. */
+export const STICK_GROUND_SIZE = { w: 13, h: 4 };
+export const STICK_VARIANTS = 3;
+export type StickVariant = 0 | 1 | 2;
+export function stickGroundSprite(variant: StickVariant = 0): Sprite {
+  const L = PAL.woodLight;
+  const w = PAL.wood;
+  const d = PAL.woodDark;
+  const k = PAL.woodDeep;
+  const g = PAL.grass0;
   const p = new Pix(STICK_GROUND_SIZE.w, STICK_GROUND_SIZE.h);
-  p.line(1, 3, 9, 2, PAL.woodLight);
-  p.line(1, 2, 9, 1, PAL.woodHi);
-  p.line(6, 2, 8, 0, PAL.woodLight); // a twig
-  p.set(1, 3, PAL.wood);
-  return p.outline().done();
+  if (variant === 0) {
+    // straight
+    p.rect(1, 0, 6, 1, L);
+    p.rect(1, 1, 11, 1, w);
+    p.set(0, 1, d);
+    p.set(12, 1, d);
+    p.set(6, 1, k);
+    p.rect(1, 2, 11, 1, d);
+    p.rect(2, 3, 11, 1, g);
+  } else if (variant === 1) {
+    // forked: a twig up at col 9
+    p.rect(1, 0, 5, 1, L);
+    p.rect(1, 1, 10, 1, w);
+    p.set(0, 1, d);
+    p.set(11, 1, d);
+    p.set(9, 0, L);
+    p.set(9, 1, k);
+    p.rect(1, 2, 10, 1, d);
+    p.rect(2, 3, 10, 1, g);
+  } else {
+    // bent: a kink at col 6, the right half one row lower
+    p.rect(1, 0, 4, 1, L);
+    p.rect(1, 1, 5, 1, w);
+    p.set(0, 1, d);
+    p.set(3, 1, k);
+    p.set(6, 1, L);
+    p.rect(1, 2, 6, 1, d);
+    p.rect(7, 2, 5, 1, w);
+    p.set(12, 2, d);
+    p.rect(7, 3, 5, 1, d);
+    p.rect(2, 3, 5, 1, g);
+  }
+  return p.done();
+}
+
+/** The thrown stick turns through these angles (baked as rotated copies), no shadow. */
+export const STICK_SPIN_ANGLES = [0, 45, 90, 135] as const;
+export const STICK_SPIN_SIZE = { w: 13, h: 13 };
+export function stickSpinSprite(step: number): Sprite {
+  const n = STICK_SPIN_SIZE.w;
+  const c = (n - 1) / 2;
+  const a = (STICK_SPIN_ANGLES[((step % 4) + 4) % 4] * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const p = new Pix(n, n);
+  // The straight stick (light top, wood body, dark underside) rotated by inverse mapping.
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const dx = x - c;
+      const dy = y - c;
+      const u = dx * cos + dy * sin; // along the stick
+      const v = -dx * sin + dy * cos; // across it
+      if (Math.abs(u) > 6.2 || v < -1.55 || v > 1.55) continue;
+      const col = Math.abs(u) > 5.4 ? PAL.woodDark : v < -0.5 ? PAL.woodLight : v > 0.5 ? PAL.woodDark : Math.abs(u - 0.5) < 0.6 ? PAL.woodDeep : PAL.wood;
+      p.set(x, y, col);
+    }
+  }
+  return p.done();
+}
+
+/** The little dust puff where a thrown stick lands: two frames of five or six pixels, spreading. */
+export const STICK_PUFF_SIZE = { w: 11, h: 5 };
+export function stickPuffSprite(frame: 0 | 1): Sprite {
+  const p = new Pix(STICK_PUFF_SIZE.w, STICK_PUFF_SIZE.h);
+  const c = PAL.sandLight; // pale dust: shows on every shade of the lawn
+  const d = PAL.sand;
+  if (frame === 0) {
+    // a small cloud close to the ground
+    for (const [x, y] of [[4, 3], [5, 3], [6, 3], [3, 2], [7, 2]]) p.set(x, y, c);
+    p.set(5, 2, d);
+  } else {
+    // spread out and rising
+    for (const [x, y] of [[0, 3], [2, 1], [5, 0], [8, 1], [10, 3]]) p.set(x, y, c);
+    p.set(3, 3, d);
+    p.set(7, 3, d);
+  }
+  return p.done();
 }
 
 // ---- Alex (player): standing at the dock edge, ¾ back view, rod in her right hand ----------
@@ -326,117 +408,269 @@ export function alexShowOffSprite(breath: 0 | 1): Sprite {
 
 // ---- Pajkel (companion): broad, messy blond hair, long brown beard, a slate-blue jacket ------------
 
-export const PAJ_SIZE = { w: 40, h: 44 };
-export type PajPose = 'sit' | 'sip' | 'cheer' | 'look';
+export const PAJ_SIZE = { w: 40, h: 48 };
+/** The sprite row that sits on the anchor: the chair legs and the shadow hang below it (slice 22a). */
+export const PAJ_ORIGIN_Y = 42;
+/** The top row of his hair (the speech bubble points at it). */
+export const PAJ_HEAD_TOP = 7;
+export type PajPose = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look';
+/** Every seated frame, in the order the textures are baked. */
+export const PAJ_POSES: readonly PajPose[] = ['sit', 'sipLift', 'sipDrink', 'pourReach', 'pour', 'cheer', 'look'];
+/** Where the cup's top centre is, per pose (sprite pixels): the steam wisps start just above it. */
+export const PAJ_CUP: Partial<Record<PajPose, { x: number; y: number }>> = {
+  sit: { x: 27, y: 22 },
+  sipLift: { x: 28, y: 18 },
+  sipDrink: { x: 28, y: 13 },
+};
 
 const pajHair = (x: number, y: number) => {
   const n = noise(x, y);
   if (n > 0.62) return PAL.pajHairLight;
-  if (n < 0.18 || y > 19) return PAL.pajHairDark;
+  if (n < 0.18) return PAL.pajHairDark;
   return PAL.pajHair;
 };
 const pajBeard = (x: number, y: number) => {
   const n = noise(x * 2, y);
   if (y > 20 && n > 0.78) return PAL.beardGrey;
   if (n > 0.62) return PAL.beardLight;
-  if (n < 0.25 || y > 24) return PAL.beardDark;
+  if (n < 0.25 || y > 23) return PAL.beardDark;
   return PAL.beard;
 };
 
 /**
- * Seen from behind, sitting on the dock with the rod in his left hand (left of the picture) and the
- * thermos in his right. Slate jacket with a collar, two shoulders and a back seam; the head is
- * turned a little to the right so the cheek and the long beard show ('look' faces the water
- * squarely: only the back of the head).
+ * The camp chair seen from behind: light grey arms, posts and legs (they show against the planks), a
+ * red canvas back. Seated, the canvas is low (his jacket shows above it); empty, it is taller and has a
+ * top rail. The legs and shadow come after the outline.
+ */
+function paintChairBack(p: Pix, empty = false): void {
+  const top = empty ? 33 : 35;
+  p.rect(6, 34, 3, 1, PAL.stoneLight); // armrests
+  p.rect(25, 34, 3, 1, PAL.stoneLight);
+  p.rect(7, 35, 1, 6, PAL.stone); // posts
+  p.rect(26, 35, 1, 6, PAL.stone);
+  if (empty) {
+    p.rect(7, 32, 20, 1, PAL.stoneLight); // the top rail
+    p.rect(7, 33, 1, 2, PAL.stone);
+    p.rect(26, 33, 1, 2, PAL.stone);
+  }
+  p.rect(8, top, 18, 1, PAL.shirt); // the hem
+  p.rect(8, top + 1, 18, 40 - top, PAL.shirtDark);
+  for (let x = 8; x < 26; x += 2) p.set(x, top + 1, PAL.shirt);
+  p.rect(16, top + 2, 1, 40 - top - 2, PAL.shirt); // a fold down the middle
+  p.set(16, 40, PAL.shirtDark);
+}
+
+function paintChairLegs(p: Pix): void {
+  for (const x0 of [7, 23]) {
+    // an X of two legs, 4 wide and 4 tall, under each post
+    p.line(x0, 42, x0 + 3, 45, PAL.stoneLight);
+    p.line(x0 + 3, 42, x0, 45, PAL.stoneLight);
+    p.set(x0 + 1, 43, PAL.stone);
+    p.set(x0 + 2, 44, PAL.stone);
+  }
+  p.rect(5, 46, 28, 1, PAL.outline); // a 1 px shadow on the planks
+}
+
+/** The thermos standing on the planks right of the chair. */
+function paintThermos(p: Pix): void {
+  p.rect(34, 38, 3, 7, PAL.mug);
+  p.rect(34, 38, 1, 7, PAL.mugDark);
+  p.rect(34, 37, 3, 1, PAL.stoneLight);
+}
+
+/** The shadow under the thermos (after the outline), only where it stands. */
+function paintThermosShadow(p: Pix): void {
+  p.rect(33, 46, 5, 1, PAL.outline);
+}
+
+/** A camp chair with nobody in it and the thermos beside it: drawn where he sits while he is away (22a). */
+export const EMPTY_CHAIR = { x: 4, y: 31, w: 35, h: 17 };
+export function emptyChairSprite(): Sprite {
+  const p = new Pix(40, 48);
+  paintChairBack(p, true);
+  paintThermos(p);
+  p.outline();
+  paintChairLegs(p);
+  paintThermosShadow(p);
+  const full = p.done();
+  const out = new Pix(EMPTY_CHAIR.w, EMPTY_CHAIR.h);
+  out.blit(full, -EMPTY_CHAIR.x, -EMPTY_CHAIR.y);
+  return out.done();
+}
+
+/** A cup 3 wide and 4 tall: a white rim row, a grey body with a darker foot, a dark edge on its left (the jacket side). */
+const cup = (p: Pix, x: number, y: number) => {
+  p.rect(x, y + 1, 3, 3, PAL.stone);
+  p.rect(x, y + 3, 3, 1, PAL.stoneDark);
+  p.set(x + 1, y + 1, PAL.stoneLight);
+  p.rect(x, y, 3, 1, PAL.white);
+  p.rect(x - 1, y, 1, 4, PAL.outline);
+};
+
+/**
+ * Seen from behind, sitting in a red camp chair on the dock, the rod leaning against its left arm and
+ * the thermos standing on the planks to his right. Slate jacket with a collar, two shoulders and a
+ * back seam; the head is turned a little to the right so the sunglasses, cheek and the long beard
+ * show ('look' faces the water squarely: only the back of the head). `breath` lifts the head 1 px
+ * (the 'cheer' pose uses it as its second frame).
  */
 export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
-  const p = new Pix(40, 44);
-  const dy = breath;
-  // Jacket body: sloping shoulders, a darker side each, a seam down the back.
-  for (let y = 22; y <= 41; y++) {
-    let x0 = 10;
-    let x1 = 29;
-    if (y === 22) [x0, x1] = [15, 24];
-    else if (y === 23) [x0, x1] = [12, 27];
-    else if (y === 24) [x0, x1] = [11, 28];
-    else if (y >= 40) [x0, x1] = [11, 28];
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= 13 ? PAL.jacketLight : x >= 26 ? PAL.jacketDark : PAL.jacket);
+  const p = new Pix(40, 48);
+  const up = new Pix(40, 48); // head and torso (leans in pourReach / pour)
+  const front = new Pix(40, 48); // the arm, cup and thermos in hand: drawn over everything else
+  const dy = pose === 'sipDrink' ? -1 : pose === 'cheer' ? 0 : breath;
+  const lean = pose === 'pourReach' || pose === 'pour' ? 1 : 0;
+
+  // The rod leans against the left chair arm.
+  for (let y = 3; y <= 32; y++) {
+    const x = Math.round(5 - ((32 - y) * 3) / 29);
+    p.set(x, y, PAL.woodHi);
+    if (y > 16) p.set(x + 1, y, PAL.woodDark);
   }
-  p.line(19, 27, 19, 41, PAL.jacketDark); // back seam
-  p.line(14, 24, 11, 26, PAL.jacketDark); // where each shoulder meets the arm
-  p.line(25, 24, 28, 26, PAL.jacketDark);
+
+  // Jacket: sloping shoulders, a lighter left side, a darker right side, a back seam, two sleeves.
+  for (let y = 22; y <= 34; y++) {
+    // Slim: narrow shoulders, a taper to the waist.
+    let [x0, x1] = [11, 22];
+    if (y === 22) [x0, x1] = [13, 20];
+    else if (y === 23) [x0, x1] = [11, 22];
+    else if (y === 24) [x0, x1] = [10, 23];
+    else if (y <= 28) [x0, x1] = [9, 24];
+    else if (y <= 31) [x0, x1] = [10, 23];
+    for (let x = x0; x <= x1; x++) up.set(x, y, x <= x0 + 2 ? PAL.jacketLight : x >= x1 - 2 ? PAL.jacketDark : PAL.jacket);
+  }
+  up.line(16, 27, 16, 34, PAL.jacketDark); // back seam
+  up.line(12, 24, 10, 26, PAL.jacketDark); // where each shoulder meets the arm
+  up.line(21, 24, 23, 26, PAL.jacketDark);
+  up.line(12, 26, 12, 34, PAL.jacketDark); // sleeve edges
+  up.line(21, 27, 21, 34, PAL.jacketDark);
   // Neck, then the collar over its foot.
-  p.rect(17, 17, 6, 6, PAL.skinShade);
-  p.rect(16, 21, 8, 2, PAL.jacketDark);
-  p.rect(17, 21, 6, 1, PAL.jacket);
-  // Left arm (picture left) bent forward holding the rod: sleeve, hand, and the rod rising away.
-  p.rect(5, 25, 5, 9, PAL.jacket);
-  p.rect(5, 25, 1, 9, PAL.jacketLight);
-  p.rect(9, 25, 1, 9, PAL.jacketDark);
-  p.rect(5, 34, 5, 3, PAL.skin);
-  p.rect(9, 34, 1, 3, PAL.skinShade);
-  p.line(7, 33, 4, 3, PAL.woodHi);
-  p.line(8, 33, 5, 3, PAL.woodDark);
-  p.rect(6, 34, 3, 2, PAL.woodDark); // the grip in his fist
-  // Right arm (picture right): thermos in hand, or raised to sip / cheer.
-  const sleeve = (x: number, y: number, h: number) => {
-    p.rect(x, y, 4, h, PAL.jacket);
-    p.rect(x + 3, y, 1, h, PAL.jacketDark);
-  };
-  if (pose === 'sip') {
-    sleeve(29, 25, 5);
-    p.rect(30, 20, 3, 6, PAL.skin);
-    p.rect(29, 13, 4, 7, PAL.mug);
-    p.rect(29, 13, 1, 7, PAL.mugDark);
-    p.rect(29, 11, 4, 2, PAL.stoneLight);
-  } else if (pose === 'cheer') {
-    sleeve(29, 25, 4);
-    p.rect(30, 12, 3, 14, PAL.skin);
-    p.rect(32, 12, 1, 14, PAL.skinShade);
-    p.rect(29, 5, 5, 7, PAL.mug);
-    p.rect(29, 5, 1, 7, PAL.mugDark);
-    p.rect(29, 3, 5, 2, PAL.stoneLight);
-  } else {
-    sleeve(29, 25, 7);
-    p.rect(30, 32, 3, 3, PAL.skin);
-    p.rect(30, 31, 4, 8, PAL.mug);
-    p.rect(30, 31, 1, 8, PAL.mugDark);
-    p.rect(30, 29, 4, 2, PAL.stoneLight);
-  }
-  // Messy shoulder-length dirty-blond hair: the crown, and strands falling over the collar.
+  up.rect(14, 16, 6, 6, PAL.skinShade);
+  up.rect(13, 21, 8, 2, PAL.jacketDark);
+  up.rect(14, 21, 6, 1, PAL.jacket);
+
+  // Head: a smaller crown of messy dirty-blond hair with a darker underside, strands over the collar.
+  const hair = (x: number, y: number) => (y >= 16 + dy ? PAL.pajHairDark : pajHair(x, y));
   const lobe = (x0: number, x1: number, density: number) => {
-    for (let y = 14; y <= 23; y++) for (let x = x0; x <= x1; x++) if (noise(x + 3, y) > density + (y - 14) * 0.035) p.set(x, y + (y < 18 ? dy : 0), pajHair(x, y));
+    for (let y = 14; y <= 22; y++) for (let x = x0; x <= x1; x++) if (noise(x + 3, y) > density + (y - 14) * 0.035) up.set(x, y + (y < 18 ? dy : 0), y >= 18 ? PAL.pajHairDark : pajHair(x, y));
   };
-  p.ell(20.5, 10 + dy, 9.5, 8.5, pajHair);
   if (pose === 'look') {
-    p.ell(20.5, 12 + dy, 9.5, 9, pajHair);
-    lobe(11, 16, 0.08);
-    lobe(25, 30, 0.08);
-    // Beard edges peeking out past the jaw on both sides.
+    up.ell(16.5, 12 + dy, 7.5, 6.5, hair);
+    lobe(8, 13, 0.08);
+    lobe(21, 25, 0.08);
     for (let y = 14; y <= 21; y++) {
-      p.set(10, y, pajBeard(10, y));
-      p.set(31, y, pajBeard(31, y));
+      up.set(8, y, pajBeard(8, y)); // beard edges peeking out past the jaw
+      up.set(25, y, pajBeard(25, y));
     }
-    for (let x = 17; x <= 23; x++) p.set(x, 18 + (x % 2), PAL.pajHairDark); // hair parted over the nape
+    for (let x = 14; x <= 19; x++) up.set(x, 18 + (x % 2), PAL.pajHairDark); // hair parted over the nape
   } else {
-    lobe(11, 17, 0.1);
-    // Head turned right: a sliver of cheek, brow, eye and nose, the beard hanging under it.
-    p.ell(27.5, 13 + dy, 3.6, 5.5, PAL.skin);
-    p.rect(30, 13 + dy, 3, 2, PAL.skin); // nose
-    p.set(29, 12 + dy, PAL.outline); // eye
-    p.line(27, 10 + dy, 31, 10 + dy, PAL.pajHairDark); // brow
-    for (let y = 15; y <= 27; y++) {
-      let x0 = 22;
-      let x1 = 31;
-      if (y >= 22) [x0, x1] = [24, 30];
-      if (y >= 25) [x0, x1] = [25, 29];
-      if (y >= 27) [x0, x1] = [26, 28];
-      for (let x = x0; x <= x1; x++) p.set(x, y + (y < 20 ? dy : 0), pajBeard(x, y));
+    // Turned right: the cheek and nose first, the hair over them (a fringe over the brow), then glasses and beard.
+    up.ell(22.5, 14 + dy, 3.2, 3.8, PAL.skin);
+    up.rect(25, 13 + dy, 2, 2, PAL.skin); // nose
+    for (let y = 6; y <= 18; y++) {
+      for (let x = 8; x <= 25; x++) {
+        const inside = ((x - 16.5) / 7.5) ** 2 + ((y - 12 - dy) / 5.5) ** 2 <= 1;
+        if (inside && (x < 20 || y <= 9 + dy)) up.set(x, y, hair(x, y));
+      }
     }
-    p.rect(28, 16 + dy, 5, 1, PAL.beardDark); // moustache
-    if (pose === 'sip') p.rect(29, 18 + dy, 3, 1, PAL.beardDark);
+    lobe(8, 13, 0.1);
+    up.rect(19, 12 + dy, 1, 3, PAL.skin); // ear
+    up.set(19, 14 + dy, PAL.skinShade);
+    up.rect(22, 12 + dy, 3, 1, PAL.outline); // sunglasses
+    up.set(23, 13 + dy, PAL.skinShade); // cheek under the glasses
+    up.set(21, 12 + dy, PAL.outline); // the arm of the glasses
+    up.rect(20, 14 + dy, 2, 1, PAL.skinShade); // cheek shade above the beard
+    for (let y = 15; y <= 26; y++) {
+      let x0 = 19;
+      let x1 = 26;
+      if (y >= 20) [x0, x1] = [20, 26];
+      if (y >= 23) [x0, x1] = [21, 25];
+      if (y >= 25) [x0, x1] = [22, 25];
+      if (y >= 26) [x0, x1] = [22, 24];
+      const swing = pose === 'sipDrink' && y >= 22 ? 1 : 0;
+      for (let x = x0; x <= x1; x++) {
+        const c = y === 26 ? (noise(x * 3, y) > 0.45 ? PAL.beardGrey : PAL.beardDark) : pajBeard(x, y);
+        const yy = y < 20 ? y + dy : y;
+        up.set(x + swing, yy, c);
+        if (dy < 0 && y === 19) up.set(x + swing, y, c);
+      }
+    }
+    up.rect(22, 15 + dy, 5, 1, PAL.beardDark); // moustache
   }
-  return p.outline().done();
+
+  // The arm, the cup and the thermos in hand.
+  const sleeve = (x: number, y: number, w: number, h: number) => {
+    front.rect(x, y, w, h, PAL.jacket);
+    front.rect(x, y + h - 1, w, 1, PAL.jacketDark);
+  };
+  if (pose === 'sit' || pose === 'look') {
+    sleeve(24, 29, 5, 3);
+    cup(front, 28, 23);
+    front.rect(29, 27, 2, 3, PAL.skin);
+    front.set(28, 27, PAL.skin);
+    front.set(30, 29, PAL.skinShade);
+  } else if (pose === 'sipLift') {
+    sleeve(24, 29, 4, 3);
+    front.line(28, 29, 30, 26, PAL.skin);
+    front.line(29, 29, 31, 26, PAL.skinShade);
+    cup(front, 30, 19);
+    front.rect(30, 23, 3, 3, PAL.skin);
+  } else if (pose === 'sipDrink') {
+    sleeve(22, 29, 6, 3);
+    front.rect(28, 20, 2, 10, PAL.skin);
+    front.rect(29, 20, 1, 10, PAL.skinShade);
+    cup(front, 27, 14);
+    front.rect(27, 18, 3, 2, PAL.skin);
+    front.set(27, 15, PAL.skinShade); // the rim at his lip
+  } else if (pose === 'pourReach') {
+    // Reaching down to the thermos beside the chair; the other hand holds the cup low in his lap.
+    sleeve(22, 29, 7, 3);
+    front.line(27, 31, 33, 36, PAL.skin);
+    front.line(27, 32, 33, 37, PAL.skinShade);
+    front.rect(33, 35, 3, 2, PAL.skin);
+    cup(front, 24, 29);
+    front.rect(23, 31, 1, 2, PAL.skin);
+  } else if (pose === 'pour') {
+    // His right hand tips the thermos (3 wide, 6 tall on the slant) over the cup in his lap.
+    sleeve(22, 29, 6, 3);
+    front.line(27, 30, 29, 25, PAL.skin);
+    front.line(28, 30, 30, 25, PAL.skinShade);
+    for (let r = 21; r <= 26; r++) {
+      const x0 = 26 + (26 - r);
+      front.rect(x0, r, 3, 1, r === 26 ? PAL.stoneLight : PAL.mug);
+      if (r < 26) front.set(x0, r, PAL.mugDark);
+    }
+    front.rect(29, 23, 2, 2, PAL.skin); // the hand on the thermos
+    front.rect(25, 27, 1, 2, PAL.mugDark); // the stream
+    cup(front, 24, 29);
+    front.rect(23, 31, 1, 2, PAL.skin);
+  } else {
+    // cheer: the cup held high; the second frame lifts it a little
+    const hi = breath;
+    sleeve(24, 28, 5, 3);
+    front.rect(28, 10 - hi, 2, 18 + hi, PAL.skin);
+    front.rect(29, 10 - hi, 1, 18 + hi, PAL.skinShade);
+    cup(front, 28 + hi, 4 - hi);
+    front.rect(28, 8 - hi, 3, 2, PAL.skin);
+  }
+
+  p.blit(up.done(), lean, 0);
+  const fx = pose === 'sit' || pose === 'look' || pose === 'sipLift' ? -2 : pose === 'cheer' ? -1 : 0; // the arm follows the slimmer body
+  paintChairBack(p);
+  // His right knee and shoe stick out past the arm of the chair.
+  p.rect(28, 35, 4, 1, PAL.jeans);
+  p.rect(27, 36, 6, 3, PAL.jeans);
+  p.rect(28, 39, 4, 1, PAL.jeans);
+  p.rect(28, 35, 3, 1, PAL.denim);
+  p.rect(29, 40, 3, 3, PAL.jeans);
+  p.rect(28, 43, 5, 2, PAL.shoe);
+  p.rect(28, 45, 5, 1, PAL.shoeDark);
+  if (pose !== 'pour') paintThermos(p);
+  p.blit(front.done(), lean + fx, 0);
+  p.outline();
+  paintChairLegs(p);
+  if (pose !== 'pour') paintThermosShadow(p);
+  return p.done();
 }
 
 // Standing / walking side view, facing right (flip for left).

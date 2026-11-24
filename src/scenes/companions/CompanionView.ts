@@ -1,16 +1,20 @@
 import Phaser from 'phaser';
-import { DOG_SIZE, PAJ_SIZE, PAJ_WALK_SIZE, dogKey, type DogFrame, type PajWalkPose } from '../../art/characters';
+import { DOG_SIZE, EMPTY_CHAIR, PAJ_CUP, PAJ_HEAD_TOP, PAJ_ORIGIN_Y, PAJ_SIZE, PAJ_WALK_SIZE, dogKey, type DogFrame, type PajPose, type PajWalkPose, type StickVariant } from '../../art/characters';
 import { W } from '../../art/layout';
 import { PAL } from '../../art/palette';
-import { TEX, pajSitKey, pajWalkKey } from '../../art/textures';
+import { TEX, pajSitKey, pajWalkKey, stickGroundKey } from '../../art/textures';
 import { FONT, FS, textPad } from '../../font';
 import { drawFrame } from '../frameDraw';
 import {
+  PAJ_SPOT,
   bubbleAlpha,
+  chairEmpty,
   createCompanions,
   dogView,
   dogVisible,
   groundStickAlpha,
+  holdsCup,
+  isSeatedShape,
   pajStretchHigh,
   pajVisible,
   pajSay,
@@ -22,6 +26,13 @@ import {
 } from './behaviour';
 
 const DEPTH = 14;
+/** The wisp over the cup: one every STEAM_EVERY_MS, rising STEAM_RISE px and fading over STEAM_MS. */
+const STEAM_EVERY_MS = 700;
+const STEAM_MS = 1500;
+const STEAM_RISE = 7;
+/** The thrown stick turns one frame (45 degrees) every SPIN_MS; the landing puff shows two frames of PUFF_MS. */
+const STICK_SPIN_MS = 80;
+const PUFF_MS = 225;
 /** The speech bubble: height of the tail (rows incl. the tip), the gap to the screen edge, and the canvas width it must stay inside. */
 const BUBBLE_TAIL = 4;
 /** Extra stalk so the box clears Alex's head, who stands right beside Pajkel on the dock. */
@@ -38,6 +49,13 @@ export class CompanionView {
   private paj: Phaser.GameObjects.Image;
   private dog: Phaser.GameObjects.Image;
   private stick: Phaser.GameObjects.Image;
+  /** The empty camp chair at his dock spot, shown while he is away or in the car. */
+  private chair: Phaser.GameObjects.Image;
+  private steam: { img: Phaser.GameObjects.Image; age: number; x: number; y: number }[] = [];
+  private steamClock = 0;
+  private puff: Phaser.GameObjects.Image;
+  private puffAge = Infinity;
+  private lastStickState: string = 'hidden';
   /** Sticks lying on the grass (old ones and the spare), one image each, reused. */
   private ground: Phaser.GameObjects.Image[] = [];
   private zs: Phaser.GameObjects.Image[] = [];
@@ -52,7 +70,10 @@ export class CompanionView {
     this.state = createCompanions(rng);
     this.paj = scene.add.image(0, 0, pajSitKey('sit', 0)).setDepth(DEPTH);
     this.dog = scene.add.image(0, 0, dogKey({ shape: 'lie', tail: 0, perked: false, step: 0 })).setDepth(DEPTH);
-    this.stick = scene.add.image(0, 0, TEX.stick).setDepth(DEPTH + 1).setVisible(false);
+    this.chair = scene.add.image(PAJ_SPOT.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x, PAJ_SPOT.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y, TEX.emptyChair).setOrigin(0, 0).setDepth(DEPTH - 1).setVisible(false);
+    this.stick = scene.add.image(0, 0, TEX.stickSpin[0]).setDepth(DEPTH + 1).setVisible(false);
+    this.puff = scene.add.image(0, 0, TEX.stickPuff[0]).setDepth(DEPTH - 0.4).setVisible(false);
+    for (let i = 0; i < 3; i++) this.steam.push({ img: scene.add.image(0, 0, TEX.steam).setOrigin(0.5, 1).setDepth(DEPTH + 2).setVisible(false), age: Infinity, x: 0, y: 0 });
     for (const key of [TEX.zSmall, TEX.zBig]) {
       this.zs.push(scene.add.image(0, 0, key).setDepth(DEPTH + 3).setVisible(false));
     }
@@ -84,7 +105,7 @@ export class CompanionView {
     const w = Math.round(this.bubbleText.width);
     const h = Math.round(this.bubbleText.height);
     const tx = Math.round(p.x);
-    const headTop = Math.round(p.y) - (p.shape === 'sit' || p.shape === 'sip' || p.shape === 'cheer' || p.shape === 'look' ? PAJ_SIZE.h - 2 : PAJ_WALK_SIZE.h - 2);
+    const headTop = Math.round(p.y) - (isSeatedShape(p.shape) ? PAJ_ORIGIN_Y - PAJ_HEAD_TOP + 2 : PAJ_WALK_SIZE.h - 2);
     const left = Math.min(Math.max(tx - Math.round(w / 2), BUBBLE_MARGIN), BUBBLE_VIEW_W - BUBBLE_MARGIN - w);
     const top = headTop - h - BUBBLE_TAIL - BUBBLE_LIFT;
     // The tail stays within the straight part of the bottom edge.
@@ -104,6 +125,26 @@ export class CompanionView {
     this.bubbleText.setPosition(left, top).setAlpha(alpha);
   }
 
+  /** The wisps over the cup: one rises every STEAM_EVERY_MS while `cup` (its top, in sprite pixels) is held at his chest or mouth. */
+  private updateSteam(dtMs: number, cup: { x: number; y: number } | undefined): void {
+    const p = this.state.paj;
+    this.steamClock += dtMs;
+    if (cup && this.steamClock >= STEAM_EVERY_MS) {
+      const w = this.steam.find((q) => q.age >= STEAM_MS);
+      if (w) {
+        this.steamClock = 0;
+        w.age = 0;
+        w.x = Math.round(p.x) - PAJ_SIZE.w / 2 + cup.x;
+        w.y = Math.round(p.y) - PAJ_ORIGIN_Y + cup.y - 1;
+      }
+    }
+    for (const w of this.steam) {
+      w.age += dtMs;
+      const t = w.age / STEAM_MS;
+      w.img.setVisible(t < 1).setPosition(w.x + Math.round(Math.sin(t * Math.PI * 3)), Math.round(w.y - STEAM_RISE * t)).setAlpha(0.85 * (1 - t)); // untinted: steam is light, so it still shows at night
+    }
+  }
+
   /** Pets the dog and floats a heart. */
   pet(): void {
     petDog(this.state);
@@ -120,23 +161,24 @@ export class CompanionView {
 
   pajRect(): Phaser.Geom.Rectangle {
     const p = this.state.paj;
-    const sitting = p.shape === 'sit' || p.shape === 'sip' || p.shape === 'cheer' || p.shape === 'look';
-    const w = sitting ? PAJ_SIZE.w : PAJ_WALK_SIZE.w;
-    const h = sitting ? PAJ_SIZE.h : PAJ_WALK_SIZE.h;
-    return new Phaser.Geom.Rectangle(p.x - w / 2, p.y - h, w, h);
+    if (isSeatedShape(p.shape)) return new Phaser.Geom.Rectangle(p.x - PAJ_SIZE.w / 2, p.y - PAJ_ORIGIN_Y, PAJ_SIZE.w, PAJ_SIZE.h);
+    return new Phaser.Geom.Rectangle(p.x - PAJ_WALK_SIZE.w / 2, p.y - PAJ_WALK_SIZE.h, PAJ_WALK_SIZE.w, PAJ_WALK_SIZE.h);
   }
 
-  update(dtMs: number, ctx: CompanionContext, elapsed: number, tint: number): void {
+  /** `steam`: it is dawn, dusk or night, so the cup steams. */
+  update(dtMs: number, ctx: CompanionContext, elapsed: number, tint: number, steam = false): void {
     const s = this.state;
     tickCompanions(s, dtMs, ctx);
 
     // Pajkel.
     const p = s.paj;
     const breath = (Math.floor(elapsed / 900) % 2) as 0 | 1;
-    if (p.shape === 'sit' || p.shape === 'sip' || p.shape === 'cheer' || p.shape === 'look') {
+    if (isSeatedShape(p.shape)) {
+      // 'cheer' alternates its two frames quickly (the clap); the others breathe.
+      const frame = p.shape === 'cheer' ? ((Math.floor(elapsed / 180) % 2) as 0 | 1) : breath;
       this.paj
-        .setTexture(pajSitKey(p.shape, p.shape === 'sit' || p.shape === 'look' ? breath : 0))
-        .setOrigin(0.5, 42 / PAJ_SIZE.h)
+        .setTexture(pajSitKey(p.shape as PajPose, frame))
+        .setOrigin(0.5, PAJ_ORIGIN_Y / PAJ_SIZE.h)
         .setFlipX(false);
     } else {
       const frame = pajWalkFrame(s);
@@ -150,6 +192,9 @@ export class CompanionView {
       this.paj.setTexture(pajWalkKey(key)).setOrigin(0.5, 50 / PAJ_WALK_SIZE.h).setFlipX(p.face < 0);
     }
     this.paj.setPosition(Math.round(p.x), Math.round(p.y)).setTint(tint).setVisible(pajVisible(s)).setAlpha(s.bed?.pajA ?? 1);
+    // His chair stays on the dock when he walks off (and while they sleep in the car), the thermos beside it.
+    this.chair.setVisible(chairEmpty(s)).setTint(tint);
+    this.updateSteam(dtMs, steam && holdsCup(p.shape) && pajVisible(s) && !chairEmpty(s) ? PAJ_CUP[p.shape as PajPose] : undefined);
 
     // The dog.
     const v = dogView(s);
@@ -181,24 +226,34 @@ export class CompanionView {
       z.setPosition(Math.round(d.x + 8 + i * 6 + t * 5), Math.round(d.y - 22 - t * 14)).setAlpha(1 - t);
     });
 
-    // Stick.
+    // Stick: in the air it turns (four baked angles); carried it is a bigger, angled stick gripped at the
+    // snout and flipped with the dog; lying where it landed it is a plain ground stick, under the characters.
     const st = s.stick;
-    // Carried, it is a bigger, angled stick gripped at the snout and flipped with the dog.
     const carried = st.state === 'carried';
+    const flying = st.state === 'flying';
+    const key = carried ? TEX.stickCarry : flying ? TEX.stickSpin[Math.floor(elapsed / STICK_SPIN_MS) % 4] : stickGroundKey(st.variant as StickVariant);
     this.stick
-      .setTexture(carried ? TEX.stickCarry : st.state === 'ground' ? TEX.stickGround : TEX.stick)
+      .setTexture(key)
       .setVisible(st.state !== 'hidden')
       .setFlipX(carried && d.face < 0)
-      .setDepth(carried && d.y < p.y ? DEPTH - 0.05 : DEPTH + 1) // behind him when she is behind him
+      .setDepth(carried ? (d.y < p.y ? DEPTH - 0.05 : DEPTH + 1) : flying ? DEPTH + 1 : DEPTH - 0.5)
       .setPosition(Math.round(st.x), Math.round(st.y))
       .setTint(tint);
+    // A little dust where it lands.
+    if (this.lastStickState === 'flying' && st.state === 'ground') {
+      this.puffAge = 0;
+      this.puff.setPosition(Math.round(st.x), Math.round(st.y) + 1);
+    }
+    this.lastStickState = st.state;
+    this.puffAge += dtMs;
+    this.puff.setVisible(this.puffAge < 2 * PUFF_MS).setTexture(TEX.stickPuff[this.puffAge < PUFF_MS ? 0 : 1]).setAlpha(this.puffAge < PUFF_MS ? 1 : 0.7);
 
     // Sticks lying on the grass: under the characters, fading in and out.
-    while (this.ground.length < s.sticks.length) this.ground.push(this.scene.add.image(0, 0, TEX.stickGround).setDepth(DEPTH - 0.5));
+    while (this.ground.length < s.sticks.length) this.ground.push(this.scene.add.image(0, 0, stickGroundKey(0)).setDepth(DEPTH - 0.5));
     this.ground.forEach((img, i) => {
       const g = s.sticks[i];
       img.setVisible(g !== undefined);
-      if (g) img.setPosition(Math.round(g.x), Math.round(g.y)).setFlipX(Math.round(g.x) % 2 === 0).setAlpha(groundStickAlpha(g)).setTint(tint);
+      if (g) img.setTexture(stickGroundKey(g.variant as StickVariant)).setPosition(Math.round(g.x), Math.round(g.y)).setAlpha(groundStickAlpha(g)).setTint(tint);
     });
 
     this.drawBubble();
