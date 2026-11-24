@@ -86,3 +86,13 @@ describe('formatting', () => {
     expect(sizeRangeText(sp('catfish'))).toBe('60-180 cm · 1.6-43 kg');
   });
 });
+
+describe('weather knowledge (slice 23b)', () => {
+  it('shows the liked weather at the bait tier, only for species that have one', () => {
+    const zander = knowledgeRows(speciesById('zander')!, 10).find((r) => r.kind === 'weather');
+    expect(zander?.weatherIds).toEqual(['windy', 'overcast']);
+    expect(zander?.text).toBe('Likes: wind, overcast');
+    expect(knowledgeRows(speciesById('zander')!, 9).some((r) => r.kind === 'weather')).toBe(false);
+    expect(knowledgeRows(speciesById('roach')!, 25).some((r) => r.kind === 'weather')).toBe(false);
+  });
+});

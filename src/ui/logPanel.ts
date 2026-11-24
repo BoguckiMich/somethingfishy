@@ -5,6 +5,7 @@ import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 import { isLegendary, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
 import { bestStar, goldCount, lockedHint, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { weatherSprite } from '../art/weatherArt';
 import { knowledgeRows, type KnowledgeRow } from '../core/fishKnowledge';
 import { shopIconSprite } from '../art/shopIconArt';
 import { halfSunSprite, moonSprite, sunSprite, wavesSprite } from '../art/clockIconArt';
@@ -111,6 +112,7 @@ function knowledgeLine(r: KnowledgeRow): HTMLElement {
     const icon = shopIconSprite(id);
     if (icon) row.append(spriteCanvas(icon, 16));
   }
+  for (const id of r.weatherIds) row.append(spriteCanvas(weatherSprite(id), 16));
   row.append(el('span', '', r.text));
   return row;
 }

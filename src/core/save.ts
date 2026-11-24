@@ -14,6 +14,7 @@ import { normalizeChecklist } from './checklist/checklist';
 import { normalizeNotes } from './moments/moments';
 import { normalizeStory, storyIsEmpty } from './story/story';
 import { normalizeSeen } from './tips';
+import { normalizeWeatherSeen } from './daily/weather';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
 /**
@@ -160,6 +161,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(storyIsEmpty(normalizeStory(p.story)) ? {} : { story: normalizeStory(p.story) }),
     // The hints (slice 22c): first-tap flags and the casts made; stored only when something was seen.
     ...(normalizeSeen(p.seen).length > 0 ? { seen: normalizeSeen(p.seen) } : {}),
+    // The date of Pajkel's weather line (slice 23b): a valid date or no key.
+    ...(normalizeWeatherSeen(p.weatherSeen) ? { weatherSeen: normalizeWeatherSeen(p.weatherSeen) } : {}),
   };
 }
 

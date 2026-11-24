@@ -1,12 +1,13 @@
 import { BAITS, type Bait } from './data/baits';
 import { isLegendary, type Species } from './data/fish';
 import { KNOWLEDGE_TIERS, NOT_FUSSY } from './data/fishKnowledge';
+import { WEATHER_WORDS, type WeatherId } from './data/weather';
 import { starFor } from './data/stars';
 import { weightG } from './fish';
 
 /** One extra line on a species' log card (slice 22e). */
 export interface KnowledgeRow {
-  kind: 'range' | 'bait' | 'gold';
+  kind: 'range' | 'bait' | 'weather' | 'gold';
   /** Catches needed to learn it. */
   need: number;
   unlocked: boolean;
@@ -14,6 +15,8 @@ export interface KnowledgeRow {
   text: string;
   /** For `bait`: the favourite baits (empty = not fussy). */
   baitIds: string[];
+  /** For `weather` (slice 23b): the weathers it likes, shown with their icons. */
+  weatherIds: WeatherId[];
 }
 
 /** "20 g", "300 g", "1.6 kg", "43 kg": two significant figures, kg from 1000 g. */
@@ -53,15 +56,21 @@ export function knowledgeRows(species: Species, count: number): KnowledgeRow[] {
   if (isLegendary(species)) return [];
   const lock = (need: number) => `??? · catch ${need} to learn`;
   const baits = favouriteBaits(species);
-  const rows: { kind: KnowledgeRow['kind']; need: number; text: string; baitIds: string[] }[] = [
-    { kind: 'range', need: KNOWLEDGE_TIERS.range, text: sizeRangeText(species), baitIds: [] },
+  const likes = species.likes ?? [];
+  const rows: { kind: KnowledgeRow['kind']; need: number; text: string; baitIds: string[]; weatherIds: WeatherId[] }[] = [
+    { kind: 'range', need: KNOWLEDGE_TIERS.range, text: sizeRangeText(species), baitIds: [], weatherIds: [] },
     {
       kind: 'bait',
       need: KNOWLEDGE_TIERS.bait,
       text: baits.length ? `Bites best on: ${baits.map((b) => b.name.toLowerCase()).join(', ')}` : NOT_FUSSY,
       baitIds: baits.map((b) => b.id),
+      weatherIds: [],
     },
-    { kind: 'gold', need: KNOWLEDGE_TIERS.gold, text: `Gold from ${goldFromCm(species)} cm`, baitIds: [] },
+    // The weather it likes comes with the favourite bait; a species with none has no such line, and it stays hidden until learned.
+    ...(likes.length > 0 && count >= KNOWLEDGE_TIERS.bait
+      ? [{ kind: 'weather' as const, need: KNOWLEDGE_TIERS.bait, text: `Likes: ${likes.map((w) => WEATHER_WORDS[w]).join(', ')}`, baitIds: [], weatherIds: likes }]
+      : []),
+    { kind: 'gold', need: KNOWLEDGE_TIERS.gold, text: `Gold from ${goldFromCm(species)} cm`, baitIds: [], weatherIds: [] },
   ];
   return rows.map((r) => {
     const unlocked = count >= r.need;
