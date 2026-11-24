@@ -9,14 +9,19 @@ export const MIN_HOLD_MS = 180;
 /** Cast power never drops below this, so a quick tap still drops the bobber in the water. */
 export const MIN_POWER = 0.1;
 
+/** The meter stays at full power for this long before it starts falling back (makes a max cast hittable). */
+export const FULL_POWER_HOLD_MS = 250;
+
 /**
  * Power (0..1) after holding for `heldMs`. Ping-pongs so releasing at the right moment is a skill:
- * 0 → 1 over one half cycle, then back down to 0, and so on.
+ * 0 → 1 over one half cycle, HOLDS at 1 for `holdMs`, then back down to 0, and so on.
  */
-export function chargePower(heldMs: number, halfCycleMs = CHARGE_HALF_CYCLE_MS): number {
-  const t = Math.max(0, heldMs) / halfCycleMs;
-  const phase = t % 2;
-  return phase <= 1 ? phase : 2 - phase;
+export function chargePower(heldMs: number, halfCycleMs = CHARGE_HALF_CYCLE_MS, holdMs = FULL_POWER_HOLD_MS): number {
+  const period = 2 * halfCycleMs + holdMs;
+  const t = Math.max(0, heldMs) % period;
+  if (t <= halfCycleMs) return t / halfCycleMs;
+  if (t <= halfCycleMs + holdMs) return 1;
+  return 1 - (t - halfCycleMs - holdMs) / halfCycleMs;
 }
 
 /** Distance in meters the bobber lands at for a given power. */
