@@ -646,8 +646,8 @@ Every catch gets a little more exciting, and each real day has one special speci
 - **Livelier companion reactions in the fight** — Pajkel leans in or cheers during the fight,
   Bestia watches the line. Slice 5 only adds small reactions on a catch or loss.
 
-- **Lake moments** — scheduled as slice 14 (see §3 → Slice 14). Later: personal bottle notes from
-  Pajkel to Alex, and maybe a "Notes" page in the fish log to reread them.
+- **Lake moments** — scheduled as slice 14 (see §3 → Slice 14). Far future (user, 2026-11-24: leave
+  it for now): personal bottle notes from Pajkel to Alex, and maybe a "Notes" page in the fish log to reread them.
 
 - **Eldritch thread (Cthulhu-like events)** — far future. A slow, cozy-creepy mystery under the
   lake, told through rare events and eventually a quest line. Seeds can be planted early:

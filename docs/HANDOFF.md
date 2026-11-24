@@ -130,7 +130,7 @@ reviewed by the main session (tsc, tests, build, screenshots) but none play-test
 - Reels barely help in the bot sim (15a): maybe raise the reel multipliers.
 - Rod shop icons are weak (15b).
 - Ideas in GAME_DESIGN → Ideas: achievements + total weight per species, personal bottle notes
-  from Pajkel to Alex, catch-bar polish + treasure chest, character choice for friends, NPC
+  from Pajkel to Alex (far future, user: leave it for now), catch-bar polish + treasure chest, character choice for friends, NPC
   tournaments (far future), aimed casting + lake features.
 
 ## How we work (user preferences — follow these)

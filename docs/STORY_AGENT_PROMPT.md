@@ -53,8 +53,8 @@ Hard rules:
   sees or reads in a few seconds during a 15-minute visit.
 - Mix in warm, funny and personal moments too: Pajkel, Bestia's stick obsession, the duck that
   steals worms. Not everything should be eerie.
-- Personal touch: room for a few **notes from Pajkel to Alex** that I'll write or edit myself.
-  Mark those slots clearly instead of writing them.
+- Personal notes from Pajkel to Alex are for the **far future**: don't plan or write them now,
+  and don't leave slots for them.
 
 Please produce, in `docs/STORY.md`:
 1. A one-paragraph premise and the tone in 3–5 bullets.
