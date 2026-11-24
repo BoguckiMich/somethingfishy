@@ -51,7 +51,7 @@ import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
 import { SHOP } from '../core/data/shop';
 import type { GameEvent } from '../core/events';
-import { fightProfile, formatCatchSize, rollHookedFish, type HookedFish } from '../core/fish';
+import { fightProfile, formatCatchSize, rollHookedFish, weightG, type HookedFish } from '../core/fish';
 import {
   addCatch,
   applyEvent,
@@ -90,7 +90,10 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { carVariant, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, tickCompanions, wakeUp } from './companions/behaviour';
-import { BEDTIME_LINES, RECORD_LINES } from '../core/data/pajkelLines';
+import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES } from '../core/data/pajkelLines';
+import { fishOfTheDay } from '../core/daily/fotd';
+import { lengthForStar, starFor, type Star } from '../core/data/stars';
+import { starKey } from '../art/starArt';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
 
@@ -157,6 +160,8 @@ const CATCH_TITLE_Y = 206;
 const CATCH_SUB_Y = 234;
 const CATCH_BADGE_Y = 258;
 const CATCH_NOTE_Y = 274;
+const CATCH_FOTD_Y = 182;
+const FOTD_TEXT = '#8fe3b0';
 const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
@@ -239,6 +244,7 @@ export class LakeScene extends Phaser.Scene {
     minute: () => this.clock.minute,
     canCast: () => canCast(this.player),
     baitId: () => chosenBait(this.player),
+    fotdId: () => this.fotdId(),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
   private panel: PanelHandle | null = null;
@@ -328,6 +334,13 @@ export class LakeScene extends Phaser.Scene {
   /** What the current show-off means for the log (set on fishCaught, shown on the catch screen). */
   private catchOutcome: CatchOutcome = { kind: 'normal' };
   private caughtBadge!: Phaser.GameObjects.Text;
+  /** The star of the current catch (slice 19) and whether it was today's fish. */
+  private catchStar: Star = 'none';
+  private catchFotd = false;
+  private caughtStars!: Phaser.GameObjects.Image;
+  private caughtFotd!: Phaser.GameObjects.Text;
+  /** Dev flag ?fotd=<id>: forces today's fish. */
+  private fotdOverride: string | undefined;
   private caughtNote!: Phaser.GameObjects.Text;
   /** A line that takes over the hint for a moment once back at idle (the legendary slipping away). */
   private slipNoteAge = Infinity;
@@ -418,6 +431,8 @@ export class LakeScene extends Phaser.Scene {
       this.ctx = { ...this.ctx, fishOverride };
     }
     // Dev-only: ?species=<id> forces the species that bites; ?rod=<id> picks a rod (carbon reaches deep water).
+    const fotdParam = params.get('fotd');
+    if (fotdParam && speciesById(fotdParam)) this.fotdOverride = fotdParam;
     const speciesParam = params.get('species') === 'legendary' ? PALE_ONE.speciesId : params.get('species');
     if (speciesParam && speciesById(speciesParam)) this.ctx = { ...this.ctx, speciesOverride: speciesParam };
     // Dev-only: ?rod=<id> owns that rod; ?coins=N and ?worms=N set the purse. Everything resets on reload.
@@ -449,10 +464,17 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     this.seenDone = doneCount(questsOf(this.player));
+    let devCatch: { hooked: HookedFish; zone: ZoneId } | undefined;
     if (dbg === 'fight' || dbg === 'caught') {
       // The forced species (default perch) at a rolled size, in its own zone.
-      const hooked = rollHookedFish('shallow', timeOfDay(this.clock.minute), this.ctx.rng, this.ctx.speciesOverride ?? 'perch');
+      let hooked = rollHookedFish('shallow', timeOfDay(this.clock.minute), this.ctx.rng, this.ctx.speciesOverride ?? 'perch');
       const species = speciesById(hooked.speciesId)!;
+      // ?star=gold|silver|bronze|none makes the show-off fish that star.
+      const starParam = (['gold', 'silver', 'bronze', 'none'] as const).find((s) => s === params.get('star'));
+      if (starParam) {
+        const lengthCm = lengthForStar(species, starParam);
+        hooked = { ...hooked, lengthCm, weightG: weightG(species, lengthCm) };
+      }
       const fish: FishProfile = this.ctx.fishOverride ?? fightProfile(species, hooked.lengthCm);
       const distanceM = species.zone === 'deep' ? 25 : 10;
       if (dbg === 'fight') {
@@ -460,11 +482,12 @@ export class LakeScene extends Phaser.Scene {
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
-        this.noteCatch(hooked, species.zone, false); // the dev catch goes through the log like a real one
+        devCatch = { hooked, zone: species.zone }; // noted after buildUi: Pajkel (companions) must exist to speak
       }
     }
     this.buildScenery();
     this.buildUi();
+    if (devCatch) this.noteCatch(devCatch.hooked, devCatch.zone, false); // the dev catch goes through the log like a real one
     sharpenTexts(this); // every Phaser text rasterises at device resolution
     if (saveStatus === 'broken') this.showToast("Your save couldn't be read, starting fresh");
 
@@ -835,6 +858,9 @@ export class LakeScene extends Phaser.Scene {
    */
   private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean): void {
     const r = recordCatch(this.player.log, hooked);
+    const species = speciesById(hooked.speciesId);
+    this.catchStar = species ? starFor(species, hooked.lengthCm) : 'none';
+    this.catchFotd = hooked.speciesId === this.fotdId();
     // The catch also moves today's quests (the game clock gives the time of day, the log the record).
     const q = applyCatchToPlayer({ ...this.player, log: r.log }, {
       speciesId: hooked.speciesId,
@@ -849,9 +875,10 @@ export class LakeScene extends Phaser.Scene {
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
     // Pajkel praises a record out loud (slice 15a). The dev catch (celebrate = false) speaks too, so ?debug=caught&log=all shows it.
     // Not while he is off to bed or asleep in the car: then the car only puffs a sleepy Zzz.
-    if (r.outcome.kind === 'newRecord') {
+    const gold = this.catchStar === 'gold' && r.outcome.kind === 'normal';
+    if (r.outcome.kind === 'newRecord' || gold) {
       const c = this.companions.state;
-      if (c.mode !== 'bed') this.companions.say(pickLine(RECORD_LINES));
+      if (c.mode !== 'bed') this.companions.say(pickLine(gold ? GOLD_LINES : RECORD_LINES));
       else if (isInCar(c)) this.spawnZzz(true);
     }
   }
@@ -885,7 +912,7 @@ export class LakeScene extends Phaser.Scene {
       this.slipNoteAge = 0;
       return;
     }
-    const r = addCatch(this.player, hooked);
+    const r = addCatch(this.player, hooked, this.fotdId());
     if (r.result === 'added') {
       this.setPlayer(r.state);
       this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);
@@ -1065,7 +1092,7 @@ export class LakeScene extends Phaser.Scene {
       case 'fishCaught':
         vibrate(HAPTICS.caught);
         this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true);
-        sound.play(this.catchOutcome.kind === 'normal' && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
+        sound.play(this.catchOutcome.kind === 'normal' && this.catchStar !== 'gold' && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
         break;
       case 'fishLost':
         this.showToast('It got away…');
@@ -1109,6 +1136,11 @@ export class LakeScene extends Phaser.Scene {
     this.questPanel?.refresh();
   }
 
+  /** Today's fish (slice 19): the dev flag, else the pure pick from the date and her gear. */
+  private fotdId(): string | undefined {
+    return this.fotdOverride ?? fishOfTheDay(this.today, this.player)?.id;
+  }
+
   /** The quest panel from the notice-board button. Only while idle. */
   private openQuests(): void {
     if (this.state.kind !== 'idle' || this.panel) return;
@@ -1118,6 +1150,7 @@ export class LakeScene extends Phaser.Scene {
         get: () => this.player,
         set: (p) => this.setPlayer(p),
         today: () => this.today,
+        fotdId: () => this.fotdId(),
       },
       () => {
         this.panel = null;
@@ -1443,6 +1476,13 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setDepth(Z.uiText)
       .setVisible(false);
+    // Size stars sit right of the length line; the fish-of-the-day line tops the text stack (slice 19).
+    this.caughtStars = this.add.image(0, CATCH_SUB_Y, starKey('bronze')).setOrigin(0, 0.5).setScale(2).setDepth(Z.uiText).setVisible(false);
+    this.caughtFotd = this.add
+      .text(W / 2, CATCH_FOTD_Y, 'Fish of the day! x2', { fontFamily: FONT, fontSize: `${FS.body}px`, color: FOTD_TEXT, stroke: '#241a2e', strokeThickness: 4 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.hint = this.add.text(W / 2, BAR_TOP - 18, '', { ...textStyle, ...pad }).setOrigin(0.5).setDepth(Z.uiText);
     // The 01:00 bedtime warning: a gentle toast just above the hint line.
     this.warnText = this.add
@@ -1541,7 +1581,8 @@ export class LakeScene extends Phaser.Scene {
       this.caughtText.setText(speciesById(s.hooked.speciesId)?.name ?? 'Caught!');
       this.caughtSub.setText(formatCatchSize(s.hooked.lengthCm, s.hooked.weightG));
       const o = this.catchOutcome;
-      this.caughtBadge.setText(o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '');
+      const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '';
+      this.caughtBadge.setText(this.catchStar === 'gold' ? (badge ? `${badge} Gold!` : 'Gold!') : badge);
       this.caughtNote.setText(
         o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
       );
@@ -1555,8 +1596,16 @@ export class LakeScene extends Phaser.Scene {
       this.caughtSub.setY(CATCH_SUB_Y + lift);
       this.caughtBadge.setY(CATCH_BADGE_Y + lift);
       this.caughtNote.setY(CATCH_NOTE_Y + lift);
+      this.caughtFotd.setY(CATCH_FOTD_Y + lift);
+      // The stars sit just right of the length line, popping with it.
+      if (this.catchStar !== 'none') {
+        this.caughtStars.setTexture(starKey(this.catchStar)).setScale(2 * popScale);
+        this.caughtStars.setPosition(W / 2 + (this.caughtSub.displayWidth / 2) + 6, CATCH_SUB_Y + lift);
+      }
     }
-    this.caughtBadge.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal').setScale(popScale);
+    this.caughtStars.setVisible(s.kind === 'caught' && this.catchStar !== 'none');
+    this.caughtFotd.setVisible(s.kind === 'caught' && this.catchFotd).setScale(popScale);
+    this.caughtBadge.setVisible(s.kind === 'caught' && this.caughtBadge.text !== '').setScale(popScale);
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 
     this.drawCrate();

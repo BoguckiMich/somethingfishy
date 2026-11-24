@@ -588,6 +588,7 @@ Every catch gets a little more exciting, and each real day has one special speci
     from the date only and fall back to a reachable species if the pick is unreachable: builder's call, keep it stable within a day if cheap).
 - Dev flags: `?fotd=<speciesId>` forces today's fish; `?debug=caught&star=gold|silver|bronze|none`
   shows the show-off with a fish of that star.
+- Built as: the fish of the day is seeded from the date only (`hash('fotd:' + date)` over all non-legendary species in data order); if her rod cannot reach it, a deterministic fallback among the reachable species (so it is stable within a day unless she buys the carbon rod). Stars are 9x9 pixel art shown at 2x (bag rows, log tiles, catch screen right of the length). The log's "Gold [star] x/12" counter is a line at the top of the grid (the panel title keeps "n/13 species"). A gold catch that is also a record or new species only gets the "Gold!" word on the badge and the record line; the gold line and the fanfare cover the plain gold catch. Dev: `?debug=caught&star=` and `?fotd=`.
 - Later (not in this slice): quests and lake checklists asking for stars ("Catch a silver-star
   perch"), Grzesiu's log knowledge (size ranges revealed after N catches).
 

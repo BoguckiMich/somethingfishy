@@ -1,6 +1,7 @@
 import type { FishProfile } from './catchBar';
 import type { TimeOfDay } from './clock';
 import { baitById } from './data/baits';
+import { FOTD_TUNING } from './data/fotd';
 import { POOL_SPECIES, speciesById, type Rarity, type Species } from './data/fish';
 import { rollLegendary } from './legendary';
 import type { ZoneId } from './location';
@@ -30,21 +31,23 @@ export function candidates(zone: ZoneId, time: TimeOfDay): Species[] {
 }
 
 /** The spawn weight of a species, with the bait's boost (slice 15c) on top; worms or none: the plain weight. */
-export function spawnWeight(species: Species, baitId?: string): number {
+export function spawnWeight(species: Species, baitId?: string, fotdId?: string): number {
   const bait = baitById(baitId);
   let w = RARITY_WEIGHT[species.rarity];
   if (bait?.speciesBoost?.ids.includes(species.id)) w *= bait.speciesBoost.factor;
   if (bait?.rarityBoost?.rarity === species.rarity) w *= bait.rarityBoost.factor;
+  // Today's fish bites more (slice 19); it stacks with the bait.
+  if (fotdId && species.id === fotdId) w *= FOTD_TUNING.weightMult;
   return w;
 }
 
-/** Picks among the species zone + time allow; the bait only reweights those, so it can never add a species. */
-export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: string): Species {
+/** Picks among the species zone + time allow; the bait and the fish of the day only reweight those, so they can never add a species. */
+export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: string, fotdId?: string): Species {
   const pool = candidates(zone, time);
-  const total = pool.reduce((sum, s) => sum + spawnWeight(s, baitId), 0);
+  const total = pool.reduce((sum, s) => sum + spawnWeight(s, baitId, fotdId), 0);
   let roll = rng() * total;
   for (const s of pool) {
-    roll -= spawnWeight(s, baitId);
+    roll -= spawnWeight(s, baitId, fotdId);
     if (roll < 0) return s;
   }
   return pool[pool.length - 1];
@@ -69,11 +72,11 @@ export interface CastPlace {
 }
 
 /** Picks the species (or the forced one) and rolls its size. A legendary may replace the normal pick. */
-export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string): HookedFish {
+export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string): HookedFish {
   const species =
     (forcedId ? speciesById(forcedId) : undefined) ??
     (place ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
-    pickSpecies(zone, time, rng, baitId);
+    pickSpecies(zone, time, rng, baitId, fotdId);
   const lengthCm = rollLength(species, rng);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };
 }

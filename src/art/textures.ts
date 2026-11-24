@@ -10,6 +10,7 @@ import { FAR_SHORE_Y, W } from './layout';
 import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
 import { MOMENT_SPRITES } from './momentArt';
 import { Raster } from './raster';
+import { starKey, starRowSprite } from './starArt';
 import { shopIconSprite } from './shopIconArt';
 import {
   BOBBER,
@@ -104,6 +105,7 @@ export function createTextures(scene: Phaser.Scene): void {
   for (const b of BAITS) addRaster(scene, baitIconKey(b.id), Raster.fromSprite(shopIconSprite(b.id)!));
   addRaster(scene, TEX.zSmall, Raster.fromSprite(zSprite(false)));
   addRaster(scene, TEX.zBig, Raster.fromSprite(zSprite(true)));
+  for (const star of ['bronze', 'silver', 'gold'] as const) addRaster(scene, starKey(star), Raster.fromSprite(starRowSprite(star)!));
   createCharacterTextures(scene);
   addRaster(scene, TEX.lilyA, Raster.fromSprite(LILY_A));
   addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));

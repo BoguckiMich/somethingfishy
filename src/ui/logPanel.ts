@@ -2,9 +2,13 @@ import { FONT, FS, LINE } from '../font';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { fishSilhouette } from '../art/fishVariants';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
-import { isLegendary, SPECIES, type Species } from '../core/data/fish';
+import { isLegendary, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
-import { speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { bestStar, goldCount, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+
+import { starRow } from './starRow';
+import { starSprite } from '../art/starArt';
+import { spriteCanvas } from './spriteCanvas';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 /** A fish sprite on a canvas, scaled by whole pixels. */
@@ -54,6 +58,8 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
   t.append(art);
   if (entry) {
     t.append(el('div', 'line-height:1', s.name));
+    const stars = starRow(bestStar(log, s), 2);
+    if (stars) t.append(stars);
   } else {
     t.append(el('div', `color:${COLORS.dim};line-height:0.8`, '???'));
     const [where, when] = s.logHint ? s.logHint.split(/(?<=\.) /) : whereWhen(s).split(' · ');
@@ -73,6 +79,7 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
     art,
     el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${COLORS.text}`, s.name),
     el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold}`, `Record: ${formatCatchSize(entry.bestLengthCm, entry.bestWeightG)}`),
+    ...[starRow(bestStar(log, s), 2)].filter((x): x is HTMLCanvasElement => !!x),
     el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Caught x${entry.count}`),
     el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, s.fact),
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
@@ -95,6 +102,9 @@ export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWi
         body.append(detail(open, log, () => { selected = null; panel.refresh(); }));
         return;
       }
+      const gold = el('div', `display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px;font-size:${FS.body}px;line-height:${LINE};color:${COLORS.gold}`);
+      gold.append('Gold', spriteCanvas(starSprite('gold'), 18), `${goldCount(log)}/${POOL_SPECIES.length}`);
+      body.append(gold);
       const grid = el('div', 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px');
       for (const s of SPECIES) grid.append(tile(s, log, (id) => { selected = id; panel.refresh(); }));
       body.append(grid);

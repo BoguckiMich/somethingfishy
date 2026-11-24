@@ -1,4 +1,5 @@
-import type { Species } from './data/fish';
+import { POOL_SPECIES, type Species } from './data/fish';
+import { starFor, type Star } from './data/stars';
 import { PALE_ONE } from './data/legendary';
 import type { HookedFish } from './fish';
 
@@ -35,6 +36,15 @@ export function recordCatch(log: FishLog, hooked: HookedFish): { log: FishLog; o
   }
   return { log: { ...log, [hooked.speciesId]: { ...old, count: old.count + 1 } }, outcome: { kind: 'normal' } };
 }
+
+/** The best star a species' record earns (derived from `bestLengthCm`, so old saves have it too). */
+export function bestStar(log: FishLog, species: Species): Star {
+  const entry = log[species.id];
+  return entry ? starFor(species, entry.bestLengthCm) : 'none';
+}
+
+/** In how many non-legendary species the record is gold ("Gold x/12"). */
+export const goldCount = (log: FishLog): number => POOL_SPECIES.filter((s) => bestStar(log, s) === 'gold').length;
 
 /** How many different species are in the log ("7" of "7/12"). */
 export const speciesCaught = (log: FishLog): number => Object.keys(log).length;
