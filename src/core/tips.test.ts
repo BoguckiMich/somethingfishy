@@ -32,7 +32,16 @@ describe('pickTip', () => {
   it('teaches casting for the first 3 casts, then goes away', () => {
     expect(pickTip({ ...base, seen: [] })?.text).toBe('Hold to charge, release to cast');
     expect(pickTip({ ...base, seen: ['cast1', 'cast2'] })?.id).toBe('cast');
-    expect(pickTip({ ...base, seen: ['cast1', 'cast2', 'cast3'] })).toBeNull();
+    expect(pickTip({ ...base, seen: ['cast1', 'cast2', 'cast3', 'car'] })).toBeNull();
+  });
+  it('points at the car after the first casts while it was never tapped, below every other one-off line', () => {
+    const three = ['cast1', 'cast2', 'cast3'];
+    expect(pickTip({ ...base, seen: ['cast1', 'cast2'] })?.id).toBe('cast');
+    const car = pickTip({ ...base, seen: three });
+    expect(car).toMatchObject({ id: 'car', text: 'Tap the car for the road map', once: true });
+    expect(pickTip({ ...base, seen: [...three, 'car'] })).toBeNull();
+    expect(pickTip({ ...base, seen: three, storyWaiting: true })?.id).toBe('story');
+    expect(pickTip({ ...base, canCast: false, baitTotal: 0, seen: three })?.id).toBe('bait');
   });
   it('orders the one-off lines: bag full, box, quest, story', () => {
     const all = { ...base, bagFull: true, boxWaiting: true, questReady: true, storyWaiting: true, seen: ['cast1', 'cast2', 'cast3'] };
@@ -61,6 +70,7 @@ describe('tip texts', () => {
       { ...base, boxWaiting: true, seen: ['cast1', 'cast2', 'cast3'] },
       { ...base, questReady: true },
       { ...base, storyWaiting: true },
+      { ...base, seen: ['cast1', 'cast2', 'cast3'] },
     ];
     for (const f of facts) {
       const t = pickTip(f);

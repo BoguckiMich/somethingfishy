@@ -3,6 +3,9 @@ import type { Rod } from './gear';
 /** Time for the power meter to go 0 → 1 (it then falls back to 0 and repeats). */
 export const CHARGE_HALF_CYCLE_MS = 900;
 
+/** A release before this long is a tap, not a cast: it cancels the charge (a bare tap on the water used to cast a tiny cast). */
+export const MIN_HOLD_MS = 180;
+
 /** Cast power never drops below this, so a quick tap still drops the bobber in the water. */
 export const MIN_POWER = 0.1;
 

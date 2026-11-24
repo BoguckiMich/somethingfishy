@@ -44,7 +44,7 @@ export const markCast = (seen: readonly string[] | undefined): string[] => {
 /** Dev sandbox default: everything already seen, so other flags show a clean lake. */
 export const allSeen = (): string[] => [...SEEN_IDS];
 
-export type TipId = 'bait' | 'cast' | 'bagFull' | 'box' | 'quest' | 'story';
+export type TipId = 'bait' | 'cast' | 'bagFull' | 'box' | 'quest' | 'story' | 'car';
 
 export interface Tip {
   id: TipId;
@@ -82,6 +82,8 @@ export function pickTip(f: TipFacts): Tip | null {
   if (f.boxWaiting && !isSeen(f.seen, 'crate')) return { id: 'box', text: 'A package! Tap the crate', once: true };
   if (f.questReady) return { id: 'quest', text: 'A quest is done: see the board', once: true };
   if (f.storyWaiting) return { id: 'story', text: 'A new note on the notice board', once: true };
+  // The car's road map was never found: the lowest of the one-off lines, after the first casts.
+  if (!isSeen(f.seen, 'car')) return { id: 'car', text: 'Tap the car for the road map', once: true };
   return null;
 }
 

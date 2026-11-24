@@ -80,6 +80,13 @@ The game stars the two of them and their dog. Reference photos live untracked in
 1. **Cast** — hold to charge a power meter, release to cast. Distance decides the zone:
    *shallow* (near shore) or *deep* (far). The starter rod only reaches shallow water.
    *Future:* dragging the thumb left/right while charging aims the cast (see Ideas below).
+   **Fix (tester input, 2026-11-24):** a hold shorter than `MIN_HOLD_MS` (180 ms, `core/casting.ts`) casts nothing and spends no
+   bait (the line "Hold to charge, release to cast" shows); a `cancel` input (touch taken away by the browser, or a finger leaving
+   the canvas on a phone) ends a charge with no cast, and the context menu is off. Shore objects (sign, car, crate, Pajkel's empty
+   chair) work as **tap = open, hold = cast** (`core/tapHold.ts`). The empty chair swallows taps. Toasts said during the fight wait
+   (`core/toastQueue.ts`) and the zone label hides, so nothing covers the bar. A second notice-board button sits top right (44x44,
+   gold badge when a quest can be claimed, red seal when a chapter waits) and the car shows a bobbing map pin plus a one-off hint
+   until it is tapped once.
 2. **Wait / bite** — the bobber gives a few small *nibbles* (fake-outs), then a big dip with
    a "!" and a ~1 s window to tap. Tapping on a nibble scares the fish away. Shy species nibble more.
 3. **Fight** — Stardew-style vertical catch bar:
