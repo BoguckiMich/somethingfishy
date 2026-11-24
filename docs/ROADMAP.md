@@ -19,7 +19,7 @@ The first lake has a beginning, a middle and an end.
 - [x] Story chapters engine + Quiet Lake chapters Q1-Q8 (sealed story bottle, wax-seal badge on the
       notice board, one chapter per real day, STORY.md §3) and the Pale One bonus beat
 - [ ] Grzesiu's fish knowledge in the log (size ranges after N catches)
-- [ ] **Polish pass before M1 ends** (user, 2026-11-24):
+- [x] **Polish pass before M1 ends** (22a-22c merged 2026-11-24; phone check pending) (user, 2026-11-24):
   - Pajkel: the sitting pose and the thermos-drinking animation
   - Bestia is perfect as she is; the fetch sticks need fixing (look and placement)
   - Story chapters (slice 21) weak spots, user 2026-11-24:
@@ -30,7 +30,7 @@ The first lake has a beginning, a middle and an end.
     - the Pale One card is untested through a real slip-away catch
   - Overall UI made friendlier: findings and a prompt in `docs/ui-review/` (screenshots + `UI_REVIEW_PROMPT.md`)
   - Review accepted 2026-11-24 (`docs/ui-review/UI_REVIEW.md`), built as slices **22a** (Pajkel's chair + sticks, done),
-    **22b** (friendlier panels, done), **22c** (hints, sign, HUD, touch targets, tall-phone bands)
+    **22b** (friendlier panels, done), **22c** (hints, sign, HUD, touch targets, tall-phone bands, done)
 
 **Done when:** the polish pass is done and a fresh save can play ~2 weeks of daily 15-minute visits on Quiet Lake with something
 new each day, and finishing the checklist shows the "road is fixed" card.
