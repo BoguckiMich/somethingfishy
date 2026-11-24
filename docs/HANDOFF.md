@@ -145,7 +145,7 @@ reviewed by the main session (tsc, tests, build, screenshots) but none play-test
 - **17 fetch** — try it with `?debug=afk` (`&giveback=1` forces the rare round). Weak: the bend pose, the play-bow frame, chase speeds untested.
 
 ### Next candidates (nothing decided)
-- **Bestia's run/carry tail still not right** (user, 2026-11-24, after the merged 1 px fix; reference photo in chat):
+- **Bestia's run/carry tail: DONE** (`fix/bestia-tail` merged 2026-11-24; weak: curl only 2-3 px, plume dark brown not near black, seen only as stills). Brief it was built from (user, reference photo in chat):
   her real tail is carried HIGH, rising straight up from the rump then curving forward over the back (sickle);
   thin ginger at the base, getting **fluffier towards the end** (a 3-4 px plume), the plume darker brown/near
   black on its back side, ginger on the front. Not a thin whip line, not a light tip. `src/art/characters.ts`
