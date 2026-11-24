@@ -112,7 +112,7 @@ export const SPECIES: Species[] = [
     likes: ['windy', 'overcast'],
   },
   {
-    id: 'burbot', name: 'Burbot', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'erratic', difficulty: 0.6,
+    id: 'burbot', name: 'Burbot', zone: 'deep', times: ['night'], rarity: 'rare', pattern: 'erratic', difficulty: 0.65,
     lengthCm: [25, 75], nibbles: [0, 2], bodyFactor: 0.0088, basePrice: 60,
     fact: 'The burbot is the only freshwater cod and is most active at night and in winter.',
     likes: ['rain', 'fog'],
