@@ -593,24 +593,28 @@ Every catch gets a little more exciting, and each real day has one special speci
   perch"), Grzesiu's log knowledge (size ranges revealed after N catches).
 
 **Slice 20: the Quiet Lake checklist (details picked by Claude 2026-11-24, user may adjust).**
-Stardew-style bundles: hand in fish (and coins) to fix the road to the River bend. The river
+Stardew-style bundles: hand in fish (and coins) to fix the road to the River bend. The storyline
+for all places (chapters, legendaries, bundles) is in `docs/STORY.md`. The river
 itself is slice 21, so finishing the checklist now marks the road as fixed ("opening soon").
-- **Five bundles**, each with slots. A fish slot takes one fish from the bag (the fish is gone,
-  not sold, no coins, no quest sale progress). Species already set the time of day, so no time
-  rule is needed. The Pale One never fits.
-  1. *Morning net*: roach, rudd, bleak, perch (any size). Reward 10 corn + 60 coins.
-  2. *Deep water*: bream, tench, carp, pike. Reward 10 fish strip + 150 coins.
-  3. *After dark*: eel, zander, catfish. Reward 3 glow bait + 200 coins.
-  4. *Proud angler*: 3 slots "any fish, silver or better" + 1 slot "any gold fish". Reward 300 coins.
-  5. *Petrol money*: pay 750 coins (one slot, one button, only when she has them). No reward
-     besides the road.
+- **Six bundles, "The Doorstep"** (names and lines from `docs/STORY.md` §5, changed 2026-11-24
+  after the storyline). A fish slot takes one fish from the bag (the fish is gone, not sold, no
+  coins, no quest sale progress). The Pale One never fits. Each bundle shows its flavour line.
+  1. *Dawn Chorus*: roach, rudd, bleak. "Early fish for early birds." Reward 10 corn + 60 coins.
+     (The story asks for them *caught at dawn*, but these three bite only by day in the data, so
+     no time rule; revisit if they get a dawn window.)
+  2. *Night Shift*: eel, zander, catfish. "Things that bite after bedtime." Reward 3 glow bait + 200 coins.
+  3. *The Bottom of Things*: bream, tench, crucian carp, carp. "Ask the ones who live down there."
+     Reward 10 fish strip + 150 coins.
+  4. *Shiny Ones*: any 3 gold-star fish. "Show the lake you're serious." Reward 300 coins.
+  5. *Duck Tax*: 1 bleak. "For the duck. You know why." Reward 5 worms.
+  6. *Petrol Money*: pay 500 coins. "The DS4 won't drive on vibes." No reward besides the road.
 - **Hand-in:** each open slot shows what it wants (fish sprite or star row) and a "Give"
   button, enabled when a fitting fish is in the bag; it gives the cheapest fitting fish. A
   finished bundle shows its reward being paid ("+10 corn · +60 coins" toast) and a tick.
-- **All five done:** a card "The road to the River bend is fixed! Pajkel is packing the car." with
-  a jingle; the road map's River bend pin changes from the barrier to "Road fixed! Opening soon".
-- **Where:** the road map gets a "Quiet Lake checklist n/5" button; the River bend pin's line
-  becomes "Finish the Quiet Lake checklist to fix the road (n/5)" until done. The notice-board
+- **All six done:** a card "The road to the river is fixed." / "Pajkel packs the car." /
+  "Bestia packs a stick." (story Q8) with a jingle; the road map's River bend pin changes from the barrier to "Road fixed! Opening soon".
+- **Where:** the road map gets a "Quiet Lake checklist n/6" button; the River bend pin's line
+  becomes "Finish the Quiet Lake checklist to fix the road (n/6)" until done. The notice-board
   panel gets the same button at the bottom. Catch screen: a small line "Fits the checklist!" when
   the caught fish fits an open slot (and it went into the bag).
 - **Save:** `PlayerState.checklist?` (filled slots per bundle id; missing = nothing filled),
