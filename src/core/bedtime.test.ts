@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crossedBedtime, crossedCompanionBedtime, crossedWarning, inCarWindow, inWarnHour, loadClock, warningLines, inSleepWindow, lanternGlow, morningClock, napOptions, napWakeClock, nextOccurrence, wakeGreeting } from './bedtime';
+import { crossedBedtime, crossedCompanionBedtime, crossedWarning, inCarWindow, inWarnHour, loadClock, warningLines, inSleepWindow, lanternGlow, morningClock, napOptions, napPrimaryId, napWakeClock, nextOccurrence, wakeGreeting } from './bedtime';
 
 describe('the sleep window', () => {
   it('runs from 02:00 up to, not including, 05:00', () => {
@@ -157,5 +157,15 @@ describe('lanternGlow', () => {
     expect(lanternGlow(4 * 60 + 45)).toBeCloseTo(0.5);
     expect(lanternGlow(5 * 60)).toBe(0);
     expect(lanternGlow(6 * 60)).toBe(0);
+  });
+});
+
+describe('napPrimaryId', () => {
+  it('is the next part of the day', () => {
+    expect(napPrimaryId(12 * 60)).toBe('dusk');
+    expect(napPrimaryId(6 * 60)).toBe('day');
+    expect(napPrimaryId(19 * 60)).toBe('night');
+    expect(napPrimaryId(22 * 60)).toBe('dawn');
+    expect(napPrimaryId(3 * 60)).toBe('dawn');
   });
 });

@@ -347,7 +347,7 @@ describe('words', () => {
     expect(questText(quest('catchAtTime', { target: 1, timeOfDay: 'dusk' }))).toBe('Catch a fish at dusk');
     expect(questText(quest('catchAtTime', { target: 3, timeOfDay: 'night' }))).toBe('Catch 3 fish at night');
     expect(questText(quest('catchDeep', { target: 3 }))).toBe('Catch 3 fish in deep water');
-    expect(questText(quest('sellCoins', { target: 100 }))).toBe("Sell 100 coins' worth of fish");
+    expect(questText(quest('sellCoins', { target: 100 }))).toBe('Sell fish for 100 coins');
     expect(questText(quest('beatRecord', { target: 1 }))).toBe('Beat a personal best');
     expect(rewardText({ coins: 30, worms: 4 })).toBe('+30 coins · +4 worms');
   });

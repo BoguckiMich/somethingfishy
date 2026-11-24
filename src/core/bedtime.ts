@@ -112,3 +112,9 @@ export function lanternGlow(minute: number): number {
   if (minute < WAKE_MINUTE) return Math.min(1, (WAKE_MINUTE - minute) / ramp);
   return 0;
 }
+
+/** The nap button that is gold on the card (slice 22b): the next part of the day after the current one ("Dusk" by day, "Dawn" at night). */
+export function napPrimaryId(minuteOfDay: number): NapOption['id'] {
+  const next: Record<ReturnType<typeof timeOfDay>, NapOption['id']> = { dawn: 'day', day: 'dusk', dusk: 'night', night: 'dawn' };
+  return next[timeOfDay(((minuteOfDay % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY)];
+}
