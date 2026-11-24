@@ -10,6 +10,7 @@ import { newDaily, type DailyState } from './daily/daily';
 import { DAILY_BOX } from './data/daily';
 import { QUEST_TUNING } from './data/quests';
 import { speciesCaught, type FishLog } from './fishLog';
+import { normalizeChecklist } from './checklist/checklist';
 import { normalizeNotes } from './moments/moments';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
@@ -151,6 +152,8 @@ function normalizePlayer(v: unknown): PlayerState {
     notes: normalizeNotes(p.notes),
     // The night kit: stored only when owned (older saves have no key).
     ...(p.nightKit === true ? { nightKit: true } : {}),
+    // The checklist: stored only when something is filled (older saves have no key).
+    ...(Object.values(normalizeChecklist(p.checklist)).some((a) => a.some(Boolean)) ? { checklist: normalizeChecklist(p.checklist) } : {}),
   };
 }
 

@@ -5,6 +5,8 @@ import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { openBaitPicker } from '../ui/baitPicker';
 import { showQuestPanel } from '../ui/questPanel';
+import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
+import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots } from '../core/checklist/checklist';
 import { showBottleCard } from '../ui/bottleCard';
 import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
@@ -161,6 +163,7 @@ const CATCH_SUB_Y = 234;
 const CATCH_BADGE_Y = 258;
 const CATCH_NOTE_Y = 274;
 const CATCH_FOTD_Y = 182;
+const CATCH_FITS_Y = 166;
 const FOTD_TEXT = '#8fe3b0';
 const CATCH_TEXT_LIMIT = 324;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
@@ -337,6 +340,9 @@ export class LakeScene extends Phaser.Scene {
   /** The star of the current catch (slice 19) and whether it was today's fish. */
   private catchStar: Star = 'none';
   private catchFotd = false;
+  /** The caught fish fits an open checklist slot and has room in the bag (slice 20). */
+  private catchFits = false;
+  private caughtFits!: Phaser.GameObjects.Text;
   private caughtStars!: Phaser.GameObjects.Image;
   private caughtFotd!: Phaser.GameObjects.Text;
   /** Dev flag ?fotd=<id>: forces today's fish. */
@@ -451,6 +457,9 @@ export class LakeScene extends Phaser.Scene {
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
     if (params.has('worms') && Number.isFinite(wormsParam)) this.setPlayer({ ...this.player, worms: Math.max(0, Math.floor(wormsParam)) });
+    // Dev-only: ?cl=done fills every checklist slot but the petrol payment; ?cl=all fills them all (road fixed).
+    if (params.get('cl') === 'done') this.setPlayer(allButPetrol(this.player));
+    if (params.get('cl') === 'all') this.setPlayer(allButPetrol({ ...this.player, checklist: undefined }, true));
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
     this.syncRod();
@@ -746,7 +755,35 @@ export class LakeScene extends Phaser.Scene {
     if (this.state.kind !== 'idle' || this.panel || c.mode !== 'dock') return;
     this.swallowUp = false;
     this.panel = showMapPanel(
-      () => this.openNapCard(),
+      {
+        onNap: () => this.openNapCard(),
+        onChecklist: () => this.openChecklist(),
+        checklist: { done: checklistDone(this.player), total: bundleTotal },
+      },
+      () => (this.panel = null),
+    );
+  }
+
+  /** The Quiet Lake checklist (slice 20), from the map or the notice board. Only while idle. */
+  private openChecklist(): void {
+    if (this.state.kind !== 'idle' || this.panel) return;
+    this.swallowUp = false;
+    this.panel = showChecklistPanel(
+      {
+        get: () => this.player,
+        set: (p) => this.setPlayer(p),
+        onHandIn: (r, bundle, allFixed) => {
+          if (!r.finished) return;
+          sound.play('coin');
+          const text = r.reward ? checklistRewardText(r.reward) : '';
+          this.showToast(text ? `${bundle.name} done! ${text}` : `${bundle.name} done!`);
+          if (allFixed) {
+            this.panel?.close();
+            sound.play('fanfare');
+            this.panel = showRoadFixedCard(() => (this.panel = null));
+          }
+        },
+      },
       () => (this.panel = null),
     );
   }
@@ -861,6 +898,7 @@ export class LakeScene extends Phaser.Scene {
     const species = speciesById(hooked.speciesId);
     this.catchStar = species ? starFor(species, hooked.lengthCm) : 'none';
     this.catchFotd = hooked.speciesId === this.fotdId();
+    this.catchFits = !slipsAway(hooked.speciesId) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked)).length > 0;
     // The catch also moves today's quests (the game clock gives the time of day, the log the record).
     const q = applyCatchToPlayer({ ...this.player, log: r.log }, {
       speciesId: hooked.speciesId,
@@ -1031,6 +1069,19 @@ export class LakeScene extends Phaser.Scene {
       this.openMap();
       return;
     }
+    if (dbg === 'checklist') {
+      const mk = (id: string, share: number): BagFish => {
+        const sp = SPECIES.find((x) => x.id === id)!;
+        const lengthCm = Math.round(sp.lengthCm[0] + (sp.lengthCm[1] - sp.lengthCm[0]) * share);
+        return toBagFish({ speciesId: id, lengthCm, weightG: Math.round(sp.bodyFactor * lengthCm ** 3) });
+      };
+      const bag = [mk('roach', 0.3), mk('bleak', 0.2), mk('crucian', 0.4), mk('carp', 0.95), mk('perch', 0.95), mk('eel', 0.4)];
+      const base = this.player.coins < 600 ? { ...this.player, coins: 600 } : this.player;
+      const next = { ...base, bag };
+      this.setPlayer(next);
+      this.openChecklist();
+      return;
+    }
     if (dbg === 'quests') {
       this.openQuests();
       return;
@@ -1151,6 +1202,8 @@ export class LakeScene extends Phaser.Scene {
         set: (p) => this.setPlayer(p),
         today: () => this.today,
         fotdId: () => this.fotdId(),
+        openChecklist: () => this.openChecklist(),
+        checklist: () => ({ done: checklistDone(this.player), total: bundleTotal }),
       },
       () => {
         this.panel = null;
@@ -1477,6 +1530,11 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     // Size stars sit right of the length line; the fish-of-the-day line tops the text stack (slice 19).
+    this.caughtFits = this.add
+      .text(W / 2, CATCH_FITS_Y, 'Fits the checklist!', { fontFamily: FONT, fontSize: `${FS.small}px`, color: FOTD_TEXT, stroke: '#241a2e', strokeThickness: 4 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.caughtStars = this.add.image(0, CATCH_SUB_Y, starKey('bronze')).setOrigin(0, 0.5).setScale(2).setDepth(Z.uiText).setVisible(false);
     this.caughtFotd = this.add
       .text(W / 2, CATCH_FOTD_Y, 'Fish of the day! x2', { fontFamily: FONT, fontSize: `${FS.body}px`, color: FOTD_TEXT, stroke: '#241a2e', strokeThickness: 4 })
@@ -1597,6 +1655,7 @@ export class LakeScene extends Phaser.Scene {
       this.caughtBadge.setY(CATCH_BADGE_Y + lift);
       this.caughtNote.setY(CATCH_NOTE_Y + lift);
       this.caughtFotd.setY(CATCH_FOTD_Y + lift);
+      this.caughtFits.setY(CATCH_FITS_Y + lift);
       // The stars sit just right of the length line, popping with it.
       if (this.catchStar !== 'none') {
         this.caughtStars.setTexture(starKey(this.catchStar)).setScale(2 * popScale);
@@ -1605,6 +1664,7 @@ export class LakeScene extends Phaser.Scene {
     }
     this.caughtStars.setVisible(s.kind === 'caught' && this.catchStar !== 'none');
     this.caughtFotd.setVisible(s.kind === 'caught' && this.catchFotd).setScale(popScale);
+    this.caughtFits.setVisible(s.kind === 'caught' && this.catchFits).setScale(popScale);
     this.caughtBadge.setVisible(s.kind === 'caught' && this.caughtBadge.text !== '').setScale(popScale);
     this.caughtNote.setVisible(s.kind === 'caught' && this.catchOutcome.kind !== 'normal');
 
