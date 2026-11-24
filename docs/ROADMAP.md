@@ -18,8 +18,8 @@ The first lake has a beginning, a middle and an end.
 - [ ] Phone-test fixes for 15a-20
 - [x] Story chapters engine + Quiet Lake chapters Q1-Q8 (sealed story bottle, wax-seal badge on the
       notice board, one chapter per real day, STORY.md §3) and the Pale One bonus beat
-- [ ] Grzesiu's fish knowledge in the log (slice 22e)
-- [ ] Bigger notice-board sign + story journal with Alex's and Pajkel's thoughts (slice 22d)
+- [x] Grzesiu's fish knowledge in the log (slice 22e)
+- [x] Bigger notice-board sign + story journal with Alex's and Pajkel's thoughts (slice 22d)
 - [x] **Polish pass before M1 ends** (22a-22c merged 2026-11-24; phone check pending) (user, 2026-11-24):
   - Pajkel: the sitting pose and the thermos-drinking animation
   - Bestia is perfect as she is; the fetch sticks need fixing (look and placement)
