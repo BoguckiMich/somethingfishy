@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-24 (15b, 15c, 16, the midnight bedtime change and 17 merged into `main`, not pushed; user is phone-testing)._
+_Last updated: 2026-11-24. Slices 15a-17, the update-toast fix and the midnight bedtime change are merged AND pushed (main 13dbae1, Pages deploy started; not confirmed). The user is phone-testing; expect fixes from that first. See *Phone-test checklist* below._
 
 ## Current state
 
@@ -102,10 +102,10 @@ Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casti
   exercised. Settings are volumes 0–100 under `rybki.settings.v1` (old booleans read as 100/0).
   Opening any panel plays a tap; the dog "boofs" on petting and fetch bring/zoomies.
 
-## Overnight summary (2026-11-23) — what to check on the phone
+## Phone-test checklist (slices 15a-17, pushed 2026-11-24)
 
-Merged into `main` overnight without the user's play-test, each reviewed by the main session (tsc,
-tests, build, screenshots). Not pushed, so the Pages site still has the old build.
+15b, 15c and 16 were merged overnight (user authorised it once) and 17 on the user's word, each
+reviewed by the main session (tsc, tests, build, screenshots) but none play-tested on a phone yet.
 - **15b shop icons** — item cards, icons, "Your tackle", fish sprites in the sell list. Check: rod
   icons (weakest), the buy pop (never seen running).
 - **15c baits** — corn / maggots / fish strip in the shop, glow bait from box and quests, bait chip
@@ -117,8 +117,18 @@ tests, build, screenshots). Not pushed, so the Pages site still has the old buil
   ear, kit-owner wake at 05:00. Main session fixed: waking kept the day counter from skipping.
   Agent deviations (in GAME_DESIGN under slice 16): the nap card opens any time she is idle, not
   only by day; a kit owner's "Deep night" nap leaves them awake until 05:00.
-- **17 fetch** — merged 2026-11-24 on the user's word. Try it with `?debug=afk` (`&giveback=1` forces the rare round),
-  then merge if it feels right. Weak: the bend pose, the play-bow frame, chase speeds untested.
+- **Bedtime change (2026-11-24)** — companions go to the car at 00:00, warning toast at 01:00 (no kit),
+  Alex's fade at 02:00 (no kit); kit card always shown, locked before the fiberglass rod. Check: the
+  warning while a fight/panel is open, a nap ending in the night (both unseen).
+- **17 fetch** — try it with `?debug=afk` (`&giveback=1` forces the rare round). Weak: the bend pose, the play-bow frame, chase speeds untested.
+
+### Next candidates (nothing decided)
+- Fixes from the phone test of 15a-17 come first.
+- Reels barely help in the bot sim (15a): maybe raise the reel multipliers.
+- Rod shop icons are weak (15b).
+- Ideas in GAME_DESIGN → Ideas: achievements + total weight per species, personal bottle notes
+  from Pajkel to Alex, catch-bar polish + treasure chest, character choice for friends, NPC
+  tournaments (far future), aimed casting + lake features.
 
 ## How we work (user preferences — follow these)
 
@@ -193,5 +203,12 @@ Stop the server afterwards (PowerShell:
   their running game. For spec-only edits, commit on the current branch or use a worktree.
 - In Bash, add `< /dev/null` to `npx`/`node` commands; a stray stdin read hung a command once.
 - Windows + Git Bash: LF→CRLF warnings on commit are harmless.
+- Sonnet agents run with `isolation: "worktree"` (under `.claude/worktrees/`), so the user's dev
+  server on `main` is never disturbed. Merge from the main checkout (`git merge --no-ff`, no branch
+  switch), then `git worktree remove --force` + delete both the slice branch and the agent's
+  `worktree-agent-*` branch. Removal fails with "Permission denied" while a shell's cwd is inside the
+  worktree; leftover folders under `.claude/worktrees/` are untracked and harmless.
+- PowerShell 5.1 `Set-Content -Encoding utf8` writes a BOM: edit docs with the Edit tool or Python instead.
+- `gh` is not installed: deploy status is only visible on the GitHub Actions tab.
 - Phaser 4.2.1, TypeScript 7, Vite 8, Vitest 5 — check `node_modules/phaser/types/phaser.d.ts`
   before using an API you're unsure exists in Phaser 4.
