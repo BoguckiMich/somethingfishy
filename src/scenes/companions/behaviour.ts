@@ -1300,7 +1300,14 @@ function tickPlayPhase(s: Companions, dtMs: number, rng: Rng): void {
       if (d.path.length === 0) d.path = [chaseWaypoint(d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
       else if (d.path.length === 1 && dist(d, d.path[0]) < 45) d.path.push(chaseWaypoint(d.path[0], p, { x: d.path[0].x - d.x, y: d.path[0].y - d.y }, rng));
       const dFrom = { x: d.x, y: d.y };
-      follow(d, pl.nearMs > 0 ? T.dogSlowSpeed : T.dogSpeed, dtMs);
+      // While she hugs him and slides round, her waypoint is not followed until it points away from him:
+      // otherwise the step towards it and the slide (the other way, round the side with room) undo each
+      // other every other frame and she freezes (seen at 8 ms frames).
+      const gapNow = dist(p, d);
+      const aim0 = d.path[0];
+      const awayFromHim = !aim0 || (aim0.x - d.x) * (d.x - p.x) + (aim0.y - d.y) * (d.y - p.y) > 0.3 * dist(aim0, d) * gapNow;
+      const sliding = pl.slide !== 0 && gapNow < T.minGap + 0.5 && !awayFromHim;
+      if (!sliding) follow(d, pl.nearMs > 0 ? T.dogSlowSpeed : T.dogSpeed, dtMs);
       d.shape = 'run';
       d.hop = Math.abs(Math.sin(s.elapsed / 90 * (Math.PI / 2))) * 2;
       holdStick(s);
@@ -1311,7 +1318,7 @@ function tickPlayPhase(s: Companions, dtMs: number, rng: Rng): void {
       // She is never caught: when he blocks her way she slides round him at the edge of his reach (the side
       // her waypoint is on, or the one with more room) instead of being pinned against him.
       const g2 = dist(p, d);
-      if (g2 < T.minGap - 0.05 && g2 > 0) {
+      if ((g2 < T.minGap - 0.05 || sliding) && g2 > 0) {
         // Where she was, not where she tried to go: sliding replaces that step instead of fighting it.
         const bl = dist(dFrom, p) || 1;
         const rx = (dFrom.x - p.x) / bl;

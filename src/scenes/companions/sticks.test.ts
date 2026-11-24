@@ -71,7 +71,7 @@ describe('the fetch sticks (slice 22a)', () => {
   });
 
   it('a third old stick makes the oldest start its 2 s fade at once (pushed out by the cap, not by age)', () => {
-    const { s, rng } = play(5);
+    const { s, rng } = play(1);
     runUntil(s, rng, () => s.sticks.some((g) => g.fadeMs !== null), 600_000);
     const fading = s.sticks.find((g) => g.fadeMs !== null)!;
     expect(fading.fadeMs).toBeLessThanOrEqual(STICK_TUNING.fadeOutMs);

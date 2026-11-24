@@ -48,6 +48,8 @@ export class CompanionView {
   readonly state: Companions;
   private paj: Phaser.GameObjects.Image;
   private dog: Phaser.GameObjects.Image;
+  /** Which side of him she is drawn on; it only changes once she is 3 px past him, so sliding round him does not flicker. */
+  private dogBehind = false;
   private stick: Phaser.GameObjects.Image;
   /** The empty camp chair at his dock spot, shown while he is away or in the car. */
   private chair: Phaser.GameObjects.Image;
@@ -219,13 +221,15 @@ export class CompanionView {
     };
     const d = s.dog;
     const wiggle = d.petMs > 0 ? Math.round(Math.sin(elapsed / 45)) : 0;
+    if (d.y < p.y - 3) this.dogBehind = true;
+    else if (d.y > p.y + 3) this.dogBehind = false;
     this.dog
       .setTexture(dogKey(frame))
       .setOrigin(0.5, 23 / DOG_SIZE.h)
       .setFlipX(d.face < 0)
       .setPosition(Math.round(d.x) + wiggle, Math.round(d.y - d.hop))
       .setTint(tint)
-      .setDepth(d.y < p.y ? DEPTH - 0.1 : DEPTH + 0.1) // behind him while she is further up the screen
+      .setDepth(this.dogBehind ? DEPTH - 0.1 : DEPTH + 0.1) // behind him while she is further up the screen
       .setVisible(dogVisible(s))
       .setAlpha(s.bed?.dogA ?? 1);
 
@@ -248,7 +252,7 @@ export class CompanionView {
       .setTexture(key)
       .setVisible(st.state !== 'hidden')
       .setFlipX(carried && d.face < 0)
-      .setDepth(carried ? (d.y < p.y ? DEPTH - 0.05 : DEPTH + 1) : flying ? DEPTH + 1 : DEPTH - 0.5)
+      .setDepth(carried ? (this.dogBehind ? DEPTH - 0.05 : DEPTH + 1) : flying ? DEPTH + 1 : DEPTH - 0.5)
       .setPosition(Math.round(st.x), Math.round(st.y))
       .setTint(tint);
     // A little dust where it lands.

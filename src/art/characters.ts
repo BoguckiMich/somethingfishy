@@ -928,11 +928,16 @@ export function dogSprite(frame: DogFrame): Sprite {
     p.line(9, 14, 7 - stretch, 21, PAL.ginger);
     const up = f.carry ? 1 : 0; // proud: chin up
     head(25, 7 - up);
+    // The tail streams out thin and raised from the rump (a fat plume here read as a blob behind her).
     if (f.carry) {
-      plume(p, 5, 9, 3, 4); // tail held high with a curl
-      p.set(4, 3, PAL.gingerLight);
-      p.set(4, 2, PAL.gingerLight);
-    } else plume(p, 5, 9, 2, 5);
+      p.line(5, 9, 3, 4, PAL.ginger); // held high with a curl
+      p.line(3, 4, 2, 2, PAL.ginger);
+      p.set(3, 1, PAL.gingerLight);
+    } else {
+      p.line(5, 9, 2, 5, PAL.ginger);
+      p.line(2, 5, 0, 4, PAL.ginger);
+      p.set(0, 4, PAL.gingerLight);
+    }
   }
   return p.outline().done();
 }
