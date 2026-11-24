@@ -717,6 +717,7 @@ today's chapter when one is waiting (else the quests).
   - **25 catches:** "Gold from N cm" (the gold-star threshold) and the times caught.
   - A locked tier shows as a dim line "??? · catch 5 to learn" so she knows what's next.
   - The Pale One: no tiers (it slips away; keep its card as is).
+- Built as (22e): `core/fishKnowledge.ts` `knowledgeRows` gives three rows (range, bait, gold) per species, unlocked by the saved `count` (no save change); tiers in `core/data/fishKnowledge.ts`. Gold from N = the shortest whole cm where `starFor` is gold; weights are rounded (two figures, kg from 1000 g, "1.6-43 kg" when both are kg). Bait line shows the bait icon and name(s) from `speciesBoost`. Deviation: "Caught xN" stays visible at every tier instead of waiting for 25. Dev flag `?logcount=N`.
 
 
 ## 4. Roadmap
