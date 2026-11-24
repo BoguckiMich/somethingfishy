@@ -269,7 +269,7 @@ export function nearShoreRaster(): Raster {
   r.blit(BUSH_BIG, -6, NS_H - 44);
   r.blit(BUSH_BIG, W - 26, NS_H - 52, { flip: true });
   r.blit(BUSH, 276, NS_H - 30);
-  r.blit(ROUND_C, 2, NS_H - 118);
+  // (A round tree stood at x 2 here; the car parks on that spot since slice 16, so it is gone.)
   r.blit(BUSH_BIG, W - 36, NS_H - 108, { flip: true });
   r.blit(BUSH, 84, NS_H - 70);
   r.blit(BUSH, 262, NS_H - 76, { flip: true });
