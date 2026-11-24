@@ -940,6 +940,12 @@ Friends bought the whole shop within a few in-game days and had nothing to do da
 5. **Coin sink once the shop is done**: upgradeable camp (tent, fire, Pajkel's chair, Bestia's kennel), cosmetic.
 6. **M1 "done when"** rewritten: a fresh save has a goal every visit for ~4 days, then the road opens.
 
+Also from play (user, 2026-11-24):
+7. **Perfect catch**: the fish never leaves the green zone for the whole fight -> +1 star tier on that catch,
+   and a **medal** (a tier above 3 stars) is possible ONLY with a perfect catch. Open: does a no-star fish get
+   bronze, medal look in log/bag, does a medal fill checklist star slots; grill together with the red sweet spot.
+8. **Max-distance cast is too hard**: the charge meter pauses briefly at full power (~150-300 ms). Small tweak.
+
 Open questions (grill before the spec): which conditions and how many per day, how they show on screen;
 which rare fish, their conditions and rewards; which gear goes behind which goal; camp items and prices.
 
