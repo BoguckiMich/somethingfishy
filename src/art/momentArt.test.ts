@@ -18,6 +18,12 @@ describe('moment art', () => {
     expect(size('bottle')).toEqual([19, 9]);
     expect(size('jumpFish')).toEqual([21, 9]);
     expect(size('shape')).toEqual([40, 9]);
+    expect(size('storyBottle')).toEqual([21, 9]);
+    expect(size('sandwich')).toEqual([11, 7]);
+    expect(size('footprint')).toEqual([7, 10]);
+    expect(size('blinkOpen')).toEqual([9, 9]);
+    expect(size('blinkHalf')).toEqual([9, 5]);
+    expect(size('blinkShut')).toEqual([9, 3]);
   });
   it('a ring has no repeated pixels and spans the radii', () => {
     const pts = ringPoints(8, 3);

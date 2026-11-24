@@ -12,6 +12,7 @@ import { QUEST_TUNING } from './data/quests';
 import { speciesCaught, type FishLog } from './fishLog';
 import { normalizeChecklist } from './checklist/checklist';
 import { normalizeNotes } from './moments/moments';
+import { normalizeStory, storyIsEmpty } from './story/story';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
 /**
@@ -154,6 +155,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(p.nightKit === true ? { nightKit: true } : {}),
     // The checklist: stored only when something is filled (older saves have no key).
     ...(Object.values(normalizeChecklist(p.checklist)).some((a) => a.some(Boolean)) ? { checklist: normalizeChecklist(p.checklist) } : {}),
+    // The story (slice 21): stored only when something happened (older saves have no key).
+    ...(storyIsEmpty(normalizeStory(p.story)) ? {} : { story: normalizeStory(p.story) }),
   };
 }
 

@@ -7,7 +7,10 @@ import { openBaitPicker } from '../ui/baitPicker';
 import { showQuestPanel } from '../ui/questPanel';
 import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
 import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots } from '../core/checklist/checklist';
-import { showBottleCard } from '../ui/bottleCard';
+import { showBottleCard, showStoryCard } from '../ui/bottleCard';
+import { StoryView } from './StoryView';
+import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
+import { blinkIsNight, blinkLines, chapterById, lineText, markPaleSeen, markSeen, nextLine, paleBeatDue, queueLines, storyOf, todaysChapter } from '../core/story/story';
 import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
@@ -233,6 +236,11 @@ function hash01(n: number): number {
   return h - Math.floor(h);
 }
 
+/** Real ms of calm play before today's chapter shows up (60-90 s). */
+function rollStoryDelay(): number {
+  return STORY_TUNING.delayMs.min + Math.random() * (STORY_TUNING.delayMs.max - STORY_TUNING.delayMs.min);
+}
+
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
@@ -298,6 +306,16 @@ export class LakeScene extends Phaser.Scene {
   private momentGap: Scheduler = newScheduler(Math.random);
   private lastMoment: MomentKind | null = null;
   private debugMoment: { kind: MomentKind; inMs: number } | null = null;
+  /** Story chapters (slice 21): the pictures, the chapter being told, the delivery timer and the line queue clock. */
+  private story!: StoryView;
+  private storyOn = true;
+  private storyRun: { chapter: ChapterDef; night: boolean; preMs: number } | null = null;
+  private storyTimerMs = rollStoryDelay();
+  private storyLineMs = 0;
+  /** Dev flag ?story=Qn: that chapter is today's, whatever the date rule says (null once seen). */
+  private storyDev: ChapterDef | null = null;
+  /** The Pale One slipped back and its card waits for a calm moment. */
+  private paleCardPending = false;
   /** ?debug=bubble: ms until Pajkel says a line (dev only), or null. */
   private debugBubbleInMs: number | null = null;
   private crateImg!: Phaser.GameObjects.Image;
@@ -460,6 +478,17 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?cl=done fills every checklist slot but the petrol payment; ?cl=all fills them all (road fixed).
     if (params.get('cl') === 'done') this.setPlayer(allButPetrol(this.player));
     if (params.get('cl') === 'all') this.setPlayer(allButPetrol({ ...this.player, checklist: undefined }, true));
+    // Dev-only: ?story=Q1..Q7 makes that chapter today's and starts it in ~3 s; ?story=pale shows the Pale One card.
+    const storyParam = params.get('story');
+    if (storyParam === 'pale') this.paleCardPending = true;
+    else if (storyParam) {
+      const ch = chapterById(storyParam.toUpperCase());
+      if (ch) {
+        this.storyDev = ch;
+        this.storyTimerMs = 3000;
+      }
+    }
+    this.storyOn = !this.sandbox || storyParam !== null;
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
     this.syncRod();
@@ -632,6 +661,7 @@ export class LakeScene extends Phaser.Scene {
 
     this.updateBedtime(deltaMs, minuteBefore);
     this.updateSound(deltaMs);
+    this.updateStory(deltaMs);
     this.updateMoments(deltaMs);
     if (this.debugBubbleInMs !== null && (this.debugBubbleInMs -= deltaMs) <= 0) {
       this.companions.say(pickLine(RECORD_LINES));
@@ -812,8 +842,11 @@ export class LakeScene extends Phaser.Scene {
    */
   private updateMoments(deltaMs: number): void {
     const kind = this.state.kind;
-    const calm = (kind === 'idle' || kind === 'waiting') && !this.panel;
-    if (kind === 'fighting' || kind === 'caught') this.moments.fadeOut();
+    const calm = (kind === 'idle' || kind === 'waiting') && !this.panel && !this.storyBusy();
+    if (kind === 'fighting' || kind === 'caught') {
+      this.moments.fadeOut();
+      this.story.fadeOut();
+    }
     if (this.moments.kind === null) {
       if (this.debugMoment) {
         this.debugMoment.inMs -= deltaMs;
@@ -827,7 +860,7 @@ export class LakeScene extends Phaser.Scene {
         if (r.due) this.startMoment(pickMoment(this.clock.minute, Math.random, this.lastMoment));
       }
     }
-    sound.setUncanny(this.moments.uncanny);
+    sound.setUncanny(this.moments.uncanny || this.story.uncanny);
   }
 
   private startMoment(kind: MomentKind): void {
@@ -845,6 +878,133 @@ export class LakeScene extends Phaser.Scene {
     this.panel = showBottleCard(r.contents, () => (this.panel = null));
   }
 
+  // ---- Story chapters (slice 21) ----------------------------------------------------------------
+
+  /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
+  private dueChapter(): ChapterDef | null {
+    if (!this.storyOn) return null;
+    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, QUIET_LAKE.id);
+  }
+
+  /** A chapter is due or being told: random moments wait. */
+  private storyBusy(): boolean {
+    return this.storyRun !== null || this.dueChapter() !== null;
+  }
+
+  /** The wax seal on the notice board: today's chapter is waiting or out on the water. */
+  private storyBadge(): boolean {
+    return this.storyBusy();
+  }
+
+  /** Pajkel can say something: not in bed (asleep, going to bed, waking). */
+  private pajCanSpeak(): boolean {
+    return this.companions.state.mode !== 'bed';
+  }
+
+  private storyCalm(): boolean {
+    const c = this.companions.state;
+    const calmKind = this.state.kind === 'idle' || this.state.kind === 'waiting';
+    return calmKind && !this.panel && !this.sleepFade && !this.bedPending && (c.mode !== 'bed' || isInCar(c)) && this.moments.kind === null && this.story.kind === null;
+  }
+
+  private updateStory(deltaMs: number): void {
+    // The Pale One card and Pajkel's queued lines.
+    if (this.paleCardPending && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
+      this.paleCardPending = false;
+      this.swallowUp = false;
+      this.setPlayer({ ...this.player, story: markPaleSeen(storyOf(this.player)) });
+      this.panel = showStoryCard(PALE_BEAT.title, PALE_BEAT.lines, () => {
+        this.panel = null;
+        this.storyLineMs = Math.max(this.storyLineMs, 1000);
+      });
+    }
+    this.storyLineMs = Math.max(0, this.storyLineMs - deltaMs);
+    const calmKind = this.state.kind === 'idle' || this.state.kind === 'waiting';
+    if (this.storyLineMs <= 0 && calmKind && !this.panel && !this.sleepFade && this.companions.state.bubble === null) {
+      const next = nextLine(storyOf(this.player), this.pajCanSpeak());
+      if (next) {
+        this.setPlayer({ ...this.player, story: next.story });
+        this.companions.say(next.text);
+        this.storyLineMs = STORY_TUNING.lineGapMs.min + Math.random() * (STORY_TUNING.lineGapMs.max - STORY_TUNING.lineGapMs.min);
+      }
+    }
+    // The chapter: first Q3's line before the bottle, then the delivery timer.
+    const run = this.storyRun;
+    if (run && run.preMs > 0) {
+      run.preMs -= deltaMs;
+      if (run.preMs <= 0) this.story.start('bottle');
+      return;
+    }
+    if (run || !this.storyOn) return;
+    const chapter = this.dueChapter();
+    if (!chapter || !this.storyCalm()) return;
+    this.storyTimerMs -= deltaMs;
+    if (this.storyTimerMs <= 0) this.beginChapter(chapter);
+  }
+
+  private beginChapter(chapter: ChapterDef): void {
+    const c = this.companions.state;
+    this.storyRun = { chapter, night: false, preMs: 0 };
+    switch (chapter.kind) {
+      case 'bottle': {
+        const before = chapter.before ?? [];
+        if (before.length > 0 && this.pajCanSpeak()) {
+          // He says his line first; the bottle floats in a few seconds later.
+          this.companions.say(lineText(before[0]) ?? '');
+          this.storyRun.preMs = 3600;
+        } else {
+          if (before.length > 0) this.setPlayer({ ...this.player, story: queueLines(storyOf(this.player), before) });
+          this.story.start('bottle');
+        }
+        break;
+      }
+      case 'blink': {
+        const night = blinkIsNight(isInCar(c), timeOfDay(this.clock.minute) === 'night');
+        this.storyRun.night = night;
+        this.story.start(night ? 'blink' : 'bottle');
+        break;
+      }
+      default:
+        this.story.start(chapter.kind);
+    }
+  }
+
+  /** A self-playing picture ended; cut short (a fight) means it is not seen and comes back a bit later. */
+  private storyFinished(seen: boolean): void {
+    if (!this.storyRun) return;
+    if (seen) this.completeChapter();
+    else {
+      this.storyRun = null;
+      this.storyTimerMs = STORY_TUNING.retryMs;
+    }
+  }
+
+  /** The sealed bottle was tapped: its note card opens and the chapter counts as seen. Only while idle. */
+  private openStoryBottle(): void {
+    const run = this.storyRun;
+    if (!run || this.state.kind !== 'idle' || this.panel) return;
+    this.swallowUp = false;
+    const text = run.chapter.text ?? '';
+    this.story.clear();
+    this.completeChapter();
+    this.panel = showBottleCard({ noteId: run.chapter.id, text, worms: 0 }, () => {
+      this.panel = null;
+      this.storyLineMs = Math.max(this.storyLineMs, 1000);
+    });
+  }
+
+  /** She has seen the chapter: it is saved with today's date and Pajkel's lines are queued. */
+  private completeChapter(): void {
+    const run = this.storyRun;
+    if (!run) return;
+    const lines = run.chapter.kind === 'blink' ? blinkLines(run.night) : undefined;
+    this.setPlayer({ ...this.player, story: markSeen(storyOf(this.player), run.chapter.id, this.today, lines) });
+    if (this.storyDev?.id === run.chapter.id) this.storyDev = null;
+    this.storyRun = null;
+    this.storyTimerMs = rollStoryDelay();
+    this.storyLineMs = Math.max(this.storyLineMs, 700);
+  }
+
   /** How eerie the lake is right now (pure rule in core/eerie): eases the picture and tells the sound. */
   private updateEerie(deltaMs: number, snap = false): void {
     const s = this.state;
@@ -853,7 +1013,7 @@ export class LakeScene extends Phaser.Scene {
     const look = eerieLook(level);
     const k = snap ? 1 : 1 - Math.exp(-deltaMs / EERIE_EASE_MS);
     this.eerieTint += (look.tint - this.eerieTint) * k;
-    this.eerieCalm += (look.calm - this.eerieCalm) * k;
+    this.eerieCalm += (Math.max(look.calm, this.story.calm) - this.eerieCalm) * k;
     this.driftT += (deltaMs / 1000) * (1 - 0.9 * this.eerieCalm);
     sound.setEerie(level);
   }
@@ -948,6 +1108,7 @@ export class LakeScene extends Phaser.Scene {
     // A legendary is a trophy: no bag slot (so the bag-full card never shows), no coins. It was logged already.
     if (slipsAway(hooked.speciesId)) {
       this.slipNoteAge = 0;
+      if (paleBeatDue(storyOf(this.player))) this.paleCardPending = true;
       return;
     }
     const r = addCatch(this.player, hooked, this.fotdId());
@@ -1268,6 +1429,7 @@ export class LakeScene extends Phaser.Scene {
     }
     // A moment on the lake: a tap on it never starts a cast. The bottle opens a card, so only while idle.
     const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
+    if (momentOk && this.story.tap(x, y, this.state.kind === 'idle')) return true;
     if (momentOk && this.moments.tap(x, y, this.state.kind === 'idle')) return true;
     const dog = this.companions.dogRect();
     if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
@@ -1292,7 +1454,7 @@ export class LakeScene extends Phaser.Scene {
     const stored = loadProfile(store);
     if (stored) this.profile = stored;
     // Dev-only: ?skipnames (or any ?debug=) skips the first-launch card.
-    const skip = params.has('skipnames') || params.has('debug');
+    const skip = params.has('skipnames') || params.has('debug') || params.has('story');
     if (!stored && !skip) {
       showNameOverlay(DEFAULT_PROFILE, true, (p) => this.applyProfile(p, true));
     }
@@ -1426,6 +1588,12 @@ export class LakeScene extends Phaser.Scene {
       },
       Math.random,
     );
+
+    this.story = new StoryView(this, {
+      sfx: (name) => sound.play(name),
+      tapBottle: () => this.openStoryBottle(),
+      finished: (seen) => this.storyFinished(seen),
+    });
 
     // Fixed random layouts for stars, sparkles and fireflies.
     const rnd = mulberry32(77);
@@ -1568,6 +1736,7 @@ export class LakeScene extends Phaser.Scene {
     this.drawPosts(look);
     this.drawFireflies(look);
     this.moments.update(_deltaMs, look.worldTint);
+    this.story.update(_deltaMs, look.worldTint);
 
     // Angler: 2-frame breathing, and the head turns when she glances around.
     const breath = (Math.floor(this.elapsed / 900) % 2) as 0 | 1;
@@ -2235,6 +2404,14 @@ export class LakeScene extends Phaser.Scene {
       g.fillStyle(PAL.outline).fillRect(bx, by, 9, 11);
       g.fillStyle(PAL.red).fillRect(bx + 1, by + 1, 7, 9);
       g.fillStyle(PAL.white).fillRect(bx + 4, by + 2, 1, 4).fillRect(bx + 4, by + 7, 1, 2);
+    }
+    if (this.storyBadge()) {
+      // A red wax seal on the board's top-left corner: today's chapter is waiting.
+      const sx = BOARD.x - 4;
+      const sy = BOARD.y - 3;
+      const rows = ['.ooo.', 'oRrRo', 'oRRRo', 'oRRDo', '.ooo.'];
+      const col: Record<string, number> = { o: PAL.outline, R: PAL.red, r: PAL.redLight, D: PAL.redDark };
+      rows.forEach((row, ry) => [...row].forEach((c, rx) => c !== '.' && g.fillStyle(col[c]).fillRect(sx + rx * 2, sy + ry * 2, 2, 2)));
     }
     // Pencil button (rename), top right.
     drawFrame(g, PENCIL.x, PENCIL.y, PENCIL.width, PENCIL.height, 'buttonWood');
