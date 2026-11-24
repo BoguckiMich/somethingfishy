@@ -8,13 +8,14 @@ import { drawFrame } from './frameDraw';
 export type BarButton = 'bag' | 'shop' | 'log' | 'bait' | 'settings';
 
 /** The buttons draw 34 px tall (y 600-634) but hit 44 px tall (y 596-640, the canvas edge); each gap belongs to the nearer button. */
-const BTN = { y: 600, h: 34, gap: 5, hitY: 596, hitH: 44 };
+const BTN = { y: 600, h: 34, gap: 4, hitY: 596, hitH: 44 };
 const ORDER: BarButton[] = ['bag', 'shop', 'log', 'bait', 'settings'];
 /**
- * Widths in ORDER; the gear is square. "Bag 10/10" and "Log 13/13" need ~80 px at the body size, the bait chip
- * holds a 16 px icon and up to three digits. Together with the gaps they span 340 of the 360 px.
+ * Widths in ORDER; the gear is square. VT323 at the body size is ~10 px per letter, so "Bag 10/10" and
+ * "Log 10/13" (9 letters) need ~98 px with the frame; "Shop" fits in 52, the bait chip holds a 16 px icon and
+ * up to three digits. Together with the 4 px gaps they span 352 of the 360 px.
  */
-const WIDTHS = [90, 54, 86, 56, 34];
+const WIDTHS = [98, 52, 98, 54, 34];
 const X0 = Math.round((W - (WIDTHS.reduce((a, b) => a + b, 0) + BTN.gap * (WIDTHS.length - 1))) / 2);
 
 const rectOf = (i: number) => {
