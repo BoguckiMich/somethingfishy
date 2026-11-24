@@ -2624,7 +2624,7 @@ export class LakeScene extends Phaser.Scene {
    * the bobber would land right now.
    */
   private drawPowerMeter(g: Phaser.GameObjects.Graphics, power: number): void {
-    const full = power > 0.95;
+    const full = power >= 1;
     const color = full ? PAL.redLight : PAL.gold;
     const edge = full ? PAL.red : PAL.sandDark;
 
@@ -2639,6 +2639,7 @@ export class LakeScene extends Phaser.Scene {
     g.fillStyle(edge).fillRect(x, y, fillW, 12);
     g.fillStyle(color).fillRect(x, y, fillW, 9);
     g.fillStyle(PAL.white, 0.55).fillRect(x, y, fillW, 2);
+    if (full) g.fillStyle(PAL.gold).fillRect(x + w - 6, y - 1, 6, 14).fillStyle(PAL.white, 0.8).fillRect(x + w - 6, y - 1, 6, 2);
     g.fillStyle(PAL.woodDeep);
     for (let i = 1; i < 10; i++) g.fillRect(x + Math.round((w * i) / 10), y + 9, 1, 3);
 
