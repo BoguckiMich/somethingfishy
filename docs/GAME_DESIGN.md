@@ -623,6 +623,49 @@ itself is slice 21, so finishing the checklist now marks the road as fixed ("ope
 - Dev: `?debug=checklist` opens it with a bag that fits a few slots; `&cl=done` marks all but the
   last slot filled.
 
+**Slice 21: story chapters, Quiet Lake (details picked by Claude 2026-11-24 from `docs/STORY.md`).**
+The chapter engine plus Quiet Lake chapters Q1-Q7 and the Pale One bonus beat. All texts are in
+STORY.md §3 *Quiet Lake*; copy them exactly (they respect the length limits).
+- **Engine (pure, `core/story/`, data `core/data/story.ts`):** an ordered chapter list per place
+  (only Quiet Lake now). At most one chapter per **real local date** (same date source and
+  clock-change guard as the bait box, `core/daily/dates.ts`). Today's chapter = the next undelivered
+  one, if no chapter was delivered today. A chapter counts as delivered only when she has **seen**
+  it (bottle read, moment tapped or played to its end); closing the game before that replays it on
+  the next visit. Missing days never pile up and skip nothing.
+- **Delivery:** today's chapter starts ~60-90 s of real play after the visit starts (the scene
+  loads), only while she is idle or waiting and no panel is open, and not during another lake
+  moment (random moments pause while a chapter is due or running).
+- **Pajkel's lines** from chapters go into a queue. A line plays only when Pajkel can speak (not in
+  bed mode), ~3-4 s apart, after the chapter's own beat (e.g. after the bottle card closes). Lines
+  waiting while he sleeps in the car play after he wakes, which is the running gag. The queue is
+  saved, so a line is not lost if she closes the game.
+- **Sealed story bottle:** a new sprite (the bottle with a red wax seal), floating still near the
+  dock end, gently bobbing, never drifting away. Tap opens the existing bottle card with the
+  chapter text (a "W." note). A small wax-seal badge on the notice-board button while today's
+  chapter is waiting and not seen.
+- **Chapters:**
+  - Q1 bottle + bubble. Q3 bubble ("Map says...") *before* the bottle appears, then the bottle.
+    Q6 and Q7 bottle + bubble.
+  - Q2 *duck's sandwich*: a sandwich appears on the dock planks next to Pajkel; the duck (existing
+    sprite) paddles to the dock edge, grabs it, paddles away quacking; then the two bubbles.
+    Plays to its end on its own (no tap needed); seen = played.
+  - Q4 *the blink* has two versions, picked when it starts: **night** when Pajkel and Bestia are
+    asleep in the car (so he misses it, the gag), else **day** (the bottle). Night: the water
+    goes still (reuse the eerie calm), one star reflection with no star above it, it blinks
+    once slowly; tap (or ~20 s) and it sinks; float "...it blinked."; queued line "Did I miss
+    something? Again?" plays after he wakes.
+  - Q5 *wet footprints*: dark wet footprints appear one by one on the dock planks from the water
+    edge towards the car and back, then dry (fade) in a few seconds; then the two bubbles. Plays
+    on its own.
+  - Q8 is the existing "Road fixed!" card of slice 20 (no daily slot needed).
+  - **Pale One bonus beat** (no daily slot): the first time the Pale One slips back, a card with the
+    3 lines; Pajkel's "You caught WHAT? I was asleep?!" is queued for his next wake (or plays in a few
+    seconds if he is awake on the dock).
+- **Save:** `PlayerState.story?` (delivered chapter ids with dates, last date, queued lines, pale
+  beat seen), normalised on load, no version bump.
+- **Dev:** `?story=Q4` makes that chapter today's (ignores the date rule, starts in ~3 s; with
+  `&debug=incar` for the night version), `?story=pale` shows the bonus card.
+
 
 ## 4. Roadmap
 
@@ -824,6 +867,7 @@ come once the v2 bait and lure systems provide more interesting rewards.
 16. The car, bedtime, naps and the night kit (details in §3 → Slice 16)
 17. "No take, only throw" fetch (details in §3 → Slice 17)
 18. Road map on a car tap, new places "coming soon" (details in §3 → Slice 18)
-19. Size stars + fish of the day (planned, §3 → Progression plan)
+19. Size stars + fish of the day (details in §3 → Slice 19)
 20. Lake checklist on Quiet Lake (details in §3 → Slice 20)
-21. River bend: art, fish, travel (planned)
+21. Story chapters, Quiet Lake (details in §3 → Slice 21)
+22. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
