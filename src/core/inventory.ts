@@ -63,7 +63,7 @@ export interface PlayerState {
   milestones?: MilestoneFlags;
   /** Hints seen (slice 22c): shore things tapped once and the first casts made (ids of core/tips); missing = nothing yet. */
   seen?: string[];
-  /** The real date (YYYY-MM-DD) Pajkel last said the weather line (slice 23b); missing = never. */
+  /** The real hour (YYYY-MM-DD-HH) Pajkel last said a weather line for (slice 23b, hourly since 2026-11-24; an old plain date is read as its hour 00); missing = never. */
   weatherSeen?: string;
   /** The trophy board (slice 23d): the biggest catch of each rare fish; missing = none caught yet. */
   trophies?: TrophyState;

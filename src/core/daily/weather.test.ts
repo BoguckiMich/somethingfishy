@@ -13,7 +13,9 @@ import {
   weatherAllowsAnyTime,
   weatherEffects,
   weatherLineDue,
-  weatherOfTheDay,
+  weatherFlipAllowed,
+  weatherForHour,
+  weatherHourKey,
   weatherWeightMult,
 } from './weather';
 
@@ -22,24 +24,60 @@ const noon = 12 * 60;
 /** The i-th day after 2026-01-01 as YYYY-MM-DD (test helper only). */
 const day = (i: number) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10);
 
-describe('weatherOfTheDay', () => {
-  it('is deterministic and ignores invalid dates', () => {
-    expect(weatherOfTheDay('2026-11-24')).toBe(weatherOfTheDay('2026-11-24'));
-    expect(weatherOfTheDay('nope')).toBeUndefined();
-    expect(weatherOfTheDay('2026-02-30')).toBeUndefined();
+describe('weatherForHour', () => {
+  it('is deterministic and ignores invalid dates and hours', () => {
+    expect(weatherForHour('2026-11-24', 13)).toBe(weatherForHour('2026-11-24', 13));
+    expect(weatherForHour('nope', 3)).toBeUndefined();
+    expect(weatherForHour('2026-02-30', 3)).toBeUndefined();
+    expect(weatherForHour('2026-11-24', 24)).toBeUndefined();
+    expect(weatherForHour('2026-11-24', -1)).toBeUndefined();
+    expect(weatherForHour('2026-11-24', 1.5)).toBeUndefined();
   });
-  it('spreads about evenly over the five conditions in two years', () => {
+  it('spreads about evenly over the five conditions across many hours', () => {
     const counts = Object.fromEntries(WEATHER_IDS.map((w) => [w, 0])) as Record<WeatherId, number>;
-    for (let i = 0; i < 730; i++) counts[weatherOfTheDay(day(i))!]++;
+    const n = 365 * 24;
+    for (let i = 0; i < 365; i++) for (let h = 0; h < 24; h++) counts[weatherForHour(day(i), h)!]++;
     for (const w of WEATHER_IDS) {
-      expect(counts[w]).toBeGreaterThan(730 / 5 - 40);
-      expect(counts[w]).toBeLessThan(730 / 5 + 40);
+      expect(counts[w]).toBeGreaterThan(n / 5 - 350);
+      expect(counts[w]).toBeLessThan(n / 5 + 350);
     }
   });
-  it('changes from day to day', () => {
+  it('repeats the previous hour about a third as often as a uniform pick would', () => {
+    let repeats = 0;
+    let steps = 0;
+    for (let i = 0; i < 365; i++) {
+      for (let h = 1; h < 24; h++) {
+        steps++;
+        if (weatherForHour(day(i), h) === weatherForHour(day(i), h - 1)) repeats++;
+      }
+    }
+    const rate = repeats / steps;
+    expect(rate).toBeGreaterThan(0.2 / 3 - 0.025);
+    expect(rate).toBeLessThan(0.2 / 3 + 0.025);
+    expect(repeats).toBeGreaterThan(0);
+  });
+  it('changes from hour to hour', () => {
     const set = new Set<WeatherId | undefined>();
-    for (let i = 0; i < 14; i++) set.add(weatherOfTheDay(day(i)));
+    for (let h = 0; h < 12; h++) set.add(weatherForHour('2026-11-24', h));
     expect(set.size).toBeGreaterThan(2);
+  });
+});
+
+describe('weatherFlipAllowed', () => {
+  it('waits for idle or waiting, and for every panel to be closed', () => {
+    expect(weatherFlipAllowed('idle', false)).toBe(true);
+    expect(weatherFlipAllowed('waiting', false)).toBe(true);
+    for (const k of ['casting', 'bite', 'fighting', 'caught', 'reeling']) expect(weatherFlipAllowed(k, false)).toBe(false);
+    expect(weatherFlipAllowed('idle', true)).toBe(false);
+  });
+});
+
+describe('weatherHourKey', () => {
+  it('pads the hour and rejects bad input', () => {
+    expect(weatherHourKey('2026-11-24', 7)).toBe('2026-11-24-07');
+    expect(weatherHourKey('2026-11-24', 23)).toBe('2026-11-24-23');
+    expect(weatherHourKey('2026-11-24', 24)).toBeUndefined();
+    expect(weatherHourKey('bad', 1)).toBeUndefined();
   });
 });
 
@@ -156,16 +194,32 @@ describe('wait time and difficulty', () => {
   });
 });
 
-describe('Pajkel weather line, once per real date', () => {
-  it('is due until the date is stored, then again the next day', () => {
-    expect(weatherLineDue(undefined, '2026-11-24')).toBe(true);
-    expect(weatherLineDue('2026-11-23', '2026-11-24')).toBe(true);
-    expect(weatherLineDue('2026-11-24', '2026-11-24')).toBe(false);
-    expect(weatherLineDue(undefined, 'bad')).toBe(false);
+describe('Pajkel weather line, once per weather change', () => {
+  it('is due until the hour key is stored, then again for the next hour', () => {
+    expect(weatherLineDue(undefined, '2026-11-24-09')).toBe(true);
+    expect(weatherLineDue('2026-11-24-08', '2026-11-24-09')).toBe(true);
+    expect(weatherLineDue('2026-11-24-09', '2026-11-24-09')).toBe(false);
+    expect(weatherLineDue(undefined, undefined)).toBe(false);
   });
-  it('normalises a saved date', () => {
-    expect(normalizeWeatherSeen('2026-11-24')).toBe('2026-11-24');
+  it('says one line per hour flip and none twice', () => {
+    let seen: string | undefined;
+    let said = 0;
+    for (let h = 0; h < 6; h++) {
+      const key = weatherHourKey('2026-11-24', h);
+      for (let tick = 0; tick < 5; tick++) {
+        if (weatherLineDue(seen, key)) {
+          seen = key;
+          said++;
+        }
+      }
+    }
+    expect(said).toBe(6);
+  });
+  it('normalises a saved key and old plain dates', () => {
+    expect(normalizeWeatherSeen('2026-11-24-09')).toBe('2026-11-24-09');
+    expect(normalizeWeatherSeen('2026-11-24')).toBe('2026-11-24-00');
     expect(normalizeWeatherSeen('2026-13-01')).toBeUndefined();
+    expect(normalizeWeatherSeen('2026-11-24-25')).toBeUndefined();
     expect(normalizeWeatherSeen(5)).toBeUndefined();
   });
   it('has 2-3 short lines per weather', () => {
