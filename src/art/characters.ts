@@ -693,7 +693,7 @@ function paintCarriedDog(p: Pix, bob: number): void {
   // The dog: body across his front, a hind leg and a tail hanging behind, the head out over his forearm.
   p.ell(18, 27 + bob, 6.8, 3.6, fur);
   p.rect(12, 29 + bob, 2, 4, PAL.ginger); // hind leg dangling
-  p.line(11, 26 + bob, 10, 31 + bob, PAL.ginger); // tail
+  plume(p, 11, 26 + bob, 10, 31 + bob); // tail
   p.rect(21, 23 + bob, 2, 8, PAL.harness); // harness band
   p.set(21, 23 + bob, PAL.harnessDark);
   p.ell(26, 24 + bob, 3.6, 3.2, fur); // head
@@ -800,6 +800,31 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
 
 // ---- The dog: small, ginger, short-haired, folded ears, yellow harness -------------------------
 
+/**
+ * Bestia's fluffy tail: a short plume painted from the root (x0, y0) to the tip (x1, y1), about 3 px
+ * thick in the middle, tapering at both ends. Light fur on the upper edge, ginger body, darker underside,
+ * a light tip. `side` flips which edge is the light one (-1: left/up, 1: right/down).
+ */
+function plume(p: Pix, x0: number, y0: number, x1: number, y1: number, side: 1 | -1 = -1): void {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1;
+  const horizontal = Math.abs(x1 - x0) >= Math.abs(y1 - y0);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const x = x0 + (x1 - x0) * t;
+    const y = y0 + (y1 - y0) * t;
+    const w = n < 3 ? 2 : t < 0.2 || t > 0.85 ? 2 : 3;
+    const cols = w === 3 ? [PAL.gingerLight, PAL.ginger, PAL.gingerDark] : [PAL.gingerLight, PAL.ginger];
+    if (side === 1) cols.reverse();
+    const start = -Math.floor(w / 2);
+    for (let k = 0; k < w; k++) {
+      const off = start + k;
+      if (horizontal) p.set(x, y + off, cols[k]);
+      else p.set(x + off, y, cols[k]);
+    }
+  }
+  p.set(x1, y1, PAL.gingerLight); // light tip
+}
+
 export const DOG_SIZE = { w: 32, h: 24 };
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
 export interface DogFrame {
@@ -851,9 +876,9 @@ export function dogSprite(frame: DogFrame): Sprite {
     p.set(17, 14, PAL.harnessDark);
     p.set(18, 20, PAL.harnessDark);
     // Tail.
-    if (f.shape === 'sleep' || f.tail === 2) p.rect(3, 19, 3, 2, fur(2, 19));
-    else if (f.tail === 1) p.line(4, 17, 6, 15, PAL.ginger);
-    else p.line(4, 14, 6, 17, PAL.ginger);
+    if (f.shape === 'sleep' || f.tail === 2) plume(p, 5, 19, 3, 20);
+    else if (f.tail === 1) plume(p, 6, 15, 2, 18);
+    else plume(p, 6, 17, 2, 14);
   } else if (f.shape === 'sit') {
     p.ell(10, 18, 6, 5, fur);
     p.ell(16, 13, 4, 8, fur);
@@ -863,8 +888,8 @@ export function dogSprite(frame: DogFrame): Sprite {
     head(19, 6);
     p.rect(17, 20, 4, 3, PAL.gingerLight);
     p.rect(11, 22, 8, 1, PAL.gingerDark);
-    if (f.tail === 1) p.line(2, 21, 5, 19, PAL.ginger);
-    else p.line(2, 20, 5, 22, PAL.ginger);
+    if (f.tail === 1) plume(p, 5, 19, 2, 21);
+    else plume(p, 5, 22, 2, 20);
   } else if (f.shape === 'stand') {
     p.ell(13, 12, 9, 4.5, fur);
     for (const x of [6, 10, 18, 22]) p.rect(x, 15, 2, 8, x < 14 ? PAL.ginger : PAL.gingerLight);
@@ -872,8 +897,8 @@ export function dogSprite(frame: DogFrame): Sprite {
     p.rect(11, 8, 7, 1, PAL.harness);
     p.set(17, 8, PAL.harnessDark);
     head(24, 7);
-    if (f.tail === 1) p.line(3, 6, 5, 9, PAL.ginger);
-    else p.line(3, 8, 5, 9, PAL.ginger);
+    if (f.tail === 1) plume(p, 5, 9, 3, 6);
+    else plume(p, 5, 9, 3, 8);
   } else if (f.shape === 'bow') {
     // Play-bow: front legs stretched out low, chest near the grass, rump and tail up, head down and forward.
     p.ell(9, 12, 5.5, 4.5, fur);
@@ -886,8 +911,8 @@ export function dogSprite(frame: DogFrame): Sprite {
     p.line(19, 19, 27, 22, PAL.gingerLight);
     p.line(20, 20, 28, 23, PAL.gingerLight);
     head(24, 17);
-    if (f.tail === 1) p.line(3, 9, 1, 4, PAL.ginger);
-    else p.line(3, 9, 4, 3, PAL.ginger);
+    if (f.tail === 1) plume(p, 3, 9, 1, 4);
+    else plume(p, 3, 9, 4, 3);
   } else {
     // run: gallop cycle
     p.ell(14, 11, 9, 4, fur);
@@ -904,9 +929,10 @@ export function dogSprite(frame: DogFrame): Sprite {
     const up = f.carry ? 1 : 0; // proud: chin up
     head(25, 7 - up);
     if (f.carry) {
-      p.line(5, 9, 3, 4, PAL.ginger); // tail held high with a curl
-      p.line(3, 4, 4, 2, PAL.gingerLight);
-    } else p.line(5, 9, 2, 5, PAL.ginger);
+      plume(p, 5, 9, 3, 4); // tail held high with a curl
+      p.set(4, 3, PAL.gingerLight);
+      p.set(4, 2, PAL.gingerLight);
+    } else plume(p, 5, 9, 2, 5);
   }
   return p.outline().done();
 }
