@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640" width="540" height="960" font-family="monospace">
+  <!-- River bend: first layout sketch (not art). 360x640 like the lake scene. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fb8de"/><stop offset="1" stop-color="#cfe3ef"/>
+    </linearGradient>
+    <linearGradient id="water" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f86b0"/><stop offset="1" stop-color="#3a6c94"/>
+    </linearGradient>
+  </defs>
+
+  <!-- sky -->
+  <rect width="360" height="640" fill="url(#sky)"/>
+  <!-- far bank: willows and alders, lower and closer than the lake's pines -->
+  <path d="M0 150 Q30 120 60 140 Q90 110 120 138 Q150 115 185 140 Q215 112 250 136 Q285 118 320 140 Q345 125 360 138 L360 200 L0 200 Z" fill="#5f8f4a"/>
+  <path d="M0 175 Q40 160 80 172 Q130 158 180 174 Q230 160 280 172 Q330 162 360 170 L360 205 L0 205 Z" fill="#4a7a3c"/>
+  <!-- far bank mud edge -->
+  <path d="M0 205 L360 205 L360 214 L0 214 Z" fill="#7a6a4a"/>
+
+  <!-- the river: comes in top right, bends in front of her, leaves at the left edge -->
+  <path d="M360 214 L360 300 Q300 330 250 345 Q180 365 120 360 Q60 352 0 330 L0 214 Z" fill="url(#water)"/>
+  <!-- deep bend pool (outside of the bend, under the far bank) -->
+  <path d="M40 222 Q160 236 300 222 Q250 262 170 268 Q90 268 40 250 Z" fill="#2c5a80" opacity="0.8"/>
+  <!-- gravel riffle (inside of the bend, near bank) -->
+  <path d="M90 352 Q160 362 230 346 Q260 338 290 328 L300 336 Q250 360 170 368 Q110 368 80 360 Z" fill="#a9b7b9" opacity="0.7"/>
+  <!-- current lines (foam streaks, moving right to left) -->
+  <g stroke="#e8f2f6" stroke-width="2" stroke-linecap="round" opacity="0.85">
+    <path d="M330 250 L300 254"/><path d="M270 262 L236 268"/><path d="M200 282 L168 286"/>
+    <path d="M140 292 L108 292"/><path d="M90 300 L60 298"/><path d="M320 290 L292 300"/>
+    <path d="M250 310 L220 318"/><path d="M180 326 L150 330"/><path d="M120 330 L92 326"/>
+  </g>
+  <!-- arrows: direction of the current -->
+  <g fill="#ffffff" opacity="0.9">
+    <path d="M56 270 L66 265 L66 275 Z"/><path d="M30 312 L40 307 L40 317 Z"/>
+  </g>
+
+  <!-- ferry rope from the landing post across to the far post -->
+  <rect x="236" y="190" width="5" height="26" fill="#5a4026"/>
+  <path d="M238 192 Q215 290 196 372" fill="none" stroke="#3b2a1a" stroke-width="1.5"/>
+
+  <!-- the old ferry landing (instead of the dock) -->
+  <rect x="150" y="360" width="70" height="44" fill="#9a6a3a" stroke="#5a3a1a" stroke-width="2"/>
+  <g stroke="#6a4522" stroke-width="1"><path d="M150 371 H220"/><path d="M150 382 H220"/><path d="M150 393 H220"/></g>
+  <rect x="192" y="356" width="7" height="24" fill="#5a4026"/>
+  <rect x="152" y="356" width="7" height="24" fill="#5a4026"/>
+
+  <!-- near bank: gravel then grass -->
+  <path d="M0 330 Q60 352 120 360 Q150 364 150 364 L150 404 L220 404 L220 356 Q260 346 300 336 Q330 326 360 300 L360 640 L0 640 Z" fill="#cdbb92"/>
+  <path d="M0 420 Q120 405 240 418 Q300 425 360 415 L360 640 L0 640 Z" fill="#7fae5a"/>
+
+  <!-- characters (placeholders) -->
+  <rect x="200" y="338" width="10" height="24" fill="#2b2b2b"/><circle cx="205" cy="334" r="5" fill="#e6c08a"/>
+  <path d="M210 344 L262 300" stroke="#6b4a2a" stroke-width="2"/>
+  <path d="M262 300 Q268 330 270 352" stroke="#ffffff" stroke-width="0.8" fill="none"/>
+  <circle cx="270" cy="354" r="3" fill="#e03a2a"/><path d="M270 354 L250 356" stroke="#ffffff" stroke-dasharray="2 2" stroke-width="1"/>
+  <rect x="160" y="378" width="16" height="16" fill="#3a5a7a"/><circle cx="168" cy="374" r="5" fill="#e6c08a"/>
+  <rect x="178" y="394" width="18" height="7" rx="3" fill="#c0723a"/>
+
+  <!-- W.'s hut on the near bank, right -->
+  <rect x="268" y="372" width="64" height="44" fill="#8a7050" stroke="#4a3620" stroke-width="2"/>
+  <path d="M262 374 L300 346 L338 374 Z" fill="#6a4a3a" stroke="#4a3620" stroke-width="2"/>
+  <rect x="314" y="342" width="6" height="16" fill="#555"/>
+  <path d="M317 340 Q312 330 318 322 Q324 314 318 306" stroke="#dddddd" fill="none" stroke-width="1.5" opacity="0.8"/>
+  <rect x="288" y="392" width="14" height="24" fill="#3a2a18"/>
+  <rect x="270" y="380" width="40" height="9" fill="#e8d8a8"/>
+  <text x="290" y="387" font-size="5" text-anchor="middle" fill="#3a2a18">W. FERRY &amp; BAIT</text>
+
+  <!-- car on the dirt track, left -->
+  <path d="M0 470 Q80 460 140 470" stroke="#a88a5a" stroke-width="14" fill="none"/>
+  <rect x="8" y="446" width="70" height="24" rx="8" fill="#f2f2f2" stroke="#666" stroke-width="1.5"/>
+  <circle cx="24" cy="472" r="7" fill="#333"/><circle cx="62" cy="472" r="7" fill="#333"/>
+
+  <!-- camp (travels with them) -->
+  <path d="M96 450 L116 420 L136 450 Z" fill="#c8a060" stroke="#7a5a30"/>
+  <circle cx="150" cy="452" r="5" fill="#f08a2a"/>
+  <!-- river trophy board by the hut -->
+  <rect x="300" y="430" width="34" height="16" fill="#8a6a3a" stroke="#4a3620"/>
+  <rect x="304" y="446" width="3" height="10" fill="#4a3620"/><rect x="327" y="446" width="3" height="10" fill="#4a3620"/>
+  <!-- fetch area on the gravel/grass -->
+  <rect x="170" y="440" width="110" height="40" fill="none" stroke="#ffffff" stroke-dasharray="4 3" opacity="0.8"/>
+
+  <!-- zone labels (cast distance from the landing) -->
+  <g font-size="8" fill="#ffffff" font-weight="bold">
+    <text x="96" y="347">RIFFLE 0-12 m</text>
+    <text x="120" y="306">SEAM 12-26 m</text>
+    <text x="120" y="248">BEND POOL 26-40 m</text>
+  </g>
+  <!-- annotations -->
+  <g font-size="7" fill="#1e2a33">
+    <text x="244" y="186">far ferry post</text>
+    <text x="226" y="290" fill="#ffffff">ferry rope</text>
+    <text x="276" y="300" fill="#ffffff">bobber drifts</text>
+    <text x="276" y="309" fill="#ffffff">downstream</text>
+    <text x="146" y="416">old ferry landing</text>
+    <text x="8" y="440">car (travel)</text>
+    <text x="96" y="462">camp</text>
+    <text x="174" y="490">fetch area</text>
+    <text x="292" y="466">river trophies</text>
+  </g>
+
+  <!-- HUD placeholders -->
+  <rect x="8" y="8" width="150" height="20" rx="3" fill="#4a3020" opacity="0.9"/>
+  <text x="16" y="22" font-size="10" fill="#f4e4b0">Day 4 · 18:20 ☁</text>
+  <rect x="8" y="606" width="344" height="26" rx="3" fill="#4a3020" opacity="0.9"/>
+  <text x="18" y="623" font-size="10" fill="#f4e4b0">Bag  Shop  Log  Worms  ⚙</text>
+  <text x="180" y="580" font-size="9" fill="#1e2a33" text-anchor="middle">SKETCH - layout only, not the art</text>
+</svg>

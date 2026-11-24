@@ -42,7 +42,7 @@ The first lake has a beginning, a middle and an end.
 **Done when:** the polish pass and the pacing rework are done and a fresh save has a goal on every visit for
 ~4 real days, then finishing the checklist shows the "road is fixed" card.
 
-## M2 · "Road trip: River bend"
+## M2 · "Road trip: River bend" (first sketch: `docs/RIVER_BEND.md`, `docs/sketches/river-bend.svg`)
 The first real travel.
 - [ ] Travel by car (map → drive fade → new scene), companions and the duck come along
 - [ ] Location as data: background art, zones, moments, fish pool per place
