@@ -105,12 +105,14 @@ function bundleSection(
   );
   head.type = 'button';
   head.setAttribute('aria-expanded', String(open));
-  const name = el('div', 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis', bundle.name);
-  head.append(name);
+  const left = el('div', 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding:4px 0');
+  left.append(el('div', 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis', bundle.name));
+  head.append(left);
   if (done) {
     head.append(el('div', `flex:none;font-size:${FS.body}px;color:${COLORS.gold}`, TICK));
   } else {
-    head.append(slotDots(checklistOf(p)[bundle.id]), rewardIcons(bundle.reward));
+    left.append(slotDots(checklistOf(p)[bundle.id]));
+    head.append(rewardIcons(bundle.reward));
   }
   head.addEventListener('click', toggle);
   box.append(head);

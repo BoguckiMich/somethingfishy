@@ -168,6 +168,8 @@ const CATCH_NOTE_Y = 274;
 const CATCH_FOTD_Y = 182;
 const FOTD_TEXT = '#8fe3b0';
 const CATCH_TEXT_LIMIT = 324;
+/** Room the "Fits the checklist!" tag takes under the size line (slice 22b). */
+const CATCH_FITS_GAP = 26;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 const PENCIL = new Phaser.Geom.Rectangle(326, 4, 30, 26);
@@ -1270,7 +1272,7 @@ export class LakeScene extends Phaser.Scene {
       return toBagFish({ speciesId: id, lengthCm, weightG: Math.round(sp.bodyFactor * lengthCm ** 3) });
     };
     const ids = ['roach', 'perch', 'bleak', 'crucian', 'eel', 'bream', 'tench', 'carp', 'pike', 'rudd'];
-    const count = dbg === 'bag' ? 7 : dbg === 'shop' ? 5 : SHOP.bagSlots;
+    const count = Number(pageParams().get('bagn') ?? (dbg === 'bag' ? 7 : dbg === 'shop' ? 5 : SHOP.bagSlots));
     this.setPlayer({ ...this.player, bag: ids.slice(0, count).map((id, i) => mid(id, 0.2 + ((i * 37) % 70) / 100)) });
     if (dbg === 'bagfull') this.askBagFull(mid('catfish', 0.5));
     else this.openPlayerPanel(dbg);
@@ -1825,15 +1827,15 @@ export class LakeScene extends Phaser.Scene {
       // A long fact (up to 3 lines at VT323 25 px) would run into Alex's head: lift the whole text stack so the
       // fact ends CATCH_TEXT_LIMIT, the stack's bottom limit (her head top).
       const noteBottom = CATCH_NOTE_Y + this.caughtNote.height;
-      // The checklist tag hangs under the last line of the stack (record, fact, or the size line).
-      const stackBottom = this.caughtNote.text ? noteBottom : this.caughtBadge.text ? CATCH_BADGE_Y + 12 : CATCH_SUB_Y + 14;
-      const fitsY = stackBottom + 16;
-      const bottom = this.catchFits ? fitsY + 12 : noteBottom;
+      // The checklist tag hangs right under the size and star line; the record and the fact move down to make room.
+      const tag = this.catchFits ? CATCH_FITS_GAP : 0;
+      const fitsY = CATCH_SUB_Y + 28;
+      const bottom = noteBottom + tag;
       const lift = this.caughtNote.text || this.catchFits ? Math.min(0, CATCH_TEXT_LIMIT - bottom) : 0;
       this.caughtText.setY(CATCH_TITLE_Y + lift);
       this.caughtSub.setY(CATCH_SUB_Y + lift);
-      this.caughtBadge.setY(CATCH_BADGE_Y + lift);
-      this.caughtNote.setY(CATCH_NOTE_Y + lift);
+      this.caughtBadge.setY(CATCH_BADGE_Y + tag + lift);
+      this.caughtNote.setY(CATCH_NOTE_Y + tag + lift);
       this.caughtFotd.setY(CATCH_FOTD_Y + lift);
       this.caughtFits.setY(fitsY + lift);
       this.caughtFitsBack.clear();

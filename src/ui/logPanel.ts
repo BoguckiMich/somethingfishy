@@ -28,7 +28,7 @@ export function fishCanvas(sprite: Sprite, maxW: number, maxScale: number): HTML
 export function fishBoxCanvas(sprite: Sprite, box: number): HTMLElement {
   const canvas = fishCanvas(sprite, box, 1);
   const fit = Math.min(box / sprite.width, box / sprite.height);
-  const scale = fit >= 1 ? Math.min(3, Math.floor(fit)) : fit;
+  const scale = Math.min(3, fit);
   canvas.style.cssText = `width:${Math.round(sprite.width * scale)}px;height:${Math.round(sprite.height * scale)}px;image-rendering:pixelated`;
   const slot = el('div', `flex:none;width:${box}px;height:${box}px;display:flex;align-items:center;justify-content:center`);
   slot.append(canvas);

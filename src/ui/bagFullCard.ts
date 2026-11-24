@@ -31,8 +31,8 @@ export function showBagFullCard(
           onRelease();
         }, { variant: 'wood' }),
       );
-      const note = el('div', `display:flex;flex-wrap:wrap;align-items:center;gap:0 6px;font-size:${FS.small}px;color:${COLORS.cream};margin-top:8px`, `Swapping lets the ${fishName(cheapest)} go (`);
-      note.append(coinAmount(cheapest.price, COLORS.cream), ')');
+      const note = el('div', `display:flex;flex-wrap:wrap;align-items:center;gap:0 6px;font-size:${FS.small}px;color:${COLORS.cream};margin-top:8px`, `Swapping lets the ${fishName(cheapest)} go:`);
+      note.append(coinAmount(cheapest.price, COLORS.cream));
       body.append(col, note);
     },
     () => {},

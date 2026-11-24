@@ -129,11 +129,12 @@ export function openPanel(
   const titles = el('div', 'flex:1;min-width:0');
   titles.append(el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${COLORS.gold};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`, title));
   const sub = el('div', `font:${FS.small}px/${LINE} ${FONT};color:${COLORS.cream};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`);
-  titles.append(sub);
+  const subWrap = el('div', 'margin:-6px 0 8px');
+  subWrap.append(sub);
   const setSub = () => {
     const t = typeof subtitle === 'function' ? subtitle() : (subtitle ?? '');
     sub.textContent = t;
-    sub.style.display = t ? '' : 'none';
+    subWrap.style.display = t ? '' : 'none';
   };
   setSub();
   head.append(titles);
@@ -181,7 +182,7 @@ export function openPanel(
       close();
     });
   }
-  card.append(head, pinned, bodyWrap, footer);
+  card.append(head, subWrap, pinned, bodyWrap, footer);
   root.append(card);
   document.body.append(root);
   sound.play('tap');

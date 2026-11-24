@@ -14,7 +14,7 @@ export function showNapCard(kit: boolean, pick: (o: NapOption) => void, onClose:
   const panel: PanelHandle = openPanel(
     'Nap until...',
     (body) => {
-      body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-bottom:8px`, 'Pajkel and Bestia rest in the car.'));
+      body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-bottom:8px`, 'They rest in the car.'));
       const col = el('div', 'display:flex;flex-direction:column;gap:8px');
       for (const o of napOptions(kit)) {
         col.append(
