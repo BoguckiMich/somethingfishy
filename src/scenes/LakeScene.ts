@@ -94,7 +94,7 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { carVariant, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, tickCompanions, wakeUp } from './companions/behaviour';
+import { carVariant, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES } from '../core/data/pajkelLines';
 import { fishOfTheDay } from '../core/daily/fotd';
 import { lengthForStar, starFor, type Star } from '../core/data/stars';
@@ -672,6 +672,7 @@ export class LakeScene extends Phaser.Scene {
       { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
       this.elapsed,
       dayLook(this.clock.minute).worldTint,
+      steamShows(timeOfDay(this.clock.minute)),
     );
     this.render(deltaMs);
   }

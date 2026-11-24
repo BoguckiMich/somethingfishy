@@ -21,6 +21,12 @@ import {
 
 const idle: CompanionContext = { fishing: 'idle', night: false };
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+const expectInArea = (p: { x: number; y: number }) => {
+  expect(p.x).toBeGreaterThanOrEqual(PLAY_AREA.x0 - 1);
+  expect(p.x).toBeLessThanOrEqual(PLAY_AREA.x1 + 1);
+  expect(p.y).toBeGreaterThanOrEqual(PLAY_AREA.y0 - 1);
+  expect(p.y).toBeLessThanOrEqual(PLAY_AREA.y1 + 1);
+};
 
 /** Ticks until `until` is true (or `maxMs` pass); returns the ms it took, or -1. */
 function runUntil(s: Companions, rng: () => number, until: () => boolean, maxMs = 120_000, onTick?: () => void): number {
@@ -130,7 +136,7 @@ describe('"no take, only throw": the keep-away round', () => {
     expect(dist(s.sticks[0], s.stick)).toBeGreaterThan(0);
   });
 
-  it('old sticks stay on the grass, at most 3 (the oldest fades out), and the new throw lands clear of them', () => {
+  it('old sticks stay on the grass, at most 2 (the oldest fades out), and the new throw lands clear of them', () => {
     const rng = seededRng(11);
     const s = createCompanions(rng);
     startPlayNow(s);
@@ -146,7 +152,8 @@ describe('"no take, only throw": the keep-away round', () => {
       expect(oldSticks(s).length).toBeLessThanOrEqual(STICK_TUNING.maxOld);
       expect(s.sticks.length).toBeLessThanOrEqual(STICK_TUNING.maxOld + 3);
       if (s.sticks.some((g) => g.fadeMs !== null)) faded = true;
-      for (const g of s.sticks) expect(g.x).toBeGreaterThanOrEqual(PLAY_AREA.x0 - 1);
+      for (const g of s.sticks) expectInArea(g);
+      if (s.stick.state === 'ground') expectInArea(s.stick);
       if (s.play.phase === 'throw' && s.stick.state === 'ground') {
         for (const g of oldSticks(s)) expect(dist(g, s.stick)).toBeGreaterThanOrEqual(PLAY_TUNING.stickGap / 2);
       }
@@ -212,7 +219,14 @@ describe('rounds, the spin and the dock', () => {
       if (how === 'press') companionPress(s);
       else if (how === 'bite') companionEvent(s, 'bite');
       else startBedtime(s, 'night night');
-      expect(s.sticks).toHaveLength(0);
+      if (how === 'bed') expect(s.sticks).toHaveLength(0); // the screen fades anyway, so bedtime clears at once
+      else {
+        // Going back to the dock, they fade out over fadeOutMs instead of popping away.
+        expect(s.sticks.length).toBeGreaterThan(0);
+        for (const g of s.sticks) expect(g.fadeMs).toBe(STICK_TUNING.fadeOutMs);
+        run(s, rng, STICK_TUNING.fadeOutMs + 100);
+        expect(s.sticks).toHaveLength(0);
+      }
       expect(s.stick.state).toBe('hidden');
       run(s, rng, 40_000);
       expect(s.sticks).toHaveLength(0);

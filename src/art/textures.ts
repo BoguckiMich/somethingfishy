@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK, stickCarrySprite, stickGroundSprite, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VARIANTS, emptyChairSprite, stickCarrySprite, stickGroundSprite, stickPuffSprite, stickSpinSprite, type StickVariant, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
 import { lanternSprite } from './lanternArt';
 import { BAR_INNER, STRIP_INNER, barFrameSprite } from './catchBarArt';
@@ -10,6 +10,8 @@ import { FAR_SHORE_Y, W } from './layout';
 import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
 import { MOMENT_SPRITES } from './momentArt';
 import { Raster } from './raster';
+import { PAL } from './palette';
+import { sprite } from './pixelGrid';
 import { starKey, starRowSprite } from './starArt';
 import { shopIconSprite } from './shopIconArt';
 import {
@@ -47,9 +49,11 @@ export const TEX = {
   bobber: 'bobber',
   bobberUnder: 'bobberUnder',
   heart: 'heart',
-  stick: 'stick',
   stickCarry: 'stickCarry',
-  stickGround: 'stickGround',
+  stickSpin: ['stickSpin0', 'stickSpin1', 'stickSpin2', 'stickSpin3'],
+  stickPuff: ['stickPuff0', 'stickPuff1'],
+  emptyChair: 'emptyChair',
+  steam: 'steam',
   lilyA: 'lilyA',
   lilyB: 'lilyB',
   reed: 'reed',
@@ -135,6 +139,7 @@ export function repaintSky(scene: Phaser.Scene, top: number, bottom: number): vo
 }
 
 export const pajSitKey = (pose: PajPose, breath: 0 | 1) => `paj:${pose}:${breath}`;
+export const stickGroundKey = (variant: StickVariant) => `stickGround${variant}`;
 export const pajWalkKey = (pose: PajWalkPose) => `pajw:${pose}`;
 export { dogKey };
 
@@ -150,7 +155,7 @@ function createCharacterTextures(scene: Phaser.Scene): void {
     addRaster(scene, fishIconKey(sp.id), Raster.fromSprite(fishIconSprite(sp.id)));
     if (isHugged(sp.id)) addRaster(scene, fishHugKey(sp.id), Raster.fromSprite(fishHugSprite(sp.id)));
   }
-  for (const pose of ['sit', 'sip', 'cheer', 'look'] as PajPose[]) {
+  for (const pose of PAJ_POSES) {
     for (const b of [0, 1] as const) addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
   }
   for (const pose of PAJ_WALK_POSES) {
@@ -158,7 +163,10 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   }
   for (const f of allDogFrames()) addRaster(scene, dogKey(f), Raster.fromSprite(dogSprite(f)));
   addRaster(scene, TEX.heart, Raster.fromSprite(HEART));
-  addRaster(scene, TEX.stick, Raster.fromSprite(STICK));
+  for (let i = 0; i < 4; i++) addRaster(scene, TEX.stickSpin[i], Raster.fromSprite(stickSpinSprite(i)));
+  for (const f of [0, 1] as const) addRaster(scene, TEX.stickPuff[f], Raster.fromSprite(stickPuffSprite(f)));
+  addRaster(scene, TEX.emptyChair, Raster.fromSprite(emptyChairSprite()));
+  addRaster(scene, TEX.steam, Raster.fromSprite(sprite('w\nw', { w: PAL.whiteShade })));
   addRaster(scene, TEX.stickCarry, Raster.fromSprite(stickCarrySprite()));
-  addRaster(scene, TEX.stickGround, Raster.fromSprite(stickGroundSprite()));
+  for (let v = 0; v < STICK_VARIANTS; v++) addRaster(scene, stickGroundKey(v as StickVariant), Raster.fromSprite(stickGroundSprite(v as StickVariant)));
 }
