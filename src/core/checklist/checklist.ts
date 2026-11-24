@@ -1,6 +1,6 @@
 import { CHECKLIST, PETROL_ID, type ChecklistBundle, type ChecklistSlot } from '../data/checklist';
-import { isLegendary, speciesById } from '../data/fish';
-import { starFor, type Star } from '../data/stars';
+import { isUnique, speciesById } from '../data/fish';
+import { TIER_RANK, bagTier, isGoldOrBetter } from '../data/stars';
 import type { BagFish, PlayerState } from '../inventory';
 import { payReward, type QuestReward } from '../quests/quests';
 
@@ -36,14 +36,12 @@ export const doneCount = (p: PlayerState): number => CHECKLIST.filter((b) => bun
 export const allDone = (p: PlayerState): boolean => doneCount(p) === CHECKLIST.length;
 export const bundleTotal = CHECKLIST.length;
 
-const STAR_RANK: Record<Star, number> = { none: 0, bronze: 1, silver: 2, gold: 3 };
-
 /** Does this bag fish fill that slot? The Pale One never does; a coin slot takes no fish. */
 export function fits(slot: ChecklistSlot, fish: BagFish): boolean {
   const sp = speciesById(fish.speciesId);
-  if (!sp || isLegendary(sp)) return false;
+  if (!sp || isUnique(sp)) return false;
   if (slot.kind === 'species') return fish.speciesId === slot.id;
-  if (slot.kind === 'star') return STAR_RANK[starFor(sp, fish.lengthCm)] >= STAR_RANK[slot.min];
+  if (slot.kind === 'star') return TIER_RANK[bagTier(fish)] >= TIER_RANK[slot.min];
   return false;
 }
 
@@ -143,10 +141,12 @@ export function giveWarning(p: PlayerState, bundleId: string, slot: number, fotd
   const fish = p.bag[i];
   const sp = speciesById(fish.speciesId);
   if (!sp) return undefined;
-  const gold = starFor(sp, fish.lengthCm) === 'gold';
+  const tier = bagTier(fish);
+  const gold = isGoldOrBetter(tier);
   const fotd = fotdId !== undefined && fish.speciesId === fotdId;
   if (!gold && !fotd) return undefined;
-  const what = gold && fotd ? 'a gold fish, and the fish of the day' : gold ? 'a gold fish' : 'the fish of the day';
+  const goldWord = tier === 'medal' ? 'a medal fish' : 'a gold fish';
+  const what = gold && fotd ? `${goldWord}, and the fish of the day` : gold ? goldWord : 'the fish of the day';
   return { fish, gold, fotd, text: `Gives your ${fish.lengthCm} cm ${sp.name.toLowerCase()}, ${what}` };
 }
 
@@ -172,5 +172,14 @@ export function checklistRewardText(r: QuestReward): string {
 export function allButPetrol(p: PlayerState, includePetrol = false): PlayerState {
   const state: ChecklistState = {};
   for (const b of CHECKLIST) state[b.id] = b.slots.map(() => includePetrol || b.id !== PETROL_ID);
+  return { ...p, checklist: state };
+}
+
+/** Dev (?bundles=N): the first N bundles finished, the rest empty (shop gear gates, slice 23a). */
+export function withBundlesDone(p: PlayerState, n: number): PlayerState {
+  const state: ChecklistState = {};
+  CHECKLIST.forEach((b, i) => {
+    state[b.id] = b.slots.map(() => i < n);
+  });
   return { ...p, checklist: state };
 }

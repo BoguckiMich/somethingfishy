@@ -1,6 +1,6 @@
 import { PAL } from '../art/palette';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
-import { starRowSprite, starSprite } from '../art/starArt';
+import { medalSprite, starRowSprite, starSprite } from '../art/starArt';
 
 /** Dev-only contact sheet of the size stars at x1, x3 and x8 (/dev/star-sheet.html). */
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -12,6 +12,7 @@ const sprites: [string, Sprite][] = [
   ['row bronze', starRowSprite('bronze')!],
   ['row silver', starRowSprite('silver')!],
   ['row gold', starRowSprite('gold')!],
+  ['medal', medalSprite()],
 ];
 for (const [name, s] of sprites) {
   const row = document.createElement('div');

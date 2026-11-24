@@ -3,6 +3,7 @@ import type { TimeOfDay } from './clock';
 import { POOL_SPECIES, SPECIES, speciesById } from './data/fish';
 import { FISH_TUNING, RARITY_WEIGHT, candidates, fightProfile, formatCatchSize, lengthSkewFor, pickSpecies, rollHookedFish, rollLength, sizeShare, weightG } from './fish';
 import type { ZoneId } from './location';
+import { RARE_TUNING } from './data/rare';
 import { seededRng } from './random';
 
 const ZONES: ZoneId[] = ['shallow', 'deep'];
@@ -10,11 +11,13 @@ const TIMES: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 describe('roster data', () => {
-  it('has the 12 pool species plus the legendary, unique ids and sane ranges', () => {
-    expect(SPECIES).toHaveLength(13);
-    expect(POOL_SPECIES).toHaveLength(12);
-    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(13);
+  it('has the 15 pool species plus the 3 trophies and the legendary, unique ids and sane ranges', () => {
+    expect(SPECIES).toHaveLength(19);
+    expect(POOL_SPECIES).toHaveLength(15);
+    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(19);
     expect(SPECIES.filter((s) => s.rarity === 'legendary').map((s) => s.id)).toEqual(['pale']);
+    expect(SPECIES.filter((s) => s.rarity === 'trophy').map((s) => s.id)).toEqual(['goldenTench', 'mossback', 'silverGhost']);
+    expect(POOL_SPECIES.some((s) => s.rarity === 'trophy' || s.rarity === 'legendary')).toBe(false);
     for (const s of SPECIES) {
       expect(s.lengthCm[0]).toBeLessThan(s.lengthCm[1]);
       expect(s.nibbles[0]).toBeLessThanOrEqual(s.nibbles[1]);
@@ -66,8 +69,26 @@ describe('spawn rules', () => {
     expect(candidates('deep', 'day').map((s) => s.id)).not.toContain('catfish');
   });
 
+  it('the three newest species (slice 23c) bite in their own zone and time window', () => {
+    const can = (id: string, zone: ZoneId, time: TimeOfDay) => candidates(zone, time).map((s) => s.id).includes(id);
+    for (const t of ['dawn', 'dusk'] as TimeOfDay[]) expect(can('ide', 'shallow', t), `ide ${t}`).toBe(true);
+    for (const t of ['day', 'night'] as TimeOfDay[]) expect(can('ide', 'shallow', t), `ide ${t}`).toBe(false);
+    expect(can('ide', 'deep', 'dawn')).toBe(false);
+    expect(can('asp', 'shallow', 'day')).toBe(true);
+    for (const t of ['dawn', 'dusk', 'night'] as TimeOfDay[]) expect(can('asp', 'shallow', t), `asp ${t}`).toBe(false);
+    expect(can('asp', 'deep', 'day')).toBe(false);
+    expect(can('burbot', 'deep', 'night')).toBe(true);
+    for (const t of ['dawn', 'day', 'dusk'] as TimeOfDay[]) expect(can('burbot', 'deep', t), `burbot ${t}`).toBe(false);
+    expect(can('burbot', 'shallow', 'night')).toBe(false);
+    // and the picker really rolls them there
+    const seen = (zone: ZoneId, time: TimeOfDay, id: string) => seeds(1500).some((i) => pickSpecies(zone, time, seededRng(i)).id === id);
+    expect(seen('shallow', 'dawn', 'ide')).toBe(true);
+    expect(seen('shallow', 'day', 'asp')).toBe(true);
+    expect(seen('deep', 'night', 'burbot')).toBe(true);
+  });
+
   it('weights are 60/30/10, and the legendary has none', () => {
-    expect(RARITY_WEIGHT).toEqual({ common: 60, uncommon: 30, rare: 10, legendary: 0 });
+    expect(RARITY_WEIGHT).toEqual({ common: 60, uncommon: 30, rare: 10, legendary: 0, trophy: 0 });
   });
 
   it('pickSpecies only returns candidates and favours common over rare', () => {
@@ -167,8 +188,18 @@ describe('fightProfile', () => {
     expect(fightProfile(eel, eel.lengthCm[1]).difficulty).toBe(0.4);
     for (const s of SPECIES) {
       const d = fightProfile(s, s.lengthCm[1]).difficulty;
-      expect(d).toBeLessThanOrEqual(s.zone === 'shallow' ? 0.4 : 1);
+      expect(d).toBeLessThanOrEqual(s.zone === 'shallow' && s.rarity !== 'trophy' ? 0.4 : 1);
     }
+  });
+
+  it('a trophy is hard even in the shallows (>= 0.8) and carries the slip-away time; no other species does', () => {
+    for (const id of ['goldenTench', 'mossback', 'silverGhost']) {
+      const sp = speciesById(id)!;
+      const f = fightProfile(sp, sp.lengthCm[0]);
+      expect(f.difficulty, id).toBeGreaterThanOrEqual(0.8);
+      expect(f.slipAfterMs, id).toBe(RARE_TUNING.slipAfterMs);
+    }
+    for (const s of SPECIES.filter((x) => x.rarity !== 'trophy')) expect(fightProfile(s, s.lengthCm[1]).slipAfterMs, s.id).toBeUndefined();
   });
 });
 

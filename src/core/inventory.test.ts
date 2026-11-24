@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withBundlesDone } from './checklist/checklist';
 import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
 import { SHOP } from './data/shop';
@@ -190,20 +191,20 @@ describe('lines and reels (slice 15a)', () => {
     expect(REELS.map((r) => r.price)).toEqual([1000, 3500]);
   });
   it('buyLine and buyReel pay and own it at once, in order', () => {
-    let r = buyLine({ ...newPlayer(), coins: 3000 });
+    let r = buyLine(withBundlesDone({ ...newPlayer(), coins: 3000 }, 4));
     expect(r.state).toMatchObject({ lineId: 'braided', coins: 2400 });
     r = buyLine(r.state);
     expect(r.state).toMatchObject({ lineId: 'fluoro', coins: 400 });
     expect(buyLine(r.state)).toMatchObject({ ok: false, error: 'bestLine' });
-    let q = buyReel({ ...newPlayer(), coins: 5000 });
+    let q = buyReel(withBundlesDone({ ...newPlayer(), coins: 5000 }, 4));
     expect(q.state).toMatchObject({ reelId: 'smooth', coins: 4000 });
     q = buyReel(q.state);
     expect(q.state).toMatchObject({ reelId: 'pro', coins: 500 });
     expect(buyReel(q.state)).toMatchObject({ ok: false, error: 'bestReel' });
   });
   it('buying fails when short and says how much is missing', () => {
-    expect(buyLine({ ...newPlayer(), coins: 500 })).toMatchObject({ ok: false, error: 'needCoins', missing: 100 });
-    expect(buyReel({ ...newPlayer(), coins: 900 })).toMatchObject({ ok: false, error: 'needCoins', missing: 100 });
+    expect(buyLine(withBundlesDone({ ...newPlayer(), coins: 500 }, 4))).toMatchObject({ ok: false, error: 'needCoins', missing: 100 });
+    expect(buyReel(withBundlesDone({ ...newPlayer(), coins: 900 }, 4))).toMatchObject({ ok: false, error: 'needCoins', missing: 100 });
   });
   it('effectiveBarGear is the rod gear with the multipliers applied', () => {
     const rod = RODS[2].barGear;

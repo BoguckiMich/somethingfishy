@@ -2,9 +2,10 @@ import { FONT, FS, LINE } from '../font';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { fishSilhouette } from '../art/fishVariants';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
-import { isLegendary, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
+import { isLegendary, isTrophy, isUnique, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
 import { bestStar, goldCount, lockedHint, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { weatherSprite } from '../art/weatherArt';
 import { knowledgeRows, type KnowledgeRow } from '../core/fishKnowledge';
 import { shopIconSprite } from '../art/shopIconArt';
 import { halfSunSprite, moonSprite, sunSprite, wavesSprite } from '../art/clockIconArt';
@@ -73,7 +74,7 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     'text-align:center',
   ].join(';');
   const t = el('button', base + ';cursor:pointer');
-  t.className = entry && isLegendary(s) ? 'rb-box rb-legend' : 'rb-box';
+  t.className = entry && isUnique(s) ? 'rb-box rb-legend' : 'rb-box';
   t.type = 'button';
   t.addEventListener('click', () => onOpen(s.id));
   const art = el('div', 'height:44px;display:flex;align-items:center;justify-content:center');
@@ -84,8 +85,14 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
     const stars = starRow(bestStar(log, s), 2);
     if (stars) t.append(stars);
   } else {
-    t.append(el('div', `color:${COLORS.dim};line-height:0.8`, '???'));
-    t.append(hintIcons(s, 18));
+    if (isTrophy(s)) {
+      // A rare fish she has only heard of: a "?" silhouette and a rumour tag; the hint line is on the card.
+      t.append(el('div', `color:${COLORS.gold};line-height:0.8`, '?'));
+      t.append(el('div', `color:${COLORS.dim};line-height:1`, 'rumour'));
+    } else {
+      t.append(el('div', `color:${COLORS.dim};line-height:0.8`, '???'));
+      t.append(hintIcons(s, 18));
+    }
   }
   return t;
 }
@@ -93,9 +100,10 @@ function tile(s: Species, log: FishLog, onOpen: (id: string) => void): HTMLEleme
 /** The card a tap on a locked tile opens: the depth and time spelled out at body size. */
 function lockedCard(s: Species, onBack: () => void): HTMLElement {
   const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
+  const rare = isTrophy(s);
   col.append(
-    el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${COLORS.dim}`, '???'),
-    hintIcons(s, 36),
+    el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${rare ? COLORS.gold : COLORS.dim}`, rare ? '?' : '???'),
+    ...(rare ? [fishCanvas(fishSilhouette(s.id), 150, 4)] : [hintIcons(s, 36)]),
     el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, lockedHint(s).text),
   );
   const back = woodButton('Back', onBack, { variant: 'wood' });
@@ -111,6 +119,7 @@ function knowledgeLine(r: KnowledgeRow): HTMLElement {
     const icon = shopIconSprite(id);
     if (icon) row.append(spriteCanvas(icon, 16));
   }
+  for (const id of r.weatherIds) row.append(spriteCanvas(weatherSprite(id), 16));
   row.append(el('span', '', r.text));
   return row;
 }
@@ -119,7 +128,7 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   const entry = log[s.id]!;
   const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
   const art = el('div', `box-sizing:border-box;width:100%;height:96px;display:flex;align-items:center;justify-content:center;background:${COLORS.woodLight}`);
-  art.className = isLegendary(s) ? 'rb-box rb-legend' : 'rb-box';
+  art.className = isUnique(s) ? 'rb-box rb-legend' : 'rb-box';
   art.append(artOf(s, log, 150, 6));
   col.append(
     art,

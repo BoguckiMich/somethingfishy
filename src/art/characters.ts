@@ -440,18 +440,27 @@ const pajBeard = (x: number, y: number) => {
 /**
  * The camp chair seen from behind: light grey arms, posts and legs (they show against the planks), a
  * red canvas back. Seated, the canvas is low (his jacket shows above it); empty, it is taller and has a
- * top rail. The legs and shadow come after the outline.
+ * top rail. The legs and shadow come after the outline. `deck` (the deck chair from the camp shop, slice 23e) swaps it for a wooden
+ * frame with teal and cream striped canvas, same size and place.
  */
-function paintChairBack(p: Pix, empty = false): void {
+function paintChairBack(p: Pix, empty = false, deck = false): void {
   const top = empty ? 33 : 35;
-  p.rect(6, 34, 3, 1, PAL.stoneLight); // armrests
-  p.rect(25, 34, 3, 1, PAL.stoneLight);
-  p.rect(7, 35, 1, 6, PAL.stone); // posts
-  p.rect(26, 35, 1, 6, PAL.stone);
+  p.rect(6, 34, 3, 1, deck ? PAL.woodLight : PAL.stoneLight); // armrests
+  p.rect(25, 34, 3, 1, deck ? PAL.woodLight : PAL.stoneLight);
+  p.rect(7, 35, 1, 6, deck ? PAL.wood : PAL.stone); // posts
+  p.rect(26, 35, 1, 6, deck ? PAL.wood : PAL.stone);
   if (empty) {
-    p.rect(7, 32, 20, 1, PAL.stoneLight); // the top rail
-    p.rect(7, 33, 1, 2, PAL.stone);
-    p.rect(26, 33, 1, 2, PAL.stone);
+    p.rect(7, 32, 20, 1, deck ? PAL.woodLight : PAL.stoneLight); // the top rail
+    p.rect(7, 33, 1, 2, deck ? PAL.wood : PAL.stone);
+    p.rect(26, 33, 1, 2, deck ? PAL.wood : PAL.stone);
+  }
+  if (deck) {
+    for (let y = top; y < 41; y++) {
+      for (let x = 8; x < 26; x++) p.set(x, y, Math.floor((x - 8) / 2) % 2 === 0 ? PAL.mug : PAL.cream);
+    }
+    p.rect(8, top, 18, 1, PAL.mugDark); // the hem
+    p.rect(8, 40, 18, 1, PAL.sandDark);
+    return;
   }
   p.rect(8, top, 18, 1, PAL.shirt); // the hem
   p.rect(8, top + 1, 18, 40 - top, PAL.shirtDark);
@@ -460,13 +469,13 @@ function paintChairBack(p: Pix, empty = false): void {
   p.set(16, 40, PAL.shirtDark);
 }
 
-function paintChairLegs(p: Pix): void {
+function paintChairLegs(p: Pix, deck = false): void {
   for (const x0 of [7, 23]) {
     // an X of two legs, 4 wide and 4 tall, under each post
-    p.line(x0, 42, x0 + 3, 45, PAL.stoneLight);
-    p.line(x0 + 3, 42, x0, 45, PAL.stoneLight);
-    p.set(x0 + 1, 43, PAL.stone);
-    p.set(x0 + 2, 44, PAL.stone);
+    p.line(x0, 42, x0 + 3, 45, deck ? PAL.woodLight : PAL.stoneLight);
+    p.line(x0 + 3, 42, x0, 45, deck ? PAL.woodLight : PAL.stoneLight);
+    p.set(x0 + 1, 43, deck ? PAL.wood : PAL.stone);
+    p.set(x0 + 2, 44, deck ? PAL.wood : PAL.stone);
   }
   p.rect(5, 46, 28, 1, PAL.outline); // a 1 px shadow on the planks
 }
@@ -485,12 +494,12 @@ function paintThermosShadow(p: Pix): void {
 
 /** A camp chair with nobody in it and the thermos beside it: drawn where he sits while he is away (22a). */
 export const EMPTY_CHAIR = { x: 4, y: 31, w: 35, h: 17 };
-export function emptyChairSprite(): Sprite {
+export function emptyChairSprite(deck = false): Sprite {
   const p = new Pix(40, 48);
-  paintChairBack(p, true);
+  paintChairBack(p, true, deck);
   paintThermos(p);
   p.outline();
-  paintChairLegs(p);
+  paintChairLegs(p, deck);
   paintThermosShadow(p);
   const full = p.done();
   const out = new Pix(EMPTY_CHAIR.w, EMPTY_CHAIR.h);
@@ -514,7 +523,7 @@ const cup = (p: Pix, x: number, y: number) => {
  * show ('look' faces the water squarely: only the back of the head). `breath` lifts the head 1 px
  * (the 'cheer' pose uses it as its second frame).
  */
-export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
+export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false): Sprite {
   const p = new Pix(40, 48);
   const up = new Pix(40, 48); // head and torso (leans in pourReach / pour)
   const front = new Pix(40, 48); // the arm, cup and thermos in hand: drawn over everything else
@@ -656,7 +665,7 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
 
   p.blit(up.done(), lean, 0);
   const fx = pose === 'sit' || pose === 'look' || pose === 'sipLift' ? -2 : pose === 'cheer' ? -1 : 0; // the arm follows the slimmer body
-  paintChairBack(p);
+  paintChairBack(p, false, deck);
   // His right knee and shoe stick out past the arm of the chair.
   p.rect(28, 35, 4, 1, PAL.jeans);
   p.rect(27, 36, 6, 3, PAL.jeans);
@@ -668,7 +677,7 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
   if (pose !== 'pour') paintThermos(p);
   p.blit(front.done(), lean + fx, 0);
   p.outline();
-  paintChairLegs(p);
+  paintChairLegs(p, deck);
   if (pose !== 'pour') paintThermosShadow(p);
   return p.done();
 }

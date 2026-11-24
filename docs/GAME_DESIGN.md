@@ -970,6 +970,13 @@ Also from play (user, 2026-11-24):
   - Burbot: deep, night, rare, erratic/sinker; likes rain and fog.
   Log goes 13 -> 16 (+3 rare = 19); checklist/quests/knowledge data need entries.
 
+**Slice 23d built (rare fish):** rarity `trophy`, rules in `core/data/rare.ts` + `core/rare.ts`, ~0.2 per landed cast when all
+conditions hold (fog = the whole fog day, any hour). The fight is a hard darting/sinker (0.8-0.9) and the fish slips away after
+2.5 s outside the green. Trophies skip the bag (no coins), go on a trophy board by the car, and show a gold frame in the log; the
+three hints come through a bottle note, a Pajkel line and a notice-board "Rumours" block. See HANDOFF for numbers and weak spots.
+
+**Slice 23e built (camp items):** six buyable camp things in a "Camp" shop section (campfire 800, deck chair 600, Bestia's bed 1000, tent 1500, string lights 1200, windsock 400); the trophy board stays free. Cosmetic only; the campfire flickers and glows at night, the string lights glow at night, the windsock follows the day's weather, the deck chair replaces Pajkel's red chair. Not built: Pajkel warming his hands, a crackle sound, Bestia napping in the bed (she stays on the dock). See HANDOFF for spots and weak spots.
+**Slice 23f built (perfect catch + sweet spot):** a red core inside the green zone on every rod (bamboo 20 %, fiberglass 30 %, carbon 40 % of the zone, progress x1.5 inside it; base fill 0.16 -> 0.135 to keep fight lengths). A fish that never leaves the green zone is a perfect catch: +1 star tier, a perfect gold-size fish is a medal (the tier above gold, a gold medal picture instead of the star row; counts as gold for checklist star slots; the price stays by size). Stored without a version bump (`BagFish.perfect`, `LogEntry.bestTier`, `Trophy.medal`). See HANDOFF for numbers and weak spots.
 **Grill round 2 (decided 2026-11-24, user accepted all recommendations):**
 - **Gear gated by finished checklist bundles** (coins still pay): start = fiberglass, worms, baits;
   1 bundle = braided line + smooth reel; 2 bundles = carbon rod (deep 30 m+: Pale One, Old Mossback);

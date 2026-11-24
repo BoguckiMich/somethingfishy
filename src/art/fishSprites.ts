@@ -2,7 +2,7 @@ import { PAL } from './palette';
 import { sprite, TRANSPARENT, type Sprite } from './pixelGrid';
 
 /**
- * The 13 fish, hand-authored at their LARGE size, facing right. Every grid is the fish without
+ * The 19 fish, hand-authored at their LARGE size, facing right. Every grid is the fish without
  * its outline (`.` transparent); `outlined()` wraps it in the 1 px `PAL.outline` ring. Letters are
  * local to each species (see its colour map); fish colours stay in this file, not in PAL.
  * Medium, small and icon sizes are derived in `fishVariants.ts` (code shrink + hand overrides).
@@ -132,6 +132,43 @@ export const FISH_ART: Record<string, FishArt> = {
     colors: { K: 0x2a3820, M: 0x4e6030, L: 0x7a8a40, B: 0xc4bc70, f: 0x5a6a38, p: 0x9a9a50, E: 0xf2eaa8, D: 0x1c2616 },
     eye: 'E',
   },
+  // Ide: silvery-bronze body, reddish fins
+  ide: {
+    grid: `
+      ..........ffgff.........
+      ........KKKKKKKKKK......
+      .......KKKKKKKKKKKKK....
+      f.....KKKKKKKKKKKKKKKK..
+      ff...KKKKKKKKKKKKKKKKKK.
+      fff..MMMMMHMMMMHMMMMEMMM
+      .ffgLLLLLLLLLLLLLLLLLLLL
+      .ffgLLLLLLLLLLLLLLLLLLL.
+      fff..BBBBBBBBBBBBBBBBB..
+      ff....BBBBBBBBBBBBBBB...
+      f.....ggg..fgg..........
+      ......gg....gg..........
+`,
+    colors: { K: 0x73634a, M: 0xb9aa84, L: 0xd8dccc, B: 0xeceadc, f: 0xd8502e, g: 0xa8402a, H: 0xd2b684, E: 0xe04a2a },
+    eye: 'E',
+  },
+  // Asp: long slim silver predator, big mouth
+  asp: {
+    grid: `
+      ................ff..............
+      ...............ffff.............
+      f..............KKKKKKKKKKKK.....
+      ff......KKKKKKKKKKKKKKKKKKKKK...
+      .ff...KKKKKKKKKKKKKKKKKKKKKKKKK.
+      ..fffMMMMMMMMMMMMMMMMMMMMMMEMMMM
+      ...ffLLLLLLLLLLLLLLLLLLLLLLLDDDD
+      ..fffBBBBBBBBBBBBBBBBBBBBBBDDDBB
+      .ff....BBBBBBBBBBBBBBBBBBBBBB...
+      f.........rrr..rrrr.............
+      ...........rr...rr..............
+`,
+    colors: { K: 0x4a6478, M: 0x9eb2b8, L: 0xcdd8da, B: 0xf0f2ee, f: 0x7a7e88, r: 0xd9533e, E: 0xf0c040, D: 0x241a22 },
+    eye: 'E',
+  },
   // Bream
   bream: {
     grid: `
@@ -238,6 +275,23 @@ export const FISH_ART: Record<string, FishArt> = {
     colors: { K: 0x44564c, M: 0x80927a, L: 0x98a890, B: 0xdadecb, f: 0x76867a, g: 0x56665a, T: 0x2a3430, E: 0xeff0c8, P: 0x120e18, D: 0x120e18, S: 0xffffff, N: 0x364238 },
     eye: 'E',
   },
+  // Burbot: mottled brown-olive, eel-like body, one chin barbel
+  burbot: {
+    grid: `
+      ...............gfgfgfgf.....fff.....
+      ...........gfgffgfgfgfgfg..fgfgf....
+      ...g....gfgfgfgKSSKKKKKKKKSSKKKK....
+      .fgfgKKKSSKKKKKMMMSSMMMMMMMMSSMMKK..
+      fgfgfMMMMMSSMMMMMMMMSSMMMMMMMMSSMEKK
+      gfgfgBBBBBBBSSMLLLLLMMSSMMMMMMMMSSMM
+      .gfgf.....fgBBBBBBBBLLLLLLLLLLLLBBBS
+      ............fgfgfgfgBBBBBBBBBBBB..W.
+      ....................fgfg..........W.
+`,
+    colors: { K: 0x4a4426, M: 0x7e7436, L: 0x988c48, B: 0xc2b878, S: 0x2c2814, f: 0x5e5a30, g: 0x46421e, E: 0xe8d070, W: 0xd8cc88 },
+    thin: 'W',
+    eye: 'E',
+  },
   // Catfish (wels)
   catfish: {
     grid: `
@@ -255,6 +309,66 @@ export const FISH_ART: Record<string, FishArt> = {
 `,
     colors: { K: 0x1e2a26, M: 0x34443a, B: 0x8a907a, f: 0x2a3832, S: 0x4a5c4e, T: 0x232f2a, E: 0xe0e0b8, D: 0x0e1410, W: 0xdcdccc },
     thin: 'W',
+    eye: 'E',
+  },
+  // Golden tench (trophy, slice 23d): the tench's shape in old gold, a red eye and a few pale flecks
+  goldenTench: {
+    grid: `
+      .............f.............
+      ..........fffff............
+      .........ffffKKKKKKK.......
+      .fff...KKKKKKKKKKKKKKKKK...
+      ffffKKKKKKKKKKKKKKKKKKKKKK.
+      ffffKKKMYMHMKMHMYMHMNMEMKK.
+      ffffHMMMHMMMYMMMHMMMHYMMHM.
+      ffffMMYMMMHMMMHMMMYMNMHMMMW
+      ffffBBBBBBBBHBBBBBBBBNBBBB.
+      .fff..BBBBBBBBBBBBBBBBBB...
+      ........ffffBBBBBBBBfff....
+      .........ff..fffff.........
+      ..............fff..........
+      ...............f...........
+`,
+    colors: { K: 0xa87c14, M: 0xe2b52a, B: 0xf2d878, f: 0xc8942a, H: 0xf0cc48, N: 0xd0a028, E: 0xff2a2a, W: 0xd8b858, Y: 0xfff4b0, D: 0x6a4a0c },
+    thin: 'W',
+    eye: 'E',
+  },
+  // Old Mossback (trophy): a huge dark carp with green moss patches on its back
+  mossback: {
+    grid: `
+      ...............ffffffffff............
+      ...............fggggfgfgff...........
+      f..........fffffggggfgfgfg...........
+      gg.........fgfgKGGGGKKKKKKKKK........
+      fff......ffKGKKGGYYGGKKKKKKKKKKKK....
+      gggg...KKKKGYKKKKKKKKKGYGKKKKNGYGK...
+      .ffffKKHMKKHMMSHMGYMMSHMMSHMNSHEGSK..
+      ..ggfHMMSHMMSHMMSSSSHMMSHMGGNMMSHMM..
+      .ffffMSHMMSHMMSHMMMMMSHMMSHMMNHMMSB..
+      gggg.BBBBBBBSHMMSSSSHMMSHMMSHMBBBB.W.
+      fff......BBBBBBBBBBBBBBBBBBBBBBBB..WW
+      gg........ffBBBBBBBBBBBBBBBBBBf......
+      f..........ffff.fffffff.....ff.......
+      ............ff......ff...............
+`,
+    colors: { K: 0x2c2a1c, M: 0x4a4a2a, B: 0x8c8660, f: 0x3c3a22, g: 0x302e1a, S: 0x24220f, H: 0x5c5c34, N: 0x3a3822, E: 0xe8c840, W: 0x8c8a5c, G: 0x4a8a30, Y: 0x7cb84a },
+    thin: 'W',
+    eye: 'E',
+  },
+  // Silver ghost (trophy): a bleak so pale it is nearly white, with a faint shimmer (light blue flecks)
+  silverGhost: {
+    grid: `
+      f......ffffffff.....
+      ff...KKKKKKKKKKKKKK.
+      .ffKKKKKKKKKKKKKEKKM
+      ..fMMMHMMSMMMHSHMMMS
+      ..fMMMHMMMMSMHMHMSMM
+      .ffBBMMMSMMMMMMMMMDM
+      ff...BBBBBBBBBBBBBB.
+      f.....ffffffffff....
+      ........ffffff......
+`,
+    colors: { K: 0xb8c2cc, M: 0xdde3ea, L: 0xe8edf2, B: 0xfafcfd, f: 0xcdd6de, E: 0x1c1a2a, D: 0xaab4be, H: 0xffffff, S: 0xc4e8f4 },
     eye: 'E',
   },
   // The Pale One (legendary): bone-pale, one eye too many, scales like old coins

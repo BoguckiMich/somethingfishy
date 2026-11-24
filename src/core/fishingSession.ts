@@ -1,9 +1,10 @@
 import { castDistance, chargePower, MIN_HOLD_MS } from './casting';
-import { barResult, newCatchBar, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
+import { barResult, isPerfect, newCatchBar, tickCatchBar, type CatchBarState, type FishProfile } from './catchBar';
 import type { TimeOfDay } from './clock';
 import { speciesById } from './data/fish';
 import type { GameEvent } from './events';
 import { baitById } from './data/baits';
+import type { WeatherEffects } from './daily/weather';
 import { fightProfile, rollHookedFish, type HookedFish } from './fish';
 import type { BarGear, Rod } from './gear';
 import { zoneAt, type Location, type ZoneId } from './location';
@@ -52,6 +53,8 @@ export interface SessionContext {
   baitId?: () => string | undefined;
   /** Today's fish (slice 19): bites more. Absent means none. */
   fotdId?: () => string | undefined;
+  /** Today's weather and what it does to the bites right now (slice 23b). Absent means none. */
+  weatherFx?: () => WeatherEffects | undefined;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
   timeOfDay: () => TimeOfDay;
   /** The in-game minute of the day; the legendary's clock window needs it. Absent means no legendary. */
@@ -125,6 +128,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (input.type !== 'landed') return same(state);
       // The fish is chosen as the bobber lands: its species shapes the wait (shy fish nibble more).
       const bait = ctx.baitId?.();
+      const fx = ctx.weatherFx?.();
       const hooked = rollHookedFish(
         state.zone,
         ctx.timeOfDay(),
@@ -133,13 +137,14 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         ctx.minute ? { distanceM: state.distanceM, minute: ctx.minute() } : undefined,
         bait,
         ctx.fotdId?.(),
+        fx,
       );
       return same({
         kind: 'waiting',
         distanceM: state.distanceM,
         zone: state.zone,
         hooked,
-        untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs) * firstWaitFactor(bait, state.zone),
+        untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs) * firstWaitFactor(bait, state.zone) * (fx?.waitFactor ?? 1),
         nibblesLeft: randInt(ctx.rng, ...speciesById(hooked.speciesId)!.nibbles),
         hadNibble: false,
       });
@@ -174,7 +179,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
 
     case 'bite': {
       if (input.type === 'press') {
-        const fish = ctx.fishOverride ?? fightProfile(speciesById(state.hooked.speciesId)!, state.hooked.lengthCm);
+        const fish = ctx.fishOverride ?? fightProfile(speciesById(state.hooked.speciesId)!, state.hooked.lengthCm, ctx.weatherFx?.()?.difficultyAdd);
         const bar = { ...newCatchBar(fish, ctx.barGear, ctx.rng), holding: true }; // the hooking press is still down
         return {
           state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, fish, bar },
@@ -211,6 +216,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
               speciesId: hooked.speciesId,
               lengthCm: hooked.lengthCm,
               weightG: hooked.weightG,
+              ...(isPerfect(bar) ? { perfect: true } : {}),
             },
           ],
         };
@@ -218,7 +224,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (result === 'lost') {
         return {
           state: { kind: 'lost', distanceM, ageMs: 0 },
-          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty, speciesId: hooked.speciesId }],
+          events: [{ type: 'fishLost', zone, pattern: fish.pattern, difficulty: fish.difficulty, speciesId: hooked.speciesId, ...(bar.slipped ? { slipped: true } : {}) }],
         };
       }
       return same({ ...state, bar });

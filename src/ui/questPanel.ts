@@ -11,6 +11,7 @@ import { fishCanvas } from './logPanel';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import { shopTab, type PlayerStore } from './bagShop';
 import { rewardLine } from './rewardLine';
+import { unknownHints } from '../core/rare';
 
 /** What the quest panel needs: the player (read and written back) and today's date. */
 export interface QuestStore extends PlayerStore {
@@ -155,6 +156,14 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
       const rerollNote = quests.list.some((_, i) => canReroll(quests, i, today)) ? '1 free reroll today' : quests.rerollUsed ? 'Reroll used today' : '';
       if (rerollNote) body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};margin-top:8px`, rerollNote));
       body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim};margin-top:${rerollNote ? 2 : 8}px`, 'New quests at midnight'));
+      // Rumours (slice 23d): the half-hints of the rare fish she has not caught yet, pinned as one more note.
+      const rumours = unknownHints(p.log);
+      if (rumours.length > 0) {
+        const note = el('div', `margin-top:12px;padding:8px;border:2px solid ${COLORS.woodLight};background:${COLORS.outline}`);
+        note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.gold};margin-bottom:4px`, 'Rumours'));
+        for (const h of rumours) note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};padding:2px 0`, `- ${h.text}`));
+        body.append(note);
+      }
       const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:10px');
       const cl = store.checklist();
       col.append(

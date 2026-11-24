@@ -27,7 +27,7 @@ describe('large fish sprites', () => {
 
   it('roughly follow real size (px width incl. outline) and the roster order', () => {
     const w = (id: string) => FISH_LARGE[id].width;
-    const want: Record<string, number> = { bleak: 18, roach: 22, rudd: 22, perch: 22, crucian: 20, tench: 28, bream: 30, carp: 34, zander: 34, eel: 40, pike: 40, catfish: 44, pale: 52 };
+    const want: Record<string, number> = { bleak: 18, roach: 22, rudd: 22, perch: 22, crucian: 20, tench: 28, bream: 30, carp: 34, zander: 34, ide: 26, asp: 34, burbot: 38, eel: 40, pike: 40, catfish: 44, pale: 52, goldenTench: 28, mossback: 38, silverGhost: 22 };
     for (const id of IDS) expect(Math.abs(w(id) - want[id]), id).toBeLessThanOrEqual(3);
     for (const id of IDS) if (id !== 'bleak') expect(w('bleak')).toBeLessThan(w(id));
     for (const big of ['catfish', 'pike', 'eel']) for (const id of IDS) if (!['catfish', 'pike', 'eel', 'pale'].includes(id)) expect(w(big)).toBeGreaterThan(w(id));

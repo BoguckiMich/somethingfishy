@@ -1,7 +1,10 @@
+import { normalizeCamp } from './camp';
+import { normalizeTrophies } from './rare';
 import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
 import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
+import { TIER_RANK, isTier, starFor } from './data/stars';
 import { SHOP } from './data/shop';
 import { LINES, REELS } from './data/tackle';
 import { newPlayer, type BagFish, type PlayerState } from './inventory';
@@ -14,6 +17,7 @@ import { normalizeChecklist } from './checklist/checklist';
 import { normalizeNotes } from './moments/moments';
 import { normalizeStory, storyIsEmpty } from './story/story';
 import { normalizeSeen } from './tips';
+import { normalizeWeatherSeen } from './daily/weather';
 import { QUEST_KINDS, QUEST_TIMES, newQuests, type Quest, type QuestsState } from './quests/quests';
 
 /**
@@ -57,7 +61,7 @@ function normalizeBagFish(v: unknown): BagFish | null {
   if (!isObj(v) || typeof v.speciesId !== 'string' || !speciesById(v.speciesId)) return null;
   if (!isNum(v.lengthCm) || !isNum(v.weightG) || !isNum(v.price)) return null;
   if (v.lengthCm <= 0 || v.weightG <= 0 || v.price < 0) return null;
-  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price };
+  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price, ...(v.perfect === true ? { perfect: true as const } : {}) };
 }
 
 function normalizeLog(v: unknown): FishLog {
@@ -67,7 +71,11 @@ function normalizeLog(v: unknown): FishLog {
     if (!speciesById(id) || !isObj(e)) continue;
     if (!isNum(e.count) || !isNum(e.bestLengthCm) || !isNum(e.bestWeightG)) continue;
     if (e.count < 1 || e.bestLengthCm <= 0 || e.bestWeightG <= 0) continue;
-    log[id] = { count: Math.floor(e.count), bestLengthCm: e.bestLengthCm, bestWeightG: e.bestWeightG };
+    // The best tier of a perfect catch (slice 23f): a known tier that beats what the record length earns, else no key.
+    const sp = speciesById(id)!;
+    const base = starFor(sp, e.bestLengthCm);
+    const bestTier = isTier(e.bestTier) && TIER_RANK[e.bestTier] > TIER_RANK[base] ? { bestTier: e.bestTier } : {};
+    log[id] = { count: Math.floor(e.count), bestLengthCm: e.bestLengthCm, bestWeightG: e.bestWeightG, ...bestTier };
   }
   return log;
 }
@@ -89,7 +97,7 @@ function normalizeQuest(v: unknown): Quest | null {
   const params: Quest['params'] = { target };
   if (kind === 'catchSpecies') {
     const sp = typeof v.params.speciesId === 'string' ? speciesById(v.params.speciesId) : undefined;
-    if (!sp || sp.rarity === 'legendary') return null;
+    if (!sp || (sp.rarity === 'legendary' || sp.rarity === 'trophy')) return null;
     params.speciesId = sp.id;
   }
   if (kind === 'catchAtTime') {
@@ -160,6 +168,12 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(storyIsEmpty(normalizeStory(p.story)) ? {} : { story: normalizeStory(p.story) }),
     // The hints (slice 22c): first-tap flags and the casts made; stored only when something was seen.
     ...(normalizeSeen(p.seen).length > 0 ? { seen: normalizeSeen(p.seen) } : {}),
+    // The date of Pajkel's weather line (slice 23b): a valid date or no key.
+    ...(normalizeWeatherSeen(p.weatherSeen) ? { weatherSeen: normalizeWeatherSeen(p.weatherSeen) } : {}),
+    // The trophy board (slice 23d): stored only when a rare fish was caught (older saves have no key).
+    ...(Object.keys(normalizeTrophies(p.trophies)).length > 0 ? { trophies: normalizeTrophies(p.trophies) } : {}),
+    // The camp items (slice 23e): stored only when something is owned (older saves have no key).
+    ...(normalizeCamp(p.camp).length > 0 ? { camp: normalizeCamp(p.camp) } : {}),
   };
 }
 

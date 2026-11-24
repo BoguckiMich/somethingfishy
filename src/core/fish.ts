@@ -3,7 +3,10 @@ import type { TimeOfDay } from './clock';
 import { baitById } from './data/baits';
 import { FOTD_TUNING } from './data/fotd';
 import { POOL_SPECIES, speciesById, type Rarity, type Species } from './data/fish';
+import { weatherAllowsAnyTime, weatherWeightMult, type WeatherEffects } from './daily/weather';
 import { rollLegendary } from './legendary';
+import { RARE_TUNING } from './data/rare';
+import { rollRare } from './rare';
 import type { ZoneId } from './location';
 import type { Rng } from './random';
 
@@ -15,7 +18,7 @@ export interface HookedFish {
 }
 
 /** Spawn weights by rarity. */
-export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10, legendary: 0 };
+export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30, rare: 10, legendary: 0, trophy: 0 };
 
 export const FISH_TUNING = {
   /** Length roll: min + (max - min) * u^k. k > 1 skews toward small fish. */
@@ -29,28 +32,31 @@ export const FISH_TUNING = {
   shallowCap: 0.4,
 };
 
-export function candidates(zone: ZoneId, time: TimeOfDay): Species[] {
-  return POOL_SPECIES.filter((s) => s.zone === zone && s.times.includes(time));
+/** The species that may bite here and now; some weathers (overcast) let the ones that like it bite at any time of day. */
+export function candidates(zone: ZoneId, time: TimeOfDay, fx?: WeatherEffects): Species[] {
+  return POOL_SPECIES.filter((s) => s.zone === zone && (s.times.includes(time) || weatherAllowsAnyTime(s, fx)));
 }
 
 /** The spawn weight of a species, with the bait's boost (slice 15c) on top; worms or none: the plain weight. */
-export function spawnWeight(species: Species, baitId?: string, fotdId?: string): number {
+export function spawnWeight(species: Species, baitId?: string, fotdId?: string, fx?: WeatherEffects): number {
   const bait = baitById(baitId);
   let w = RARITY_WEIGHT[species.rarity];
   if (bait?.speciesBoost?.ids.includes(species.id)) w *= bait.speciesBoost.factor;
   if (bait?.rarityBoost?.rarity === species.rarity) w *= bait.rarityBoost.factor;
   // Today's fish bites more (slice 19); it stacks with the bait.
   if (fotdId && species.id === fotdId) w *= FOTD_TUNING.weightMult;
+  // Today's weather (slice 23b) reweights the same way.
+  w *= weatherWeightMult(species, fx);
   return w;
 }
 
 /** Picks among the species zone + time allow; the bait and the fish of the day only reweight those, so they can never add a species. */
-export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: string, fotdId?: string): Species {
-  const pool = candidates(zone, time);
-  const total = pool.reduce((sum, s) => sum + spawnWeight(s, baitId, fotdId), 0);
+export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: string, fotdId?: string, fx?: WeatherEffects): Species {
+  const pool = candidates(zone, time, fx);
+  const total = pool.reduce((sum, s) => sum + spawnWeight(s, baitId, fotdId, fx), 0);
   let roll = rng() * total;
   for (const s of pool) {
-    roll -= spawnWeight(s, baitId, fotdId);
+    roll -= spawnWeight(s, baitId, fotdId, fx);
     if (roll < 0) return s;
   }
   return pool[pool.length - 1];
@@ -79,12 +85,13 @@ export interface CastPlace {
   minute: number;
 }
 
-/** Picks the species (or the forced one) and rolls its size. A legendary may replace the normal pick. */
-export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string): HookedFish {
+/** Picks the species (or the forced one) and rolls its size. A legendary or a trophy (slice 23d) may replace the normal pick. */
+export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects): HookedFish {
   const species =
     (forcedId ? speciesById(forcedId) : undefined) ??
     (place ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
-    pickSpecies(zone, time, rng, baitId, fotdId);
+    (place ? rollRare({ zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
+    pickSpecies(zone, time, rng, baitId, fotdId, fx);
   const lengthCm = rollLength(species, rng);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };
 }
@@ -96,10 +103,14 @@ export function sizeShare(species: Species, lengthCm: number): number {
 }
 
 /** What the catch bar sees: the species' pattern, with difficulty raised a little for big fish. */
-export function fightProfile(species: Species, lengthCm: number): FishProfile {
+export function fightProfile(species: Species, lengthCm: number, difficultyAdd = 0): FishProfile {
   const raw = species.difficulty + FISH_TUNING.sizeDifficulty * sizeShare(species, lengthCm);
-  const cap = species.zone === 'shallow' ? FISH_TUNING.shallowCap : 1;
-  return { pattern: species.pattern, difficulty: Math.min(cap, raw) };
+  // A trophy (slice 23d) is hard even in the shallows, and slips away when it stays out of the green zone too long.
+  const trophy = species.rarity === 'trophy';
+  const cap = species.zone === 'shallow' && !trophy ? FISH_TUNING.shallowCap : 1;
+  // A windy day (slice 23b) makes every fight a little harder, past the shallow cap but never above 1.
+  const profile: FishProfile = { pattern: species.pattern, difficulty: Math.min(1, Math.min(cap, raw) + difficultyAdd) };
+  return trophy ? { ...profile, slipAfterMs: RARE_TUNING.slipAfterMs } : profile;
 }
 
 /** "24 cm · 210 g", or "50 cm · 1.8 kg" from 1000 g up. */
