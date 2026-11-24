@@ -117,6 +117,17 @@ export function stickCarrySprite(): Sprite {
   return p.outline().done();
 }
 
+/** A stick lying on the grass (slice 17): a bit bigger than the thrown one, slightly tilted, with a twig. */
+export const STICK_GROUND_SIZE = { w: 11, h: 5 };
+export function stickGroundSprite(): Sprite {
+  const p = new Pix(STICK_GROUND_SIZE.w, STICK_GROUND_SIZE.h);
+  p.line(1, 3, 9, 2, PAL.woodLight);
+  p.line(1, 2, 9, 1, PAL.woodHi);
+  p.line(6, 2, 8, 0, PAL.woodLight); // a twig
+  p.set(1, 3, PAL.wood);
+  return p.outline().done();
+}
+
 // ---- Alex (player): standing at the dock edge, ¾ back view, rod in her right hand ----------
 
 export const ALEX_SIZE = { w: 32, h: 56 };
@@ -430,11 +441,11 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1): Sprite {
 
 // Standing / walking side view, facing right (flip for left).
 export const PAJ_WALK_SIZE = { w: 32, h: 52 };
-export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1';
+export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1' | 'bend';
 /** Number of frames in the walk cycle (walk0..walkN-1; carry0..carryN-1 is the same cycle with Bestia in his arms). */
 export const PAJ_WALK_FRAMES = 4;
 /** Every standing / walking pose, in the order the textures are baked. */
-export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1'];
+export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1', 'bend'];
 
 /**
  * Bestia held in Pajkel's arms (slice 16), painted into his walking sprite: her body lies across the
@@ -514,7 +525,12 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   // Near arm: sleeve from the shoulder, swinging opposite the near leg, hand at the end.
   if (carry) paintCarriedDog(p, bob);
   else if (stretch) paintStretchArms(p, pose === 'stretch1');
-  else if (pose !== 'throw') {
+  else if (pose === 'bend') {
+    // Picking a stick up: the near arm reaches down and forward to the grass, hand open.
+    for (let dx = 0; dx < 5; dx++) p.line(15 + dx, 21, 22 + dx, 42, dx === 4 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
+    p.rect(22, 43, 5, 4, PAL.skin);
+    p.rect(26, 43, 1, 4, PAL.skinShade);
+  } else if (pose !== 'throw') {
     const hx = Math.round(16 - swing * 0.9);
     const sx = 15;
     for (let dx = 0; dx < 5; dx++) p.line(sx + dx, 21 + bob, hx + dx, 27 + bob, dx === 4 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
@@ -550,7 +566,7 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
 // ---- The dog: small, ginger, short-haired, folded ears, yellow harness -------------------------
 
 export const DOG_SIZE = { w: 32, h: 24 };
-export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run';
+export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
 export interface DogFrame {
   shape: DogShape;
   /** Tail wag frame 0..2 (lie), 0..1 (sit/stand). */
@@ -566,7 +582,9 @@ export function dogKey(f: DogFrame): string {
   return `dog:${f.shape}:${f.tail}:${f.perked ? 'p' : 'f'}:${f.step}${f.carry ? ':c' : ''}`;
 }
 
-export function dogSprite(f: DogFrame): Sprite {
+export function dogSprite(frame: DogFrame): Sprite {
+  // The play-bow always has its ears up.
+  const f: DogFrame = frame.shape === 'bow' ? { ...frame, perked: true } : frame;
   const p = new Pix(32, 24);
   const fur = (x: number, y: number) => (noise(x, y) > 0.8 ? PAL.gingerLight : noise(x, y) < 0.12 ? PAL.gingerDark : PAL.ginger);
   const ear = (hx: number, hy: number) => {
@@ -621,6 +639,20 @@ export function dogSprite(f: DogFrame): Sprite {
     head(24, 7);
     if (f.tail === 1) p.line(3, 6, 5, 9, PAL.ginger);
     else p.line(3, 8, 5, 9, PAL.ginger);
+  } else if (f.shape === 'bow') {
+    // Play-bow: front legs stretched out low, chest near the grass, rump and tail up, head down and forward.
+    p.ell(9, 12, 5.5, 4.5, fur);
+    p.ell(16, 16, 6.5, 3.5, fur);
+    p.rect(5, 14, 2, 9, PAL.ginger);
+    p.rect(10, 14, 2, 9, PAL.ginger);
+    p.rect(14, 12, 2, 7, PAL.harness);
+    p.rect(10, 11, 5, 1, PAL.harness);
+    p.set(14, 12, PAL.harnessDark);
+    p.line(19, 19, 27, 22, PAL.gingerLight);
+    p.line(20, 20, 28, 23, PAL.gingerLight);
+    head(24, 17);
+    if (f.tail === 1) p.line(3, 9, 1, 4, PAL.ginger);
+    else p.line(3, 9, 4, 3, PAL.ginger);
   } else {
     // run: gallop cycle
     p.ell(14, 11, 9, 4, fur);
@@ -654,6 +686,7 @@ export function allDogFrames(): DogFrame[] {
       out.push({ shape: 'stand', tail, perked, step: 0 });
     }
   }
+  for (const tail of [0, 1]) out.push({ shape: 'bow', tail, perked: false, step: 0 });
   for (let step = 0; step < 4; step++) out.push({ shape: 'run', tail: 0, perked: false, step });
   for (let step = 0; step < 4; step++) out.push({ shape: 'run', tail: 0, perked: false, step, carry: true });
   return out;

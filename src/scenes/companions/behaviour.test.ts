@@ -124,12 +124,12 @@ describe('idle play on the grass', () => {
     expect(s.paj.y).toBeGreaterThan(480);
     const phases = new Set<string>();
     const sticks = new Set<string>();
-    for (let t = 0; t < 40000; t += 50) {
+    for (let t = 0; t < 100000; t += 50) {
       tickCompanions(s, 50, idle, rng);
       phases.add(s.play.phase);
       sticks.add(s.stick.state);
     }
-    expect(phases.has('chase') || phases.has('bring')).toBe(true);
+    expect(phases.has('bring')).toBe(true);
     expect(phases.has('spin')).toBe(true);
     expect(phases.has('zoomies' as never)).toBe(false);
     expect(sticks.has('flying')).toBe(true);
@@ -149,7 +149,7 @@ describe('idle play on the grass', () => {
         expect(s.stick.x).toBeCloseTo(s.dog.x + s.dog.face * DOG_MOUTH.x);
         expect(s.stick.y).toBeCloseTo(s.dog.y - s.dog.hop - DOG_MOUTH.y);
         peakHop = Math.max(peakHop, s.dog.hop);
-      } else {
+      } else if (s.stick.state !== 'carried') {
         expect(dogView(s).carry).toBe(false);
       }
       if (s.play.phase === 'spin') break;
