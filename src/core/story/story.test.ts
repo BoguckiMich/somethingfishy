@@ -50,6 +50,12 @@ describe('todaysChapter: one per date, the next unseen one', () => {
   it('a fresh game gets Q1 on any valid date', () => {
     expect(todaysChapter(newStory(), '2026-11-24', LAKE)?.id).toBe('Q1');
   });
+  it('Q1 waits for the first catch; later chapters do not', () => {
+    expect(todaysChapter(newStory(), '2026-11-24', LAKE, false)).toBeNull();
+    expect(todaysChapter(newStory(), '2026-11-24', LAKE, true)?.id).toBe('Q1');
+    const s = markSeen(newStory(), 'Q1', '2026-12-01');
+    expect(todaysChapter(s, '2026-12-02', LAKE, false)?.id).toBe('Q2'); // an old save with Q1 done is unaffected
+  });
   it('gives one chapter per date, in order, over seven days', () => {
     let s = newStory();
     const seen: string[] = [];

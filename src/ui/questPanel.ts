@@ -27,6 +27,14 @@ export interface QuestStore extends PlayerStore {
   names(): { alex: string; paj: string };
 }
 
+/** The player's own fold choice for the daily quests this session (undefined = the default rule). */
+let foldChoice: boolean | undefined;
+
+/** Folded once every quest of the day is claimed (and there is at least one), else open. */
+export function defaultFolded(list: readonly { claimed: boolean }[]): boolean {
+  return list.length > 0 && list.every((q) => q.claimed);
+}
+
 export type NoticeTab = 'quests' | 'story';
 
 /** The top block: today's fish. Its sprite sits beside the name only, not beside the whole block. */
@@ -101,6 +109,8 @@ function journalRow(e: JournalEntry, names: { alex: string; paj: string }): HTML
 /** The notice board: Quests (today's quests with progress, Claim (gold) and the one free Reroll (wood)) and Story (the journal, slice 22d). */
 export function showQuestPanel(store: QuestStore, onClose: () => void, startTab: NoticeTab = 'quests'): PanelHandle {
   let tab: NoticeTab = startTab;
+  // Decided once when the board opens, so claiming the last quest does not fold it under her finger.
+  let folded = foldChoice ?? defaultFolded(questsOf(store.get()).list);
   const panel: PanelHandle = openPanel(
     'Notice board',
     (body, pinned) => {
@@ -146,16 +156,45 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         store.set(next);
         panel.refresh();
       };
+      // The checklist entry sits right under the tabs so it never hides below the quests (fix/board-and-car).
+      const cl = store.checklist();
+      const clRow = el('div', 'margin:2px 0 8px');
+      const clBtn = woodButton(`Quiet Lake checklist ${cl.done}/${cl.total}`, () => {
+        panel.close();
+        store.openChecklist();
+      }, { variant: 'wood' });
+      clBtn.style.width = '100%';
+      clRow.append(clBtn);
+      body.append(clRow);
       const fid = store.fotdId();
       const frow = fid ? fotdRow(fid) : undefined;
       if (frow) body.append(frow);
-      if (quests.list.length === 0) {
-        body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};padding:6px 0`, 'No quests today.'));
+      // Daily quests: a foldable section. Folded by default once all of today's are claimed; her own toggle wins for the session.
+      const claimed = quests.list.filter((q) => q.claimed).length;
+      const ready = quests.list.some((q) => q.done && !q.claimed);
+      const head = el(
+        'button',
+        `display:flex;align-items:center;gap:8px;width:100%;min-height:44px;margin-top:6px;padding:0 10px;box-sizing:border-box;border:2px solid ${COLORS.outline};background:${COLORS.woodLight};cursor:pointer;text-align:left;font-family:inherit;font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`,
+      );
+      head.type = 'button';
+      head.setAttribute('aria-expanded', String(!folded));
+      head.append(el('span', `color:${COLORS.gold}`, folded ? '>' : 'v'), el('span', 'flex:1', `Daily quests (${claimed}/${quests.list.length})`));
+      if (ready) head.append(el('span', `color:${COLORS.gold}`, 'Claim!'));
+      head.addEventListener('click', () => {
+        folded = !folded;
+        foldChoice = folded;
+        panel.refresh();
+      });
+      body.append(head);
+      if (!folded) {
+        if (quests.list.length === 0) {
+          body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};padding:6px 0`, 'No quests today.'));
+        }
+        quests.list.forEach((_, i) => body.append(questRow(p, i, today, act)));
+        const rerollNote = quests.list.some((_, i) => canReroll(quests, i, today)) ? '1 free reroll today' : quests.rerollUsed ? 'Reroll used today' : '';
+        if (rerollNote) body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};margin-top:8px`, rerollNote));
+        body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim};margin-top:${rerollNote ? 2 : 8}px`, 'New quests at midnight'));
       }
-      quests.list.forEach((_, i) => body.append(questRow(p, i, today, act)));
-      const rerollNote = quests.list.some((_, i) => canReroll(quests, i, today)) ? '1 free reroll today' : quests.rerollUsed ? 'Reroll used today' : '';
-      if (rerollNote) body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};margin-top:8px`, rerollNote));
-      body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim};margin-top:${rerollNote ? 2 : 8}px`, 'New quests at midnight'));
       // Rumours (slice 23d): the half-hints of the rare fish she has not caught yet, pinned as one more note.
       const rumours = unknownHints(p.log);
       if (rumours.length > 0) {
@@ -164,16 +203,9 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         for (const h of rumours) note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};padding:2px 0`, `- ${h.text}`));
         body.append(note);
       }
-      const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:10px');
-      const cl = store.checklist();
-      col.append(
-        woodButton(`Quiet Lake checklist ${cl.done}/${cl.total}`, () => {
-          panel.close();
-          store.openChecklist();
-        }, { variant: 'wood' }),
-      );
-      col.append(woodButton('Close', () => panel.close(), { variant: 'wood' }));
-      body.append(col);
+      const close = el('div', 'margin-top:10px');
+      close.append(woodButton('Close', () => panel.close(), { variant: 'wood' }));
+      body.append(close);
     },
     onClose,
     true,

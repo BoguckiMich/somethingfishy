@@ -46,6 +46,7 @@ import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
 import { crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
 import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/sleepFade';
 import { showMapPanel } from '../ui/mapPanel';
+import { canOpenMap, napAvailable } from '../core/carMap';
 import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
@@ -619,10 +620,12 @@ export class LakeScene extends Phaser.Scene {
     this.syncRod();
     this.syncQuestsNow();
     // Dev-only: ?qdone=1 finishes the first quest (see the Claim button).
-    if (params.get('qdone') === '1') {
+    // ?qdone=all finishes AND claims every quest (the board opens folded).
+    const qd = params.get('qdone');
+    if (qd === '1' || qd === 'all') {
       const q = questsOf(this.player);
       if (q.list.length > 0) {
-        const list = q.list.map((x, i) => (i === 0 ? { ...x, progress: x.params.target, done: true } : x));
+        const list = q.list.map((x, i) => (i === 0 || qd === 'all' ? { ...x, progress: x.params.target, done: true, claimed: qd === 'all' } : x));
         this.setPlayer({ ...this.player, quests: { ...q, list } });
       }
     }
@@ -782,7 +785,9 @@ export class LakeScene extends Phaser.Scene {
     this.sinceDateCheck += deltaMs;
     if (this.sinceDateCheck >= DATE_CHECK_MS) this.refreshDate();
     if (this.sinceClockSave >= CLOCK_SAVE_MS) this.persist();
-    if (!(this.freezeCaught && this.state.kind === 'caught')) this.send({ type: 'tick', dtMs: deltaMs });
+    // A map opened over a waiting line holds the line: no nibble or bite is missed behind the panel.
+    const lineHeld = this.panel !== null && this.state.kind === 'waiting';
+    if (!lineHeld && !(this.freezeCaught && this.state.kind === 'caught')) this.send({ type: 'tick', dtMs: deltaMs });
 
     if (this.state.kind === 'casting' || this.state.kind === 'retrieving') {
       const durationMs = this.state.kind === 'casting' ? 350 + this.state.distanceM * 25 : 300 + this.state.distanceM * 15;
@@ -938,7 +943,6 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
-  /** The road map (slice 18): only from the dock, with Alex idle; "Take a nap..." there opens the nap card. */
   /** The trophy board's card (slice 23d): only while idle. */
   private openTrophies(): void {
     if (this.state.kind !== 'idle' || this.panel) return;
@@ -947,12 +951,18 @@ export class LakeScene extends Phaser.Scene {
     this.panel = showTrophyCard(this.player.trophies, this.player.log, () => (this.panel = null));
   }
 
+  /** Can the road map open right now (fix/board-and-car)? Any companion mode; Alex idle or the bobber waiting. */
+  private mapAllowed(): boolean {
+    return canOpenMap({ fishing: this.state.kind, panelOpen: !!this.panel, fading: !!this.sleepFade });
+  }
+
+  /** The road map (slice 18): from the car at any time `canOpenMap` allows; "Nap in the car..." there opens the nap card when possible. */
   private openMap(): void {
-    const c = this.companions.state;
-    if (this.state.kind !== 'idle' || this.panel || c.mode !== 'dock') return;
+    if (!this.mapAllowed()) return;
     this.swallowUp = false;
     this.panel = showMapPanel(
       {
+        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state) }),
         onNap: () => this.openNapCard(),
         onChecklist: () => this.openChecklist(),
         checklist: { done: checklistDone(this.player), total: bundleTotal },
@@ -963,7 +973,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** The Quiet Lake checklist (slice 20), from the map or the notice board. Only while idle. */
   private openChecklist(): void {
-    if (this.state.kind !== 'idle' || this.panel) return;
+    if (!this.mapAllowed()) return;
     this.swallowUp = false;
     this.panel = showChecklistPanel(
       {
@@ -988,12 +998,12 @@ export class LakeScene extends Phaser.Scene {
 
   /** A tap on the car (never casts): asleep inside makes a "Zzz...", otherwise the road map. */
   private tapCar(): void {
+    if (!this.mapAllowed()) return;
     this.markHint('car');
-    const c = this.companions.state;
-    if (isInCar(c)) {
+    // Asleep inside: a "Zzz..." puffs and the map opens anyway (it is only a panel, the sleep goes on).
+    if (isInCar(this.companions.state)) {
       this.spawnZzz(true);
       if (Math.random() < 1 / 3) sound.play('sleepyBoof');
-      return;
     }
     this.openMap();
   }
@@ -1052,7 +1062,7 @@ export class LakeScene extends Phaser.Scene {
   /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
   private dueChapter(): ChapterDef | null {
     if (!this.storyOn) return null;
-    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, QUIET_LAKE.id);
+    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, QUIET_LAKE.id, speciesCaught(this.player.log) > 0);
   }
 
   /** A chapter is due or being told: random moments wait. */

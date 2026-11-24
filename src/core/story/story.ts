@@ -63,10 +63,16 @@ export function slotFree(s: StoryState, today: string): boolean {
   return last === null || daysBetween(last, today) >= 1;
 }
 
-/** Today's chapter at this place: the first one not seen yet, when today's slot is free; else null. */
-export function todaysChapter(s: StoryState, today: string, place: string): ChapterDef | null {
+/**
+ * Today's chapter at this place: the first one not seen yet, when today's slot is free; else null.
+ * The very first chapter waits for the first catch (`caughtAny`, default true so older callers are unchanged):
+ * a fresh save gets its first-cast hints before the sealed bottle. Later chapters keep the one-per-date rule.
+ */
+export function todaysChapter(s: StoryState, today: string, place: string, caughtAny = true): ChapterDef | null {
   if (!slotFree(s, today)) return null;
-  return chaptersOf(place).find((c) => !has(s.done, c.id)) ?? null;
+  const next = chaptersOf(place).find((c) => !has(s.done, c.id)) ?? null;
+  if (next && !caughtAny && Object.keys(s.done).length === 0) return null;
+  return next;
 }
 
 /** Appends lines to the queue (unknown ids dropped, the oldest dropped past the cap). */
