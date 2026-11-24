@@ -836,7 +836,12 @@ export class LakeScene extends Phaser.Scene {
     this.ctx = { ...this.ctx, showOffMs };
     if (celebrate && r.outcome.kind !== 'normal') companionEvent(this.companions.state, 'fishCaught', true);
     // Pajkel praises a record out loud (slice 15a). The dev catch (celebrate = false) speaks too, so ?debug=caught&log=all shows it.
-    if (r.outcome.kind === 'newRecord') this.companions.say(pickLine(RECORD_LINES));
+    // Not while he is off to bed or asleep in the car: then the car only puffs a sleepy Zzz.
+    if (r.outcome.kind === 'newRecord') {
+      const c = this.companions.state;
+      if (c.mode !== 'bed') this.companions.say(pickLine(RECORD_LINES));
+      else if (isInCar(c)) this.spawnZzz(true);
+    }
   }
 
   /** The player's side of a game event: bait use. */
