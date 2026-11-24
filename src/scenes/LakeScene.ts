@@ -168,6 +168,8 @@ const CATCH_NOTE_Y = 274;
 const CATCH_FOTD_Y = 182;
 const FOTD_TEXT = '#8fe3b0';
 const CATCH_TEXT_LIMIT = 324;
+/** Pajkel's speech bubble over his head starts at about y 300 during the show-off (31 px per line, 2 lines for a long one): the stack must end above it. */
+const CATCH_BUBBLE_TOP = 298;
 /** Room the "Fits the checklist!" tag takes under the size line (slice 22b). */
 const CATCH_FITS_GAP = 26;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
@@ -1831,7 +1833,9 @@ export class LakeScene extends Phaser.Scene {
       const tag = this.catchFits ? CATCH_FITS_GAP : 0;
       const fitsY = CATCH_SUB_Y + 28;
       const bottom = noteBottom + tag;
-      const lift = this.caughtNote.text || this.catchFits ? Math.min(0, CATCH_TEXT_LIMIT - bottom) : 0;
+      const bubbleText = this.companions.state.bubble?.text ?? '';
+      const limit = Math.min(CATCH_TEXT_LIMIT, CATCH_BUBBLE_TOP - (bubbleText.length > 24 ? 31 : 0));
+      const lift = this.caughtNote.text || this.catchFits ? Math.min(0, limit - bottom) : 0;
       this.caughtText.setY(CATCH_TITLE_Y + lift);
       this.caughtSub.setY(CATCH_SUB_Y + lift);
       this.caughtBadge.setY(CATCH_BADGE_Y + tag + lift);
