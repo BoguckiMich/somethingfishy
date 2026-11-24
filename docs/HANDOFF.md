@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**; this file is about *state and how we work*.
 
-_Last updated: 2026-11-24. Slices 15a-17 are pushed. Slice 18 (road map) and the record-from-bed fix are merged into main but NOT pushed. Slice 19 (size stars + fish of the day) is on branch `slice/19-stars-fotd`, not merged. Next after it: the checklist board, see GAME_DESIGN §3 → Progression plan. The storyline is written in a separate session from `docs/STORY_AGENT_PROMPT.md` into `docs/STORY.md`._
+_Last updated: 2026-11-24. Slices 15a-19, the record-from-bed fix and the car-tree fix are merged and pushed (not phone-tested). Next: the checklist board on Quiet Lake (slice 20), see GAME_DESIGN §3 → Progression plan. The storyline is written in a separate session from `docs/STORY_AGENT_PROMPT.md` into `docs/STORY.md`._
 
 ## Current state
 
