@@ -162,6 +162,15 @@ export class CompanionView {
     return new Phaser.Geom.Rectangle(d.x - w / 2, d.y - DOG_SIZE.h / 2 - h / 2, w, h);
   }
 
+  /** His empty chair with the thermos, at least 44 x 44 (a finger) around the drawn chair. */
+  chairRect(): Phaser.Geom.Rectangle {
+    const cx = PAJ_SPOT.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x + EMPTY_CHAIR.w / 2;
+    const cy = PAJ_SPOT.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y + EMPTY_CHAIR.h / 2;
+    const w = Math.max(EMPTY_CHAIR.w + 8, 44);
+    const h = Math.max(EMPTY_CHAIR.h + 8, 44);
+    return new Phaser.Geom.Rectangle(cx - w / 2, cy - h / 2, w, h);
+  }
+
   pajRect(): Phaser.Geom.Rectangle {
     const p = this.state.paj;
     if (isSeatedShape(p.shape)) return new Phaser.Geom.Rectangle(p.x - PAJ_SIZE.w / 2, p.y - PAJ_ORIGIN_Y, PAJ_SIZE.w, PAJ_SIZE.h);

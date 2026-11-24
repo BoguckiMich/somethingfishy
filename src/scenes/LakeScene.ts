@@ -96,13 +96,15 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { carVariant, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { carVariant, chairEmpty, companionEvent, companionPress, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES } from '../core/data/pajkelLines';
 import { fishOfTheDay } from '../core/daily/fotd';
 import { lengthForStar, starFor, type Star } from '../core/data/stars';
 import { starKey } from '../art/starArt';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
+import { resolveRelease, type ShoreObject } from '../core/tapHold';
+import { enqueueToast, nextToast } from '../core/toastQueue';
 
 const NIBBLE_ANIM_MS = 260;
 const TOAST_MS = 1800;
@@ -200,6 +202,8 @@ const GLINT_N = 130;
  * (y 567-600) and the bar (y 602+).
  */
 const CAR_POS = { x: 0, y: 500 };
+/** The notice-board button, top right (a second way in beside the sign): 44 x 44, above the catch bar (it starts at y 50). */
+const BOARD_BTN = new Phaser.Geom.Rectangle(W - 8 - 44, 4, 44, 44);
 const CAR_HIT = new Phaser.Geom.Rectangle(0, 494, 84, 58);
 /** The dock lantern's feet, and the centre of its glow (between the lantern and Alex, near the dock end). */
 const LANTERN_FEET = { x: 180, y: 388 };
@@ -284,6 +288,7 @@ export class LakeScene extends Phaser.Scene {
   private saveFailed = false;
   private sinceClockSave = 0;
   private devTag!: Phaser.GameObjects.Text;
+  private boardImg!: Phaser.GameObjects.Image;
 
   // Scenery images (tinted by the day cycle).
   private sunImg!: Phaser.GameObjects.Image;
@@ -334,6 +339,7 @@ export class LakeScene extends Phaser.Scene {
   private paleCardPending = false;
   /** ?debug=bubble: ms until Pajkel says a line (dev only), or null. */
   private debugBubbleInMs: number | null = null;
+  private debugToastInMs: number | null = null;
   private crateImg!: Phaser.GameObjects.Image;
   // Slice 16: the car, the lantern, bedtime and naps.
   private carImg!: Phaser.GameObjects.Image;
@@ -424,6 +430,12 @@ export class LakeScene extends Phaser.Scene {
   /** Time since the last nibble, for the bobber dip animation. */
   private nibbleAge = Infinity;
   private toastAge = Infinity;
+  /** Toasts said during the fight, shown once it is over (they would cover the bar). */
+  private pendingToasts: string[] = [];
+  /** True once the state being entered is the fight: set before a step's events are handled. */
+  private fightToasts = false;
+  /** The shore object the current press started on (tap opens it, hold casts), or null. */
+  private holdOn: ShoreObject | null = null;
   /** The fetch phase last frame, to bark when it changes. */
   private lastPlayPhase: string | null = null;
   private elapsed = 0;
@@ -439,7 +451,7 @@ export class LakeScene extends Phaser.Scene {
     this.sandbox = isSandbox([...params.keys()]);
     const saveStatus = this.setupSave(params);
     // The dev sandbox pretends every hint was seen (a clean lake for the other flags); ?debug=fresh pretends none was.
-    if (this.sandbox) this.setPlayer({ ...this.player, seen: params.get('debug') === 'fresh' ? [] : allSeen() });
+    if (this.sandbox) this.setPlayer({ ...this.player, seen: params.get('debug') === 'fresh' ? (params.get('casts') === '3' ? ['cast1', 'cast2', 'cast3', 'crate', 'sign', 'dog'] : []) : allSeen() });
     const startHour = Number(params.get('time'));
     if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
@@ -466,6 +478,8 @@ export class LakeScene extends Phaser.Scene {
     const debugKind = dbg.startsWith('moment=') ? MOMENT_KINDS.find((k) => k === dbg.slice(7)) : undefined;
     if (debugKind) this.debugMoment = { kind: debugKind, inMs: 1000 };
     if (dbg === 'bubble') this.debugBubbleInMs = 1000;
+    // Dev-only: ?toast=<ms> says a long toast that many ms after load (default 1000) (during ?debug=fight it must wait for the fight to end).
+    if (params.has('toast')) this.debugToastInMs = Number(params.get('toast')) || 1000;
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
     // Dev-only: ?fish=<pattern>&diff=<0..1> forces the fish; ?debug=fight / ?debug=caught jump into those states.
     if (params.has('fish') || params.has('diff')) {
@@ -584,7 +598,10 @@ export class LakeScene extends Phaser.Scene {
     document.addEventListener('visibilitychange', onVisible);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => document.removeEventListener('visibilitychange', onVisible));
 
+    // A long press on a phone can fire the context menu: keep it off the game.
+    this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.holdOn = null;
       if (this.panel || this.sleepFade) return;
       if (this.handleTap(pointer.worldX, pointer.worldY)) {
         this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
@@ -598,14 +615,33 @@ export class LakeScene extends Phaser.Scene {
       companionPress(this.companions.state);
       this.send({ type: 'press' });
     });
-    this.input.on('pointerup', () => {
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const hold = this.holdOn;
+      this.holdOn = null;
       if (this.swallowUp) {
         this.swallowUp = false;
         return;
       }
+      // The browser took the touch away (pointercancel / touchcancel): that is not a release, so it casts nothing.
+      if (pointer.wasCanceled) {
+        this.send({ type: 'cancel' });
+        return;
+      }
+      if (hold && this.state.kind === 'charging') {
+        const over = this.holdHit(hold, pointer.worldX, pointer.worldY) ? hold : null;
+        if (resolveRelease(this.state.heldMs, hold, over) === 'action') {
+          this.send({ type: 'cancel' }); // back to idle: no cast, no bait
+          this.actOn(hold);
+          return;
+        }
+      }
       this.send({ type: 'release' });
     });
-    this.input.on('gameout', () => this.send({ type: 'release' }));
+    // Leaving the canvas: a mouse release as before; a finger that slid off (or was taken away) cancels instead of casting.
+    this.input.on('gameout', () => {
+      this.holdOn = null;
+      this.send({ type: this.input.activePointer.wasTouch ? 'cancel' : 'release' });
+    });
 
     this.updateEerie(0, true); // opening inside the window (or a dev fight) starts with the look already there
     this.render();
@@ -690,6 +726,12 @@ export class LakeScene extends Phaser.Scene {
     this.ripples = this.ripples.filter((r) => r.age < RIPPLE_MS);
     this.nibbleAge += deltaMs;
     this.toastAge += deltaMs;
+    this.fightToasts = this.state.kind === 'fighting';
+    {
+      const n = nextToast(this.pendingToasts, { fighting: this.fightToasts, caught: this.state.kind === 'caught', busy: this.toastAge < TOAST_MS });
+      this.pendingToasts = n.pending;
+      if (n.show) this.showToast(n.show);
+    }
     this.slipNoteAge += deltaMs;
     this.updateEerie(deltaMs);
 
@@ -697,6 +739,10 @@ export class LakeScene extends Phaser.Scene {
     this.updateSound(deltaMs);
     this.updateStory(deltaMs);
     this.updateMoments(deltaMs);
+    if (this.debugToastInMs !== null && (this.debugToastInMs -= deltaMs) <= 0) {
+      this.debugToastInMs = null;
+      this.showToast('Quest done! +40 coins, +5 worms');
+    }
     if (this.debugBubbleInMs !== null && (this.debugBubbleInMs -= deltaMs) <= 0) {
       this.companions.say(pickLine(RECORD_LINES));
       this.debugBubbleInMs = null;
@@ -1076,6 +1122,9 @@ export class LakeScene extends Phaser.Scene {
   private send(input: FishingInput): void {
     const prev = this.state;
     const { state: next, events } = step(prev, input, this.ctx);
+    this.fightToasts = next.kind === 'fighting';
+    // A release that was too short for a cast: say how it works.
+    if (prev.kind === 'charging' && next.kind === 'idle' && input.type === 'release') this.showToast('Hold to charge, release to cast');
     for (const e of events) this.onEvent(e);
     if (next === prev) return;
     if (next.kind !== prev.kind) {
@@ -1455,24 +1504,21 @@ export class LakeScene extends Phaser.Scene {
       if (hit) this.openPlayerPanel(hit);
       return true;
     }
-    if (CAR_HIT.contains(x, y)) {
-      this.tapCar();
+    // The notice-board button (top right), a second way in beside the sign: opens at once, only while idle.
+    if (BOARD_BTN.contains(x, y)) {
+      if (this.state.kind === 'idle') this.openQuests();
       return true;
     }
-    if (this.state.kind === 'idle' && this.crateVisible() && CRATE_HIT.contains(x, y)) {
-      this.openBaitBox();
-      return true;
-    }
+    // The car, the crate, the sign and Pajkel's empty chair: tap = open, hold = cast (see objectTouched).
+    if (this.holdHit('car', x, y)) return this.objectTouched('car');
+    if (this.holdHit('crate', x, y)) return this.objectTouched('crate');
     // A moment on the lake: a tap on it never starts a cast. The bottle opens a card, so only while idle.
     const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
     if (momentOk && this.story.tap(x, y, this.state.kind === 'idle')) return true;
     if (momentOk && this.moments.tap(x, y, this.state.kind === 'idle')) return true;
     // The notice-board sign: a tap never casts while idle or waiting; it acts only while idle. It wins over petting
     // Bestia (or tagging Pajkel) inside its box, so it is checked before them.
-    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && SIGN_HIT.contains(x, y)) {
-      this.tapSign();
-      return true;
-    }
+    if (this.holdHit('sign', x, y)) return this.objectTouched('sign');
     const dog = this.companions.dogRect();
     if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
       this.markHint('dog');
@@ -1487,7 +1533,58 @@ export class LakeScene extends Phaser.Scene {
       this.showTag(1, this.profile.companion, paj.centerX, paj.y - 2);
       return true;
     }
+    // His empty chair (with the thermos) while he is away or asleep in the car: a tap never casts.
+    if (this.holdHit('chair', x, y)) return this.objectTouched('chair');
     return false;
+  }
+
+  /** Does this point hit the shore object, and can it be touched in the current state? */
+  private holdHit(obj: ShoreObject, x: number, y: number): boolean {
+    const k = this.state.kind;
+    // Charging counts too, so a release can tell the finger is still on the object it pressed.
+    const on = k === 'idle' || k === 'waiting' || k === 'charging';
+    switch (obj) {
+      case 'car':
+        return CAR_HIT.contains(x, y);
+      case 'crate':
+        return (k === 'idle' || k === 'charging') && this.crateVisible() && CRATE_HIT.contains(x, y);
+      case 'sign':
+        return on && SIGN_HIT.contains(x, y);
+      case 'chair':
+        return on && chairEmpty(this.companions.state) && this.companions.chairRect().contains(x, y);
+    }
+  }
+
+  /**
+   * A press landed on a shore object. While she can cast from idle, the press starts the charge as usual and the
+   * object waits for the release (short tap there = its action, a hold = a cast). Otherwise it acts at once.
+   */
+  private objectTouched(obj: ShoreObject): boolean {
+    if (this.state.kind === 'idle' && !this.panel && canCast(this.player)) {
+      this.holdOn = obj;
+      return false;
+    }
+    this.actOn(obj);
+    return true;
+  }
+
+  private actOn(obj: ShoreObject): void {
+    switch (obj) {
+      case 'car':
+        this.tapCar();
+        break;
+      case 'crate':
+        this.openBaitBox();
+        break;
+      case 'sign':
+        this.tapSign();
+        break;
+      case 'chair': {
+        const r = this.companions.chairRect();
+        this.showTag(1, `${this.profile.companion}'s chair`, r.centerX, r.y - 2);
+        break;
+      }
+    }
   }
 
   /** A first tap on a shore thing stops its glint (saved). */
@@ -1543,6 +1640,11 @@ export class LakeScene extends Phaser.Scene {
   }
 
   private showToast(text: string): void {
+    // During the fight the toast would cover the catch bar: it waits (and is shown after the fight and the show-off).
+    if (this.fightToasts) {
+      this.pendingToasts = enqueueToast(this.pendingToasts, text);
+      return;
+    }
     this.toast.setText(text);
     this.toastAge = 0;
   }
@@ -1709,6 +1811,7 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText)
       .setVisible(false);
     this.bottomBar = new BottomBar(this, Z.uiText);
+    this.boardImg = this.add.image(BOARD_BTN.centerX, BOARD_BTN.centerY, TEX.board).setScale(2).setDepth(Z.uiText);
     this.questCue = this.add
       .text(W / 2, 150, 'Quest done!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: '#ffd35a', stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5)
@@ -1721,7 +1824,7 @@ export class LakeScene extends Phaser.Scene {
       .setDepth(Z.uiText + 21)
       .setVisible(false);
     this.devTag = this.add
-      .text(W - 8, 8, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
+      .text(BOARD_BTN.x - 6, 8, 'DEV · not saving', { fontFamily: FONT, fontSize: `${FS.tiny}px`, color: ALERT, padding: textPad(5, 3, FS.tiny) })
       .setOrigin(1, 0)
       .setDepth(Z.uiText)
       .setVisible(this.sandbox);
@@ -1937,7 +2040,7 @@ export class LakeScene extends Phaser.Scene {
     if (s.kind === 'waiting') {
       const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);
-    } else if (s.kind === 'idle' || s.kind === 'caught') {
+    } else if (s.kind === 'idle' || s.kind === 'caught' || s.kind === 'fighting') {
       this.zoneLabel.setVisible(false);
     }
     this.coinLabel.setText(String(this.player.coins));
@@ -2036,12 +2139,29 @@ export class LakeScene extends Phaser.Scene {
       crate: null, // the crate has its own, constant twinkle (drawCrate)
     };
     const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed' });
+    if (live.includes('car')) this.drawCarCue(g);
     for (const id of live) {
       const k = glintPhase(this.elapsed, GLINTS.indexOf(id));
       const at = spots[id];
       if (k < 0 || !at) continue;
       this.twinkle(g, Math.round(at.x), Math.round(at.y), Math.sin(k * Math.PI));
     }
+  }
+
+  /** Until the car is tapped once: a small gold map pin bobs above its roof (its purpose is easy to miss). */
+  private drawCarCue(g: Phaser.GameObjects.Graphics): void {
+    const x = CAR_POS.x + 34;
+    const y = CAR_POS.y - 28 + Math.round(3 * Math.sin(this.elapsed / 320));
+    const O = PAL.outline;
+    // A 9 x 11 teardrop pin with a hole, outlined, and its small shadow.
+    g.fillStyle(O, 0.25).fillRect(x - 6, y + 24, 12, 3);
+    const rows = ['..ooooo..', '.oGGGGGo.', 'oGGGGGGGo', 'oGGoooGGo', 'oGGoooGGo', 'oGGGGGGGo', '.oGGGGGo.', '.oGGGGGo.', '..oGGGo..', '...oGo...', '....o....'];
+    rows.forEach((row, ry) =>
+      [...row].forEach((c, rx) => {
+        if (c === '.') return;
+        g.fillStyle(c === 'o' ? O : PAL.gold).fillRect(x - 9 + rx * 2, y + ry * 2, 2, 2);
+      }),
+    );
   }
 
   /** The little "+" twinkle (the crate's), k 0..1..0. */
@@ -2530,6 +2650,32 @@ export class LakeScene extends Phaser.Scene {
     g.fillStyle(color).fillRect(BOBBER_X, ly, 1, 1);
   }
 
+  /** The notice-board button: dimmed unless a tap would open it; a gold badge when a quest can be claimed, a red wax seal when a chapter waits. */
+  private drawBoardButton(g: Phaser.GameObjects.Graphics): void {
+    const on = this.state.kind === 'idle' && !this.panel;
+    const a = on ? 1 : 0.6;
+    const b = BOARD_BTN;
+    drawFrame(g, b.x, b.y, b.width, b.height, 'buttonWood', a);
+    this.boardImg.setAlpha(a);
+    if (claimableCount(questsOf(this.player)) > 0) {
+      // Gold, breathing: "something to claim" (the same gold as the sign's glowing notes and the "Quest done!" cue).
+      const k = 0.5 + 0.5 * Math.sin((this.elapsed / 1400) * Math.PI * 2);
+      const bx = b.right - 9;
+      const by = b.y - 1;
+      g.fillStyle(PAL.gold, 0.25 + 0.25 * k).fillRect(bx - 2, by - 2, 15, 15);
+      g.fillStyle(PAL.outline).fillRect(bx, by, 11, 11);
+      g.fillStyle(PAL.gold).fillRect(bx + 1, by + 1, 9, 9);
+      g.fillStyle(PAL.outline).fillRect(bx + 2, by + 5, 2, 2).fillRect(bx + 4, by + 6, 2, 2).fillRect(bx + 6, by + 4, 2, 2).fillRect(bx + 8, by + 2, 1, 2);
+    }
+    if (this.storyBadge()) {
+      const sx = b.x - 4;
+      const sy = b.y - 3;
+      const rows = ['.ooo.', 'oRrRo', 'oRRRo', 'oRRDo', '.ooo.'];
+      const col: Record<string, number> = { o: PAL.outline, R: PAL.red, r: PAL.redLight, D: PAL.redDark };
+      rows.forEach((row, ry) => [...row].forEach((c, rx) => c !== '.' && g.fillStyle(col[c]).fillRect(sx + rx * 2, sy + ry * 2, 2, 2)));
+    }
+  }
+
   /** Warm panels behind the text labels. */
   private drawPanels(): void {
     const g = this.ui;
@@ -2558,6 +2704,7 @@ export class LakeScene extends Phaser.Scene {
     // The coin icon sits in the left padding of its label; the clock icon too (9 x 9, drawn bigger).
     this.coinIcon.setPosition(Math.round(this.coinLabel.x) + 5, Math.round(this.coinLabel.y + this.coinLabel.height / 2) - 8);
     this.clockIcon.setPosition(Math.round(this.clockLabel.x) + 9, Math.round(this.clockLabel.y + this.clockLabel.height / 2) - Math.floor((9 * CLOCK_ICON_SCALE) / 2));
+    this.drawBoardButton(g);
     this.bottomBar.draw(g, {
       enabled: this.state.kind === 'idle' && !this.panel,
       bagCount: this.player.bag.length,
