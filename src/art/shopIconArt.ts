@@ -274,6 +274,146 @@ export function lanternIconSprite(): Sprite {
   );
 }
 
+// ---- Camp items (slice 23e), ids as in core/data/camp.ts -----------------------------------------
+
+/** A campfire: red, orange and yellow flames over two logs and a few stones. */
+export function campfireIconSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ......r.......
+    .....rRr......
+    ....rRYRr.....
+    ....rRYYRr....
+    ...rRYYwYRr...
+    ...rRYwwYRr...
+    ...rRYwwYRr...
+    ....rRYYRr....
+    .bbBBBBBBBBbb.
+    .bBBbbbbbbBBb.
+    ..bbBBBBBBbb..
+    .ssss....ssss.
+    ..............
+    `,
+    { r: PAL.red, R: PAL.redLight, Y: PAL.gold, w: PAL.strawLight, b: PAL.woodDark, B: PAL.wood, s: PAL.stone },
+  );
+}
+
+/** A deck chair seen from the front: a wooden frame, teal and cream striped canvas. */
+export function deckChairIconSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ..WWWWWWWWWW..
+    ..WtctctctcW..
+    ..WtctctctcW..
+    ..WtctctctcW..
+    ..WtctctctcW..
+    ..WtctctctcW..
+    .WWWWWWWWWWWW.
+    .WtcctcctcctW.
+    ..W........W..
+    ..W........W..
+    .WW........WW.
+    .W..........W.
+    ..............
+    `,
+    { W: PAL.wood, t: PAL.mug, c: PAL.cream },
+  );
+}
+
+/** A round dog bed from above: a blue rim, a cream cushion and a little bone. */
+export function dogBedIconSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ..............
+    ..............
+    ....dddddd....
+    ..ddDDDDDDdd..
+    .dDDssssssDDd.
+    dDDcccccccccDd
+    dDDcccwwwcccDd
+    dDDccccccccDDd
+    .dDDDDDDDDDDd.
+    ..dddddddddd..
+    ..............
+    ..............
+    ..............
+    `,
+    { d: PAL.denimDark, D: PAL.denimLight, c: PAL.cream, s: PAL.whiteShade, w: PAL.white },
+  );
+}
+
+/** A small tent: cream canvas with red edges, the right side in shade, a dark door with a lighter flap. */
+export function tentIconSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ......rr......
+    .....rcsr.....
+    ....rccssr....
+    ...rcccsssr...
+    ..rccccssssr..
+    .rcccccsssssr.
+    rcccccDDsssssr
+    rccccDDDDssssr
+    rccccDLLDssssr
+    rccccDLLDssssr
+    rrrrrrrrrrrrrr
+    ..............
+    ..............
+    `,
+    { r: PAL.red, c: PAL.cream, s: PAL.sandLight, D: PAL.woodDeep, L: PAL.woodLight },
+  );
+}
+
+/** String lights: a wire sagging between two poles, four coloured bulbs. */
+export function lightsIconSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ..............
+    ..............
+    kk..........kk
+    .kk........kk.
+    ..kkkkkkkkkk..
+    RR.GG.OO.YY.BB
+    RR.GG.OO.YY.BB
+    RR.GG.OO.YY.BB
+    ..............
+    ..............
+    ..............
+    ..............
+    ..............
+    `,
+    { k: PAL.outlineSoft, R: PAL.redLight, B: PAL.blueFlower, G: PAL.leafHi, O: PAL.sunEdge, Y: PAL.gold },
+  );
+}
+
+/** A windsock on a pole: an orange and white striped cone blowing to the right. */
+export function windsockIconSprite(): Sprite {
+  return fromGrid(
+    `
+    .WW...........
+    .WW...........
+    .WWooHHooHH...
+    .WWooHHooHHooH
+    .WWooHHooHHooH
+    .WWooHHooHH...
+    .WW...........
+    .WW...........
+    .WW...........
+    .WW...........
+    .WW...........
+    .WW...........
+    WWWW..........
+    WWWW..........
+    `,
+    { W: PAL.wood, o: PAL.redLight, H: PAL.white },
+  );
+}
+
 const BUILDERS: Record<string, () => Sprite> = {
   worms: wormPackSprite,
   bamboo: () => rodSprite(ROD_ART.bamboo),
@@ -290,6 +430,13 @@ const BUILDERS: Record<string, () => Sprite> = {
   glow: glowSprite,
   // The night kit (slice 16), id as in core/data/nightKit.ts.
   lantern: lanternIconSprite,
+  // Camp items (slice 23e), ids as in core/data/camp.ts.
+  campfire: campfireIconSprite,
+  deckchair: deckChairIconSprite,
+  dogbed: dogBedIconSprite,
+  tent: tentIconSprite,
+  lights: lightsIconSprite,
+  windsock: windsockIconSprite,
 };
 
 /** Every item id that has a shop icon. */

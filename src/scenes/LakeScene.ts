@@ -54,7 +54,10 @@ import { isLegendary, isTrophy, speciesById, SPECIES } from '../core/data/fish';
 import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../core/data/rare';
 import { addTrophy, boardIds, fullBoard } from '../core/rare';
 import { showTrophyCard } from '../ui/trophyCard';
-import { ensureTrophyBoardTexture } from '../art/textures';
+import { campfireKey, ensureTrophyBoardTexture, windsockKey } from '../art/textures';
+import { BED_SIZE, CAMPFIRE_FLAME, CAMPFIRE_FRAMES, CAMPFIRE_SIZE, POLE_ANCHOR, POLE_SIZE, TENT_ANCHOR, TENT_SIZE } from '../art/campArt';
+import { BED_POS, FIRE_FEET, LIGHT_POLE, SOCK_FEET, SOCK_ORIGIN_X, TENT_FEET } from '../art/campLayout';
+import { allCamp, hasCamp, windsockLevel } from '../core/camp';
 import { PALE_ONE } from '../core/data/legendary';
 import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
@@ -219,6 +222,8 @@ const CAR_HIT = new Phaser.Geom.Rectangle(0, 494, 84, 58);
  */
 const TROPHY_FEET = { x: 58, y: 492 };
 const TROPHY_HIT = new Phaser.Geom.Rectangle(TROPHY_FEET.x - 28, TROPHY_FEET.y - 46, 56, 48);
+/** Where the camp items stand (slice 23e): the spots and the reasons are in art/campLayout.ts. */
+const LIGHT_BULBS = [PAL.redLight, PAL.gold, PAL.leafHi, PAL.blueFlower, PAL.pink] as const;
 /** The dock lantern's feet, and the centre of its glow (between the lantern and Alex, near the dock end). */
 const LANTERN_FEET = { x: 180, y: 388 };
 const GLOW_CENTER = { x: 194, y: 374 };
@@ -378,6 +383,17 @@ export class LakeScene extends Phaser.Scene {
   private carFx!: Phaser.GameObjects.Graphics;
   private lanternImg!: Phaser.GameObjects.Image;
   private lanternFx!: Phaser.GameObjects.Graphics;
+  // Slice 23e: the camp items.
+  private campFire!: Phaser.GameObjects.Image;
+  private campTent!: Phaser.GameObjects.Image;
+  private campPole!: Phaser.GameObjects.Image;
+  /** The lights' second pole, standing where the tent's ridge pole would be while the tent is not owned. */
+  private campPole2!: Phaser.GameObjects.Image;
+  private campBed!: Phaser.GameObjects.Image;
+  private campSock!: Phaser.GameObjects.Image;
+  private campFx!: Phaser.GameObjects.Graphics;
+  private campSparks: { x: number; y: number; age: number; life: number; vx: number }[] = [];
+  private sparkClock = 0;
   private carZs: { img: Phaser.GameObjects.Image; age: number }[] = [];
   private sinceAutoZ = 0;
   private fadeGfx!: Phaser.GameObjects.Graphics;
@@ -550,6 +566,8 @@ export class LakeScene extends Phaser.Scene {
       log.pale ??= { count: 1, bestLengthCm: 182, bestWeightG: 64000 };
       this.setPlayer({ ...this.player, trophies: board, log });
     }
+    // Dev-only (slice 23e): ?camp=all owns every camp item.
+    if (params.get('camp') === 'all') this.setPlayer({ ...this.player, camp: allCamp() });
     const coinsParam = Number(params.get('coins'));
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
@@ -1874,6 +1892,16 @@ export class LakeScene extends Phaser.Scene {
     this.trophyImg = this.add.image(TROPHY_FEET.x, TROPHY_FEET.y, ensureTrophyBoardTexture(this, [])).setOrigin(0.5, 1).setDepth(Z.angler - 0.2).setVisible(false);
     this.worldImgs.push(this.trophyImg);
     this.glintFx = this.add.graphics().setDepth(Z.angler + 0.45);
+    // The camp (slice 23e): ground things sort by their feet's y, a hair behind the other shore things (Z.angler - 0.3 .. -0.2).
+    const campDepth = (feetY: number) => Z.angler - 0.3 + feetY / 10000;
+    this.campTent = this.add.image(TENT_FEET.x - TENT_SIZE.w / 2, TENT_FEET.y - TENT_SIZE.h, TEX.campTent).setOrigin(0, 0).setDepth(campDepth(TENT_FEET.y)).setVisible(false);
+    this.campPole = this.add.image(LIGHT_POLE.x, LIGHT_POLE.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(LIGHT_POLE.y + POLE_SIZE.h)).setVisible(false);
+    this.campPole2 = this.add.image(TENT_FEET.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x - POLE_ANCHOR.x, TENT_FEET.y - TENT_SIZE.h + TENT_ANCHOR.y - POLE_ANCHOR.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(TENT_FEET.y - TENT_SIZE.h + POLE_SIZE.h)).setVisible(false);
+    this.campBed = this.add.image(BED_POS.x, BED_POS.y, TEX.campBed).setOrigin(0, 0).setDepth(campDepth(BED_POS.y + BED_SIZE.h)).setVisible(false);
+    this.campSock = this.add.image(SOCK_FEET.x, SOCK_FEET.y, windsockKey(0, 0)).setOrigin(SOCK_ORIGIN_X, 1).setFlipX(true).setDepth(campDepth(SOCK_FEET.y)).setVisible(false);
+    this.worldImgs.push(this.campTent, this.campPole, this.campPole2, this.campBed, this.campSock);
+    this.campFire = this.add.image(FIRE_FEET.x, FIRE_FEET.y, campfireKey(0)).setOrigin(0.5, 1).setDepth(campDepth(FIRE_FEET.y)).setVisible(false);
+    this.campFx = this.add.graphics().setDepth(Z.angler - 0.15);
 
     this.action = this.add.graphics().setDepth(Z.action);
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
@@ -2169,6 +2197,7 @@ export class LakeScene extends Phaser.Scene {
     this.drawTrophyBoard();
     this.drawCar(look, _deltaMs);
     this.drawLantern(look);
+    this.drawCamp(look, _deltaMs);
     this.drawFade();
 
     // Labels.
@@ -2390,6 +2419,102 @@ export class LakeScene extends Phaser.Scene {
     const fx = LANTERN_FEET.x - Math.floor(LANTERN_SIZE.w / 2) + LANTERN_FLAME.x;
     const fy = LANTERN_FEET.y - LANTERN_SIZE.h + LANTERN_FLAME.y;
     g.fillStyle(PAL.gold, 0.25 * glow).fillRect(fx - 3, fy - 3, 7, 7);
+  }
+
+  /**
+   * The camp items she owns (slice 23e): the tent, the pole and the bed are plain tinted sprites; the campfire flickers over 3 frames
+   * and glows from 20:00 to 05:00 (the lantern's ramp) with a few rising sparks; the string lights are small coloured bulbs on a sagging
+   * wire that shine at night; the windsock hangs limp, half or fully blown out by today's weather and flaps a little.
+   */
+  private drawCamp(look: DayLook, deltaMs: number): void {
+    const p = this.player;
+    this.companions.setDeckChair(hasCamp(p, 'deckchair'));
+    this.campTent.setVisible(hasCamp(p, 'tent'));
+    this.campBed.setVisible(hasCamp(p, 'dogbed'));
+    const lights = hasCamp(p, 'lights');
+    this.campPole.setVisible(lights);
+    this.campPole2.setVisible(lights && !hasCamp(p, 'tent'));
+    const sock = hasCamp(p, 'windsock');
+    this.campSock.setVisible(sock);
+    const g = this.campFx;
+    g.clear();
+    const glow = lanternGlow(this.clock.minute);
+
+    if (sock) {
+      const level = windsockLevel(this.weatherId());
+      const period = [1100, 520, 260][level];
+      this.campSock.setTexture(windsockKey(level, (Math.floor(this.elapsed / period) % 2) as 0 | 1));
+    }
+
+    if (hasCamp(p, 'campfire')) {
+      const frame = Math.floor(this.elapsed / 130 + Math.sin(this.elapsed / 900) * 1.5);
+      this.campFire.setVisible(true).setTexture(campfireKey(((frame % CAMPFIRE_FRAMES) + CAMPFIRE_FRAMES) % CAMPFIRE_FRAMES));
+      // The logs go dark with the evening like everything else; the fire itself does not (the tint fades to white as the glow rises).
+      this.campFire.setTint(lerpColor(look.worldTint, 0xffffff, Math.max(glow, 0.35)));
+      const cx = FIRE_FEET.x - CAMPFIRE_SIZE.w / 2 + CAMPFIRE_FLAME.x;
+      const cy = FIRE_FEET.y - CAMPFIRE_SIZE.h + CAMPFIRE_FLAME.y;
+      if (glow > 0.02) {
+        const flicker = 1 + 0.07 * Math.sin(this.elapsed / 110) + 0.04 * Math.sin(this.elapsed / 47);
+        const rings = 6;
+        for (let i = 0; i < rings; i++) {
+          const rx = (54 * flicker * (rings - i)) / rings;
+          const ry = rx * 0.7;
+          g.fillStyle(GLOW_COLOR, 0.085 * glow);
+          for (let y = -Math.floor(ry); y < ry; y += 2) {
+            const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((y + 1) / ry) ** 2)));
+            if (half > 0) g.fillRect(cx - half, cy + 2 + y, half * 2, 2);
+          }
+        }
+        g.fillStyle(PAL.gold, 0.2 * glow).fillRect(cx - 4, cy - 3, 9, 8);
+      }
+      // A spark now and then rises from the flames and fades (more at dusk and night).
+      this.sparkClock += deltaMs;
+      if (this.sparkClock > (glow > 0.02 ? 420 : 1600)) {
+        this.sparkClock = 0;
+        if (this.campSparks.length < 5) this.campSparks.push({ x: cx + (Math.random() - 0.5) * 6, y: cy - 4, age: 0, life: 900 + Math.random() * 600, vx: (Math.random() - 0.5) * 8 });
+      }
+      this.campSparks = this.campSparks.filter((s) => (s.age += deltaMs) < s.life);
+      for (const s of this.campSparks) {
+        const t = s.age / s.life;
+        g.fillStyle(t < 0.5 ? PAL.gold : PAL.redLight, 1 - t).fillRect(Math.round(s.x + s.vx * t), Math.round(s.y - 22 * t), 1, 1);
+      }
+    } else {
+      this.campFire.setVisible(false);
+      this.campSparks = [];
+    }
+
+    if (lights) {
+      // The wire from the tent's ridge pole to the pole: a shallow sag, a bulb every ~9 px.
+      const ax = TENT_FEET.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x;
+      const ay = TENT_FEET.y - TENT_SIZE.h + TENT_ANCHOR.y;
+      const bx = LIGHT_POLE.x + POLE_ANCHOR.x;
+      const by = LIGHT_POLE.y + POLE_ANCHOR.y;
+      const sag = 3;
+      const wireY = (x: number) => {
+        const t = (x - ax) / (bx - ax);
+        return Math.round(ay + (by - ay) * t + sag * 4 * t * (1 - t));
+      };
+      g.fillStyle(multiply(PAL.outline, look.worldTint), 1);
+      for (let x = ax; x <= bx; x++) g.fillRect(x, wireY(x), 1, 1);
+      const n = 7;
+      for (let i = 1; i <= n; i++) {
+        const x = Math.round(ax + ((bx - ax) * i) / (n + 1));
+        const y = wireY(x) + 2; // the bulb hangs from a 1 px socket under the wire
+        const col = LIGHT_BULBS[i % LIGHT_BULBS.length];
+        // A gentle twinkle: each bulb dips now and then, out of step with its neighbours.
+        const tw = 0.82 + 0.18 * Math.sin(this.elapsed / 380 + i * 1.9);
+        if (glow > 0.02) {
+          g.fillStyle(col, 0.14 * glow * tw).fillRect(x - 4, y - 3, 10, 10);
+          g.fillStyle(col, 0.18 * glow * tw).fillRect(x - 2, y - 2, 6, 7);
+          g.fillStyle(PAL.outline, 1).fillRect(x, y - 1, 2, 1);
+          g.fillStyle(col, 1).fillRect(x, y, 2, 3);
+          g.fillStyle(PAL.white, 0.75 * glow * tw).fillRect(x, y, 1, 1);
+        } else {
+          g.fillStyle(multiply(PAL.outline, look.worldTint), 1).fillRect(x, y - 1, 2, 1);
+          g.fillStyle(multiply(col, look.worldTint), 1).fillRect(x, y, 2, 3);
+        }
+      }
+    }
   }
 
   /** The black cover and the line of text while Alex sleeps. */
