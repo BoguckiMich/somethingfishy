@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TimeOfDay } from './clock';
 import { POOL_SPECIES, SPECIES, speciesById } from './data/fish';
-import { RARITY_WEIGHT, candidates, fightProfile, formatCatchSize, pickSpecies, rollHookedFish, rollLength, weightG } from './fish';
+import { FISH_TUNING, RARITY_WEIGHT, candidates, fightProfile, formatCatchSize, lengthSkewFor, pickSpecies, rollHookedFish, rollLength, sizeShare, weightG } from './fish';
 import type { ZoneId } from './location';
 import { seededRng } from './random';
 
@@ -125,6 +125,32 @@ describe('sizes', () => {
   });
 });
 
+describe('big fish stay big (audit, 2026-11-24)', () => {
+  const rolls = (id: string, n = 20000) => {
+    const sp = speciesById(id)!;
+    const rng = seededRng(5);
+    return Array.from({ length: n }, () => rollLength(sp, rng)).sort((a, b) => a - b);
+  };
+  it('species of 80 cm and over use the gentler skew, legendary and smaller ones do not', () => {
+    for (const id of ['catfish', 'pike', 'carp', 'eel', 'zander']) expect(lengthSkewFor(speciesById(id)!), id).toBe(FISH_TUNING.bigLengthSkew);
+    for (const id of ['perch', 'bream', 'tench', 'roach', 'pale']) expect(lengthSkewFor(speciesById(id)!), id).toBe(FISH_TUNING.lengthSkew);
+  });
+  it('the median catfish is about 1 m and 20-27% of them weigh less than 3 kg', () => {
+    const cat = speciesById('catfish')!;
+    const l = rolls('catfish');
+    expect(l[l.length / 2]).toBeGreaterThanOrEqual(98);
+    expect(l[l.length / 2]).toBeLessThanOrEqual(108);
+    const small = l.filter((x) => weightG(cat, x) < 3000).length / l.length;
+    expect(small).toBeGreaterThan(0.2);
+    expect(small).toBeLessThan(0.27);
+  });
+  it('small species keep the old skew: the median perch is still in the bottom third of its range', () => {
+    const perch = speciesById('perch')!;
+    const l = rolls('perch');
+    expect(sizeShare(perch, l[l.length / 2])).toBeLessThan(0.3);
+  });
+});
+
 describe('fightProfile', () => {
   it('adds up to +0.10 difficulty by size', () => {
     const carp = speciesById('carp')!;
@@ -136,12 +162,12 @@ describe('fightProfile', () => {
     expect(mid.difficulty).toBeCloseTo(carp.difficulty + 0.05, 6);
   });
 
-  it('caps shallow fish at 0.3 and everything at 1', () => {
+  it('caps shallow fish at the shallow cap (0.4) and everything at 1', () => {
     const eel = speciesById('eel')!;
-    expect(fightProfile(eel, eel.lengthCm[1]).difficulty).toBe(0.3);
+    expect(fightProfile(eel, eel.lengthCm[1]).difficulty).toBe(0.4);
     for (const s of SPECIES) {
       const d = fightProfile(s, s.lengthCm[1]).difficulty;
-      expect(d).toBeLessThanOrEqual(s.zone === 'shallow' ? 0.3 : 1);
+      expect(d).toBeLessThanOrEqual(s.zone === 'shallow' ? 0.4 : 1);
     }
   });
 });

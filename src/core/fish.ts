@@ -20,10 +20,13 @@ export const RARITY_WEIGHT: Record<Rarity, number> = { common: 60, uncommon: 30,
 export const FISH_TUNING = {
   /** Length roll: min + (max - min) * u^k. k > 1 skews toward small fish. */
   lengthSkew: 2,
+  /** Species whose max length is at least this (cm), and not legendary, use `bigLengthSkew` instead: big fish stay big. */
+  bigSpeciesCm: 80,
+  bigLengthSkew: 1.5,
   /** Difficulty added at the very top of a species' size range. */
   sizeDifficulty: 0.1,
   /** Shallow fish never get harder than this, whatever their size. */
-  shallowCap: 0.3,
+  shallowCap: 0.4,
 };
 
 export function candidates(zone: ZoneId, time: TimeOfDay): Species[] {
@@ -53,10 +56,15 @@ export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: st
   return pool[pool.length - 1];
 }
 
+/** The length-roll exponent: gentler for the big species (catfish, pike, carp, eel, zander). */
+export function lengthSkewFor(species: Species): number {
+  return species.rarity !== 'legendary' && species.lengthCm[1] >= FISH_TUNING.bigSpeciesCm ? FISH_TUNING.bigLengthSkew : FISH_TUNING.lengthSkew;
+}
+
 /** Whole centimetres within the species range, skewed small. */
 export function rollLength(species: Species, rng: Rng): number {
   const [min, max] = species.lengthCm;
-  return Math.round(min + (max - min) * Math.pow(rng(), FISH_TUNING.lengthSkew));
+  return Math.round(min + (max - min) * Math.pow(rng(), lengthSkewFor(species)));
 }
 
 /** Weight in whole grams: a * L^3. */
