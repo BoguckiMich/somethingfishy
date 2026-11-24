@@ -37,6 +37,7 @@ The first lake has a beginning, a middle and an end.
       fish with special rewards, gear gated by goals, camp upgrades as a coin sink, light price rebalance
       Slices: 23a gear gates, 23b daily weather, 23c ide/asp/burbot, 23d rare fish + trophy board,
       23e camp, 23f perfect catch + medal + sweet spot, then a pacing sim + price rebalance
+      23a-23f built 2026-11-24 on branch `pacing/rework` (not on main, not play-tested); left: play-test, pacing sim + price rebalance
 
 **Done when:** the polish pass and the pacing rework are done and a fresh save has a goal on every visit for
 ~4 real days, then finishing the checklist shows the "road is fixed" card.
