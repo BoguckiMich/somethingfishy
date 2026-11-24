@@ -105,12 +105,12 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { carVariant, chairEmpty, companionEvent, companionPress, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
-import { BEDTIME_LINES, GOLD_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
+import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
 import { WEATHER_IDS, WEATHER_LOOK, type WeatherId } from '../core/data/weather';
 import { fogStrength, weatherEffects, weatherLineDue, weatherOfTheDay, type WeatherEffects } from '../core/daily/weather';
 import { weatherLook } from '../art/weatherArt';
 import { fishOfTheDay } from '../core/daily/fotd';
-import { lengthForStar, starFor, type Star } from '../core/data/stars';
+import { isGoldOrBetter, lengthForStar, tierFor as catchTierFor, type Tier } from '../core/data/stars';
 import { starKey } from '../art/starArt';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, vibrate } from './haptics';
@@ -181,6 +181,8 @@ const CATCH_SUB_Y = 234;
 const CATCH_BADGE_Y = 258;
 const CATCH_NOTE_Y = 274;
 const CATCH_FOTD_Y = 182;
+/** The perfect-catch line goes this far above the fish-of-the-day line when both show. */
+const CATCH_PERFECT_GAP = 24;
 const FOTD_TEXT = '#8fe3b0';
 const CATCH_TEXT_LIMIT = 324;
 /** Pajkel's speech bubble over his head starts at about y 300 during the show-off (31 px per line, 2 lines for a long one): the stack must end above it. */
@@ -426,7 +428,10 @@ export class LakeScene extends Phaser.Scene {
   private catchOutcome: CatchOutcome = { kind: 'normal' };
   private caughtBadge!: Phaser.GameObjects.Text;
   /** The star of the current catch (slice 19) and whether it was today's fish. */
-  private catchStar: Star = 'none';
+  /** The tier of the catch on show (stars or a medal), already raised by a perfect catch (slice 23f). */
+  private catchStar: Tier = 'none';
+  /** The fish never left the green zone (slice 23f); a perfect catch is also stored on the bag fish. */
+  private catchPerfect = false;
   private catchFotd = false;
   /** The caught fish fits an open checklist slot and has room in the bag (slice 20). */
   private catchFits = false;
@@ -435,6 +440,7 @@ export class LakeScene extends Phaser.Scene {
   private caughtStarsBack!: Phaser.GameObjects.Graphics;
   private caughtStars!: Phaser.GameObjects.Image;
   private caughtFotd!: Phaser.GameObjects.Text;
+  private caughtPerfect!: Phaser.GameObjects.Text;
   /** Dev flag ?fotd=<id>: forces today's fish. */
   private fotdOverride: string | undefined;
   private caughtNote!: Phaser.GameObjects.Text;
@@ -597,6 +603,12 @@ export class LakeScene extends Phaser.Scene {
     }
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
+    // Dev-only: ?perfect=1 with a dev log gives every species the medal as its best tier (the log tiles and cards show the medal).
+    if (params.get('perfect') === '1' && Object.keys(this.player.log).length > 0) {
+      const log: FishLog = {};
+      for (const [id, e] of Object.entries(this.player.log)) log[id] = { ...e, bestTier: 'medal' };
+      this.setPlayer({ ...this.player, log });
+    }
     // Dev-only: ?logcount=N sets every caught species' count to N (fish knowledge tiers).
     const logCount = Number(params.get('logcount'));
     if (logCount >= 1) {
@@ -615,7 +627,7 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     this.seenDone = doneCount(questsOf(this.player));
-    let devCatch: { hooked: HookedFish; zone: ZoneId } | undefined;
+    let devCatch: { hooked: HookedFish; zone: ZoneId; perfect: boolean } | undefined;
     if (dbg === 'fight' || dbg === 'caught') {
       // The forced species (default perch) at a rolled size, in its own zone.
       let hooked = rollHookedFish('shallow', timeOfDay(this.clock.minute), this.ctx.rng, this.ctx.speciesOverride ?? 'perch');
@@ -633,12 +645,12 @@ export class LakeScene extends Phaser.Scene {
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
-        devCatch = { hooked, zone: species.zone }; // noted after buildUi: Pajkel (companions) must exist to speak
+        devCatch = { hooked, zone: species.zone, perfect: params.get('perfect') === '1' }; // noted after buildUi: Pajkel (companions) must exist to speak
       }
     }
     this.buildScenery();
     this.buildUi();
-    if (devCatch) this.noteCatch(devCatch.hooked, devCatch.zone, false); // the dev catch goes through the log like a real one
+    if (devCatch) this.noteCatch(devCatch.hooked, devCatch.zone, false, devCatch.perfect); // the dev catch goes through the log like a real one
     sharpenTexts(this); // every Phaser text rasterises at device resolution
     if (saveStatus === 'broken') this.showToast("Your save couldn't be read, starting fresh");
 
@@ -1239,12 +1251,13 @@ export class LakeScene extends Phaser.Scene {
    * A won fight goes in the log before the bag decision. A new species gets the longer show-off;
    * a new species or record makes the companions react bigger.
    */
-  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean): void {
-    const r = recordCatch(this.player.log, hooked);
+  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean, perfect = false): void {
+    const r = recordCatch(this.player.log, hooked, perfect);
     const species = speciesById(hooked.speciesId);
-    this.catchStar = species ? starFor(species, hooked.lengthCm) : 'none';
+    this.catchPerfect = perfect;
+    this.catchStar = species ? catchTierFor(species, hooked.lengthCm, perfect) : 'none';
     this.catchFotd = hooked.speciesId === this.fotdId();
-    this.catchFits = !slipsAway(hooked.speciesId) && !isTrophy(species) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked)).length > 0;
+    this.catchFits = !slipsAway(hooked.speciesId) && !isTrophy(species) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked, undefined, perfect)).length > 0;
     // The catch also moves today's quests (the game clock gives the time of day, the log the record).
     const q = applyCatchToPlayer({ ...this.player, log: r.log }, {
       speciesId: hooked.speciesId,
@@ -1258,7 +1271,7 @@ export class LakeScene extends Phaser.Scene {
     let trophyFirst = false;
     this.catchTrophy = 'none';
     if (isTrophy(species)) {
-      const t = addTrophy(this.player.trophies, hooked, this.today);
+      const t = addTrophy(this.player.trophies, hooked, this.today, perfect);
       if (t.first || t.improved) this.setPlayer({ ...this.player, trophies: t.trophies });
       this.catchTrophy = t.first ? 'first' : t.improved ? 'better' : 'same';
       trophyFirst = t.first;
@@ -1273,10 +1286,11 @@ export class LakeScene extends Phaser.Scene {
     }
     // Pajkel praises a record out loud (slice 15a). The dev catch (celebrate = false) speaks too, so ?debug=caught&log=all shows it.
     // Not while he is off to bed or asleep in the car: then the car only puffs a sleepy Zzz.
-    const gold = this.catchStar === 'gold' && r.outcome.kind === 'normal';
-    if ((r.outcome.kind === 'newRecord' || gold) && !trophyFirst) {
+    const medal = this.catchStar === 'medal';
+    const gold = isGoldOrBetter(this.catchStar) && r.outcome.kind === 'normal';
+    if ((r.outcome.kind === 'newRecord' || gold || medal) && !trophyFirst) {
       const c = this.companions.state;
-      if (c.mode !== 'bed') this.companions.say(pickLine(gold ? GOLD_LINES : RECORD_LINES));
+      if (c.mode !== 'bed') this.companions.say(pickLine(medal ? MEDAL_LINES : gold ? GOLD_LINES : RECORD_LINES));
       else if (isInCar(c)) this.spawnZzz(true);
     }
   }
@@ -1316,7 +1330,7 @@ export class LakeScene extends Phaser.Scene {
       else if (this.catchTrophy === 'same') this.showToast(TROPHY_TEXT.backInLake);
       return;
     }
-    const r = addCatch(this.player, hooked, this.fotdId());
+    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect);
     if (r.result === 'added') {
       this.setPlayer(r.state);
       this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);
@@ -1469,7 +1483,9 @@ export class LakeScene extends Phaser.Scene {
     };
     const ids = ['roach', 'perch', 'bleak', 'crucian', 'eel', 'bream', 'tench', 'carp', 'pike', 'rudd'];
     const count = Number(pageParams().get('bagn') ?? (dbg === 'bag' ? 7 : dbg === 'shop' ? 5 : SHOP.bagSlots));
-    this.setPlayer({ ...this.player, bag: ids.slice(0, count).map((id, i) => mid(id, 0.2 + ((i * 37) % 70) / 100)) });
+    // ?perfect=1: every second fish in the dev bag was caught perfectly (silver / gold / medal pictures in the rows).
+    const perfectBag = pageParams().get('perfect') === '1';
+    this.setPlayer({ ...this.player, bag: ids.slice(0, count).map((id, i) => ({ ...mid(id, 0.2 + ((i * 37) % 70) / 100), ...(perfectBag && i % 2 === 1 ? { perfect: true as const } : {}) })) });
     if (dbg === 'bagfull') this.askBagFull(mid('catfish', 0.5));
     else this.openPlayerPanel(dbg);
   }
@@ -1505,8 +1521,8 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'fishCaught':
         vibrate(HAPTICS.caught);
-        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true);
-        sound.play(this.catchOutcome.kind === 'normal' && this.catchStar !== 'gold' && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
+        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true, e.perfect === true);
+        sound.play(this.catchOutcome.kind === 'normal' && !isGoldOrBetter(this.catchStar) && !this.catchPerfect && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
         break;
       case 'fishLost':
         this.showToast(e.slipped ? 'It slipped the hook!' : 'It got away…');
@@ -2040,6 +2056,11 @@ export class LakeScene extends Phaser.Scene {
       .setVisible(false);
     this.caughtStarsBack = this.add.graphics().setDepth(Z.uiText).setVisible(false);
     this.caughtStars = this.add.image(0, CATCH_SUB_Y, starKey('bronze')).setOrigin(0, 0.5).setScale(2).setDepth(Z.uiText).setVisible(false);
+    this.caughtPerfect = this.add
+      .text(W / 2, CATCH_FOTD_Y, 'Perfect catch! +1 star', { fontFamily: FONT, fontSize: `${FS.body}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 4 })
+      .setOrigin(0.5)
+      .setDepth(Z.uiText)
+      .setVisible(false);
     this.caughtFotd = this.add
       .text(W / 2, CATCH_FOTD_Y, 'Fish of the day! x2', { fontFamily: FONT, fontSize: `${FS.body}px`, color: FOTD_TEXT, stroke: '#241a2e', strokeThickness: 4 })
       .setOrigin(0.5)
@@ -2146,7 +2167,7 @@ export class LakeScene extends Phaser.Scene {
       this.caughtSub.setText(formatCatchSize(s.hooked.lengthCm, s.hooked.weightG));
       const o = this.catchOutcome;
       const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '';
-      this.caughtBadge.setText(this.catchStar === 'gold' ? (badge ? `${badge} Gold!` : 'Gold!') : badge);
+      this.caughtBadge.setText(isGoldOrBetter(this.catchStar) ? (badge ? `${badge} Gold!` : 'Gold!') : badge);
       this.caughtNote.setText(
         this.catchTrophy === 'first' ? TROPHY_TEXT.firstLine : o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
       );
@@ -2167,6 +2188,7 @@ export class LakeScene extends Phaser.Scene {
       this.caughtBadge.setY(CATCH_BADGE_Y + tag + lift);
       this.caughtNote.setY(CATCH_NOTE_Y + tag + lift);
       this.caughtFotd.setY(CATCH_FOTD_Y + lift);
+      this.caughtPerfect.setY(CATCH_FOTD_Y - (this.catchFotd ? CATCH_PERFECT_GAP : 0) + lift);
       this.caughtFits.setY(fitsY + lift);
       this.caughtFitsBack.clear();
       if (this.catchFits) {
@@ -2186,6 +2208,11 @@ export class LakeScene extends Phaser.Scene {
     }
     this.caughtStars.setVisible(s.kind === 'caught' && this.catchStar !== 'none');
     this.caughtFotd.setVisible(s.kind === 'caught' && this.catchFotd).setScale(popScale);
+    // "Perfect catch! +1 star" sits above the fish-of-the-day line when both show (slice 23f).
+    this.caughtPerfect
+      .setText(this.catchStar === 'medal' ? 'Perfect catch! Medal!' : this.catchStar === 'none' ? 'Perfect catch!' : 'Perfect catch! +1 star')
+      .setVisible(s.kind === 'caught' && this.catchPerfect)
+      .setScale(popScale);
     this.caughtFits.setVisible(s.kind === 'caught' && this.catchFits).setScale(popScale);
     this.caughtFitsBack.setVisible(s.kind === 'caught' && this.catchFits);
     this.caughtStarsBack.setVisible(s.kind === 'caught' && this.catchStar !== 'none');

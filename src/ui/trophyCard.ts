@@ -6,6 +6,7 @@ import { formatCatchSize } from '../core/fish';
 import type { FishLog } from '../core/fishLog';
 import { boardIds, type TrophyState } from '../core/rare';
 import { fishCanvas } from './logPanel';
+import { starRow } from './starRow';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 /** "24 Nov 2026" from a YYYY-MM-DD date; '' when there is none. */
@@ -32,8 +33,11 @@ export function showTrophyCard(trophies: TrophyState | undefined, log: FishLog, 
         const pic = el('div', 'flex:none;width:64px;height:44px;display:flex;align-items:center;justify-content:center');
         pic.append(fishCanvas(fishSprite(id, id === 'pale' ? 2 : 1), 64, 3));
         const col = el('div', 'flex:1;min-width:0');
+        const medal = id !== 'pale' && trophies?.[id]?.medal === true ? starRow('medal', 2) : undefined;
+        const nameLine = el('div', `display:flex;align-items:center;gap:6px;font-size:${FS.body}px;line-height:${LINE};color:${COLORS.gold}`, sp.name);
+        if (medal) nameLine.append(medal);
         col.append(
-          el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.gold}`, sp.name),
+          nameLine,
           el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.text}`, size || ''),
         );
         if (date) col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`, date));

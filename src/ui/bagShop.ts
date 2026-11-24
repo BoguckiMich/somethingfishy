@@ -6,7 +6,7 @@ import type { Sprite } from '../art/pixelGrid';
 import { SHOP_BAITS } from '../core/data/baits';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
-import { starFor } from '../core/data/stars';
+import { bagTier } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { CAMP_ITEMS } from '../core/data/camp';
@@ -74,7 +74,7 @@ function fishRow(f: BagFish, action?: HTMLElement): HTMLElement {
   const pic = fishBoxCanvas(fishSprite(f.speciesId, fishSizeClass(f.speciesId, f.lengthCm)), 32);
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
   const sp = speciesById(f.speciesId);
-  const stars = sp ? starRow(starFor(sp, f.lengthCm), 2) : undefined;
+  const stars = sp ? starRow(bagTier(f), 2) : undefined;
   const size = el('div', `display:flex;flex-wrap:wrap;align-items:center;column-gap:5px;font-size:${FS.small}px;color:${COLORS.cream}`, `${sizeText(f)} · ${f.weightG}g`);
   if (stars) size.append(stars);
   info.append(el('div', `color:${COLORS.text}`, fishName(f)), size);
@@ -198,8 +198,11 @@ function tackleEntry(owned: { id: string; name: string } | undefined, emptyText:
   return row;
 }
 
+/** A rod's red core as a share of its catch zone: "20%" (slice 23f). */
+const coreText = (rod: Rod): string => `${Math.round((rod.barGear.coreShare ?? 0) * 100)}%`;
+
 const rodEffect = (current: Rod, next: Rod): string =>
-  `Reach ${current.maxCastM} to ${next.maxCastM} m${next.maxCastM > 15 && current.maxCastM <= 15 ? ' (deep water)' : ''}, catch zone ${Math.round(current.barGear.zoneSize * 100)}% to ${Math.round(next.barGear.zoneSize * 100)}%`;
+  `Reach ${current.maxCastM} to ${next.maxCastM} m${next.maxCastM > 15 && current.maxCastM <= 15 ? ' (deep water)' : ''}, catch zone ${Math.round(current.barGear.zoneSize * 100)}% to ${Math.round(next.barGear.zoneSize * 100)}%, red core ${coreText(current)} to ${coreText(next)}`;
 
 /** A card for a line or reel: the next one up with price and effect, or the best one owned. */
 function tackleCard(
@@ -399,7 +402,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
               id: rodNow.id,
               name: rodNow.name,
               note: 'Best owned',
-              effect: `Reach ${rodNow.maxCastM} m, catch zone ${Math.round(rodNow.barGear.zoneSize * 100)}%`,
+              effect: `Reach ${rodNow.maxCastM} m, catch zone ${Math.round(rodNow.barGear.zoneSize * 100)}%, red core ${coreText(rodNow)}`,
               coins: p.coins,
             }),
       );

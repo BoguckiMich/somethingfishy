@@ -1,6 +1,7 @@
 import { timeOfDay } from './clock';
 import { RARE_RULES, RARE_TUNING, TROPHY_IDS, type RareRule } from './data/rare';
 import { speciesById, type Species } from './data/fish';
+import { tierFor } from './data/stars';
 import { isValidDate } from './daily/dates';
 import type { WeatherId } from './data/weather';
 import type { HookedFish } from './fish';
@@ -63,6 +64,8 @@ export interface Trophy {
   weightG: number;
   /** YYYY-MM-DD, or '' when the date was not known. */
   date: string;
+  /** A perfect catch of a gold-size one (slice 23f): the card shows a medal. Stored only when true; sticky once earned. */
+  medal?: true;
 }
 export type TrophyState = Record<string, Trophy>;
 
@@ -70,11 +73,17 @@ export type TrophyState = Record<string, Trophy>;
  * Records a catch on the board. The first one is `first`; a later one only replaces it when it is longer (`improved`),
  * otherwise the board is unchanged.
  */
-export function addTrophy(state: TrophyState | undefined, hooked: HookedFish, date: string): { trophies: TrophyState; first: boolean; improved: boolean } {
+export function addTrophy(state: TrophyState | undefined, hooked: HookedFish, date: string, perfect = false): { trophies: TrophyState; first: boolean; improved: boolean } {
   const cur = state ?? {};
   const old = cur[hooked.speciesId];
-  if (old && hooked.lengthCm <= old.lengthCm) return { trophies: cur, first: false, improved: false };
-  const entry: Trophy = { lengthCm: hooked.lengthCm, weightG: hooked.weightG, date: isValidDate(date) ? date : '' };
+  const sp = speciesById(hooked.speciesId);
+  const medal = old?.medal === true || (!!sp && tierFor(sp, hooked.lengthCm, perfect) === 'medal');
+  if (old && hooked.lengthCm <= old.lengthCm) {
+    // Not a bigger one, but a perfect gold-size catch still earns the medal.
+    if (medal && !old.medal) return { trophies: { ...cur, [hooked.speciesId]: { ...old, medal: true } }, first: false, improved: false };
+    return { trophies: cur, first: false, improved: false };
+  }
+  const entry: Trophy = { lengthCm: hooked.lengthCm, weightG: hooked.weightG, date: isValidDate(date) ? date : '', ...(medal ? { medal: true as const } : {}) };
   return { trophies: { ...cur, [hooked.speciesId]: entry }, first: !old, improved: !!old };
 }
 
@@ -88,7 +97,7 @@ export function normalizeTrophies(v: unknown): TrophyState {
     const { lengthCm, weightG, date } = e as Record<string, unknown>;
     if (typeof lengthCm !== 'number' || !Number.isFinite(lengthCm) || lengthCm < 1 || lengthCm > 1000) continue;
     if (typeof weightG !== 'number' || !Number.isFinite(weightG) || weightG < 0) continue;
-    out[id] = { lengthCm: Math.round(lengthCm), weightG: Math.round(weightG), date: isValidDate(date) ? date : '' };
+    out[id] = { lengthCm: Math.round(lengthCm), weightG: Math.round(weightG), date: isValidDate(date) ? date : '', ...((e as Record<string, unknown>).medal === true ? { medal: true as const } : {}) };
   }
   return out;
 }
