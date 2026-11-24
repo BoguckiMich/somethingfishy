@@ -123,9 +123,9 @@ export function checklistRewardText(r: QuestReward): string {
   return parts.join(' · ');
 }
 
-/** Dev (?cl=done): every slot filled except the petrol payment. */
-export function allButPetrol(p: PlayerState): PlayerState {
+/** Dev (?cl=done): every slot filled except the petrol payment (`includePetrol` fills that too: ?cl=all). */
+export function allButPetrol(p: PlayerState, includePetrol = false): PlayerState {
   const state: ChecklistState = {};
-  for (const b of CHECKLIST) state[b.id] = b.slots.map(() => b.id !== PETROL_ID);
+  for (const b of CHECKLIST) state[b.id] = b.slots.map(() => includePetrol || b.id !== PETROL_ID);
   return { ...p, checklist: state };
 }

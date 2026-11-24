@@ -12,6 +12,9 @@ export interface QuestStore extends PlayerStore {
   today(): string;
   /** Today's fish (slice 19), if any. */
   fotdId(): string | undefined;
+  /** Opens the Quiet Lake checklist (the quest panel closes first); `done` of `total` bundles shows on the button. */
+  openChecklist(): void;
+  checklist(): { done: number; total: number };
 }
 
 /** The top row: today's fish with its sprite. */
@@ -77,6 +80,13 @@ export function showQuestPanel(store: QuestStore, onClose: () => void): PanelHan
       if (rerollNote) body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};margin-top:8px`, rerollNote));
       body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim};margin-top:${rerollNote ? 2 : 8}px`, 'New quests at midnight'));
       const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:10px');
+      const cl = store.checklist();
+      col.append(
+        woodButton(`Quiet Lake checklist ${cl.done}/${cl.total}`, () => {
+          panel.close();
+          store.openChecklist();
+        }),
+      );
       col.append(woodButton('Close', () => panel.close()));
       body.append(col);
     },

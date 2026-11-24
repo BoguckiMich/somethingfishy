@@ -22,7 +22,19 @@ const SHADOW = `1px 0 ${COLORS.outline},-1px 0 ${COLORS.outline},0 1px ${COLORS.
  * barrier next to each place that is "coming soon" and a tiny car where she is. Tap a pin to read about the
  * place below the map (Quiet Lake is selected at first). "Take a nap..." closes the map and calls `onNap`.
  */
-export function showMapPanel(onNap: () => void, onClose: () => void): PanelHandle {
+export interface MapOptions {
+  onNap: () => void;
+  /** Opens the Quiet Lake checklist (the map closes first). */
+  onChecklist: () => void;
+  /** Bundles done (of `total`) and whether the road is fixed (all done): they change the River bend pin. */
+  checklist: { done: number; total: number };
+}
+
+export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle {
+  const { onNap, onChecklist, checklist } = opts;
+  const roadFixed = checklist.done >= checklist.total;
+  const blurbOf = (p: (typeof MAP_PLACES)[number]): string =>
+    p.id === 'river-bend' ? (roadFixed ? 'Road fixed! Opening soon' : `Finish the Quiet Lake checklist to fix the road (${checklist.done}/${checklist.total})`) : p.blurb;
   let selected: string = QUIET_LAKE.id;
   const pins = { open: asCanvas(pinSprite(true)), soon: asCanvas(pinSprite(false)) };
   const ring = asCanvas(selectRingSprite());
@@ -43,7 +55,7 @@ export function showMapPanel(onNap: () => void, onClose: () => void): PanelHandl
       for (const p of MAP_PLACES) {
         const { x, y } = p.pin;
         if (p.id === selected) g.drawImage(ring, x - Math.floor(RING_SIZE.w / 2), y - Math.floor(RING_SIZE.h / 2));
-        if (p.status === 'soon') g.drawImage(barrier, x - BARRIER_SIZE.w - 5, y - BARRIER_SIZE.h + 1);
+        if (p.status === 'soon' && !(p.id === 'river-bend' && roadFixed)) g.drawImage(barrier, x - BARRIER_SIZE.w - 5, y - BARRIER_SIZE.h + 1);
         if (p.status === 'open') g.drawImage(car, x - HERE_SIZE.w - 7, y - HERE_SIZE.h);
         g.drawImage(pins[p.status], x - Math.floor(PIN_SIZE.w / 2), y - PIN_SIZE.h + 1);
       }
@@ -102,14 +114,18 @@ export function showMapPanel(onNap: () => void, onClose: () => void): PanelHandl
         el(
           'div',
           `font-size:${FS.body}px;line-height:${LINE};color:${place.status === 'open' ? COLORS.cream : COLORS.amber}`,
-          place.status === 'open' ? 'You are here' : 'Coming soon',
+          place.status === 'open' ? 'You are here' : place.id === 'river-bend' && roadFixed ? 'Opening soon' : 'Coming soon',
         ),
-        el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-top:2px`, place.blurb),
+        el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-top:2px`, blurbOf(place)),
       );
       body.append(info);
 
-      const nap = el('div', 'display:flex;flex-direction:column');
+      const nap = el('div', 'display:flex;flex-direction:column;gap:8px');
       nap.append(
+        woodButton(`Quiet Lake checklist ${checklist.done}/${checklist.total}`, () => {
+          panel.close();
+          onChecklist();
+        }),
         woodButton('Take a nap...', () => {
           panel.close();
           onNap();
