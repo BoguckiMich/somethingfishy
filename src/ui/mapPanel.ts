@@ -1,7 +1,7 @@
 import { BARRIER_SIZE, HERE_SIZE, PIN_SIZE, RING_SIZE, barrierSprite, hereCarSprite, mapSprite, pinSprite, selectRingSprite } from '../art/mapArt';
 import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 import type { NapStatus } from '../core/carMap';
-import { MAP_PLACES, MAP_SIZE, QUIET_LAKE } from '../core/data/locations';
+import { MAP_PLACES, MAP_SIZE } from '../core/data/locations';
 import { FS, LINE } from '../font';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
@@ -31,14 +31,24 @@ export interface MapOptions {
   checklist: { done: number; total: number };
   /** Whether a nap is possible right now, and why not (read on every render). */
   nap: () => NapStatus;
+  /** The place she is at (slice 25a), and the dev flag ?travel=1 that opens the River bend regardless of the checklist. */
+  current: string;
+  travelAny: boolean;
+  /** Whether she can drive right now, and why not (read on every render); `onTravel` closes the map's work and starts the drive. */
+  travel: () => { available: boolean; reason: string };
+  onTravel: (placeId: string) => void;
+  /** Dev flag ?select=<id>: the place that is selected when the map opens (default: where she is). */
+  select?: string;
 }
 
 export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle {
   const { onNap, onChecklist, checklist } = opts;
   const roadFixed = checklist.done >= checklist.total;
+  /** Open = she can fish there: Quiet Lake always, the River bend once the road is fixed (or with ?travel=1). */
+  const isOpen = (p: (typeof MAP_PLACES)[number]): boolean => p.id === 'river-bend' ? roadFixed || opts.travelAny : p.status === 'open';
   const blurbOf = (p: (typeof MAP_PLACES)[number]): string =>
-    p.id === 'river-bend' ? (roadFixed ? 'Road fixed! Opening soon' : `Finish the Quiet Lake checklist to fix the road (${checklist.done}/${checklist.total})`) : p.blurb;
-  let selected: string = QUIET_LAKE.id;
+    p.id === 'river-bend' && !isOpen(p) ? `Finish the Quiet Lake checklist to fix the road (${checklist.done}/${checklist.total})` : p.blurb;
+  let selected: string = opts.select && MAP_PLACES.some((p) => p.id === opts.select) ? opts.select : opts.current;
   const pins = { open: asCanvas(pinSprite(true)), soon: asCanvas(pinSprite(false)) };
   const ring = asCanvas(selectRingSprite());
   const barrier = asCanvas(barrierSprite());
@@ -58,9 +68,9 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
       for (const p of MAP_PLACES) {
         const { x, y } = p.pin;
         if (p.id === selected) g.drawImage(ring, x - Math.floor(RING_SIZE.w / 2), y - Math.floor(RING_SIZE.h / 2));
-        if (p.status === 'soon' && !(p.id === 'river-bend' && roadFixed)) g.drawImage(barrier, x - BARRIER_SIZE.w - 5, y - BARRIER_SIZE.h + 1);
-        if (p.status === 'open') g.drawImage(car, x - HERE_SIZE.w - 7, y - HERE_SIZE.h);
-        g.drawImage(pins[p.status], x - Math.floor(PIN_SIZE.w / 2), y - PIN_SIZE.h + 1);
+        if (!isOpen(p)) g.drawImage(barrier, x - BARRIER_SIZE.w - 5, y - BARRIER_SIZE.h + 1);
+        if (p.id === opts.current) g.drawImage(car, x - HERE_SIZE.w - 7, y - HERE_SIZE.h);
+        g.drawImage(pins[isOpen(p) ? 'open' : 'soon'], x - Math.floor(PIN_SIZE.w / 2), y - PIN_SIZE.h + 1);
       }
       map.append(canvas);
 
@@ -116,8 +126,8 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
         el('div', `font-size:${FS.heading}px;line-height:${LINE};color:${COLORS.gold}`, place.name),
         el(
           'div',
-          `font-size:${FS.body}px;line-height:${LINE};color:${place.status === 'open' ? COLORS.cream : COLORS.amber}`,
-          place.status === 'open' ? 'You are here' : place.id === 'river-bend' && roadFixed ? 'Opening soon' : 'Coming soon',
+          `font-size:${FS.body}px;line-height:${LINE};color:${isOpen(place) ? COLORS.cream : COLORS.amber}`,
+          place.id === opts.current ? 'You are here' : isOpen(place) ? 'Open' : 'Coming soon',
         ),
         el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-top:2px`, blurbOf(place)),
       );
@@ -125,6 +135,15 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
 
       const napNow = opts.nap();
       const nap = el('div', 'display:flex;flex-direction:column;gap:8px');
+      if (place.id !== opts.current && isOpen(place)) {
+        const t = opts.travel();
+        nap.append(
+          woodButton('Drive there', () => {
+            panel.close();
+            opts.onTravel(place.id);
+          }, t.available ? {} : { disabledReason: t.reason }),
+        );
+      }
       nap.append(
         woodButton(`Quiet Lake checklist ${checklist.done}/${checklist.total}`, () => {
           panel.close();

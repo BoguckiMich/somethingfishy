@@ -1,12 +1,12 @@
 import type { TimeOfDay } from '../clock';
 import { isValidDate } from '../daily/dates';
 import { isUnique, POOL_SPECIES, speciesById, type Species } from '../data/fish';
-import { QUIET_LAKE } from '../data/locations';
+import { locationById } from '../data/locations';
 import { QUEST_TUNING as T } from '../data/quests';
 import { RODS } from '../data/rods';
 import { SHOP_BAITS, baitById } from '../data/baits';
 import { addBait, type PlayerState } from '../inventory';
-import type { ZoneId } from '../location';
+import { livesAt, reachableFishZones, type ZoneId } from '../location';
 import { randInt, seededRng, type Rng } from '../random';
 import { speciesCaught } from '../fishLog';
 
@@ -74,10 +74,9 @@ export function hashString(s: string): number {
 // ---- Gear and what is possible ---------------------------------------------------------------
 
 const rodOf = (p: PlayerState) => RODS.find((r) => r.id === p.rodId) ?? RODS[0];
-/** The zones the equipped rod can reach on the lake. */
+/** The depth classes the equipped rod can reach at the place she is at (Quiet Lake unless she travelled, slice 25a). */
 export function reachableZones(p: PlayerState): ZoneId[] {
-  const reach = rodOf(p).maxCastM;
-  return QUIET_LAKE.zones.filter((z) => z.fromM < reach).map((z) => z.id);
+  return reachableFishZones(locationById(p.place), rodOf(p).maxCastM);
 }
 const reachesDeep = (p: PlayerState): boolean => rodOf(p).maxCastM >= T.deepMinCastM && reachableZones(p).includes('deep');
 
@@ -120,7 +119,8 @@ export function rollQuest(kind: QuestKind, p: PlayerState, rng: Rng): Quest {
   switch (kind) {
     case 'catchSpecies': {
       const zones = reachableZones(p);
-      const pool: Species[] = POOL_SPECIES.filter((s) => zones.includes(s.zone));
+      const here = locationById(p.place);
+      const pool: Species[] = POOL_SPECIES.filter((s) => zones.includes(s.zone) && livesAt(here, s.id));
       const sp = pickWeighted(rng, pool, (s) => T.speciesWeight[s.rarity]);
       const range = T.catchSpecies[sp.rarity as 'common' | 'uncommon' | 'rare'];
       const target = pickInRange(rng, range);

@@ -30,6 +30,7 @@ import {
   POST,
   REED,
 } from './sprites';
+import { hutRaster, riverFarBankRaster, riverNearBankRaster, riverWaterRaster } from './riverArt';
 import {
   cloudRaster,
   dockRaster,
@@ -49,6 +50,12 @@ export const TEX = {
   water: 'water',
   nearShore: 'nearShore',
   dock: 'dock',
+  /** The River bend's placeholder pictures (slice 25a). */
+  riverFarBank: 'riverFarBank',
+  riverReflection: ['riverReflect0', 'riverReflect1', 'riverReflect2'],
+  riverWater: 'riverWater',
+  riverNearBank: 'riverNearBank',
+  hut: 'hut',
   clouds: ['cloud0', 'cloud1', 'cloud2'],
   sun: 'sun',
   moon: 'moon',
@@ -119,6 +126,16 @@ function addRaster(scene: Phaser.Scene, key: string, r: Raster): void {
   const ctx = tex.getContext();
   ctx.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.width, r.height), 0, 0);
   tex.refresh();
+}
+
+/** Bakes the River bend's placeholder scenery (slice 25a); only the river scene needs it. */
+export function createRiverTextures(scene: Phaser.Scene): void {
+  const bank = riverFarBankRaster();
+  addRaster(scene, TEX.riverFarBank, bank);
+  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, reflectionRaster(bank, i)));
+  addRaster(scene, TEX.riverWater, riverWaterRaster());
+  addRaster(scene, TEX.riverNearBank, riverNearBankRaster());
+  addRaster(scene, TEX.hut, hutRaster());
 }
 
 /** Bakes every sprite and scenery raster into textures. Call once at scene start. */

@@ -116,7 +116,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         if (state.heldMs < MIN_HOLD_MS) return same(INITIAL_STATE);
         const power = chargePower(state.heldMs);
         const distanceM = castDistance(power, ctx.rod);
-        const zone = zoneAt(ctx.location, distanceM).id;
+        const zone = zoneAt(ctx.location, distanceM).fishZone;
         return {
           state: { kind: 'casting', power, distanceM, zone },
           events: [{ type: 'cast', distanceM, zone, locationId: ctx.location.id }],
@@ -138,6 +138,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         bait,
         ctx.fotdId?.(),
         fx,
+        ctx.location.fishPool,
       );
       return same({
         kind: 'waiting',

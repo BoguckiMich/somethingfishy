@@ -1,14 +1,56 @@
+/** The depth class of a zone that species and rare-fish rules are written against: a lake's shallow/deep, a river's riffle/seam count as shallow, its pool as deep. */
+export type ZoneId = 'shallow' | 'deep';
+
 /** A depth zone of a fishing spot, measured as cast distance from the shore in meters. */
 export interface Zone {
-  id: ZoneId;
+  /** The place's own name for the band ('shallow', 'riffle', 'seam', 'pool'...). */
+  id: string;
   name: string;
   /** Inclusive start, in meters from the shore. */
   fromM: number;
   /** Exclusive end, in meters from the shore. */
   toM: number;
+  /** Which depth class fish rules treat this band as. */
+  fishZone: ZoneId;
 }
 
-export type ZoneId = 'shallow' | 'deep';
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface PlayArea {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+/** Which fish a place has: a weight multiplier per species id (absent = does not live here), and whether the trophies and the legendary may bite. */
+export interface FishPool {
+  species: Readonly<Record<string, number>>;
+  /** The rare trophy fish and the legendary of this place (rules in core/rare.ts and core/legendary.ts). */
+  specials: boolean;
+}
+
+/** Where things stand in the 360 x 640 scene (feet = bottom middle unless noted). */
+export interface Spots {
+  /** Top-left of the dock / landing picture. */
+  dock: Point;
+  /** Top-left of the parked car, and its tap area. */
+  car: Point;
+  carHit: { x: number; y: number; w: number; h: number };
+  sign: Point;
+  crate: Point;
+  trophy: Point;
+  lantern: Point;
+  camp: { tent: Point; pole: Point; fire: Point; bed: Point; sock: Point };
+  /** The fetch lawn of the companions. */
+  playArea: PlayArea;
+}
+
+/** Which picture painter the scene uses for a place. */
+export type BackgroundId = 'lake' | 'river';
 
 export interface Location {
   id: string;
@@ -17,6 +59,15 @@ export interface Location {
   maxDistanceM: number;
   /** Ordered from shore outwards, contiguous. */
   zones: Zone[];
+  fishPool: FishPool;
+  background: BackgroundId;
+  spots: Spots;
+  /** Lake moments (core/moments) that play here; null = none. */
+  momentsId: string | null;
+  /** The checklist of this place (core/data/checklist); null = none yet. */
+  checklistId: string | null;
+  /** The place id the story chapters are told at; null = no chapters here. */
+  storyPlaceId: string | null;
 }
 
 /** Returns the zone a bobber at `distanceM` lands in. Distances past the end clamp to the last zone. */
@@ -24,3 +75,13 @@ export function zoneAt(location: Location, distanceM: number): Zone {
   const zone = location.zones.find((z) => distanceM >= z.fromM && distanceM < z.toM);
   return zone ?? location.zones[location.zones.length - 1];
 }
+
+/** The depth classes this much reach covers on the location, in zone order, no duplicates. */
+export function reachableFishZones(location: Location, reachM: number): ZoneId[] {
+  const out: ZoneId[] = [];
+  for (const z of location.zones) if (z.fromM < reachM && !out.includes(z.fishZone)) out.push(z.fishZone);
+  return out;
+}
+
+/** Can this species bite at the location (it is in the pool)? */
+export const livesAt = (location: Location, speciesId: string): boolean => location.fishPool.species[speciesId] !== undefined;
