@@ -575,7 +575,8 @@ export class LakeScene extends Phaser.Scene {
     const handoff = takeHandoff();
     if (handoff) {
       this.player = handoff.player;
-      this.clock = handoff.clock;
+      // A loaded or restarted game goes through the same wake-up rule as a fresh page load; a drive keeps its clock.
+      this.clock = handoff.arrive ? handoff.clock : loadClock(handoff.clock, hasNightKit(handoff.player));
       this.coverCard = handoff.card;
       if (handoff.arrive) this.arriveMs = 0;
       this.persist();
@@ -741,8 +742,9 @@ export class LakeScene extends Phaser.Scene {
     if (devCatch) this.noteCatch(devCatch.hooked, devCatch.zone, false, devCatch.perfect); // the dev catch goes through the log like a real one
     sharpenTexts(this); // every Phaser text rasterises at device resolution
     if (saveStatus === 'broken') this.showToast("Your save couldn't be read, starting fresh");
+    if (handoff?.toast) this.showToast(handoff.toast);
 
-    this.setupProfile(params);
+    this.setupProfile(params, handoff?.profile);
     this.setupDebugPanels(dbg);
     // Let the companions settle in (at night the dog is already dozing when the game opens).
     for (let t = 0; t < 2000; t += 50) {
@@ -1163,8 +1165,8 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /** Replaces this scene with a fresh one for the place in the player's state (Phaser keeps a scene's fields across a restart). */
-  private remount(arrive: boolean, card?: RoadCardHandle): void {
-    setHandoff({ player: this.player, clock: this.clock, arrive, card });
+  private remount(arrive: boolean, card?: RoadCardHandle, extra?: { toast?: string; profile?: Profile }): void {
+    setHandoff({ player: this.player, clock: this.clock, arrive, card, ...extra });
     const game = this.game;
     window.setTimeout(() => {
       game.scene.stop('Lake');
@@ -1593,18 +1595,11 @@ export class LakeScene extends Phaser.Scene {
   /** Replaces the running game with an imported one (the old save is kept as a backup). */
   private loadGame(save: SaveData, profile: Profile): void {
     if (!this.sandbox) backupSave(this.safeStorage());
+    this.applyProfile(profile);
     this.clock = save.clock;
     this.setPlayer(save.player);
-    if (locationOf(this.player).id !== this.loc.id) {
-      this.remount(false);
-      return;
-    }
-    this.syncRod();
-    this.syncQuestsNow();
-    this.seenDone = doneCount(questsOf(this.player));
-    this.profile = profile;
-    if (!this.sandbox) saveProfile(this.safeStorage(), profile);
-    this.showToast('Game loaded');
+    // Always a fresh scene: no transient state (story run, pending cards, naps, moments) survives from the old game.
+    this.remount(false, undefined, { toast: 'Game loaded', profile });
   }
 
   /** Start over: everything but the names resets (the old save is kept as a backup). */
@@ -1613,14 +1608,7 @@ export class LakeScene extends Phaser.Scene {
     const fresh = startOver(this.currentSave());
     this.clock = fresh.clock;
     this.setPlayer(fresh.player);
-    if (locationOf(this.player).id !== this.loc.id) {
-      this.remount(false);
-      return;
-    }
-    this.syncRod();
-    this.syncQuestsNow();
-    this.seenDone = doneCount(questsOf(this.player));
-    this.showToast('A fresh start');
+    this.remount(false, undefined, { toast: 'A fresh start', profile: this.profile });
   }
 
   /** A press while out of worms: the soft-lock guard may help, otherwise point to the shop. */
@@ -2011,7 +1999,11 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /** First launch: ask for names; otherwise use the stored ones. ?reset=profile clears them. */
-  private setupProfile(params: URLSearchParams): void {
+  private setupProfile(params: URLSearchParams, given?: Profile): void {
+    if (given) {
+      this.profile = given; // from a handoff: no name card
+      return;
+    }
     const store = this.safeStorage();
     if (params.get('reset') === 'profile') clearProfile(store);
     const stored = loadProfile(store);
@@ -2029,7 +2021,7 @@ export class LakeScene extends Phaser.Scene {
 
   private applyProfile(p: Profile, welcome = false): void {
     this.profile = p;
-    saveProfile(this.safeStorage(), p);
+    if (!this.sandbox) saveProfile(this.safeStorage(), p);
     if (welcome) {
       this.showTag(0, p.player, ALEX_POS.x + 16, ALEX_POS.y - 4);
       this.showTag(1, p.companion, 150, 358);
