@@ -587,34 +587,38 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
       }
     }
     lobe(8, 13, 0.1);
-    up.rect(19, 12 + dy, 1, 3, PAL.skin); // ear
-    up.set(19, 14 + dy, PAL.skinShade);
+    up.rect(19, 12 + dy, 1, 3, PAL.skinShade); // ear
+    up.line(19, 8 + dy, 19, 11 + dy, PAL.pajHairDark); // hairline: the hair stops here
     up.rect(22, 12 + dy, 3, 1, PAL.outline); // sunglasses
     up.set(23, 13 + dy, PAL.skinShade); // cheek under the glasses
     up.set(21, 12 + dy, PAL.outline); // the arm of the glasses
-    up.rect(20, 14 + dy, 2, 1, PAL.skinShade); // cheek shade above the beard
-    for (let y = 15; y <= 26; y++) {
-      let x0 = 19;
+    up.rect(20, 14 + dy, 2, 2, PAL.skinShade); // cheek shade by the ear
+    up.rect(22, 14 + dy, 4, 2, PAL.skin); // bare cheek above the beard
+    up.set(26, 14 + dy, PAL.skin); // nose tip
+    for (let y = 16; y <= 26; y++) {
+      let x0 = 22;
       let x1 = 26;
-      if (y >= 20) [x0, x1] = [20, 26];
+      if (y >= 17) [x0, x1] = [20, 26];
+      if (y >= 20) [x0, x1] = [21, 26];
       if (y >= 23) [x0, x1] = [21, 25];
-      if (y >= 25) [x0, x1] = [22, 25];
-      if (y >= 26) [x0, x1] = [22, 24];
+      if (y >= 25) [x0, x1] = [22, 24];
+      if (y >= 26) [x0, x1] = [23, 23];
       const swing = pose === 'sipDrink' && y >= 22 ? 1 : 0;
       for (let x = x0; x <= x1; x++) {
-        const c = y === 26 ? (noise(x * 3, y) > 0.45 ? PAL.beardGrey : PAL.beardDark) : pajBeard(x, y);
+        const c = y === 16 ? PAL.beardDark : x === x1 && y <= 24 ? PAL.beardLight : y >= 26 ? PAL.beardDark : pajBeard(x, y);
         const yy = y < 20 ? y + dy : y;
         up.set(x + swing, yy, c);
         if (dy < 0 && y === 19) up.set(x + swing, y, c);
       }
     }
-    up.rect(22, 15 + dy, 5, 1, PAL.beardDark); // moustache
   }
 
   // The arm, the cup and the thermos in hand.
   const sleeve = (x: number, y: number, w: number, h: number) => {
     front.rect(x, y, w, h, PAL.jacket);
+    front.rect(x, y, w, 1, PAL.jacketLight);
     front.rect(x, y + h - 1, w, 1, PAL.jacketDark);
+    front.rect(x, y, 1, h, PAL.outlineSoft);
   };
   if (pose === 'sit' || pose === 'look') {
     sleeve(24, 29, 5, 3);
@@ -675,7 +679,9 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
   p.rect(27, 36, 6, 3, PAL.jeans);
   p.rect(28, 39, 4, 1, PAL.jeans);
   p.rect(28, 35, 3, 1, PAL.denim);
+  p.rect(28, 36, 2, 2, PAL.denimLight); // knee
   p.rect(29, 40, 3, 3, PAL.jeans);
+  p.rect(31, 40, 1, 3, PAL.denimDark); // shin shade
   p.rect(28, 43, 5, 2, PAL.shoe);
   p.rect(28, 45, 5, 1, PAL.shoeDark);
   if (pose !== 'pour') paintThermos(p);
@@ -765,7 +771,7 @@ function pajLeg(p: Pix, near: boolean, [hip, knee, ankle, lift]: LegPose): void 
 
 /** A sleeve from the shoulder `(sx, sy)` to a wrist at `(wx, wy)`, with a cuff and a hand. */
 function pajArm(p: Pix, sx: number, sy: number, wx: number, wy: number, near: boolean): void {
-  const cols = near ? [PAL.outlineSoft, PAL.jacketLight, PAL.jacket, PAL.outlineSoft] : [PAL.jacketDark, PAL.jacket, PAL.jacketDark, PAL.jacketDark];
+  const cols = near ? [PAL.outline, PAL.jacketLight, PAL.jacketLight, PAL.jacketDark] : [PAL.jacketDark, PAL.jacket, PAL.jacketDark, PAL.jacketDark];
   const mx = Math.round((sx + wx) / 2 + (wx - sx) * 0.15);
   limb(p, [[sx, sy], [mx, Math.round((sy + wy) / 2)], [wx, wy]], cols);
   p.rect(wx - 1, wy, 4, 1, PAL.jacketDark); // cuff
@@ -792,28 +798,29 @@ function pajHead(p: Pix, bob: number): void {
   p.ell(14.5, 9 + bob, 6.5, 6.5, pajHair);
   // Hair falling behind the neck to the shoulders.
   for (let y = 12; y <= 21; y++) for (let x = 8; x <= 12; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.04) p.set(x, y + bob, y > 15 ? PAL.pajHairDark : pajHair(x, y));
-  // Face: cheek, nose, brow shade, ear.
-  p.ell(19, 11 + bob, 3.4, 4.5, PAL.skin);
-  p.rect(22, 11 + bob, 2, 2, PAL.skin); // nose
-  p.set(23, 12 + bob, PAL.skinShade);
-  p.rect(18, 7 + bob, 5, 1, PAL.pajHairDark); // fringe over the brow
+  // Face: a bare cheek and nose between the glasses and the beard, a dark hairline where the hair stops.
+  p.ell(19.5, 11 + bob, 3.6, 4.2, PAL.skin);
+  p.rect(23, 11 + bob, 2, 2, PAL.skin); // nose sticking out
+  p.set(24, 12 + bob, PAL.skinShade);
+  p.rect(17, 6 + bob, 6, 2, pajHair(18, 6)); // fringe
+  p.rect(17, 7 + bob, 6, 1, PAL.pajHairDark);
+  p.line(16, 7 + bob, 16, 13 + bob, PAL.pajHairDark); // sideburn / hairline
   p.rect(19, 9 + bob, 4, 1, PAL.outline); // sunglasses
   p.set(18, 9 + bob, PAL.outline); // their arm
   p.set(17, 9 + bob, PAL.outline);
-  p.set(20, 11 + bob, PAL.skinShade); // cheek
-  p.rect(16, 10 + bob, 1, 3, PAL.skinShade); // ear
-  // Beard: a moustache, then a long rounded fall to a ragged point.
-  for (let y = 12; y <= 25; y++) {
-    let [x0, x1] = [16, 23];
-    if (y >= 15) [x0, x1] = [16, 24];
-    if (y >= 20) [x0, x1] = [16, 23];
-    if (y >= 22) [x0, x1] = [17, 22];
-    if (y >= 24) [x0, x1] = [18, 21];
-    if (y === 25) [x0, x1] = [19, 20];
-    for (let x = x0; x <= x1; x++) p.set(x, y + bob, pajBeard(x, y));
+  p.rect(17, 11 + bob, 2, 2, PAL.skinShade); // ear / cheek shade
+  p.rect(20, 12 + bob, 2, 2, PAL.skin);
+  p.set(21, 13 + bob, PAL.skinShade); // cheek hollow
+  // Beard: starts at the jaw, hugs it, tapers to a point at mid-chest; a light front edge separates it from the jacket.
+  for (let y = 14; y <= 24; y++) {
+    let [x0, x1] = [20, 24]; // moustache row hides the mouth
+    if (y >= 15) [x0, x1] = [17, 23];
+    if (y >= 19) [x0, x1] = [17, 22];
+    if (y >= 21) [x0, x1] = [18, 22];
+    if (y >= 23) [x0, x1] = [19, 21];
+    if (y === 24) [x0, x1] = [20, 20];
+    for (let x = x0; x <= x1; x++) p.set(x, y + bob, x === x1 && y >= 15 && y <= 22 ? PAL.beardLight : y === 14 ? PAL.beardDark : pajBeard(x, y));
   }
-  p.rect(21, 12 + bob, 4, 1, PAL.beardDark); // moustache
-  p.set(24, 12 + bob, PAL.beard);
 }
 
 export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
