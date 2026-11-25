@@ -1713,7 +1713,6 @@ export class LakeScene extends Phaser.Scene {
         sound.play('bite');
         break;
       case 'hooked':
-        this.showToast(`Hooked! ${this.profile.companion} cheers!`);
         vibrate(HAPTICS.hooked);
         sound.play('hook');
         break;
