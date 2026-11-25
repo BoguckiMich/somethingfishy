@@ -4,7 +4,7 @@ Something Fishy (working title Rybki, still used in code) is a cozy pixel-art fi
 for his wife (Alex), a Stardew Valley / Terraria fan. **All design decisions live in
 [GAME_DESIGN.md](GAME_DESIGN.md)**, milestones in [ROADMAP.md](ROADMAP.md), the story in [STORY.md](STORY.md); this file is about *state and how we work*.
 
-_Last updated: 2026-11-25 (review fixes on branch `fix/a1-review`, not merged). Slices 15a-20 and the fixes are merged and pushed (18-20 not phone-tested); slice 21 (story chapters) is on branch `slice/21-story-chapters`, not merged. Milestones are in `docs/ROADMAP.md`: we are in M1 "Quiet Lake, complete". Slice 21 (story chapters) is merged too. Next in M1: phone-test fixes, the polish pass (UI review in `docs/ui-review/`, Pajkel sitting/thermos, sticks, slice-21 weak spots: see ROADMAP M1), then Grzesiu's fish knowledge._
+_Last updated: 2026-11-25 (review fixes A1 merged, not pushed; the review is in `docs/review/`, next from it: A2 balance, A3 UI/copy and M2 prerequisites in `docs/review/08-roadmap-proposal.md`). Slices 15a-20 and the fixes are merged and pushed (18-20 not phone-tested). Milestones are in `docs/ROADMAP.md`: we are in M1 "Quiet Lake, complete". Slice 21 (story chapters) is merged too. Next in M1: phone-test fixes, the polish pass (UI review in `docs/ui-review/`, Pajkel sitting/thermos, sticks, slice-21 weak spots: see ROADMAP M1), then Grzesiu's fish knowledge._
 
 ## Current state
 
@@ -56,7 +56,7 @@ _Last updated: 2026-11-25 (review fixes on branch `fix/a1-review`, not merged). 
 | fix | No "New record!" while Pajkel is going to bed or asleep; asleep, the car puffs a Zzz instead (GAME_DESIGN §3 → Fix: no "New record!" from bed) | merged and pushed 2026-11-24, not seen live |
 | fix | Update toast: reload ~1.5 s after the tap if the service-worker hand-over never fires (GAME_DESIGN §3 → Fix: update toast) | merged, not seen on a phone |
 | fix | Catch math (audit): sinker stray/floor rise with difficulty, reel damping, gentler length skew for big species, shallow cap 0.4 (GAME_DESIGN section 3, Fix: catch math; numbers in CATCH_MATH_AUDIT.md, After the fix) | merged and pushed 2026-11-24, not play-tested |
-| fix | A1 review fixes (docs/review/08 A1): lazy texture cache, audio only when running + limiter + fade-out on pause, night visit 21:00-05:00, Q4 unlocks by day after 1 bundle, night blink waits for Pajkel in the car, chapters catch up once the road is fixed (Q7 late variant), trophy medal saved, load/start-over always remount (names, loadClock, clean state), sandbox profile not saved | on branch fix/a1-review, not merged |
+| fix | A1 review fixes (docs/review/08 A1): lazy texture cache, audio only when running + limiter + fade-out on pause, night visit 21:00-05:00, Q4 unlocks by day after 1 bundle, night blink waits for Pajkel in the car, chapters catch up once the road is fixed (Q7 late variant), trophy medal saved, load/start-over always remount (names, loadClock, clean state), sandbox profile not saved | merged 2026-11-25, not phone-tested (seen live in the browser pane: Q4 night blink waits for the car, River bend import keeps names and wakes at 05:00; audio not heard on a phone) |
 
 Full plan: GAME_DESIGN.md → *Slice plan*. Ideas not yet scheduled (aimed casting, retention quests §5) are in GAME_DESIGN.md too.
 
