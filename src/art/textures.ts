@@ -30,7 +30,7 @@ import {
   POST,
   REED,
 } from './sprites';
-import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, ferryRaster, ferryReflectionRaster, ferrySignRaster, riverCornerReflectionRaster, riverCornersRaster, riverRightBankRaster, riverRightReflectionRaster, riverWaterRaster, ropePostRaster } from './riverArt';
+import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, ferryRaster, ferryReflectionRaster, ferrySignRaster, jettyRaster, jettyReflectionRaster, riverFarReflectionRaster, riverRightBankRaster, riverRightReflectionRaster, riverWaterRaster, ropePostRaster } from './riverArt';
 import { BOULDER_SIZES, weatheredPostSprite, type BoulderSize } from './riverSprites';
 import {
   cloudRaster,
@@ -60,11 +60,11 @@ export const TEX = {
   /** Slice 25b: the weathered ferry landing, its stilts, the rope post and the three boulder sizes. */
   riverLanding: 'riverLanding',
   riverRightBank: 'riverRightBank',
-  riverCorners: 'riverCorners',
+  jetty: 'jetty',
+  jettyReflection: 'jettyReflection',
   ferry: 'ferry',
   ferryReflection: 'ferryReflection',
   ferrySign: 'ferrySign',
-  riverCornerReflection: ['riverCornerReflect0', 'riverCornerReflect1', 'riverCornerReflect2'],
   riverRightReflection: ['riverRightReflect0', 'riverRightReflect1', 'riverRightReflect2'],
   riverPost: 'riverPost',
   ropePost: 'ropePost',
@@ -147,7 +147,7 @@ function addRaster(scene: Phaser.Scene, key: string, r: Raster): void {
 export function createRiverTextures(scene: Phaser.Scene): void {
   const bank = riverFarBankRaster();
   addRaster(scene, TEX.riverFarBank, bank);
-  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, reflectionRaster(bank, i)));
+  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, riverFarReflectionRaster(bank, i)));
   addRaster(scene, TEX.riverWater, riverWaterRaster());
   addRaster(scene, TEX.riverNearBank, riverNearBankRaster());
   addRaster(scene, TEX.hut, hutRaster());
@@ -155,9 +155,8 @@ export function createRiverTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.ferry, ferryRaster());
   addRaster(scene, TEX.ferryReflection, ferryReflectionRaster());
   addRaster(scene, TEX.ferrySign, ferrySignRaster());
-  const corners = riverCornersRaster();
-  addRaster(scene, TEX.riverCorners, corners);
-  TEX.riverCornerReflection.forEach((key, i) => addRaster(scene, key, riverCornerReflectionRaster(corners, i)));
+  addRaster(scene, TEX.jetty, jettyRaster());
+  addRaster(scene, TEX.jettyReflection, jettyReflectionRaster());
   const rightBank = riverRightBankRaster();
   addRaster(scene, TEX.riverRightBank, rightBank);
   TEX.riverRightReflection.forEach((key, i) => addRaster(scene, key, riverRightReflectionRaster(rightBank, i)));

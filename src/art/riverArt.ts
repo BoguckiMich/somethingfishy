@@ -29,8 +29,6 @@ import type { Sprite } from './pixelGrid';
  * Same sizes and positions as the lake's pictures, so the scene lays them out with the lake's numbers.
  */
 
-const FS_H = FAR_SHORE_Y + 4 - FAR_SHORE_TOP;
-const BASE = FAR_SHORE_Y - FAR_SHORE_TOP;
 
 // ---- Geometry the scene and the tests share ------------------------------------------------------
 
@@ -57,9 +55,9 @@ export function riverBend(x: number): number {
 /** The ferry rope: from the post on the landing's left edge up-left to the post on the far bank. */
 export const ROPE_POST_POS = { x: 54, baseY: 438 };
 export const ROPE_NEAR = { x: ROPE_POST_POS.x + ROPE_POST_KNOT.x, y: ROPE_POST_POS.baseY - ROPE_POST.height + ROPE_POST_KNOT.y };
-export const FAR_POST_POS = { x: 80, baseY: FAR_SHORE_Y + 1 };
+export const FAR_POST_POS = { x: 69, baseY: farShoreY(69) };
 /** The ferry moored at the far post (world top-left of its picture, small because it is far away) and the little stake sign by the rope post. */
-export const FERRY = { x: 84, y: 160, w: 32, h: 20 };
+export const FERRY = { x: 88, y: farShoreY(100) - 13, w: 32, h: 20 };
 export const FERRY_SIGN = { w: 18, h: 24 };
 export const FERRY_SIGN_FEET = { x: 44, y: 436 };
 export const ferrySignBox = () => ({ x: FERRY_SIGN_FEET.x - FERRY_SIGN.w / 2, y: FERRY_SIGN_FEET.y - FERRY_SIGN.h, w: FERRY_SIGN.w, h: FERRY_SIGN.h });
@@ -95,50 +93,200 @@ export const boulderTextureSprite = (size: BoulderSize) => boulderSprite(size, s
 
 // ---- Far bank ------------------------------------------------------------------------------------
 
-/** A low far bank: hazy hills peeking over, willows and alders, a muddy and stony edge, a couple of small rocks, the far ferry post. */
+/**
+ * The far shoreline: the world y where the water starts at column x. A gentle diagonal (the far bank is a little farther on the right, where the
+ * river comes from, and closer on the left) with soft irregular waves and a tiny gravel point near x 150. Never above FAR_SHORE_Y (172) and, across
+ * the bobber column (x 236-276), never below ~179, so the farthest cast always lands in water. The far bank, the water and the reflection share it.
+ */
+export function farShoreY(x: number): number {
+  const slope = 13 * (1 - x / W);
+  const waves = 0.8 * (1 + Math.sin(x / 21 + 0.5)) + 0.6 * (1 + Math.sin(x / 8.3 + 2));
+  const point = 4 * Math.exp(-(((x - 150) / 9) ** 2));
+  const bump = 2.5 * Math.exp(-(((x - 316) / 8) ** 2));
+  return Math.round(FAR_SHORE_Y + slope + waves + point + bump);
+}
+/** The far shoreline's gravel point (x range). */
+export const FAR_POINT = { x0: 140, x1: 160 };
+/** The raster of the far bank is taller than the lake's, because the shoreline dips lower on the left. */
+const FS_H = 120;
+
+/** A far-side farmstead: whitewashed cottage with a red roof and chimney, a lit-at-night window, a fence and a path to the jetty. */
+export const COTTAGE = { x: 34, w: 34, h: 28 };
+/** The sprite is the cottage with a short fence to its left. */
+const COTTAGE_SPRITE_W = 46;
+const COTTAGE_FENCE_W = 12;
+/** The cottage's feet (world y of its walls' bottom): just above the far shoreline. */
+export const cottageFeetY = () => farShoreY(COTTAGE.x + COTTAGE.w / 2) - 2;
+export const cottageBox = () => ({ x: COTTAGE.x, y: cottageFeetY() - COTTAGE.h, w: COTTAGE.w, h: COTTAGE.h });
+/** The window (local to the cottage body) that glows at night; its world place follows. */
+const COTTAGE_WINDOW_LOCAL = { x: 8, y: 17, w: 6, h: 6 };
+export const cottageWindow = () => ({ x: COTTAGE.x + COTTAGE_WINDOW_LOCAL.x, y: cottageFeetY() - COTTAGE.h + COTTAGE_WINDOW_LOCAL.y, w: COTTAGE_WINDOW_LOCAL.w, h: COTTAGE_WINDOW_LOCAL.h });
+
+/** The cottage and its fence as a sprite (origin: the fence's left end). */
+function cottageSprite(): Sprite {
+  const r = new Raster(COTTAGE_SPRITE_W, COTTAGE.h);
+  const ox = COTTAGE_FENCE_W;
+  // Roof: a red gable with tile rows, a darker eave line and a chimney.
+  for (let y = 0; y < 12; y++) {
+    const half = 3 + Math.round(y * 1.35);
+    const cx = ox + COTTAGE.w / 2;
+    for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) {
+      const row = y % 3 === 0 ? PAL.redDark : PAL.red;
+      r.set(x, y, (x + y) % 4 === 0 ? PAL.redLight : row);
+    }
+  }
+  r.rect(ox + 1, 11, COTTAGE.w - 2, 1, PAL.redDark);
+  r.rect(ox + 22, 0, 4, 7, PAL.stoneDark);
+  r.rect(ox + 22, 0, 1, 7, PAL.stone);
+  r.rect(ox + 21, 0, 6, 1, PAL.outlineSoft);
+  // Walls: whitewash with a shaded right side, stone footing.
+  r.rect(ox + 3, 12, COTTAGE.w - 6, COTTAGE.h - 12, PAL.white);
+  r.rect(ox + COTTAGE.w - 9, 12, 6, COTTAGE.h - 12, PAL.whiteShade);
+  r.rect(ox + 3, 12, COTTAGE.w - 6, 1, PAL.cream);
+  r.rect(ox + 3, COTTAGE.h - 2, COTTAGE.w - 6, 2, PAL.stoneDark);
+  // Window with a cross and dark frame, a plank door.
+  const w = COTTAGE_WINDOW_LOCAL;
+  r.rect(ox + w.x - 1, w.y - 1, w.w + 2, w.h + 2, PAL.woodDark);
+  r.rect(ox + w.x, w.y, w.w, w.h, PAL.shallow2);
+  r.rect(ox + w.x + 2, w.y, 1, w.h, PAL.woodDark);
+  r.rect(ox + w.x, w.y + 2, w.w, 1, PAL.woodDark);
+  r.rect(ox + 23, 19, 5, 7, PAL.woodDeep);
+  r.rect(ox + 24, 20, 3, 6, PAL.woodDark);
+  // A short fence to the left: posts and two rails.
+  r.rect(0, 20, COTTAGE_FENCE_W, 1, PAL.woodLight);
+  r.rect(0, 23, COTTAGE_FENCE_W, 1, PAL.woodLight);
+  for (let x = 0; x < COTTAGE_FENCE_W; x += 4) r.rect(x, 18, 1, 8, PAL.wood);
+  const s: Sprite = { width: r.width, height: r.height, pixels: new Int32Array(r.width * r.height) };
+  for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) s.pixels[y * r.width + x] = r.get(x, y);
+  return s;
+}
+
+/**
+ * A low far bank: hazy hills peeking over, willows and alders, a muddy and stony edge that follows `farShoreY`, a gravel point,
+ * a whitewashed cottage with a fence and a path down to the far jetty, and the far ferry post.
+ */
 export function riverFarBankRaster(): Raster {
   const r = new Raster(W, FS_H);
   const rnd = mulberry32(4242);
+  const base = (x: number) => farShoreY(Math.min(W - 1, Math.max(0, x))) - FAR_SHORE_TOP; // local row of the first water row
   // A low hazy ridge behind the trees, so the sky does not run straight into them.
   for (let x = 0; x < W; x++) {
+    const bx = base(x);
     const h = 20 + 5 * Math.sin(x / 41 + 1) + 3 * Math.sin(x / 13);
-    const crest = Math.round(BASE - h);
-    for (let y = crest; y < BASE; y++) {
+    const crest = Math.round(bx - h);
+    for (let y = crest; y < bx; y++) {
       const depth = y - crest;
       let c: number = depth === 0 ? lerpColor(PAL.hillFar, PAL.white, 0.25) : PAL.hillFar;
       if (depth > 8 && bayer(x, y) < (depth - 8) / 12) c = PAL.hillFarDark;
       r.set(x, y, c);
     }
   }
-  // The bank itself: a green strip with a mud and stone lip at the water.
+  // The bank itself: a green strip with a mud and stone lip (gravel at the point) in the three rows above the water.
   for (let x = 0; x < W; x++) {
-    const top = BASE - 7 - Math.round(1.5 * Math.sin(x / 9));
-    for (let y = top; y < BASE; y++) {
+    const bx = base(x);
+    const top = bx - 10 - Math.round(1.5 * Math.sin(x / 9));
+    for (let y = top; y < bx - 3; y++) {
       const depth = y - top;
       r.set(x, y, depth === 0 ? PAL.leaf : depth < 3 ? PAL.leafDark : PAL.leafDeep);
     }
-    r.set(x, BASE, rnd() < 0.5 ? PAL.woodDark : PAL.leafDeep);
-    r.set(x, BASE + 1, rnd() < 0.35 ? PAL.stone : rnd() < 0.5 ? PAL.woodDark : PAL.sandDark);
-    r.set(x, BASE + 2, rnd() < 0.4 ? PAL.stoneDark : PAL.woodDeep);
+    const gravel = x >= FAR_POINT.x0 && x < FAR_POINT.x1;
+    r.set(x, bx - 3, gravel ? PAL.stoneLight : rnd() < 0.5 ? PAL.woodDark : PAL.leafDeep);
+    r.set(x, bx - 2, gravel ? (x % 2 === 0 ? PAL.stone : PAL.sand) : rnd() < 0.35 ? PAL.stone : rnd() < 0.5 ? PAL.woodDark : PAL.sandDark);
+    r.set(x, bx - 1, gravel ? PAL.sandDark : rnd() < 0.4 ? PAL.stoneDark : PAL.woodDeep);
   }
   const haze = { color: PAL.hillFar, t: 0.45 };
   // Back row of alders, hazy.
   for (let x = -4; x < W; x += 9 + Math.floor(rnd() * 8)) {
-    r.blit(ALDER, x, BASE - 5 - ALDER.height + Math.floor(rnd() * 3), { mix: haze, flip: rnd() < 0.5 });
+    r.blit(ALDER, x, base(x + 6) - 8 - ALDER.height + Math.floor(rnd() * 3), { mix: haze, flip: rnd() < 0.5 });
   }
-  // Front row: willows whose fronds touch the water, alders and low bushes between them.
+  // Front row: willows whose fronds touch the water, alders and low bushes between them. The cottage and the jetty keep their own gap.
   let x = -8;
+  const cottage = cottageBox();
   while (x < W + 4) {
     const roll = rnd();
     const sp = roll < 0.26 ? WILLOW_BIG : roll < 0.46 ? WILLOW : roll < 0.62 ? ALDER_BIG : roll < 0.8 ? ALDER : roll < 0.92 ? ALDER_LOW : BUSH;
-    r.blit(sp, x, BASE + 1 - sp.height, { flip: rnd() < 0.5 });
+    const mid = x + sp.width / 2;
+    const skip = mid > cottage.x - COTTAGE_FENCE_W - 4 && mid < JETTY.x + JETTY.w + 2; // clearing for the farmstead and the landing
+    if (!skip) r.blit(sp, x, base(mid) - sp.height, { flip: rnd() < 0.5 });
     x += Math.max(9, Math.floor(sp.width * (0.55 + rnd() * 0.4)));
   }
-  // Two small rocks on the bank's edge (the same boulders as the near bank, smaller ones), then the ferry post in front of the trees.
-  for (const [rx, size, sd] of [[250, 's', 3], [316, 's', 5], [141, 's', 9]] as const) {
-    r.blit(boulderSprite(size, sd), rx, BASE + 3 - BOULDER_SIZES[size].h, { flip: sd % 2 === 1 });
+  // A few small rocks on the bank's edge.
+  for (const [rx, size, sd] of [[250, 's', 3], [316, 's', 5], [206, 's', 9]] as const) {
+    r.blit(boulderSprite(size, sd), rx, base(rx) - BOULDER_SIZES[size].h, { flip: sd % 2 === 1 });
   }
-  r.blit(FAR_POST, FAR_POST_POS.x, BASE + 1 - FAR_POST.height);
+  // The farmstead: cottage and fence, hazed a little like the rest of the far bank, and a sandy path along the shore to the jetty.
+  const sp = cottageSprite();
+  r.blit(sp, cottage.x - COTTAGE_FENCE_W, cottageFeetY() - FAR_SHORE_TOP - COTTAGE.h + 0, { mix: { color: PAL.hillFar, t: 0.18 } });
+  for (let px = cottage.x + 16; px < JETTY.x + 4; px++) {
+    const by = base(px);
+    r.set(px, by - 4, bayer(px, 1) < 0.5 ? PAL.sandLight : PAL.sand);
+    r.set(px, by - 3, bayer(px, 2) < 0.5 ? PAL.sand : PAL.sandDark);
+  }
+  // The far ferry post, in front of the trees (the rope ends at the ferry's pulley beside it).
+  r.blit(FAR_POST, FAR_POST_POS.x, FAR_POST_POS.baseY - FAR_POST.height - FAR_SHORE_TOP);
+  return r;
+}
+
+/** The far bank's reflection: the bank mirrored about the far shoreline, wobbly, dim and streaky; origin (0, FAR_SHORE_Y) so it follows `farShoreY`. */
+export function riverFarReflectionRaster(bank: Raster, frame: number): Raster {
+  const height = 64;
+  const r = new Raster(W, height);
+  const phase = frame * 2.1;
+  for (let x = 0; x < W; x++) {
+    const sh = farShoreY(x);
+    for (let ry = 0; ry < 46; ry++) {
+      const ty = sh - FAR_SHORE_Y + ry;
+      if (ty >= height) break;
+      const sy = sh - FAR_SHORE_TOP - 1 - ry;
+      if (sy < 0) break;
+      const dx = Math.round(Math.sin(ry * 0.6 + phase) * (1 + ry / 24));
+      const c = bank.get(x - dx, sy);
+      if (c < 0) continue;
+      if (bayer(x, ry) > (1 - ry / 46) * 1.15) continue;
+      if ((ry + Math.round(phase)) % 5 === 0 && bayer(x + ry, ry) > 0.45) continue;
+      r.set(x, ty, lerpColor(c, PAL.deep0, 0.5));
+    }
+  }
+  return r;
+}
+
+// ---- The far landing: a short jetty the ferry is moored against ----------------------------------
+
+export const JETTY = { x: 72, w: 16, h: 18 };
+/** The jetty's top: just above the far shoreline at its place. */
+export const jettyBox = () => ({ x: JETTY.x, y: farShoreY(JETTY.x + JETTY.w / 2) - 4, w: JETTY.w, h: JETTY.h });
+
+/** A short plank jetty running out from the far bank toward the viewer, with two piles at the end. */
+export function jettyRaster(): Raster {
+  const r = new Raster(JETTY.w, JETTY.h);
+  for (let y = 0; y < JETTY.h - 3; y++) {
+    for (let x = 2; x < JETTY.w - 2; x++) {
+      let c: number = y % 3 === 0 ? PAL.woodDark : y % 2 === 0 ? PAL.woodLight : PAL.wood;
+      if (x === 2 || x === JETTY.w - 3) c = PAL.woodDark;
+      r.set(x, y, c);
+    }
+  }
+  r.rect(2, JETTY.h - 4, JETTY.w - 4, 1, PAL.woodDeep);
+  for (const x of [1, JETTY.w - 4]) {
+    r.rect(x, JETTY.h - 7, 3, 7, PAL.woodDark);
+    r.rect(x, JETTY.h - 7, 1, 6, PAL.wood);
+    r.rect(x, JETTY.h - 8, 3, 1, PAL.outline);
+  }
+  for (let x = 0; x < JETTY.w; x++) if (bayer(x, 5) < 0.6) r.set(x, JETTY.h - 1, PAL.foam, 150);
+  return r;
+}
+export function jettyReflectionRaster(): Raster {
+  const r = new Raster(JETTY.w, 8);
+  const src = jettyRaster();
+  for (let ry = 0; ry < 8; ry++) {
+    if (ry % 3 === 2) continue;
+    const shift = Math.round(Math.sin(ry * 1.2));
+    for (let x = 0; x < JETTY.w; x++) {
+      const c = src.get(x - shift, JETTY.h - 2 - ry);
+      if (c < 0 || bayer(x, ry) > 0.95 - ry / 10) continue;
+      r.set(x, ry, lerpColor(c, PAL.deep0, 0.55));
+    }
+  }
   return r;
 }
 
@@ -188,6 +336,7 @@ export function riverWaterRaster(): Raster {
     const wy = FAR_SHORE_Y + ly;
     for (let x = 0; x < W; x++) {
       const wl = riverWaterline(x);
+      if (wy < farShoreY(x)) continue; // the far bank shows through above the shoreline
       if (wy >= wl - 1) {
         r.set(x, ly, bankPixel(x, wy, wy - wl));
         continue;
@@ -201,7 +350,7 @@ export function riverWaterRaster(): Raster {
   for (let i = 0; i < 420; i++) {
     const x = 4 + Math.floor(rnd() * (W - 12));
     const wy = FAR_SHORE_Y + 8 + Math.floor(rnd() * (SHORE_Y - FAR_SHORE_Y - 20));
-    if (wy > riverWaterline(x) - 6 || wy < farCornerBottom(x) + 3 || x > rightBankEdge(wy) - 3) continue;
+    if (wy > riverWaterline(x) - 6 || wy < farShoreY(x) + 3 || x > rightBankEdge(wy) - 3) continue;
     const len = 3 + Math.floor(rnd() * 7);
     const pos = Math.round(riverRampPos(x, wy));
     const idx = Math.min(WATER_RAMP.length - 1, Math.max(0, pos + (rnd() < 0.6 ? 1 : -1)));
@@ -216,7 +365,7 @@ export function riverWaterRaster(): Raster {
     const baseY = FAR_SHORE_Y + 16 + Math.pow(lane, 1.2) * (SHORE_Y - FAR_SHORE_Y - 40);
     for (let x = 0; x < W; x++) {
       const wy = Math.round(baseY + riverBend(x) * persp);
-      if (wy > riverWaterline(x) - 7 || x > rightBankEdge(wy) - 2 || wy < farCornerBottom(x) + 3) continue;
+      if (wy > riverWaterline(x) - 7 || x > rightBankEdge(wy) - 2 || wy < farShoreY(x) + 3) continue;
       if (((x >> 3) + Math.floor(lane * 10)) % 3 === 0) continue; // gaps between dashes
       for (let k = 0; k < (lane > 0.3 ? 2 : 1); k++) {
         const ly = wy + k - FAR_SHORE_Y;
@@ -230,92 +379,29 @@ export function riverWaterRaster(): Raster {
   return r;
 }
 
-// ---- The banks that shape the river: the far corners and the spit -----------------------------------
+// ---- The point by the hut ----------------------------------------------------------------------------
 
-/** Where the far bank's corners hang down over the water at the left and right screen edges, so the river visibly enters on the right and leaves on the left. */
-export const CORNERS = { x: 0, y: 110, w: W, h: 90 };
-/** The world y where open water starts at column x: the far shore (172) in the middle, curving down to ~190 at the right edge and ~194 at the left edge. */
-export function farCornerBottom(x: number): number {
-  if (x >= 296) return Math.round(FAR_SHORE_Y + 18 * Math.pow(Math.min(1, (x - 296) / 64), 1.4) + 1.2 * Math.sin(x / 4.7));
-  if (x < 48) return Math.round(FAR_SHORE_Y + 22 * Math.pow(Math.min(1, (48 - x) / 48), 1.4) + 1.2 * Math.sin(x / 4.1));
-  return FAR_SHORE_Y;
-}
-export const isCornerX = (x: number) => x < 48 || x >= 296;
-
+/** The point's layer place (world), drawn over the water: its trees overhang no further left than x 284 (the bobber column ends at 276). */
+export const RIGHT_BANK = { x: 272, y: 320, w: 88, h: 140 };
+/** Where the point's rounded nose begins (world y). Above it the water reaches the right screen edge all the way from the far shore. */
+export const SPIT_TIP_Y = 384;
+/** Where the nose has become the full body of the point. */
+const SPIT_BODY_Y = 406;
 /**
- * The corners layer (world origin CORNERS.x, CORNERS.y): the far bank continued over the water at both screen edges, with a muddy lip,
- * shaded ground and small hazy willows and alders, so the water goes off the right edge through a channel and off the left edge too.
- */
-export function riverCornersRaster(): Raster {
-  const r = new Raster(CORNERS.w, CORNERS.h);
-  const rnd = mulberry32(2718);
-  const GROUND = [PAL.leafDeep, PAL.leafDark, PAL.leaf];
-  for (let x = 0; x < W; x++) {
-    if (!isCornerX(x)) continue;
-    const b = farCornerBottom(x);
-    for (let y = FAR_SHORE_Y - 6; y < b; y++) {
-      const d = b - y;
-      let c: number;
-      if (d === 1) c = rnd() < 0.5 ? PAL.woodDeep : PAL.stoneDark;
-      else if (d === 2) c = rnd() < 0.4 ? PAL.stone : PAL.woodDark;
-      else c = rampDither(GROUND, 0.6 + Math.min(1.3, d / 8) + (bayer(x, y) - 0.5) * 0.8, x, y);
-      r.set(x - CORNERS.x, y - CORNERS.y, c);
-    }
-  }
-  type Tree = { sp: Sprite; by: number; x: number; flip: boolean };
-  const trees: Tree[] = [];
-  for (let x = -6; x < W + 6; x += 6 + Math.floor(rnd() * 4)) {
-    if (!isCornerX(Math.min(W - 1, Math.max(0, x + 8)))) continue;
-    const b = farCornerBottom(Math.min(W - 1, Math.max(0, x + 8)));
-    const roll = rnd();
-    const sp = roll < 0.4 ? treeAt(WILLOW, 'w', 0.85) : roll < 0.8 ? treeAt(ALDER, 'a', 0.9) : ALDER_LOW;
-    trees.push({ sp, by: b + 1 + Math.floor(rnd() * 3), x, flip: rnd() < 0.5 });
-  }
-  trees.sort((p, q) => p.by - q.by);
-  for (const tr of trees) r.blit(tr.sp, tr.x - CORNERS.x, tr.by - CORNERS.y - tr.sp.height, { flip: tr.flip, mix: { color: PAL.hillFar, t: 0.22 } });
-  return r;
-}
-
-/** The corners' reflection: the bank mirrored straight down into the water below its lip, short and streaky (world origin (0, FAR_SHORE_Y)). */
-export function riverCornerReflectionRaster(corners: Raster, frame: number): Raster {
-  const r = new Raster(W, 44);
-  const phase = frame * 2.1;
-  for (let x = 0; x < W; x++) {
-    if (!isCornerX(x)) continue;
-    const b = farCornerBottom(x);
-    for (let ry = 0; ry < 16; ry++) {
-      if ((ry + Math.round(phase)) % 5 === 0) continue;
-      const wob = Math.round(Math.sin(ry * 0.7 + phase) * 1.2);
-      const src = corners.get(x + wob, b - 1 - ry - CORNERS.y);
-      if (src < 0 || bayer(x, ry) > 1 - ry / 18) continue;
-      r.set(x, b - FAR_SHORE_Y + ry, lerpColor(src, PAL.deep0, 0.55));
-    }
-  }
-  return r;
-}
-
-/** The spit's layer place (world), drawn over the water: its trees overhang no further left than x 282 (the bobber column ends at 276). */
-export const RIGHT_BANK = { x: 272, y: 100, w: 88, h: 290 };
-/** Where the spit's rounded nose begins (world y): below the channel the river comes in through (y ~190-244 at the right edge). */
-export const SPIT_TIP_Y = 246;
-/** Where the nose has become the full body of the spit. */
-const SPIT_BODY_Y = 270;
-/**
- * Where the spit's land starts at world y (x from there to the screen edge is bank). Above SPIT_TIP_Y there is none (the channel). The nose is a
- * rounded quarter-ellipse leaving the right screen edge, then the shore sweeps right again toward the screen edge by about y 372, with bulges and inlets.
+ * Where the point's land starts at world y (x from there to the screen edge is bank). Above SPIT_TIP_Y there is none. The nose is a rounded
+ * quarter-ellipse leaving the right screen edge, then the shore sweeps right again toward the gravel bar, with small bulges.
  */
 export function rightBankEdge(y: number): number {
   if (y < SPIT_TIP_Y) return W + 40;
-  const t = Math.min(1.25, Math.max(0, (y - SPIT_BODY_Y) / (372 - SPIT_BODY_Y)));
-  const wobble = (6 * Math.sin(y / 17 + 0.6) + 3 * Math.sin(y / 7.3 + 2) + 3 * Math.sin(y / 41)) * Math.min(1, t * 3) * 0.8;
-  const body = Math.round(312 + 48 * Math.pow(t, 1.5) + wobble);
-  if (y >= SPIT_BODY_Y) return Math.max(300, body);
-  const bodyAtJoin = 312;
+  const t = Math.min(1.25, Math.max(0, (y - SPIT_BODY_Y) / 46));
+  const wobble = (4 * Math.sin(y / 9 + 0.6) + 2 * Math.sin(y / 4.3 + 2)) * Math.min(1, t * 3) * 0.8;
+  const body = Math.round(318 + 40 * Math.pow(t, 1.5) + wobble);
+  if (y >= SPIT_BODY_Y) return Math.max(306, body);
   const s = (SPIT_BODY_Y - y) / (SPIT_BODY_Y - SPIT_TIP_Y);
-  return Math.round(W - (W - bodyAtJoin) * Math.sqrt(Math.max(0, 1 - s * s)));
+  return Math.round(W - (W - 318) * Math.sqrt(Math.max(0, 1 - s * s)));
 }
-/** True where a world point is land of the spit or of a far corner. */
-export const isRightLand = (x: number, y: number) => x >= rightBankEdge(y) || (isCornerX(x) && y < farCornerBottom(x));
+/** True where a world point is land of the point. */
+export const isRightLand = (x: number, y: number) => x >= rightBankEdge(y);
 
 const scaled = new Map<string, Sprite>();
 /** A tree sprite at a perspective scale (cached). */
@@ -331,8 +417,8 @@ function treeAt(sp: Sprite, name: string, scale: number): Sprite {
 }
 
 /**
- * The spit (the inside of the bend): a rounded nose below the channel, then a shore with a wavy waterline, a pebbly beach strip, roots and stones,
- * depth-shaded ground and dense overlapping canopy, with a few willows leaning out so their fronds hang over the water.
+ * The point (the inside of the bend) round the hut: a rounded nose, a pebbly beach strip, roots and stones, shaded ground, and a few willows and
+ * alders (the hut stands in front of them), with willows leaning out so their fronds hang over the water.
  */
 export function riverRightBankRaster(): Raster {
   const r = new Raster(RIGHT_BANK.w, RIGHT_BANK.h);
@@ -343,8 +429,8 @@ export function riverRightBankRaster(): Raster {
   const bottom = RIGHT_BANK.y + RIGHT_BANK.h;
   for (let y = SPIT_TIP_Y; y < bottom; y++) {
     const e = rightBankEdge(y);
-    const t = Math.min(1, Math.max(0, (y - SPIT_TIP_Y) / 126));
-    const beach = 2 + Math.round(4 * t) + (Math.imul(y, 2654435761) >>> 31);
+    const t = Math.min(1, Math.max(0, (y - SPIT_TIP_Y) / 60));
+    const beach = 2 + Math.round(3 * t) + (Math.imul(y, 2654435761) >>> 31);
     for (let x = e; x < RIGHT_BANK.x + RIGHT_BANK.w; x++) {
       const dx = x - e;
       const h = (Math.imul(x + 5, 73856093) ^ Math.imul(y + 9, 19349663)) >>> 0;
@@ -362,45 +448,41 @@ export function riverRightBankRaster(): Raster {
     }
   }
   // Roots and stones at the water's edge.
-  for (let y = SPIT_TIP_Y + 10; y < 372; y += 9 + Math.floor(rnd() * 7)) {
+  for (let y = SPIT_TIP_Y + 6; y < 440; y += 8 + Math.floor(rnd() * 5)) {
     const e = rightBankEdge(y);
     const len = 3 + Math.floor(rnd() * 4);
     for (let k = 0; k < len; k++) r.set(lx(e - 1 - k), ly(y + (k > 1 ? 1 : 0)), k % 2 === 0 ? PAL.woodDark : PAL.woodDeep);
   }
-  for (const [by, sz, sd] of [[262, 's', 3], [284, 's', 5], [304, 'm', 7], [330, 's', 9], [352, 'm', 11], [368, 's', 13]] as const) {
+  for (const [by, sz, sd] of [[392, 's', 3], [416, 'm', 7], [438, 's', 9]] as const) {
     r.blit(boulderSprite(sz, sd), lx(rightBankEdge(by) - 3), ly(by) - BOULDER_SIZES[sz].h, { flip: sd % 2 === 1 });
   }
-  // Canopy: rows every 5 px, three trees each, far (top) to near (bottom) so they overlap in depth; far rows are small and hazy.
-  type Tree = { sp: Sprite; by: number; cx: number; flip: boolean; haze: number };
+  // A small wood behind the hut, and willows leaning out over the water.
+  type Tree = { sp: Sprite; by: number; cx: number; flip: boolean };
   const trees: Tree[] = [];
-  for (let by = SPIT_TIP_Y + 8; by <= 378; by += 5) {
-    const t = Math.min(1, Math.max(0, (by - SPIT_TIP_Y) / 126));
-    for (let k = 0; k < 3; k++) {
-      const alder = rnd() < 0.55;
-      const sp = alder ? treeAt(ALDER, 'a', 0.7 + 0.8 * t) : treeAt(WILLOW, 'w', 0.65 + 0.8 * t);
-      const start = Math.max(300, rightBankEdge(by) + 4);
-      trees.push({ sp, by: by + Math.floor(rnd() * 4), cx: start + k * 20 + rnd() * 14, flip: rnd() < 0.5, haze: t < 0.3 ? 0.35 * (1 - t / 0.3) : 0 });
+  for (let by = SPIT_TIP_Y + 4; by <= 412; by += 5) {
+    for (let k = 0; k < 2; k++) {
+      const alder = rnd() < 0.5;
+      const sp = alder ? treeAt(ALDER, 'a', 1.1) : treeAt(WILLOW, 'w', 1.1);
+      trees.push({ sp, by: by + Math.floor(rnd() * 4), cx: Math.max(318, rightBankEdge(by) + 6) + k * 18 + rnd() * 10, flip: rnd() < 0.5 });
     }
   }
-  // Willows leaning over the water: their fronds hang out over the shore.
-  for (const [by, sp, flip] of [[286, treeAt(WILLOW_BIG, 'wb', 0.8), false], [318, WILLOW_NEAR, false], [340, WILLOW_BIG, true], [372, WILLOW_NEAR, true]] as const) {
-    trees.push({ sp, by, cx: rightBankEdge(by) + 3, flip, haze: 0 });
+  for (const [by, sp, flip] of [[404, WILLOW_NEAR, false], [428, treeAt(WILLOW_BIG, 'wb', 1.1), true]] as const) {
+    trees.push({ sp, by, cx: rightBankEdge(by) + 2, flip });
   }
   trees.sort((p, q) => p.by - q.by);
   for (const tr of trees) {
     const x = Math.max(284, Math.round(tr.cx - tr.sp.width / 2));
-    r.blit(tr.sp, lx(x), ly(tr.by) - tr.sp.height, { flip: tr.flip, mix: tr.haze > 0 ? { color: PAL.hillFar, t: tr.haze } : undefined });
+    r.blit(tr.sp, lx(x), ly(tr.by) - tr.sp.height, { flip: tr.flip });
   }
   return r;
 }
 
-/** The spit's reflection: the bank mirrored sideways across its edge, short, dimmed and streaky, in three wobble frames. World origin (RIGHT_BANK.x, FAR_SHORE_Y). */
+/** The point's reflection: the bank mirrored sideways across its edge, short, dimmed and streaky, in three wobble frames. World origin (RIGHT_BANK.x, RIGHT_BANK.y). */
 export function riverRightReflectionRaster(bank: Raster, frame: number): Raster {
-  const h = RIGHT_BANK.y + RIGHT_BANK.h - FAR_SHORE_Y;
-  const r = new Raster(RIGHT_BANK.w, h);
+  const r = new Raster(RIGHT_BANK.w, RIGHT_BANK.h);
   const phase = frame * 2.1;
-  for (let ry = SPIT_TIP_Y - FAR_SHORE_Y; ry < h; ry++) {
-    const y = FAR_SHORE_Y + ry;
+  for (let ry = SPIT_TIP_Y - RIGHT_BANK.y; ry < RIGHT_BANK.h; ry++) {
+    const y = RIGHT_BANK.y + ry;
     const e = rightBankEdge(y);
     if ((ry + Math.round(phase)) % 4 === 0) continue; // ripple gaps
     for (let dx = 1; dx <= 12; dx++) {

@@ -66,7 +66,7 @@ import { LOCATIONS, QUIET_LAKE } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
-import { CORNERS, FERRY, FERRY_SIGN_FEET, farCornerBottom, HUT_FEET, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS, rightBankEdge, riverWaterline } from '../art/riverArt';
+import { cottageWindow, FERRY, FERRY_SIGN_FEET, farShoreY, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS, rightBankEdge, riverWaterline } from '../art/riverArt';
 import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
@@ -513,7 +513,7 @@ export class LakeScene extends Phaser.Scene {
   /** The river's moving pictures (slice 25b): foam streaks, riffle glints, white water behind rocks, and the ferry rope. */
   private riverFx?: Phaser.GameObjects.Graphics;
   private rightReflectImg?: Phaser.GameObjects.Image;
-  private cornerReflectImg?: Phaser.GameObjects.Image;
+  private jettyReflectImg?: Phaser.GameObjects.Image;
   private ferryImg?: Phaser.GameObjects.Image;
   private ferryReflectImg?: Phaser.GameObjects.Image;
   private ropeFx?: Phaser.GameObjects.Graphics;
@@ -2073,7 +2073,7 @@ export class LakeScene extends Phaser.Scene {
     img(this.bg.farShore, 0, FAR_SHORE_TOP, Z.farShore);
     this.waterImg = img(this.bg.water, 0, FAR_SHORE_Y, Z.water, false);
     this.waterGlow = this.add.graphics().setDepth(Z.waterGlow);
-    this.reflectionImg = this.add.image(0, FAR_SHORE_Y + 4, this.bg.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(this.loc.background === 'river' ? 0.42 : 0.7);
+    this.reflectionImg = this.add.image(0, this.loc.background === 'river' ? FAR_SHORE_Y : FAR_SHORE_Y + 4, this.bg.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(this.loc.background === 'river' ? 0.42 : 0.7);
     this.waterFx = this.add.graphics().setDepth(Z.waterFx);
     this.eerieFx = this.add.graphics().setDepth(Z.waterFx + 0.5);
     if (this.loc.background === 'river') {
@@ -2129,10 +2129,12 @@ export class LakeScene extends Phaser.Scene {
       this.ferryReflectImg = this.add.image(FERRY.x, FERRY.y + FERRY.h, TEX.ferryReflection).setOrigin(0, 0).setDepth(Z.reflection + 0.2).setAlpha(0.45);
       const fsg = this.add.image(FERRY_SIGN_FEET.x, FERRY_SIGN_FEET.y, TEX.ferrySign).setOrigin(0.5, 1).setDepth(Z.nearShore + 0.35 + FERRY_SIGN_FEET.y / 10000);
       this.worldImgs.push(fsg);
-      const cn = this.add.image(CORNERS.x, CORNERS.y, TEX.riverCorners).setOrigin(0, 0).setDepth(Z.waterFx + 0.6);
-      this.worldImgs.push(cn);
-      this.cornerReflectImg = this.add.image(0, FAR_SHORE_Y, TEX.riverCornerReflection[0]).setOrigin(0, 0).setDepth(Z.reflection + 0.1).setAlpha(0.42);
-      this.rightReflectImg = this.add.image(RIGHT_BANK.x, FAR_SHORE_Y, TEX.riverRightReflection[0]).setOrigin(0, 0).setDepth(Z.reflection + 0.1).setAlpha(0.42);
+      // The far landing: a short jetty the ferry is moored against, with a faint reflection.
+      const jb = jettyBox();
+      const jetty = this.add.image(JETTY.x, jb.y, TEX.jetty).setOrigin(0, 0).setDepth(Z.waterFx + 0.5);
+      this.worldImgs.push(jetty);
+      this.jettyReflectImg = this.add.image(JETTY.x, jb.y + JETTY.h, TEX.jettyReflection).setOrigin(0, 0).setDepth(Z.reflection + 0.2).setAlpha(0.4);
+      this.rightReflectImg = this.add.image(RIGHT_BANK.x, RIGHT_BANK.y, TEX.riverRightReflection[0]).setOrigin(0, 0).setDepth(Z.reflection + 0.1).setAlpha(0.42);
       this.worldImgs.push(rp);
     }
 
@@ -2221,7 +2223,7 @@ export class LakeScene extends Phaser.Scene {
         speed: 0.8 + rnd() * 1.6,
       };
       // At the river the gravel bars rise out of the water: no sparkles on dry stones.
-      if (this.loc.background === 'river' && (sp.y > riverWaterline(sp.x) - 3 || sp.x > rightBankEdge(sp.y) - 3 || sp.y < farCornerBottom(sp.x) + 3)) continue;
+      if (this.loc.background === 'river' && (sp.y > riverWaterline(sp.x) - 3 || sp.x > rightBankEdge(sp.y) - 3 || sp.y < farShoreY(sp.x) + 3)) continue;
       this.sparkles.push(sp);
     }
     for (let i = 0; i < 16; i++) {
@@ -2880,7 +2882,7 @@ export class LakeScene extends Phaser.Scene {
       this.ferryImg.setY(FERRY.y + bob);
       this.ferryReflectImg.setTint(look.waterTint).setY(FERRY.y + FERRY.h + bob);
     }
-    this.cornerReflectImg?.setTint(look.waterTint).setTexture(TEX.riverCornerReflection[Math.floor(this.elapsed / 650) % 3]);
+    this.jettyReflectImg?.setTint(look.waterTint);
 
     // Sun and moon on their arcs, rising behind the hills.
     const horizonY = FAR_SHORE_Y - 20;
@@ -3002,7 +3004,14 @@ export class LakeScene extends Phaser.Scene {
       const a = glintAlpha(gl, t);
       if (a > 0) g.fillStyle(glintColor, a * 0.8 * lightLevel * still).fillRect(gl.x, gl.y, gl.w, 1);
     }
-    // White water where the current meets the spit's nose.
+    // The far cottage's window glows warmly after dusk.
+    const glow = Math.min(1, look.fireflyAlpha * 1.6);
+    if (glow > 0.05) {
+      const w = cottageWindow();
+      g.fillStyle(0xffc866, 0.22 * glow).fillRect(w.x - 2, w.y - 2, w.w + 4, w.h + 4);
+      g.fillStyle(0xffd98a, 0.9 * glow).fillRect(w.x, w.y, w.w, w.h);
+    }
+    // White water where the current meets the point's nose.
     for (const f of spitFoam(t)) g.fillStyle(foam, Math.max(0, f.alpha) * lightLevel * still).fillRect(f.x, f.y, f.w, 1);
     // White water behind the boulders in the water.
     for (const rock of RIVER_ROCKS) {
