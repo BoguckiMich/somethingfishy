@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { CHAPTERS, JOURNAL, JOURNAL_BLINK_DAY, JOURNAL_BLINK_NIGHT, JOURNAL_PALE, PALE_BEAT, STORY_LINES, STORY_TUNING } from '../data/story';
+import { CHAPTERS, JOURNAL, JOURNAL_BLINK_DAY, JOURNAL_BLINK_NIGHT, JOURNAL_PALE, JOURNAL_Q7_LATE, PALE_BEAT, STORY_LINES, STORY_TUNING } from '../data/story';
 import { newPlayer } from '../inventory';
 import { withBundlesDone } from '../checklist/checklist';
 import { normalizeSave } from '../save';
 import {
   blinkIsNight,
   blinkLines,
+  chapterWaits,
+  isNightVisit,
+  q7Lines,
   journalChapterCount,
   journalEntries,
   journalHasNew,
@@ -350,5 +353,61 @@ describe('storyMilestones (derived from the player, old saves included)', () => 
     const p = newPlayer();
     expect(recordMilestones(p)).toBe(p);
     expect(recordMilestones({ ...p, log: deepLog }).milestones).toEqual({ deep: true });
+  });
+});
+
+describe('night visits and the Q4 fallback', () => {
+  it('a visit counts from 21:00 to 05:00, also after midnight', () => {
+    expect(isNightVisit(20 * 60 + 59)).toBe(false);
+    expect(isNightVisit(21 * 60)).toBe(true);
+    expect(isNightVisit(0)).toBe(true);
+    expect(isNightVisit(2 * 60)).toBe(true);
+    expect(isNightVisit(5 * 60 - 1)).toBe(true);
+    expect(isNightVisit(5 * 60)).toBe(false);
+    expect(isNightVisit(12 * 60)).toBe(false);
+  });
+  it('Q4 also unlocks after one bundle (day players get the day version)', () => {
+    expect(storyMilestones(newPlayer()).Q4).toBe(false);
+    expect(storyMilestones(withBundlesDone(newPlayer(), STORY_TUNING.q4FallbackBundles)).Q4).toBe(true);
+  });
+});
+
+describe('chapterWaits: the night blink waits for Pajkel in the car', () => {
+  const blink = chapterById('Q4')!;
+  it('waits 20:00-23:59 while he is not in the car', () => {
+    expect(chapterWaits(blink, 22 * 60, false)).toBe(true);
+    expect(chapterWaits(blink, 20 * 60, false)).toBe(true);
+    expect(chapterWaits(blink, 23 * 60 + 59, false)).toBe(true);
+  });
+  it('does not wait once he is in the car, by day, after midnight, or for other chapters', () => {
+    expect(chapterWaits(blink, 22 * 60, true)).toBe(false);
+    expect(chapterWaits(blink, 14 * 60, false)).toBe(false);
+    expect(chapterWaits(blink, 60, false)).toBe(false);
+    expect(chapterWaits(chapterById('Q1')!, 22 * 60, false)).toBe(false);
+  });
+});
+
+describe('catching up once the road is fixed', () => {
+  const two = (): ReturnType<typeof newStory> => markSeen(markSeen(newStory(), 'Q1', '2026-12-01'), 'Q2', '2026-12-01');
+  it('ignores the daily cap, but not the order or the milestones', () => {
+    expect(todaysChapter(two(), '2026-12-01', LAKE, ALL)).toBeNull();
+    expect(todaysChapter(two(), '2026-12-01', LAKE, ALL, true)?.id).toBe('Q3');
+    expect(todaysChapter(two(), '2026-12-01', LAKE, only('Q4', 'Q5'), true)).toBeNull();
+    expect(slotFree(two(), '2026-12-01', true)).toBe(true);
+    expect(slotFree(two(), 'tomorrow', true)).toBe(false);
+  });
+  it('Q7 late: the line, the stored flag and the journal thought', () => {
+    expect(q7Lines(true)).toEqual(['q7Road']);
+    expect(q7Lines(false)).toEqual(['q7']);
+    const base = seenIds(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']);
+    const late = markSeen(base, 'Q7', '2026-12-07', q7Lines(true), undefined, true);
+    expect(late.q7Late).toBe(true);
+    expect(late.queue).toContain('q7Road');
+    expect(journalEntries(late).find((e) => e.id === 'Q7')?.thought).toBe(JOURNAL_Q7_LATE.thought);
+    const normal = markSeen(base, 'Q7', '2026-12-07', q7Lines(false));
+    expect(normal.q7Late).toBeUndefined();
+    expect(journalEntries(normal).find((e) => e.id === 'Q7')?.thought).toBe(JOURNAL.Q7.thought);
+    expect(normalizeStory(JSON.parse(JSON.stringify(late))).q7Late).toBe(true);
+    expect(normalizeStory({ done: { Q1: '2026-12-01' }, q7Late: true }).q7Late).toBeUndefined();
   });
 });

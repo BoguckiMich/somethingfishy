@@ -71,20 +71,21 @@ export type TrophyState = Record<string, Trophy>;
 
 /**
  * Records a catch on the board. The first one is `first`; a later one only replaces it when it is longer (`improved`),
- * otherwise the board is unchanged.
+ * otherwise the board is unchanged, except that a perfect gold-size catch still adds the medal. `changed` is true
+ * whenever the returned trophies differ from the input (save when it is).
  */
-export function addTrophy(state: TrophyState | undefined, hooked: HookedFish, date: string, perfect = false): { trophies: TrophyState; first: boolean; improved: boolean } {
+export function addTrophy(state: TrophyState | undefined, hooked: HookedFish, date: string, perfect = false): { trophies: TrophyState; first: boolean; improved: boolean; changed: boolean } {
   const cur = state ?? {};
   const old = cur[hooked.speciesId];
   const sp = speciesById(hooked.speciesId);
   const medal = old?.medal === true || (!!sp && tierFor(sp, hooked.lengthCm, perfect) === 'medal');
   if (old && hooked.lengthCm <= old.lengthCm) {
     // Not a bigger one, but a perfect gold-size catch still earns the medal.
-    if (medal && !old.medal) return { trophies: { ...cur, [hooked.speciesId]: { ...old, medal: true } }, first: false, improved: false };
-    return { trophies: cur, first: false, improved: false };
+    if (medal && !old.medal) return { trophies: { ...cur, [hooked.speciesId]: { ...old, medal: true } }, first: false, improved: false, changed: true };
+    return { trophies: cur, first: false, improved: false, changed: false };
   }
   const entry: Trophy = { lengthCm: hooked.lengthCm, weightG: hooked.weightG, date: isValidDate(date) ? date : '', ...(medal ? { medal: true as const } : {}) };
-  return { trophies: { ...cur, [hooked.speciesId]: entry }, first: !old, improved: !!old };
+  return { trophies: { ...cur, [hooked.speciesId]: entry }, first: !old, improved: !!old, changed: true };
 }
 
 /** Anything saved -> a clean board: only known trophy ids, sane sizes, a valid date or ''. */

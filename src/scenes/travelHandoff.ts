@@ -1,5 +1,6 @@
 import type { GameClock } from '../core/clock';
 import type { PlayerState } from '../core/inventory';
+import type { Profile } from '../core/profile';
 import type { RoadCardHandle } from '../ui/roadCard';
 
 /**
@@ -13,6 +14,10 @@ export interface Handoff {
   arrive: boolean;
   /** The road card that still covers the screen; the new scene removes it once it has drawn its first frame. */
   card?: RoadCardHandle;
+  /** A toast for the new scene to show once it is set up ("Game loaded"). */
+  toast?: string;
+  /** The names to use (a loaded save's, or the sandbox's, which cannot re-read them from storage). */
+  profile?: Profile;
 }
 
 let pending: Handoff | null = null;

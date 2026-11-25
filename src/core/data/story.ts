@@ -41,6 +41,8 @@ export const STORY_LINES: Record<string, string> = {
   q5b: '...Bestia is completely dry.',
   q6: 'Pale one? Like a really white bream?',
   q7: "Road trip? I'll fix the road!",
+  /** Q7 told after the road was already fixed. */
+  q7Road: "Good thing the road's already fixed!",
   pale: 'You caught WHAT? I was asleep?!',
 };
 
@@ -105,6 +107,8 @@ export const JOURNAL_BLINK_NIGHT: JournalDef = {
   text: 'A star in the lake with no star above it. It blinked once, slowly, and sank.',
   thought: 'A star in the water with no star above it. It blinked.',
 };
+/** Q7 told after the road was already fixed (the journal's alternative thought). */
+export const JOURNAL_Q7_LATE: JournalDef = { icon: 'bottle', by: 'paj', thought: "A doorstep to what? Good thing the road's already open." };
 export const JOURNAL_BLINK_DAY: JournalDef = { icon: 'bottle', by: 'alex', thought: 'Count the stars tonight. Maybe. Probably.' };
 export const JOURNAL_PALE: JournalDef = {
   icon: 'pale',
@@ -122,6 +126,8 @@ export const STORY_TUNING = {
   nightFromMinute: 21 * 60,
   /** Q7 comes when this many checklist bundles are done. */
   q7Bundles: 5,
+  /** Q4 unlocks without the night flag once this many bundles are done (day-only players get the bottle version). */
+  q4FallbackBundles: 1,
   /** Real ms of calm play before today's chapter shows up. */
   delayMs: { min: 60_000, max: 90_000 },
   /** After a chapter was interrupted (a fight, a panel) the next try comes this much later. */
