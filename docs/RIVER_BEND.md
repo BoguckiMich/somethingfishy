@@ -1,7 +1,7 @@
 # River bend: first sketch (M2)
 
-_Draft 2026-11-24, written while the user was away. Nothing here is decided: every ❓ has a ➡️
-recommendation to accept or change. Story beats, moments and the checklist already exist in
+_Draft 2026-11-24. **Decided 2026-11-25: the user accepted every ➡️ recommendation below.** Every ❓
+keeps its ➡️ as the decision. Story beats, moments and the checklist already exist in
 `docs/STORY.md` (§3 River bend R1-R6, §4 river moments, §5 "Against the Current"); this sketch fits them
 to the systems we built since (hourly weather, rare trophy fish, camp, gear gates, story milestones,
 perfect catch). Layout picture: `docs/sketches/river-bend.svg`._
@@ -137,7 +137,7 @@ fade if they are playing). ~5 s, skippable by tap.
 ➡️ The in-game clock keeps running (the drive takes ~30 in-game minutes). Weather is the same
 everywhere (it is the real hour), which also keeps the code simple.
 
-## 9. Build order (slices, after the user agrees)
+## 9. Build order (slices 25a-25g)
 
 1. **Location as data + travel**: scene takes a `Location` (background, zones, fish pool, moments, spots for
    car/camp/companions), map "Drive there", the fade. River scene with placeholder art.
