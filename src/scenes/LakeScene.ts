@@ -1238,8 +1238,17 @@ export class LakeScene extends Phaser.Scene {
 
   // ---- Story chapters (slice 21) ----------------------------------------------------------------
 
-  /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
+  /**
+   * Today's chapter at this place, ready to be told: null while it waits (the night blink before Pajkel is in the car),
+   * so the sign shows no seal and a tap on it cannot start it early as the day bottle.
+   */
   private dueChapter(): ChapterDef | null {
+    const chapter = this.nextChapter();
+    return chapter && chapterWaits(chapter, this.clock.minute, isInCar(this.companions.state)) ? null : chapter;
+  }
+
+  /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
+  private nextChapter(): ChapterDef | null {
     if (!this.storyOn || this.loc.storyPlaceId === null) return null;
     return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, this.loc.storyPlaceId, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player), this.roadFixed());
   }
@@ -1319,15 +1328,15 @@ export class LakeScene extends Phaser.Scene {
       return;
     }
     if (run || !this.storyOn) return;
-    const chapter = this.dueChapter();
     // The night blink waits (the timer is held) until Pajkel is asleep in the car, then fires soon after.
-    const waits = !!chapter && chapterWaits(chapter, this.clock.minute, isInCar(this.companions.state));
+    const chapter = this.dueChapter();
+    const waits = chapter === null && this.nextChapter() !== null;
     if (waits) this.storyWaiting = true;
     else if (this.storyWaiting) {
       this.storyWaiting = false;
       this.storyTimerMs = Math.min(this.storyTimerMs, 5000);
     }
-    if (!chapter || waits || !this.storyCalm()) return;
+    if (!chapter || !this.storyCalm()) return;
     this.storyTimerMs -= deltaMs;
     if (this.storyTimerMs <= 0) this.beginChapter(chapter);
   }
