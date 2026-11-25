@@ -1,7 +1,7 @@
 import { distanceToY, FAR_SHORE_Y, SHORE_Y, W } from './layout';
 import { mulberry32 } from './raster';
 import { BOULDER_SIZES } from './riverSprites';
-import { RIVER_ROCKS, ROPE_FAR, ROPE_NEAR, riverBend, rightBankEdge, riverWaterline, type RiverRock } from './riverArt';
+import { RIVER_ROCKS, ROPE_FAR, ROPE_NEAR, riverBend, rightBankEdge, farCornerBottom, SPIT_TIP_Y, riverWaterline, type RiverRock } from './riverArt';
 
 /**
  * Pure positions for the river's moving pictures (slice 25b): foam streaks drifting along the bend, the riffle's standing-wave
@@ -10,7 +10,7 @@ import { RIVER_ROCKS, ROPE_FAR, ROPE_NEAR, riverBend, rightBankEdge, riverWaterl
 
 // ---- Tunables ------------------------------------------------------------------------------------
 
-export const STREAK_COUNT = 22;
+export const STREAK_COUNT = 26;
 /** Drift speed in px/s of the farthest and the nearest streak (perspective). */
 export const STREAK_SPEED_FAR = 9;
 export const STREAK_SPEED_NEAR = 34;
@@ -46,7 +46,7 @@ export function makeStreaks(): Streak[] {
   const out: Streak[] = [];
   for (let i = 0; i < STREAK_COUNT; i++) {
     // Even spread over the lanes with a little jitter; more of them near (they are bigger and read first).
-    const lane = Math.pow((i + 0.5 + (rnd() - 0.5) * 0.7) / STREAK_COUNT, 0.85);
+    const lane = Math.pow((i + 0.5 + (rnd() - 0.5) * 0.7) / STREAK_COUNT, 1.2);
     out.push({ lane, phase: rnd() });
   }
   return out;
@@ -80,6 +80,7 @@ export function streakAt(s: Streak, t: number, speedMult: number): StreakDraw | 
   const wl = Math.min(riverWaterline(x), riverWaterline(x - len));
   if (y > wl - 4 || y < FAR_SHORE_Y + 6) return null;
   if (x > rightBankEdge(y) - 4) return null;
+  if (y < Math.max(farCornerBottom(x), farCornerBottom(x - len)) + 3) return null;
   // Fade in and out along the path.
   const edge = Math.min(u, 1 - u) * 6;
   const alpha = Math.min(1, edge) * (0.75 + 0.25 * s.lane);
@@ -111,6 +112,7 @@ export function makeGlints(): RiffleGlint[] {
     if (!rock.inWater) continue;
     const { w } = BOULDER_SIZES[rock.size];
     for (let k = 0; k < GLINTS_PER_ROCK; k++) {
+      if (rock.y + 2 > riverWaterline(rock.x - w / 2 - 6 - k * 6) - 4) continue;
       out.push({ x: rock.x - w / 2 - 6 - k * 6, y: rock.y - 1 + (k === 0 ? -2 : 2), speed: 3 + rnd() * 2, phase: rnd() * 6.28, w: 2 });
     }
   }
@@ -184,6 +186,24 @@ export function streakSegments(d: StreakDraw): { x: number; y: number; w: number
   for (let k = 0; k < n; k++) {
     const w = Math.min(6, d.len - k * 6);
     out.push({ x: d.x - k * 6 - w, y: d.y + Math.round((d.slope * (k + 0.5)) / n), w });
+  }
+  return out;
+}
+
+/**
+ * White water where the current hits the spit's nose: a flickering line along its rounded top and a few short streaks trailing down-left
+ * from the tip, so the flow visibly splits round it.
+ */
+export function spitFoam(t: number): FoamRect[] {
+  const out: FoamRect[] = [];
+  for (let y = SPIT_TIP_Y; y < SPIT_TIP_Y + 28; y += 3) {
+    const e = rightBankEdge(y);
+    if (e >= 359) continue;
+    out.push({ x: e - 3, y, w: 3, alpha: 0.55 + 0.4 * Math.sin(t * 3 + y * 0.9) });
+  }
+  const e0 = rightBankEdge(SPIT_TIP_Y + 24);
+  for (let k = 0; k < 5; k++) {
+    out.push({ x: e0 - 6 - k * 5, y: SPIT_TIP_Y + 26 + k * 3, w: 4, alpha: 0.5 + 0.45 * Math.sin(t * 2.4 + k * 1.9) });
   }
   return out;
 }

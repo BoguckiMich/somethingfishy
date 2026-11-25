@@ -16,16 +16,30 @@ import {
   riverNearBankRaster,
   riverWaterline,
   riverWaterRaster,
+  CORNERS,
+  farCornerBottom,
+  isCornerX,
+  isRightLand,
   rightBankEdge,
   RIGHT_BANK,
+  riverCornerReflectionRaster,
+  riverCornersRaster,
+  SPIT_TIP_Y,
   riverRightBankRaster,
   riverRightReflectionRaster,
   rockBox,
   ROPE_FAR,
   ROPE_NEAR,
   ROPE_POST_POS,
+  FERRY,
+  FERRY_SIGN_FEET,
+  ferrySignBox,
+  ferryRaster,
+  ferryReflectionRaster,
+  ferrySignRaster,
+  FAR_POST_POS,
 } from './riverArt';
-import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, ROPE_SWAY_CALM, ROPE_SWAY_WINDY, rockFoam, STREAK_COUNT, streakAt, streakSegments } from './riverFx';
+import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, ROPE_SWAY_CALM, ROPE_SWAY_WINDY, rockFoam, STREAK_COUNT, spitFoam, streakAt, streakSegments } from './riverFx';
 import { ALDER, boulderSprite, BOULDER_SIZES, FAR_POST, ROPE_POST, WILLOW, WILLOW_NEAR } from './riverSprites';
 import { campBoxes, type Box } from './campLayout';
 import { SIGN_SIZE } from './signArt';
@@ -239,53 +253,99 @@ describe('ferry landing', () => {
   });
 });
 
-describe('right bank', () => {
+describe('river mouth, spit and outflow', () => {
   const bank = riverRightBankRaster();
+  const corners = riverCornersRaster();
   const water = riverWaterRaster();
+  const isWater = (x: number, y: number) => WATER_COLORS.has(water.get(x, y - FAR_SHORE_Y));
 
-  it('comes down and forward: the edge starts right of x 290 at the far end and reaches the screen edge lower down', () => {
-    expect(rightBankEdge(FAR_SHORE_Y)).toBeGreaterThanOrEqual(290);
-    expect(rightBankEdge(FAR_WATER_Y)).toBeGreaterThanOrEqual(290);
-    // Steeper near the top (far), flattening toward her; never a straight line.
-    const top = rightBankEdge(212) - rightBankEdge(172);
-    const low = rightBankEdge(372) - rightBankEdge(332);
-    expect(low).toBeGreaterThan(top * 1.5);
-    const straight = (y: number) => rightBankEdge(172) + ((rightBankEdge(372) - rightBankEdge(172)) * (y - 172)) / 200;
+  it('opens a channel of water at the right screen edge near the top of the water area, with the far bank continuing above it', () => {
+    for (let y = 200; y <= 236; y++) {
+      expect(rightBankEdge(y), `spit at y ${y}`).toBeGreaterThanOrEqual(W);
+      expect(isWater(W - 1, y)).toBe(true);
+      expect(corners.alphaAt(W - 1 - CORNERS.x, y - CORNERS.y), `corner land at y ${y}`).toBe(0);
+    }
+    expect(farCornerBottom(W - 1)).toBeGreaterThan(FAR_SHORE_Y + 8); // the far bank curves down on the right...
+    expect(farCornerBottom(W - 1)).toBeLessThan(200); // ...but leaves the channel open
+    expect(corners.alphaAt(W - 1 - CORNERS.x, FAR_SHORE_Y - 4 - CORNERS.y)).toBeGreaterThan(0); // and the far bank reaches the edge
+  });
+
+  it('the spit starts below the channel with a rounded nose and widens toward the viewer', () => {
+    expect(SPIT_TIP_Y).toBeGreaterThanOrEqual(240);
+    expect(rightBankEdge(SPIT_TIP_Y + 2)).toBeGreaterThan(rightBankEdge(SPIT_TIP_Y + 12));
+    expect(rightBankEdge(SPIT_TIP_Y + 12)).toBeGreaterThan(rightBankEdge(SPIT_TIP_Y + 24)); // the nose curves in
+    // Past the nose, steeper at first and flattening toward the screen edge, and never a ruler line.
+    const straight = (y: number) => rightBankEdge(272) + ((rightBankEdge(372) - rightBankEdge(272)) * (y - 272)) / 100;
     let off = 0;
     let turns = 0;
-    for (let y = 172; y <= 372; y++) {
+    const bend = (yy: number) => rightBankEdge(yy + 3) - 2 * rightBankEdge(yy) + rightBankEdge(yy - 3);
+    for (let y = 272; y <= 372; y++) {
       off = Math.max(off, Math.abs(rightBankEdge(y) - straight(y)));
-      const bend = (yy: number) => rightBankEdge(yy + 3) - 2 * rightBankEdge(yy) + rightBankEdge(yy - 3);
-      if (y > 180 && y < 366 && bend(y) * bend(y - 1) < 0) turns++; // the shore swings in and out
+      if (y > 276 && y < 366 && bend(y) * bend(y - 1) < 0) turns++;
     }
-    expect(off).toBeGreaterThan(8);
-    expect(turns).toBeGreaterThan(4); // bulges and inlets
-    expect(rightBankEdge(360)).toBeGreaterThanOrEqual(W - 8);
-    expect([bank.width, bank.height]).toEqual([RIGHT_BANK.w, RIGHT_BANK.h]);
+    expect(off).toBeGreaterThan(4);
+    expect(turns).toBeGreaterThan(2);
+    expect(rightBankEdge(372)).toBeGreaterThanOrEqual(W - 8);
+    // Below the nose there is bank on the right edge.
+    expect(bank.alphaAt(W - 1 - RIGHT_BANK.x, 330 - RIGHT_BANK.y)).toBeGreaterThan(0);
+    expect(bank.alphaAt(W - 1 - RIGHT_BANK.x, 220 - RIGHT_BANK.y)).toBe(0);
   });
 
-  it('never touches the bobber column: no bank pixel at x 236-276, and the water under the column stays water', () => {
-    for (let x = 0; x < bank.width; x++) {
-      for (let y = 0; y < bank.height; y++) {
-        if (bank.alphaAt(x, y) > 0) expect(RIGHT_BANK.x + x).toBeGreaterThan(280);
+  it('the water leaves at the left edge through an open channel', () => {
+    for (let y = 215; y <= 345; y++) {
+      expect(isWater(0, y), `water at x 0, y ${y}`).toBe(true);
+      expect(corners.alphaAt(0 - CORNERS.x, y - CORNERS.y)).toBe(0);
+    }
+    expect(farCornerBottom(0)).toBeGreaterThan(FAR_SHORE_Y + 10);
+    expect(farCornerBottom(0)).toBeLessThanOrEqual(200);
+    expect(riverWaterline(0)).toBeLessThan(SHORE_Y - 60); // the near-left gravel bank angles away
+  });
+
+  it('the corners never touch the middle of the river (the far bank picture alone holds it)', () => {
+    for (let x = 80; x < 284; x++) for (let y = 0; y < CORNERS.h; y++) expect(corners.alphaAt(x - CORNERS.x, y)).toBe(0); // only treetops overhang a little
+    for (const x of [236, 256, 276]) expect(farCornerBottom(x)).toBe(FAR_SHORE_Y);
+    expect(isCornerX(256)).toBe(false);
+  });
+
+  it('streaks never run over the corners or the spit and enter through the channel', () => {
+    for (const s of makeStreaks()) {
+      for (let t = 0; t < 60; t += 0.5) {
+        const d = streakAt(s, t, 1);
+        if (!d) continue;
+        expect(isRightLand(d.x, d.y)).toBe(false);
       }
     }
-    for (let y = FAR_WATER_Y; y < 372; y++) expect(rightBankEdge(y)).toBeGreaterThan(276);
-    expect(WATER_COLORS.has(water.get(260, 300 - FAR_SHORE_Y))).toBe(true);
+    // Some streak is inside the channel band close to the right edge at some time.
+    let inChannel = false;
+    for (const s of makeStreaks()) for (let t = 0; t < 60; t += 0.25) {
+      const d = streakAt(s, t, 1);
+      if (d && d.x > 300 && d.y > 190 && d.y < 245) inChannel = true;
+    }
+    expect(inChannel).toBe(true);
   });
 
-  it('has trees on it, a nearer willow with long drooping fronds, and a reflection to the left of its edge', () => {
+  it('has trees and a reflection to the left of the spit edge, nothing near the bobber column', () => {
     let opaque = 0;
     for (let i = 0; i < bank.data.length; i += 4) if (bank.data[i + 3] > 0) opaque++;
-    expect(opaque).toBeGreaterThan(5000);
+    expect(opaque).toBeGreaterThan(3000);
     expect(WILLOW_NEAR.height).toBeGreaterThan(WILLOW.height + 10);
+    for (let x = 0; x < bank.width; x++) for (let y = 0; y < bank.height; y++) if (bank.alphaAt(x, y) > 0) expect(RIGHT_BANK.x + x).toBeGreaterThan(280);
     for (const f of [0, 1, 2]) {
       const refl = riverRightReflectionRaster(bank, f);
       let n = 0;
       for (let i = 0; i < refl.data.length; i += 4) if (refl.data[i + 3] > 0) n++;
-      expect(n).toBeGreaterThan(200);
+      expect(n).toBeGreaterThan(100);
       for (let x = 0; x < refl.width; x++) for (let y = 0; y < refl.height; y++) if (refl.alphaAt(x, y) > 0) expect(RIGHT_BANK.x + x).toBeGreaterThan(276);
+      const cr = riverCornerReflectionRaster(corners, f);
+      let m = 0;
+      for (let x = 0; x < cr.width; x++) for (let y = 0; y < cr.height; y++) if (cr.alphaAt(x, y) > 0) { m++; expect(isCornerX(x)).toBe(true); }
+      expect(m).toBeGreaterThan(100);
     }
+  });
+
+  it('white water meets the spit nose', () => {
+    expect(spitFoam(1).length).toBeGreaterThan(6);
+    for (const f of spitFoam(1)) expect(f.y).toBeGreaterThanOrEqual(SPIT_TIP_Y);
   });
 });
 
@@ -341,5 +401,72 @@ describe('river motion', () => {
     const values = Array.from({ length: 40 }, (_, i) => glintAlpha(g, i * 0.1));
     expect(Math.min(...values)).toBe(0);
     expect(Math.max(...values)).toBeGreaterThan(0.5);
+  });
+});
+
+describe('ferry and ferry sign', () => {
+  const spots = RIVER_BEND.spots;
+  const b = campBoxes();
+  const ferry: Box = { x: FERRY.x, y: FERRY.y, w: FERRY.w, h: FERRY.h };
+  const others: [string, Box][] = [
+    ['bobber column', BOBBER_COLUMN],
+    ['landing', { x: DOCK.x - 12, y: DOCK.y, w: DOCK.w + 24, h: DOCK.h }],
+    ['car', spots.carHit],
+    ['sign', { x: spots.sign.x - SIGN_SIZE.w / 2, y: spots.sign.y - SIGN_SIZE.h, w: SIGN_SIZE.w, h: SIGN_SIZE.h }],
+    ['crate', { x: spots.crate.x - 10, y: spots.crate.y - 14, w: 20, h: 14 }],
+    ['fetch lawn', { x: spots.playArea.x0, y: spots.playArea.y0, w: spots.playArea.x1 - spots.playArea.x0, h: spots.playArea.y1 - spots.playArea.y0 }],
+    ['tent', b.tent],
+    ['pole', b.pole],
+    ['fire', b.fire],
+    ['bed', b.bed],
+    ['sock', b.sock],
+    ['hut', HUT_BOX],
+    ['dirt track', { x: 0, y: 515, w: 100, h: 35 }],
+  ];
+
+  it('the ferry is small, far away, left of x 200 and moored at the far post', () => {
+    expect(FERRY.w).toBeGreaterThanOrEqual(24);
+    expect(FERRY.w).toBeLessThanOrEqual(34);
+    expect(FERRY.x + FERRY.w).toBeLessThan(200);
+    expect(FERRY.y).toBeLessThan(FAR_SHORE_Y);
+    expect(FERRY.y + FERRY.h).toBeGreaterThan(FAR_SHORE_Y); // it floats against the far bank
+    expect(Math.abs(FERRY.x - (FAR_POST_POS.x + 4))).toBeLessThanOrEqual(6); // right beside the far post
+    for (const [name, box] of others.filter(([n]) => n !== 'bobber column')) expect(overlap(ferry, box), name).toBe(false);
+    expect(overlap(ferry, BOBBER_COLUMN)).toBe(false);
+  });
+
+  it("the rope's far end meets the ferry's pulley, beside the far post", () => {
+    expect(ROPE_FAR.x).toBeGreaterThanOrEqual(FERRY.x);
+    expect(ROPE_FAR.x).toBeLessThanOrEqual(FERRY.x + 8);
+    expect(ROPE_FAR.y).toBeLessThanOrEqual(FERRY.y + 3);
+    const pts = ropePoints(0);
+    expect(pts[pts.length - 1].x).toBeCloseTo(ROPE_FAR.x);
+    expect(pts[pts.length - 1].y).toBeCloseTo(ROPE_FAR.y);
+    // The pulley is drawn at that spot.
+    const px = ROPE_FAR.x - FERRY.x;
+    expect(ferryRaster().get(px, 1)).not.toBe(TRANSPARENT);
+  });
+
+  it('draws planks, a rail and a reflection', () => {
+    const r = ferryRaster();
+    let wood = 0;
+    for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) if ([PAL.wood, PAL.woodLight].includes(r.get(x, y) as never)) wood++;
+    expect(wood).toBeGreaterThan(60);
+    const refl = ferryReflectionRaster();
+    let n = 0;
+    for (let i = 3; i < refl.data.length; i += 4) if (refl.data[i] > 0) n++;
+    expect(n).toBeGreaterThan(30);
+  });
+
+  it('the ferry sign stands by the rope post on the left gravel bank, clear of rocks, car, track and camp', () => {
+    const box = ferrySignBox();
+    const post: Box = { x: ROPE_POST_POS.x, y: ROPE_POST_POS.baseY - ROPE_POST.height, w: ROPE_POST.width, h: ROPE_POST.height };
+    expect(Math.abs(FERRY_SIGN_FEET.x - ROPE_POST_POS.x)).toBeLessThanOrEqual(20);
+    expect(FERRY_SIGN_FEET.y).toBeGreaterThan(riverWaterline(FERRY_SIGN_FEET.x)); // on the gravel
+    expect(overlap(box, post)).toBe(false);
+    for (const rock of RIVER_ROCKS) expect(overlap(box, rockBox(rock)), `rock ${rock.x},${rock.y}`).toBe(false);
+    for (const [name, other] of others) expect(overlap(box, other), name).toBe(false);
+    const r = ferrySignRaster();
+    expect([r.width, r.height]).toEqual([box.w, box.h]);
   });
 });

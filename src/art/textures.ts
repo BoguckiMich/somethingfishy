@@ -30,7 +30,7 @@ import {
   POST,
   REED,
 } from './sprites';
-import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, riverRightBankRaster, riverRightReflectionRaster, riverWaterRaster, ropePostRaster } from './riverArt';
+import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, ferryRaster, ferryReflectionRaster, ferrySignRaster, riverCornerReflectionRaster, riverCornersRaster, riverRightBankRaster, riverRightReflectionRaster, riverWaterRaster, ropePostRaster } from './riverArt';
 import { BOULDER_SIZES, weatheredPostSprite, type BoulderSize } from './riverSprites';
 import {
   cloudRaster,
@@ -60,6 +60,11 @@ export const TEX = {
   /** Slice 25b: the weathered ferry landing, its stilts, the rope post and the three boulder sizes. */
   riverLanding: 'riverLanding',
   riverRightBank: 'riverRightBank',
+  riverCorners: 'riverCorners',
+  ferry: 'ferry',
+  ferryReflection: 'ferryReflection',
+  ferrySign: 'ferrySign',
+  riverCornerReflection: ['riverCornerReflect0', 'riverCornerReflect1', 'riverCornerReflect2'],
   riverRightReflection: ['riverRightReflect0', 'riverRightReflect1', 'riverRightReflect2'],
   riverPost: 'riverPost',
   ropePost: 'ropePost',
@@ -147,6 +152,12 @@ export function createRiverTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.riverNearBank, riverNearBankRaster());
   addRaster(scene, TEX.hut, hutRaster());
   addRaster(scene, TEX.riverLanding, riverLandingRaster());
+  addRaster(scene, TEX.ferry, ferryRaster());
+  addRaster(scene, TEX.ferryReflection, ferryReflectionRaster());
+  addRaster(scene, TEX.ferrySign, ferrySignRaster());
+  const corners = riverCornersRaster();
+  addRaster(scene, TEX.riverCorners, corners);
+  TEX.riverCornerReflection.forEach((key, i) => addRaster(scene, key, riverCornerReflectionRaster(corners, i)));
   const rightBank = riverRightBankRaster();
   addRaster(scene, TEX.riverRightBank, rightBank);
   TEX.riverRightReflection.forEach((key, i) => addRaster(scene, key, riverRightReflectionRaster(rightBank, i)));
