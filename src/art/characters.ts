@@ -423,17 +423,21 @@ export const PAJ_CUP: Partial<Record<PajPose, { x: number; y: number }>> = {
   sipDrink: { x: 28, y: 13 },
 };
 
+/** Messy hair: 2x2 clusters of light and dark strands (single-pixel noise looked muddy). */
 const pajHair = (x: number, y: number) => {
-  const n = noise(x, y);
-  if (n > 0.62) return PAL.pajHairLight;
-  if (n < 0.18) return PAL.pajHairDark;
+  const n = noise((x >> 1) + 5, (y >> 1) + 9);
+  if (n > 0.66) return PAL.pajHairLight;
+  if (n < 0.2) return PAL.pajHairDark;
   return PAL.pajHair;
 };
+/** The long beard: vertical strands (light, base, dark columns) with breaks, darker and greyer towards the tip. */
 const pajBeard = (x: number, y: number) => {
-  const n = noise(x * 2, y);
-  if (y > 20 && n > 0.78) return PAL.beardGrey;
-  if (n > 0.62) return PAL.beardLight;
-  if (n < 0.25 || y > 23) return PAL.beardDark;
+  const col = (x * 5 + 2) % 7;
+  const broken = (y + (x % 2) * 2) % 6 === 0;
+  if (y >= 24) return col < 3 ? PAL.beardGrey : PAL.beardDark;
+  if (y >= 21) return broken || col < 2 ? PAL.beardDark : PAL.beard;
+  if (col < 2) return PAL.beardDark;
+  if (col > 4 && !broken) return PAL.beardLight;
   return PAL.beard;
 };
 
@@ -732,74 +736,127 @@ function paintStretchArms(p: Pix, high: boolean): void {
   }
 }
 
+/** A limb stroke through `pts` (top to bottom), one run of `cols` colours per row. */
+function limb(p: Pix, pts: [number, number][], cols: number[]): void {
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i];
+    const [bx, by] = pts[i + 1];
+    for (let y = ay; y <= by; y++) {
+      const cx = Math.round(ax + ((bx - ax) * (y - ay)) / Math.max(1, by - ay));
+      for (let k = 0; k < cols.length; k++) p.set(cx - 1 + k, y, cols[k]);
+    }
+  }
+}
+
+type LegPose = [[number, number], [number, number], [number, number], number];
+
+/** One walking leg: hip, knee, ankle and a shoe (6x3, toe to the right) whose sole sits `lift` px above the ground row. */
+function pajLeg(p: Pix, near: boolean, [hip, knee, ankle, lift]: LegPose): void {
+  const cols = near ? [PAL.denim, PAL.jeans, PAL.jeans, PAL.denimDark] : [PAL.jeans, PAL.denimDark, PAL.denimDark, PAL.denimDark];
+  limb(p, [hip, knee, ankle], cols);
+  if (near) p.set(knee[0], knee[1], PAL.denimLight);
+  const ax = ankle[0];
+  const sole = 51 - lift;
+  p.rect(ax - 1, sole - 2, 5, 1, near ? PAL.shoe : PAL.stone);
+  p.rect(ax - 1, sole - 1, 6, 1, near ? PAL.shoe : PAL.stone);
+  p.rect(ax - 1, sole, 6, 1, PAL.shoeDark);
+  if (lift >= 2) p.set(ax + 4, sole + 1, PAL.shoeDark); // toe still touching as the heel comes up
+}
+
+/** A sleeve from the shoulder `(sx, sy)` to a wrist at `(wx, wy)`, with a cuff and a hand. */
+function pajArm(p: Pix, sx: number, sy: number, wx: number, wy: number, near: boolean): void {
+  const cols = near ? [PAL.outlineSoft, PAL.jacketLight, PAL.jacket, PAL.outlineSoft] : [PAL.jacketDark, PAL.jacket, PAL.jacketDark, PAL.jacketDark];
+  const mx = Math.round((sx + wx) / 2 + (wx - sx) * 0.15);
+  limb(p, [[sx, sy], [mx, Math.round((sy + wy) / 2)], [wx, wy]], cols);
+  p.rect(wx - 1, wy, 4, 1, PAL.jacketDark); // cuff
+  p.rect(wx - 1, wy + 1, 3, 3, near ? PAL.skin : PAL.skinShade); // hand
+  p.rect(wx + 1, wy + 1, 1, 3, PAL.skinShade);
+}
+
+/** The slim slate jacket seen from the side: light back, dark front, a hem, a collar under the beard. */
+function pajTorso(p: Pix, bob: number): void {
+  for (let y = 20 + bob; y <= 36; y++) {
+    let [x0, x1] = [10, 22];
+    if (y === 20 + bob) [x0, x1] = [12, 21];
+    else if (y === 21 + bob) [x0, x1] = [11, 22];
+    else if (y >= 30) [x0, x1] = [11, 21];
+    for (let x = x0; x <= x1; x++) p.set(x, y, x <= x0 + 1 ? PAL.jacketLight : x >= x1 - 1 ? PAL.jacketDark : PAL.jacket);
+  }
+  p.line(11, 36, 21, 36, PAL.jacketDark); // hem
+  p.rect(13, 19 + bob, 8, 2, PAL.jacketDark); // collar
+  p.rect(14, 19 + bob, 6, 1, PAL.jacket);
+}
+
+/** Head, long messy hair, sunglasses, the beard; `bob` is the body's vertical offset (+ = down). */
+function pajHead(p: Pix, bob: number): void {
+  p.ell(14.5, 9 + bob, 6.5, 6.5, pajHair);
+  // Hair falling behind the neck to the shoulders.
+  for (let y = 12; y <= 21; y++) for (let x = 8; x <= 12; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.04) p.set(x, y + bob, y > 15 ? PAL.pajHairDark : pajHair(x, y));
+  // Face: cheek, nose, brow shade, ear.
+  p.ell(19, 11 + bob, 3.4, 4.5, PAL.skin);
+  p.rect(22, 11 + bob, 2, 2, PAL.skin); // nose
+  p.set(23, 12 + bob, PAL.skinShade);
+  p.rect(18, 7 + bob, 5, 1, PAL.pajHairDark); // fringe over the brow
+  p.rect(19, 9 + bob, 4, 1, PAL.outline); // sunglasses
+  p.set(18, 9 + bob, PAL.outline); // their arm
+  p.set(17, 9 + bob, PAL.outline);
+  p.set(20, 11 + bob, PAL.skinShade); // cheek
+  p.rect(16, 10 + bob, 1, 3, PAL.skinShade); // ear
+  // Beard: a moustache, then a long rounded fall to a ragged point.
+  for (let y = 12; y <= 25; y++) {
+    let [x0, x1] = [16, 23];
+    if (y >= 15) [x0, x1] = [16, 24];
+    if (y >= 20) [x0, x1] = [16, 23];
+    if (y >= 22) [x0, x1] = [17, 22];
+    if (y >= 24) [x0, x1] = [18, 21];
+    if (y === 25) [x0, x1] = [19, 20];
+    for (let x = x0; x <= x1; x++) p.set(x, y + bob, pajBeard(x, y));
+  }
+  p.rect(21, 12 + bob, 4, 1, PAL.beardDark); // moustache
+  p.set(24, 12 + bob, PAL.beard);
+}
+
 export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const p = new Pix(32, 52);
   const carry = pose.startsWith('carry');
   const stretch = pose.startsWith('stretch');
   const walking = pose.startsWith('walk') || carry;
   const f = walking ? Number(pose.slice(-1)) : 0;
-  // Stride: legs apart in frames 0 and 2 (opposite ways), passing under the body in 1 and 3.
-  const swing = walking ? [-3, 0, 3, 0][f] : 0;
   const passing = walking && f % 2 === 1;
-  const bob = passing ? 1 : 0;
-  // Far leg (darker, behind) then near leg: 5 px wide, the passing leg lifted at the knee.
-  const leg = (x: number, c: number, lifted: boolean) => {
-    const top = 32 + bob;
-    const foot = lifted ? 46 : 48;
-    p.rect(x, top, 5, foot - top + 1, c);
-    p.rect(x, foot - 5, 1, 6, c === PAL.jeans ? PAL.denimLight : c);
-    p.rect(x + (lifted ? 1 : 0), foot + 1, 8, 3, PAL.shoeDark);
-    p.rect(x + (lifted ? 1 : 0), foot + 1, 8, 1, PAL.shoe);
-  };
-  const farLift = passing && f === 1;
-  const nearLift = passing && f === 3;
-  leg(12 - swing, PAL.denimDark, farLift);
-  leg(14 + swing, PAL.jeans, nearLift);
-  // Torso: a slim jacket (slice 22a build): narrow shoulders and chest, a taper to the waist, a lighter back.
-  for (let y = 18 + bob; y <= 36; y++) {
-    let [x0, x1] = [9, 23];
-    if (y === 18 + bob) [x0, x1] = [11, 21];
-    else if (y === 19 + bob) [x0, x1] = [9, 23];
-    else if (y >= 29) [x0, x1] = [10, 22];
-    for (let x = x0; x <= x1; x++) p.set(x, y, x <= x0 + 2 ? PAL.jacketLight : x >= x1 - 2 ? PAL.jacketDark : PAL.jacket);
-  }
-  p.line(10, 36, 22, 36, PAL.jacketDark); // hem
-  // Near arm: sleeve from the shoulder, swinging opposite the near leg, hand at the end.
+  const bob = passing ? -1 : 0; // the body rises as the legs pass, lowest at contact
+  const hipY = 35 + bob;
+  const swing = walking ? [-3, 0, 3, 0][f] : 0; // near hand: back at f0, forward at f2
+  // The far arm sits behind the torso: only the part that swings clear shows.
+  if (walking || pose === 'stand') pajArm(p, 17, 22 + bob, 17 - swing, 31 + bob, false);
+  // Legs: contact frames (0, 2) apart with the back heel up, passing frames (1, 3) with the swing leg lifted.
+  const planted = (x: number): LegPose => [[x, hipY], [x, 42], [x - 1, 48], 0];
+  const fwd = (x: number): LegPose => [[x, hipY], [17, 42], [19, 48], 0];
+  const back = (x: number): LegPose => [[x, hipY], [13, 42], [10, 46], 2];
+  const swung = (x: number): LegPose => [[x, hipY], [18, 41], [15, 45], 3];
+  let far: LegPose;
+  let near: LegPose;
+  if (!walking) {
+    far = [[14, hipY], [13, 42], [12, 48], 0];
+    near = [[16, hipY], [16, 42], [16, 48], 0];
+  } else if (f === 0) [far, near] = [back(14), fwd(16)];
+  else if (f === 1) [far, near] = [swung(15), planted(15)];
+  else if (f === 2) [far, near] = [fwd(16), back(14)];
+  else [far, near] = [planted(15), swung(15)];
+  pajLeg(p, false, far);
+  pajLeg(p, true, near);
+  pajTorso(p, bob);
   if (carry) paintCarriedDog(p, bob);
   else if (stretch) paintStretchArms(p, pose === 'stretch1');
   else if (pose === 'bend') {
     // Picking a stick up: the near arm reaches down and forward to the grass, hand open.
-    for (let dx = 0; dx < 5; dx++) p.line(15 + dx, 21, 22 + dx, 42, dx === 4 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
-    p.rect(22, 43, 5, 4, PAL.skin);
-    p.rect(26, 43, 1, 4, PAL.skinShade);
+    pajArm(p, 17, 22, 23, 43, true);
   } else if (pose !== 'throw') {
-    const hx = Math.round(16 - swing * 0.9);
-    const sx = 15;
-    for (let dx = 0; dx < 5; dx++) p.line(sx + dx, 21 + bob, hx + dx, 27 + bob, dx === 4 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
-    p.rect(hx, 28 + bob, 5, 4, PAL.skin);
-    p.rect(hx + 4, 28 + bob, 1, 4, PAL.skinShade);
+    pajArm(p, 16, 22 + bob, 16 + swing, 31 + bob, true);
   }
-  // Head: hair, a profile face with the sunglasses (as seated), the long beard.
-  p.ell(15, 9 + bob, 7, 7, pajHair);
-  for (let y = 12; y <= 21; y++) for (let x = 7; x <= 13; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.03) p.set(x, y + bob, pajHair(x, y));
-  p.ell(19, 11 + bob, 4, 5, PAL.skin);
-  p.rect(23, 11 + bob, 2, 2, PAL.skin); // nose
-  p.rect(21, 9 + bob, 3, 1, PAL.outline); // sunglasses
-  p.set(20, 9 + bob, PAL.outline); // the arm of the glasses
-  p.set(22, 10 + bob, PAL.skinShade); // cheek under them
-  p.line(20, 7 + bob, 23, 7 + bob, PAL.pajHairDark); // brow
-  for (let y = 12; y <= 25; y++) {
-    let x0 = 13;
-    let x1 = 24;
-    if (y >= 20) [x0, x1] = [15, 24];
-    if (y >= 23) [x0, x1] = [17, 22];
-    if (y >= 25) [x0, x1] = [18, 21];
-    for (let x = x0; x <= x1; x++) p.set(x, y + bob, pajBeard(x, y));
-  }
-  p.rect(21, 12 + bob, 4, 1, PAL.beardDark);
+  pajHead(p, bob);
   if (pose === 'throw') {
     // The arm winds up in front of the beard, stick in the fist.
-    for (let dx = 0; dx < 4; dx++) p.line(17 + dx, 22, 24 + dx, 11, dx === 3 ? PAL.jacketDark : PAL.jacket);
+    for (let dx = 0; dx < 4; dx++) p.line(17 + dx, 22, 24 + dx, 11, dx === 3 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
     p.rect(25, 7, 4, 5, PAL.skin);
     p.rect(28, 7, 1, 5, PAL.skinShade);
     p.blit(STICK, 25, 6);
@@ -949,24 +1006,55 @@ export function dogSprite(frame: DogFrame): Sprite {
     if (f.tail === 1) plume(p, 3, 9, 1, 4);
     else plume(p, 3, 9, 4, 3);
   } else {
-    // run: gallop cycle
-    p.ell(14, 11, 9, 4, fur);
-    p.rect(17, 7, 2, 7, PAL.harness);
-    p.rect(11, 7, 7, 1, PAL.harness);
-    p.set(17, 7, PAL.harnessDark);
+    // run: a four-frame gallop (gather, push-off, extended flight, landing). The body rises 1 px in the air frames.
     const s = f.step % 4;
-    const stretch = s === 0 ? 5 : s === 2 ? -3 : 0;
-    // front legs reach forward, back legs reach back (tucked in the middle frames)
-    p.line(20, 14, 22 + stretch, 21, PAL.gingerLight);
-    p.line(21, 14, 23 + stretch, 21, PAL.gingerLight);
-    p.line(8, 14, 6 - stretch, 21, PAL.ginger);
-    p.line(9, 14, 7 - stretch, 21, PAL.ginger);
-    const up = f.carry ? 1 : 0; // proud: chin up
-    head(25, 7 - up);
+    const cy = [10, 9, 9, 10][s];
+    const rx = s === 2 ? 8.5 : s === 0 ? 7 : 7.5;
+    const ry = s === 2 ? 3 : 3.5;
+    const belly = (x: number, y: number) => (y >= Math.round(cy + 2.5) ? PAL.gingerDark : fur(x, y));
+    // Legs as [shoulder/hip, joint, paw] polylines, 2 px thin with a visible bend; far side darker, paw a lighter pixel.
+    type Pt = [number, number];
+    const leg = (a: Pt, b: Pt, c: Pt, col: number) => {
+      for (const dx of [0, 1]) {
+        p.line(a[0] + dx, a[1], b[0] + dx, b[1], col);
+        p.line(b[0] + dx, b[1], c[0] + dx, c[1], col);
+      }
+      p.set(c[0] + 1, c[1], PAL.gingerLight);
+    };
+    const L = [
+      // gather: everything bunched under the belly, hocks and elbows bent
+      { fF: [[18, 13], [19, 17], [18, 21]], nF: [[19, 13], [21, 17], [20, 21]], fH: [[8, 13], [6, 17], [8, 21]], nH: [[9, 13], [7, 16], [10, 21]] },
+      // push-off: hind legs driving back, front legs reaching to the ground ahead
+      { fF: [[18, 13], [19, 17], [20, 21]], nF: [[19, 12], [21, 16], [22, 21]], fH: [[8, 12], [4, 16], [1, 19]], nH: [[9, 12], [6, 16], [3, 21]] },
+      // flight: front legs thrown forward, hind legs stretched back, nothing on the ground
+      { fF: [[19, 12], [23, 15], [26, 18]], nF: [[20, 12], [24, 14], [28, 17]], fH: [[8, 12], [4, 14], [1, 17]], nH: [[9, 12], [5, 15], [2, 19]] },
+      // landing: front legs reaching down, hind legs swinging under the body
+      { fF: [[18, 13], [20, 17], [21, 21]], nF: [[19, 13], [22, 17], [24, 21]], fH: [[8, 13], [10, 17], [8, 20]], nH: [[9, 13], [12, 16], [10, 21]] },
+    ][s] as Record<'fF' | 'nF' | 'fH' | 'nH', Pt[]>;
+    leg(L.fH[0], L.fH[1], L.fH[2], PAL.gingerDark);
+    leg(L.fF[0], L.fF[1], L.fF[2], PAL.gingerDark);
+    p.ell(14, cy, rx, ry, belly);
+    if (s === 0) p.rect(12, cy - 4, 4, 1, fur(12, cy)); // the back arches in the gather
+    p.rect(17, cy - 4, 2, 7, PAL.harness);
+    p.rect(11, cy - 4, 7, 1, PAL.harness);
+    p.set(17, cy - 4, PAL.harnessDark);
+    p.set(18, cy + 2, PAL.harnessDark);
+    leg(L.nH[0], L.nH[1], L.nH[2], PAL.ginger);
+    leg(L.nF[0], L.nF[1], L.nF[2], PAL.ginger);
+    // Head forward and a little down, the folded ear flopping with the stride.
+    const hy = f.carry ? 7 : 8;
+    p.ell(24, hy, 4.5, 3.8, fur);
+    p.rect(27, hy, 4, 3, PAL.gingerLight); // snout
+    p.set(31, hy, PAL.outline); // nose
+    p.set(25, hy - 1, PAL.outline); // eye
+    const earDy = [1, -1, -2, 1][s];
+    p.rect(19, hy - 1 + earDy, 3, 3, PAL.gingerDark);
+    p.set(18, hy + earDy + (s === 2 ? -1 : 1), PAL.gingerDark);
+    p.set(20, hy - 2 + earDy, PAL.gingerDark);
     // Run tail (Bestia's real one): carried high, rising from the rump and curving forward over the back like a
     // sickle. Thin ginger at the base, a 3-4 px plume over the last part: dark brown on its back side, ginger on
-    // the front. It bobs 1 px with the stride (down in the tucked frame).
-    dogRunTail(p, s === 2 ? 1 : 0);
+    // the front. It bobs 1 px with the stride.
+    dogRunTail(p, cy - 10);
   }
   return p.outline().done();
 }
