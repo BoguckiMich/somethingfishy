@@ -576,10 +576,22 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
       up.set(25, y, pajBeard(25, y));
     }
     for (let x = 14; x <= 19; x++) up.set(x, 18 + (x % 2), PAL.pajHairDark); // hair parted over the nape
+    for (const ex of [8, 25]) {
+      // An ear peeking out on each side, at ear height.
+      up.set(ex, 11 + dy, PAL.skin);
+      up.set(ex, 12 + dy, PAL.skinShade);
+      up.set(ex, 13 + dy, PAL.skin);
+      up.set(ex + (ex < 16 ? -1 : 1), 12 + dy, PAL.skin);
+    }
   } else {
     // Turned right: the cheek and nose first, the hair over them (a fringe over the brow), then glasses and beard.
-    up.ell(22.5, 14 + dy, 3.2, 3.8, PAL.skin);
-    up.rect(25, 13 + dy, 2, 2, PAL.skin); // nose
+    const face = (y: number, x0: number, x1: number, c: number) => up.rect(x0, y + dy, x1 - x0 + 1, 1, c);
+    face(10, 21, 24, PAL.skin); // forehead under the fringe
+    face(11, 20, 25, PAL.skin); // brow ridge
+    face(12, 20, 24, PAL.skin); // the dip at the bridge (the lens is flush with it)
+    face(13, 20, 25, PAL.skin); // the nose going out
+    face(14, 20, 26, PAL.skin); // nose tip, the cheek
+    face(15, 21, 26, PAL.skin);
     for (let y = 6; y <= 18; y++) {
       for (let x = 8; x <= 25; x++) {
         const inside = ((x - 16.5) / 7.5) ** 2 + ((y - 12 - dy) / 5.5) ** 2 <= 1;
@@ -587,14 +599,18 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
       }
     }
     lobe(8, 13, 0.1);
-    up.rect(19, 12 + dy, 1, 3, PAL.skinShade); // ear
     up.line(19, 8 + dy, 19, 11 + dy, PAL.pajHairDark); // hairline: the hair stops here
-    up.rect(22, 12 + dy, 3, 1, PAL.outline); // sunglasses
-    up.set(23, 13 + dy, PAL.skinShade); // cheek under the glasses
-    up.set(21, 12 + dy, PAL.outline); // the arm of the glasses
-    up.rect(20, 14 + dy, 2, 2, PAL.skinShade); // cheek shade by the ear
-    up.rect(22, 14 + dy, 4, 2, PAL.skin); // bare cheek above the beard
-    up.set(26, 14 + dy, PAL.skin); // nose tip
+    face(11, 22, 24, PAL.pajHairDark); // eyebrow
+    up.rect(22, 12 + dy, 3, 2, PAL.outline); // sunglasses: a lens...
+    up.set(23, 12 + dy, PAL.stone); // ...with a glint
+    face(12, 20, 21, PAL.outlineSoft); // the temple arm, ear to lens
+    up.rect(19, 13 + dy, 2, 3, PAL.skin); // ear, hair over its top
+    up.set(19, 12 + dy, PAL.pajHair);
+    up.set(20, 14 + dy, PAL.skinShade); // inner ear
+    up.set(19, 15 + dy, PAL.skinShade);
+    face(15, 21, 22, PAL.skinShade); // under the cheekbone
+    face(15, 25, 26, PAL.skinShade); // under the nose tip
+    up.rect(20, 15 + dy, 1, 2, PAL.beardDark); // sideburn, from the ear into the beard
     for (let y = 16; y <= 26; y++) {
       let x0 = 22;
       let x1 = 26;
@@ -793,35 +809,78 @@ function pajTorso(p: Pix, bob: number): void {
   p.rect(14, 19 + bob, 6, 1, PAL.jacket);
 }
 
-/** Head, long messy hair, sunglasses, the beard; `bob` is the body's vertical offset (+ = down). */
+/**
+ * Head, long messy hair, sunglasses, the beard; `bob` is the body's vertical offset (+ = down).
+ * A real profile at ~13 px: a rounded skull with strands breaking it, a fringe over the forehead, brow
+ * ridge, a dip at the nose bridge, a sloping nose with a shaded underside, a lens with a glint and a
+ * temple arm to the ear, a cheekbone, sideburn, the beard along the jaw and a hint of lip.
+ */
 function pajHead(p: Pix, bob: number): void {
-  p.ell(14.5, 9 + bob, 6.5, 6.5, pajHair);
+  const s = (x: number, y: number, c: number) => p.set(x, y + bob, c);
+  const row = (x0: number, x1: number, y: number, c: number | ((x: number, y: number) => number)) => {
+    for (let x = x0; x <= x1; x++) s(x, y, typeof c === 'number' ? c : c(x, y));
+  };
+  // Skull: a slightly flat crown, the back rounder and lower; a few strands break the silhouette.
+  p.ell(14.5, 9.3 + bob, 6.6, 6.2, pajHair);
+  p.ell(11.5, 11.5 + bob, 3.8, 4.2, pajHair);
   // Hair falling behind the neck to the shoulders.
   for (let y = 12; y <= 21; y++) for (let x = 8; x <= 12; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.04) p.set(x, y + bob, y > 15 ? PAL.pajHairDark : pajHair(x, y));
-  // Face: a bare cheek and nose between the glasses and the beard, a dark hairline where the hair stops.
-  p.ell(19.5, 11 + bob, 3.6, 4.2, PAL.skin);
-  p.rect(23, 11 + bob, 2, 2, PAL.skin); // nose sticking out
-  p.set(24, 12 + bob, PAL.skinShade);
-  p.rect(17, 6 + bob, 6, 2, pajHair(18, 6)); // fringe
-  p.rect(17, 7 + bob, 6, 1, PAL.pajHairDark);
-  p.line(16, 7 + bob, 16, 13 + bob, PAL.pajHairDark); // sideburn / hairline
-  p.rect(19, 9 + bob, 4, 1, PAL.outline); // sunglasses
-  p.set(18, 9 + bob, PAL.outline); // their arm
-  p.set(17, 9 + bob, PAL.outline);
-  p.rect(17, 11 + bob, 2, 2, PAL.skinShade); // ear / cheek shade
-  p.rect(20, 12 + bob, 2, 2, PAL.skin);
-  p.set(21, 13 + bob, PAL.skinShade); // cheek hollow
-  // Beard: starts at the jaw, hugs it, tapers to a point at mid-chest; a light front edge separates it from the jacket.
-  for (let y = 14; y <= 24; y++) {
-    let [x0, x1] = [20, 24]; // moustache row hides the mouth
-    if (y >= 15) [x0, x1] = [17, 23];
+  // Neck behind the beard, in shade.
+  row(14, 16, 14, PAL.skinShade);
+  row(14, 17, 15, PAL.skinShade);
+  row(14, 17, 16, PAL.skinShade);
+  // Face: bare skin from the hairline to the profile line (forehead, brow ridge, bridge dip, the nose).
+  row(21, 22, 7, PAL.skin); // forehead under the fringe
+  row(19, 23, 8, PAL.skin); // brow ridge sticks out
+  row(17, 22, 9, PAL.skin); // the dip at the bridge
+  row(17, 23, 10, PAL.skin); // the nose starts
+  row(14, 24, 11, PAL.skin);
+  row(17, 25, 12, PAL.skin); // nose tip
+  // Fringe over the top of the forehead, strands over the brow.
+  row(19, 22, 6, pajHair);
+  s(20, 7, PAL.pajHairLight);
+  s(18, 8, pajHair(18, 8));
+  s(17, 7, PAL.pajHairDark);
+  // Eyebrow, lens (with a glint), temple arm to the ear.
+  row(20, 22, 8, PAL.pajHairDark);
+  row(19, 21, 9, PAL.outline);
+  row(19, 21, 10, PAL.outline);
+  s(20, 9, PAL.stone); // glint
+  row(16, 18, 9, PAL.outlineSoft);
+  // Ear: hair over its top, a shaded inner pixel; the sideburn between ear and cheek.
+  row(15, 16, 10, PAL.skin);
+  s(14, 10, PAL.pajHair);
+  row(14, 16, 11, PAL.skin);
+  s(15, 11, PAL.skinShade);
+  row(15, 16, 12, PAL.skin);
+  s(15, 12, PAL.skinShade);
+  s(17, 10, PAL.pajHairDark);
+  row(17, 18, 11, PAL.beardDark);
+  row(17, 18, 12, PAL.beard);
+  row(17, 18, 13, PAL.beardDark);
+  s(18, 10, PAL.skinShade); // temple
+  // Cheekbone and its shade, the nose underside.
+  s(19, 11, PAL.skin);
+  row(19, 20, 12, PAL.skinShade);
+  s(25, 12, PAL.skinShade); // nostril
+  s(24, 12, PAL.skinShade);
+  s(24, 13, PAL.skinShade); // underside of the tip
+  // Moustache over the upper lip, a hint of lower lip at the front, then the beard along the jaw.
+  row(18, 23, 13, (x, y) => (x >= 22 ? PAL.beardLight : pajBeard(x, y)));
+  row(16, 20, 14, (x, y) => pajBeard(x, y));
+  row(21, 22, 14, PAL.beardDark); // the mouth, in shadow
+  s(23, 14, PAL.skinShade); // lower lip
+  for (let y = 15; y <= 24; y++) {
+    let [x0, x1] = [17, 23];
     if (y >= 19) [x0, x1] = [17, 22];
     if (y >= 21) [x0, x1] = [18, 22];
     if (y >= 23) [x0, x1] = [19, 21];
     if (y === 24) [x0, x1] = [20, 20];
-    for (let x = x0; x <= x1; x++) p.set(x, y + bob, x === x1 && y >= 15 && y <= 22 ? PAL.beardLight : y === 14 ? PAL.beardDark : pajBeard(x, y));
+    for (let x = x0; x <= x1; x++) s(x, y, x === x1 && y <= 22 ? PAL.beardLight : pajBeard(x, y));
   }
+  row(16, 17, 15, PAL.beardDark); // the jaw line under the ear
 }
+
 
 export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const p = new Pix(32, 52);
