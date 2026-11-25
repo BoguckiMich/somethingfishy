@@ -5,6 +5,7 @@ import {
   barBump,
   HUT_BOX,
   HUT_FEET,
+  HUT_PARTS,
   HUT_PIPE_TOP,
   HUT_SIZE,
   hutRaster,
@@ -143,21 +144,23 @@ describe('hut, sign and windsock', () => {
   const boxes = campBoxes();
   const sign: Box = { x: RIVER_BEND.spots.sign.x - SIGN_SIZE.w / 2, y: RIVER_BEND.spots.sign.y - SIGN_SIZE.h, w: SIGN_SIZE.w, h: SIGN_SIZE.h };
 
-  it('the hut keeps a margin from the screen edge and does not overlap the sign, the windsock or the crate', () => {
-    expect(W - (HUT_BOX.x + HUT_BOX.w)).toBeGreaterThanOrEqual(6);
+  it('the hut is about 1.5x bigger and does not overlap the sign, the windsock or the crate', () => {
+    expect(HUT_SIZE.w).toBeGreaterThanOrEqual(90);
+    expect(HUT_SIZE.w).toBeLessThanOrEqual(100);
     const crate: Box = { x: RIVER_BEND.spots.crate.x - 10, y: RIVER_BEND.spots.crate.y - 14, w: 20, h: 14 };
     for (const b of [sign, boxes.sock, crate, boxes.tent, boxes.fire, boxes.pole, boxes.bed]) expect(overlap(HUT_BOX, b)).toBe(false);
   });
 
-  it('the hut is inside the screen and stands on the bank, off the bobber column', () => {
+  it('the hut may run off the right edge but its sign, window, door, pipe and kettle are on screen, off the bobber column', () => {
     expect(HUT_BOX.x).toBeGreaterThan(276);
-    expect(HUT_BOX.x + HUT_BOX.w).toBeLessThanOrEqual(W);
+    expect(HUT_BOX.x + HUT_BOX.w).toBeGreaterThan(W);
+    for (const part of Object.values(HUT_PARTS)) expect(HUT_BOX.x + part.x + part.w).toBeLessThanOrEqual(W);
     expect(HUT_FEET.y).toBeGreaterThanOrEqual(riverWaterline(HUT_BOX.x));
   });
 
   it('exports the stove pipe top inside the hut for the steam wisp', () => {
     expect(HUT_PIPE_TOP.x).toBeGreaterThan(HUT_BOX.x);
-    expect(HUT_PIPE_TOP.x).toBeLessThan(HUT_BOX.x + HUT_BOX.w);
+    expect(HUT_PIPE_TOP.x).toBeLessThan(W);
     expect(HUT_PIPE_TOP.y).toBeLessThanOrEqual(HUT_BOX.y + 3);
   });
 
@@ -243,7 +246,20 @@ describe('right bank', () => {
   it('comes down and forward: the edge starts right of x 290 at the far end and reaches the screen edge lower down', () => {
     expect(rightBankEdge(FAR_SHORE_Y)).toBeGreaterThanOrEqual(290);
     expect(rightBankEdge(FAR_WATER_Y)).toBeGreaterThanOrEqual(290);
-    for (let y = FAR_SHORE_Y; y < 370; y++) expect(rightBankEdge(y + 1)).toBeGreaterThanOrEqual(rightBankEdge(y));
+    // Steeper near the top (far), flattening toward her; never a straight line.
+    const top = rightBankEdge(212) - rightBankEdge(172);
+    const low = rightBankEdge(372) - rightBankEdge(332);
+    expect(low).toBeGreaterThan(top * 1.5);
+    const straight = (y: number) => rightBankEdge(172) + ((rightBankEdge(372) - rightBankEdge(172)) * (y - 172)) / 200;
+    let off = 0;
+    let turns = 0;
+    for (let y = 172; y <= 372; y++) {
+      off = Math.max(off, Math.abs(rightBankEdge(y) - straight(y)));
+      const bend = (yy: number) => rightBankEdge(yy + 3) - 2 * rightBankEdge(yy) + rightBankEdge(yy - 3);
+      if (y > 180 && y < 366 && bend(y) * bend(y - 1) < 0) turns++; // the shore swings in and out
+    }
+    expect(off).toBeGreaterThan(8);
+    expect(turns).toBeGreaterThan(4); // bulges and inlets
     expect(rightBankEdge(360)).toBeGreaterThanOrEqual(W - 8);
     expect([bank.width, bank.height]).toEqual([RIGHT_BANK.w, RIGHT_BANK.h]);
   });

@@ -18,9 +18,11 @@ import {
   WILLOW,
   WILLOW_BIG,
   WILLOW_NEAR,
+  scaleSprite,
   type BoulderSize,
 } from './riverSprites';
 import { RIVER_BEND } from '../core/data/locations';
+import type { Sprite } from './pixelGrid';
 
 /**
  * The River bend's pictures (slice 25b, pure): a low far bank of willows and alders with the far ferry post, the bending river
@@ -77,7 +79,7 @@ export const RIVER_ROCKS: readonly RiverRock[] = [
   { x: 72, y: 451, size: 'm', inWater: false, flip: true },
   { x: 38, y: 410, size: 'm', inWater: true, flip: false },
   { x: 88, y: 432, size: 's', inWater: true, flip: true },
-  { x: 298, y: 386, size: 'm', inWater: true, flip: true },
+  { x: 296, y: 370, size: 'm', inWater: true, flip: true },
   { x: 14, y: 398, size: 'l', inWater: true, flip: true },
 ];
 
@@ -225,53 +227,94 @@ export function riverWaterRaster(): Raster {
 
 // ---- The right bank, coming forward --------------------------------------------------------------
 
-/** The right bank layer's place (world), drawn over the water: its trees overhang no further left than x 280 (the bobber column ends at 276). */
+/** The right bank layer's place (world), drawn over the water: its trees overhang no further left than x 282 (the bobber column ends at 276). */
 export const RIGHT_BANK = { x: 272, y: 100, w: 88, h: 290 };
-/** Where the right bank's land starts at world y (x from there to the screen edge is bank): from x 290 at the far shore down and forward to the screen edge at y 372. */
+/**
+ * Where the right bank's land starts at world y: nearly straight down at the far shore (x 290), then sweeping right as it comes toward her
+ * (reaching the screen edge about y 372), with bulges and small inlets so it is a shore, not a ruler line. Never left of x 290.
+ */
 export function rightBankEdge(y: number): number {
   if (y < FAR_SHORE_Y) return 290;
-  return Math.round(290 + 70 * Math.pow(Math.min(1.2, (y - FAR_SHORE_Y) / 200), 0.9));
+  const t = Math.min(1.25, (y - FAR_SHORE_Y) / 200);
+  const base = 290 + 70 * Math.pow(t, 1.7);
+  const wobble = (7 * Math.sin(y / 17 + 0.6) + 4 * Math.sin(y / 7.3 + 2) + 4 * Math.sin(y / 41)) * Math.min(1, t * 3);
+  return Math.max(290, Math.round(base + wobble));
 }
 
-/** The right bank: a wedge of forest floor with a muddy, stony lip on its left edge, a few boulders, alders and willows (two big, near ones low down). */
+const scaled = new Map<string, Sprite>();
+/** A tree sprite at a perspective scale (cached). */
+function treeAt(sp: Sprite, name: string, scale: number): Sprite {
+  const k = Math.round(scale * 10) / 10;
+  const key = name + k;
+  let s = scaled.get(key);
+  if (!s) {
+    s = k === 1 ? sp : scaleSprite(sp, k);
+    scaled.set(key, s);
+  }
+  return s;
+}
+
+/**
+ * The right bank: a shore with a wavy waterline, a pebbly mud beach strip, roots and stones at the water, grass and mud shaded by depth
+ * (lighter near the water and toward the viewer), and dense overlapping canopy of alders and willows, small and hazy far up, big near the bottom,
+ * with a few willows leaning out so their fronds hang over the water.
+ */
 export function riverRightBankRaster(): Raster {
   const r = new Raster(RIGHT_BANK.w, RIGHT_BANK.h);
   const rnd = mulberry32(5150);
   const lx = (x: number) => x - RIGHT_BANK.x;
   const ly = (y: number) => y - RIGHT_BANK.y;
-  for (let y = FAR_SHORE_Y - 4; y < RIGHT_BANK.y + RIGHT_BANK.h; y++) {
-    const e = rightBankEdge(y) + (rnd() < 0.3 ? 1 : 0) - (rnd() < 0.3 ? 1 : 0);
+  const GROUND = [PAL.leafDeep, PAL.leafDark, PAL.leaf, PAL.grass1, PAL.grass2];
+  const bottom = RIGHT_BANK.y + RIGHT_BANK.h;
+  for (let y = FAR_SHORE_Y - 2; y < bottom; y++) {
+    const e = rightBankEdge(y);
+    const t = Math.min(1, Math.max(0, (y - FAR_SHORE_Y) / 200));
+    const beach = 2 + Math.round(4 * t) + (Math.imul(y, 2654435761) >>> 31);
     for (let x = e; x < RIGHT_BANK.x + RIGHT_BANK.w; x++) {
       const dx = x - e;
+      const h = (Math.imul(x + 5, 73856093) ^ Math.imul(y + 9, 19349663)) >>> 0;
+      const v = (h % 1000) / 1000;
       let c: number;
-      if (dx < 1) c = rnd() < 0.5 ? PAL.woodDark : PAL.stoneDark;
-      else if (dx < 2) c = rnd() < 0.4 ? PAL.stone : PAL.woodDark;
-      else if (dx < 5) c = bayer(x, y) < 0.5 ? PAL.leaf : PAL.leafDark;
-      else c = bayer(x, y) < 0.3 + Math.min(0.4, dx / 60) ? PAL.leafDeep : PAL.leafDark;
+      if (dx < 1) c = v < 0.5 ? PAL.woodDeep : PAL.stoneDark;
+      else if (dx < beach) c = v < 0.2 ? PAL.stoneLight : v < 0.45 ? PAL.stone : v < 0.62 ? PAL.sandDark : v < 0.82 ? PAL.woodDark : PAL.stoneDark;
+      else {
+        const near = Math.max(0, 1 - (dx - beach) / 16);
+        const pos = (0.25 + 0.55 * t + near * 0.6) * 3.2 + (bayer(x, y) - 0.5) * 0.9;
+        c = rampDither(GROUND, pos, x, y);
+        if (v < 0.07 && dx < beach + 9) c = PAL.woodDark; // mud patches near the water
+      }
       r.set(lx(x), ly(y), c);
     }
   }
-  // Trees in rows down the wedge, far ones (top) small, near ones (bottom) big; later rows draw over earlier ones. Two big near willows on the lip.
-  type Tree = [typeof WILLOW, number, number, boolean];
+  // Roots and stones at the water's edge.
+  for (let y = 190; y < 372; y += 9 + Math.floor(rnd() * 7)) {
+    const e = rightBankEdge(y);
+    const len = 3 + Math.floor(rnd() * 4);
+    for (let k = 0; k < len; k++) r.set(lx(e - 1 - k), ly(y + (k > 1 ? 1 : 0)), k % 2 === 0 ? PAL.woodDark : PAL.woodDeep);
+  }
+  for (const [by, sz, sd] of [[204, 's', 3], [238, 's', 5], [268, 'm', 7], [301, 's', 9], [329, 'm', 11], [356, 's', 13]] as const) {
+    r.blit(boulderSprite(sz, sd), lx(rightBankEdge(by) - 3), ly(by) - BOULDER_SIZES[sz].h, { flip: sd % 2 === 1 });
+  }
+  // Canopy: rows every 5 px, three trees each, drawn far (top) to near (bottom) so they overlap in depth; far rows are small and hazy.
+  type Tree = { sp: Sprite; by: number; cx: number; flip: boolean; haze: number };
   const trees: Tree[] = [];
-  for (let by = 184; by <= 372; by += 11) {
-    const u = (by - 184) / 188;
-    for (const off of [12, 34, 56]) {
-      const sp = u < 0.25 ? (rnd() < 0.5 ? ALDER_LOW : ALDER) : u < 0.6 ? (rnd() < 0.5 ? ALDER_BIG : rnd() < 0.5 ? WILLOW : ALDER) : rnd() < 0.5 ? WILLOW_BIG : ALDER_BIG;
-      trees.push([sp, by + Math.floor(rnd() * 5), rightBankEdge(by) + off + Math.floor(rnd() * 8), rnd() < 0.5]);
+  for (let by = 168; by <= 378; by += 5) {
+    const t = Math.min(1, Math.max(0, (by - FAR_SHORE_Y) / 200));
+    for (let k = 0; k < 3; k++) {
+      const alder = rnd() < 0.55;
+      const sp = alder ? treeAt(ALDER, 'a', 0.55 + 0.9 * t) : treeAt(WILLOW, 'w', 0.5 + 0.9 * t);
+      const start = Math.max(284, rightBankEdge(by) + 2);
+      trees.push({ sp, by: by + Math.floor(rnd() * 4), cx: start + k * 22 + rnd() * 16, flip: rnd() < 0.5, haze: t < 0.45 ? 0.45 * (1 - t / 0.45) : 0 });
     }
   }
-  trees.push([WILLOW_NEAR, 266, rightBankEdge(266) + 8, false]);
-  trees.push([WILLOW_NEAR, 334, rightBankEdge(334) + 6, true]);
-  trees.sort((p, q) => p[1] - q[1]);
-  for (const [sp, baseY, cx, flip] of trees) {
-    // Keep every crown right of the bobber column's guard line.
-    const x = Math.max(282, Math.round(cx - sp.width / 2));
-    r.blit(sp, lx(x), ly(baseY) - sp.height, { flip });
+  // Willows leaning over the water: their fronds hang out over the shore.
+  for (const [by, sp, flip] of [[216, treeAt(WILLOW_BIG, 'wb', 0.8), false], [270, WILLOW_NEAR, false], [302, WILLOW_BIG, true], [346, WILLOW_NEAR, true]] as const) {
+    trees.push({ sp, by, cx: rightBankEdge(by) + 3, flip, haze: 0 });
   }
-  // Boulders on the lip.
-  for (const [by, sz, sd] of [[250, 's', 3], [306, 'm', 7], [364, 's', 5]] as const) {
-    r.blit(boulderSprite(sz, sd), lx(rightBankEdge(by) - 4), ly(by) - BOULDER_SIZES[sz].h, { flip: sd % 2 === 1 });
+  trees.sort((p, q) => p.by - q.by);
+  for (const tr of trees) {
+    const x = Math.max(282, Math.round(tr.cx - tr.sp.width / 2));
+    r.blit(tr.sp, lx(x), ly(tr.by) - tr.sp.height, { flip: tr.flip, mix: tr.haze > 0 ? { color: PAL.hillFar, t: tr.haze } : undefined });
   }
   return r;
 }
@@ -290,6 +333,7 @@ export function riverRightReflectionRaster(bank: Raster, frame: number): Raster 
       const src = bank.get(e + dx + wob - RIGHT_BANK.x, y - 3 - Math.floor(dx / 3) - RIGHT_BANK.y);
       if (src < 0) continue;
       if (bayer(e - dx, y) > 1 - dx / 14) continue;
+      if (e - dx < 282) continue;
       r.set(e - dx - RIGHT_BANK.x, ry, lerpColor(src, PAL.deep0, 0.55));
     }
   }
@@ -369,102 +413,120 @@ export function riverNearBankRaster(): Raster {
 
 // ---- W.'s hut ------------------------------------------------------------------------------------
 
-export const HUT_SIZE = { w: 66, h: 48 };
+/** About 1.5x the old hut: its right part runs off the screen edge; the sign, window, door and stove pipe are all on screen. */
+export const HUT_SIZE = { w: 96, h: 68 };
 /** Where the hut stands (feet, bottom middle): on the right bar, behind the notice-board sign (x 258-294, y 460+) and the windsock (y 452+). */
-export const HUT_FEET = { x: 319, y: 452 };
+export const HUT_FEET = { x: 336, y: 452 };
 export const HUT_BOX = { x: HUT_FEET.x - HUT_SIZE.w / 2, y: HUT_FEET.y - HUT_SIZE.h, w: HUT_SIZE.w, h: HUT_SIZE.h };
 /** Where the stove pipe's mouth is in the hut picture, and in the world: a steam wisp for the story goes here later. */
-export const HUT_PIPE_TOP_LOCAL = { x: 55, y: 1 };
+export const HUT_PIPE_TOP_LOCAL = { x: 66, y: 2 };
 export const HUT_PIPE_TOP = { x: HUT_BOX.x + HUT_PIPE_TOP_LOCAL.x, y: HUT_BOX.y + HUT_PIPE_TOP_LOCAL.y };
+/** The parts that must be on screen (local boxes of the hut picture). */
+export const HUT_PARTS = {
+  sign: { x: 3, y: 36, w: 24, h: 20 },
+  window: { x: 31, y: 38, w: 14, h: 12 },
+  door: { x: 48, y: 36, w: 14, h: 32 },
+  pipe: { x: 64, y: 2, w: 5, h: 18 },
+  kettle: { x: 55, y: 8, w: 8, h: 8 },
+};
 
-/** A tiny 3 x 5 "W." for the plank sign. */
+/** A 3 x 5 pixel font for the sign: "W" and ".". */
 const W_GLYPH = ['1.1', '1.1', '1.1', '111', '1.1'];
 
-/** W.'s hut: weathered grey-brown planks, a low tarred roof with an overhang, a window, a door, a stove pipe with a rusty kettle, a painted plank sign, a bait bucket. */
+/** W.'s hut: weathered grey-brown planks, a low tarred roof with an overhang, a window, a door, a stove pipe with a rusty kettle, and a plank sign with "W." and a painted fish. */
 export function hutRaster(): Raster {
   const HW = HUT_SIZE.w;
   const HH = HUT_SIZE.h;
   const r = new Raster(HW, HH);
   const rnd = mulberry32(31);
-  const wallTop = 18;
+  const wallTop = 26;
   // Walls: vertical plank boards in a few weathered tones.
   const tones = [lerpColor(PAL.wood, PAL.stone, 0.35), lerpColor(PAL.woodLight, PAL.stone, 0.35), lerpColor(PAL.woodDark, PAL.stone, 0.25)];
-  for (let x = 3; x < HW - 3; x++) {
-    const board = Math.floor((x - 3) / 4);
+  for (let x = 4; x < HW - 4; x++) {
+    const board = Math.floor((x - 4) / 6);
     const base = tones[(board * 5 + 1) % 3];
     for (let y = wallTop; y < HH; y++) {
       let c = base;
-      if ((x - 3) % 4 === 3) c = PAL.woodDark; // gap between boards
+      if ((x - 4) % 6 === 5) c = PAL.woodDark; // gap between boards
+      else if ((x - 4) % 6 === 0 && bayer(x, y) < 0.5) c = lerpColor(base, PAL.woodHi, 0.25);
       else if (bayer(x, y) < 0.08) c = PAL.woodDark;
       r.set(x, y, c);
     }
-    if ((x - 3) % 4 === 1) {
-      r.set(x, wallTop + 3, PAL.stoneDark);
-      r.set(x, HH - 5, PAL.stoneDark);
+    if ((x - 4) % 6 === 2) {
+      r.set(x, wallTop + 5, PAL.stoneDark);
+      r.set(x, HH - 8, PAL.stoneDark);
     }
-    if (rnd() < 0.12) r.set(x, wallTop + 8 + Math.floor(rnd() * 14), PAL.woodDeep);
+    if (rnd() < 0.1) r.rect(x, wallTop + 10 + Math.floor(rnd() * 26), 1, 2, PAL.woodDeep);
   }
-  // Foot: stones along the bottom.
-  r.rect(2, HH - 2, HW - 4, 2, PAL.stoneDark);
-  for (let x = 2; x < HW - 2; x += 3) r.set(x, HH - 2, PAL.stone);
+  // Damp stain along the foot and a stone footing.
+  for (let x = 4; x < HW - 4; x++) if (bayer(x, 1) < 0.7) r.set(x, HH - 5, PAL.woodDark);
+  r.rect(2, HH - 3, HW - 4, 3, PAL.stoneDark);
+  for (let x = 2; x < HW - 2; x += 4) r.rect(x, HH - 3, 3, 1, PAL.stone);
   // Low roof: a slanted tarred plane with a lit lip and a shaded eave under it.
-  for (let y = 7; y < wallTop; y++) {
-    const inset = Math.max(0, Math.round((9 - (y - 7)) * 0.4));
+  const roofTop = 12;
+  for (let y = roofTop; y < wallTop; y++) {
+    const inset = Math.round(((wallTop - y) / (wallTop - roofTop)) * 6);
     for (let x = inset; x < HW - inset; x++) {
-      const row = y - 7;
-      let c: number = row % 3 === 0 ? lerpColor(PAL.stoneDark, PAL.outlineSoft, 0.5) : PAL.stoneDark;
-      if ((x + row * 2) % 9 === 0) c = PAL.stone;
+      const row = y - roofTop;
+      let c: number = row % 4 === 0 ? lerpColor(PAL.stoneDark, PAL.outlineSoft, 0.5) : PAL.stoneDark;
+      if ((x + row * 3) % 11 === 0) c = PAL.stone;
       r.set(x, y, c);
     }
   }
   r.rect(0, wallTop - 1, HW, 1, PAL.outline);
-  r.rect(1, wallTop, HW - 2, 1, PAL.woodDeep); // the eave's shadow on the wall
-  r.rect(4, 7, HW - 8, 1, PAL.stoneLight);
-  // Door (right): a darker plank door with a handle and a worn step.
-  const dx = HW - 17;
-  r.rect(dx, 27, 12, 21, PAL.woodDeep);
-  r.rect(dx + 1, 28, 10, 20, PAL.woodDark);
-  for (const x of [dx + 4, dx + 7]) r.rect(x, 28, 1, 20, PAL.woodDeep);
-  r.rect(dx + 1, 28, 10, 1, PAL.wood);
-  r.set(dx + 9, 37, PAL.gold);
-  r.rect(dx - 1, HH - 1, 14, 1, PAL.stone);
-  // Window (middle): a small four-pane window with a warm glass and a sill.
-  r.rect(29, 24, 12, 10, PAL.woodDeep);
-  r.rect(30, 25, 10, 8, PAL.cream);
-  r.rect(30, 25, 10, 2, lerpColor(PAL.cream, PAL.shallow3, 0.5));
-  r.rect(34, 25, 1, 8, PAL.woodDark);
-  r.rect(30, 29, 10, 1, PAL.woodDark);
-  r.rect(28, 34, 14, 1, PAL.woodLight);
-  // The plank sign (left): "W." in dark paint and a little painted fish.
-  r.rect(5, 24, 17, 12, PAL.woodDeep);
-  r.rect(6, 25, 15, 10, PAL.woodLight);
-  r.rect(6, 25, 15, 1, PAL.woodHi);
-  r.rect(6, 34, 15, 1, PAL.wood);
+  r.rect(1, wallTop, HW - 2, 2, PAL.woodDeep); // the eave's shadow on the wall
+  r.rect(6, roofTop, HW - 12, 1, PAL.stoneLight);
+  // Plank sign (left): "W." in dark paint at 2x and a painted fish.
+  const sg = HUT_PARTS.sign;
+  r.rect(sg.x, sg.y, sg.w, sg.h, PAL.woodDeep);
+  r.rect(sg.x + 1, sg.y + 1, sg.w - 2, sg.h - 2, PAL.woodLight);
+  r.rect(sg.x + 1, sg.y + 1, sg.w - 2, 1, PAL.woodHi);
+  r.rect(sg.x + 1, sg.y + sg.h - 3, sg.w - 2, 2, PAL.wood);
   W_GLYPH.forEach((row, gy) => {
-    for (let gx = 0; gx < 3; gx++) if (row[gx] === '1') r.set(8 + gx, 27 + gy, PAL.woodDeep);
+    for (let gx = 0; gx < 3; gx++) if (row[gx] === '1') r.rect(sg.x + 3 + gx * 2, sg.y + 4 + gy * 2, 2, 2, PAL.woodDeep);
   });
-  r.set(11, 31, PAL.woodDeep);
-  // fish: body, tail, eye
-  r.rect(14, 29, 5, 3, PAL.shallow1);
-  r.set(13, 28, PAL.shallow1);
-  r.set(13, 32, PAL.shallow1);
-  r.set(19, 30, PAL.shallow1);
-  r.set(16, 29, PAL.foam);
-  r.set(18, 30, PAL.outline);
-  // Stove pipe through the roof, with a cap, and a rusty kettle hanging on it.
-  r.rect(54, 1, 4, 12, PAL.stoneDark);
-  r.rect(54, 1, 1, 12, PAL.stone);
-  r.rect(53, 1, 6, 1, PAL.outlineSoft);
-  r.rect(53, 11, 6, 1, PAL.stone);
-  r.rect(59, 4, 6, 5, PAL.gingerDark); // kettle body
-  r.rect(59, 4, 2, 5, PAL.ginger);
-  r.rect(60, 3, 3, 1, PAL.gingerDark); // lid
-  r.set(61, 2, PAL.stoneDark); // knob
-  r.set(65, 5, PAL.gingerDark); // spout
-  r.set(65, 4, PAL.gingerDark);
-  r.set(58, 5, PAL.outlineSoft); // handle to the pipe
-  r.set(58, 4, PAL.outlineSoft);
-  r.set(60, 8, PAL.red); // a rusty patch
+  r.rect(sg.x + 10, sg.y + 12, 2, 2, PAL.woodDeep);
+  // The fish: a blue body, a tail, an eye and a pale belly.
+  r.rect(sg.x + 13, sg.y + 6, 7, 5, PAL.shallow1);
+  r.rect(sg.x + 14, sg.y + 5, 5, 1, PAL.shallow1);
+  r.rect(sg.x + 14, sg.y + 11, 5, 1, PAL.shallow1);
+  r.rect(sg.x + 14, sg.y + 9, 5, 1, PAL.foam);
+  r.rect(sg.x + 20, sg.y + 5, 2, 2, PAL.shallow1);
+  r.rect(sg.x + 20, sg.y + 10, 2, 2, PAL.shallow1);
+  r.rect(sg.x + 21, sg.y + 7, 1, 3, PAL.shallow1);
+  r.set(sg.x + 15, sg.y + 7, PAL.outline);
+  // Window: a four-pane window with warm glass, a sill and a plank shutter.
+  const wn = HUT_PARTS.window;
+  r.rect(wn.x, wn.y, wn.w, wn.h, PAL.woodDeep);
+  r.rect(wn.x + 1, wn.y + 1, wn.w - 2, wn.h - 2, PAL.cream);
+  r.rect(wn.x + 1, wn.y + 1, wn.w - 2, 3, lerpColor(PAL.cream, PAL.shallow3, 0.5));
+  r.rect(wn.x + 6, wn.y + 1, 2, wn.h - 2, PAL.woodDark);
+  r.rect(wn.x + 1, wn.y + 6, wn.w - 2, 1, PAL.woodDark);
+  r.rect(wn.x - 2, wn.y + wn.h, wn.w + 4, 2, PAL.woodLight);
+  // Door: a darker plank door with a handle and a worn step.
+  const dr = HUT_PARTS.door;
+  r.rect(dr.x, dr.y, dr.w, dr.h, PAL.woodDeep);
+  r.rect(dr.x + 1, dr.y + 1, dr.w - 2, dr.h - 1, PAL.woodDark);
+  for (const x of [dr.x + 5, dr.x + 9]) r.rect(x, dr.y + 1, 1, dr.h - 1, PAL.woodDeep);
+  r.rect(dr.x + 1, dr.y + 1, dr.w - 2, 1, PAL.wood);
+  r.rect(dr.x + 10, dr.y + 16, 2, 2, PAL.gold);
+  r.rect(dr.x - 2, HH - 1, dr.w + 4, 1, PAL.stone);
+  // Stove pipe through the roof, with a cap, and a rusty kettle hanging beside it.
+  const pp = HUT_PARTS.pipe;
+  r.rect(pp.x, pp.y, pp.w, pp.h, PAL.stoneDark);
+  r.rect(pp.x, pp.y, 1, pp.h, PAL.stone);
+  r.rect(pp.x - 1, pp.y, pp.w + 2, 2, PAL.outlineSoft);
+  r.rect(pp.x - 1, pp.y + 12, pp.w + 2, 1, PAL.stone);
+  const kt = HUT_PARTS.kettle;
+  r.rect(kt.x, kt.y + 1, kt.w - 1, kt.h - 1, PAL.gingerDark); // body
+  r.rect(kt.x, kt.y + 1, 3, kt.h - 1, PAL.ginger);
+  r.rect(kt.x + 1, kt.y, kt.w - 3, 1, PAL.gingerDark); // lid
+  r.set(kt.x + 3, kt.y - 1, PAL.stoneDark); // knob
+  r.rect(kt.x - 2, kt.y + 2, 2, 1, PAL.gingerDark); // spout
+  r.set(kt.x - 3, kt.y + 1, PAL.gingerDark);
+  r.rect(kt.x + kt.w - 1, kt.y + 2, 2, 1, PAL.outlineSoft); // handle to the pipe
+  r.set(kt.x + 2, kt.y + 5, PAL.red); // a rusty patch
+  r.set(kt.x + 4, kt.y + 6, PAL.red);
   return r;
 }
 
