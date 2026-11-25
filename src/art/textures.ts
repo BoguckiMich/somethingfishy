@@ -113,14 +113,14 @@ export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `
 /** The notice-board sign for a look (slice 22c): baked the first time it is needed, then reused. Returns its key. */
 export function ensureSignTexture(scene: Phaser.Scene, look: SignLook): string {
   const key = signKey(look);
-  addRaster(scene, key, Raster.fromSprite(signSprite(look)));
+  addRaster(scene, key, () => Raster.fromSprite(signSprite(look)));
   return key;
 }
 
 /** Makes the trophy board texture for a set of mounted fish (once per set) and returns its key. */
 export function ensureTrophyBoardTexture(scene: Phaser.Scene, mounted: readonly string[]): string {
   const key = trophyBoardKey(mounted);
-  addRaster(scene, key, Raster.fromSprite(trophyBoardSprite(mounted)));
+  addRaster(scene, key, () => Raster.fromSprite(trophyBoardSprite(mounted)));
   return key;
 }
 
@@ -134,8 +134,9 @@ export const lanternKey = (lit: boolean) => `lantern:${lit ? 'on' : 'off'}`;
 export const momentKey = (name: string) => `moment:${name}`;
 
 /** Uploads a pure Raster as a Phaser canvas texture (once). */
-function addRaster(scene: Phaser.Scene, key: string, r: Raster): void {
+export function addRaster(scene: Phaser.Scene, key: string, make: () => Raster): void {
   if (scene.textures.exists(key)) return;
+  const r = make();
   const tex = scene.textures.createCanvas(key, r.width, r.height);
   if (!tex) throw new Error(`could not create texture ${key}`);
   const ctx = tex.getContext();
@@ -145,71 +146,74 @@ function addRaster(scene: Phaser.Scene, key: string, r: Raster): void {
 
 /** Bakes the River bend's placeholder scenery (slice 25a); only the river scene needs it. */
 export function createRiverTextures(scene: Phaser.Scene): void {
-  const bank = riverFarBankRaster();
+  let bankMemo: Raster | undefined;
+  const bank = () => (bankMemo ??= riverFarBankRaster());
   addRaster(scene, TEX.riverFarBank, bank);
-  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, riverFarReflectionRaster(bank, i)));
-  addRaster(scene, TEX.riverWater, riverWaterRaster());
-  addRaster(scene, TEX.riverNearBank, riverNearBankRaster());
-  addRaster(scene, TEX.hut, hutRaster());
-  addRaster(scene, TEX.riverLanding, riverLandingRaster());
-  addRaster(scene, TEX.ferry, ferryRaster());
-  addRaster(scene, TEX.ferryReflection, ferryReflectionRaster());
-  addRaster(scene, TEX.ferrySign, ferrySignRaster());
-  addRaster(scene, TEX.jetty, jettyRaster());
-  addRaster(scene, TEX.jettyReflection, jettyReflectionRaster());
-  const rightBank = riverRightBankRaster();
+  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, () => riverFarReflectionRaster(bank(), i)));
+  addRaster(scene, TEX.riverWater, () => riverWaterRaster());
+  addRaster(scene, TEX.riverNearBank, () => riverNearBankRaster());
+  addRaster(scene, TEX.hut, () => hutRaster());
+  addRaster(scene, TEX.riverLanding, () => riverLandingRaster());
+  addRaster(scene, TEX.ferry, () => ferryRaster());
+  addRaster(scene, TEX.ferryReflection, () => ferryReflectionRaster());
+  addRaster(scene, TEX.ferrySign, () => ferrySignRaster());
+  addRaster(scene, TEX.jetty, () => jettyRaster());
+  addRaster(scene, TEX.jettyReflection, () => jettyReflectionRaster());
+  let rightMemo: Raster | undefined;
+  const rightBank = () => (rightMemo ??= riverRightBankRaster());
   addRaster(scene, TEX.riverRightBank, rightBank);
-  TEX.riverRightReflection.forEach((key, i) => addRaster(scene, key, riverRightReflectionRaster(rightBank, i)));
-  addRaster(scene, TEX.riverPost, Raster.fromSprite(weatheredPostSprite(POST)));
-  addRaster(scene, TEX.ropePost, ropePostRaster());
-  for (const size of Object.keys(BOULDER_SIZES) as BoulderSize[]) addRaster(scene, boulderKey(size), Raster.fromSprite(boulderTextureSprite(size)));
+  TEX.riverRightReflection.forEach((key, i) => addRaster(scene, key, () => riverRightReflectionRaster(rightBank(), i)));
+  addRaster(scene, TEX.riverPost, () => Raster.fromSprite(weatheredPostSprite(POST)));
+  addRaster(scene, TEX.ropePost, () => ropePostRaster());
+  for (const size of Object.keys(BOULDER_SIZES) as BoulderSize[]) addRaster(scene, boulderKey(size), () => Raster.fromSprite(boulderTextureSprite(size)));
 }
 
 /** Bakes every sprite and scenery raster into textures. Call once at scene start. */
 export function createTextures(scene: Phaser.Scene): void {
-  const shore = farShoreRaster();
+  let shoreMemo: Raster | undefined;
+  const shore = () => (shoreMemo ??= farShoreRaster());
   addRaster(scene, TEX.farShore, shore);
-  TEX.reflection.forEach((key, i) => addRaster(scene, key, reflectionRaster(shore, i)));
-  addRaster(scene, TEX.water, waterRaster());
-  addRaster(scene, TEX.nearShore, nearShoreRaster());
-  addRaster(scene, TEX.dock, dockRaster());
-  addRaster(scene, TEX.clouds[0], cloudRaster(38, 12, 3));
-  addRaster(scene, TEX.clouds[1], cloudRaster(26, 9, 8));
-  addRaster(scene, TEX.clouds[2], cloudRaster(46, 13, 15));
-  addRaster(scene, TEX.sun, sunRaster());
-  addRaster(scene, TEX.moon, moonRaster());
-  addRaster(scene, TEX.bobber, Raster.fromSprite(BOBBER));
-  addRaster(scene, TEX.bobberUnder, Raster.fromSprite(BOBBER_UNDER));
-  addRaster(scene, TEX.gear, Raster.fromSprite(gearSprite()));
-  addRaster(scene, TEX.worm, Raster.fromSprite(wormSprite()));
-  addRaster(scene, TEX.coin, Raster.fromSprite(coinSprite()));
-  for (const b of BAITS) addRaster(scene, baitIconKey(b.id), Raster.fromSprite(shopIconSprite(b.id)!));
-  addRaster(scene, TEX.zSmall, Raster.fromSprite(zSprite(false)));
-  addRaster(scene, TEX.zBig, Raster.fromSprite(zSprite(true)));
-  for (const star of ['bronze', 'silver', 'gold', 'medal'] as const) addRaster(scene, starKey(star), Raster.fromSprite(starRowSprite(star)!));
+  TEX.reflection.forEach((key, i) => addRaster(scene, key, () => reflectionRaster(shore(), i)));
+  addRaster(scene, TEX.water, () => waterRaster());
+  addRaster(scene, TEX.nearShore, () => nearShoreRaster());
+  addRaster(scene, TEX.dock, () => dockRaster());
+  addRaster(scene, TEX.clouds[0], () => cloudRaster(38, 12, 3));
+  addRaster(scene, TEX.clouds[1], () => cloudRaster(26, 9, 8));
+  addRaster(scene, TEX.clouds[2], () => cloudRaster(46, 13, 15));
+  addRaster(scene, TEX.sun, () => sunRaster());
+  addRaster(scene, TEX.moon, () => moonRaster());
+  addRaster(scene, TEX.bobber, () => Raster.fromSprite(BOBBER));
+  addRaster(scene, TEX.bobberUnder, () => Raster.fromSprite(BOBBER_UNDER));
+  addRaster(scene, TEX.gear, () => Raster.fromSprite(gearSprite()));
+  addRaster(scene, TEX.worm, () => Raster.fromSprite(wormSprite()));
+  addRaster(scene, TEX.coin, () => Raster.fromSprite(coinSprite()));
+  for (const b of BAITS) addRaster(scene, baitIconKey(b.id), () => Raster.fromSprite(shopIconSprite(b.id)!));
+  addRaster(scene, TEX.zSmall, () => Raster.fromSprite(zSprite(false)));
+  addRaster(scene, TEX.zBig, () => Raster.fromSprite(zSprite(true)));
+  for (const star of ['bronze', 'silver', 'gold', 'medal'] as const) addRaster(scene, starKey(star), () => Raster.fromSprite(starRowSprite(star)!));
   createCharacterTextures(scene);
-  addRaster(scene, TEX.lilyA, Raster.fromSprite(LILY_A));
-  addRaster(scene, TEX.lilyB, Raster.fromSprite(LILY_B));
-  addRaster(scene, TEX.reed, Raster.fromSprite(REED));
-  addRaster(scene, TEX.post, Raster.fromSprite(POST));
-  addRaster(scene, TEX.crate, Raster.fromSprite(CRATE));
-  addRaster(scene, TEX.board, Raster.fromSprite(NOTICE_BOARD));
-  for (const v of CAR_VARIANTS) addRaster(scene, carKey(v), Raster.fromSprite(carSprite(v)));
-  for (const lit of [false, true]) addRaster(scene, lanternKey(lit), Raster.fromSprite(lanternSprite(lit)));
-  for (const [name, s] of Object.entries(MOMENT_SPRITES)) addRaster(scene, momentKey(name), Raster.fromSprite(s));
-  addRaster(scene, TEX.clockSun, Raster.fromSprite(sunSprite()));
-  addRaster(scene, TEX.clockHalf, Raster.fromSprite(halfSunSprite()));
-  addRaster(scene, TEX.clockMoon, Raster.fromSprite(moonSprite()));
-  for (const id of WEATHER_IDS) addRaster(scene, weatherKey(id), Raster.fromSprite(weatherSprite(id)));
-  addRaster(scene, TEX.stripFish, Raster.fromSprite(stripFishSprite()));
-  addRaster(scene, TEX.stripNet, Raster.fromSprite(stripNetSprite()));
-  addRaster(scene, TEX.barFrame, Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
-  addRaster(scene, TEX.stripFrame, Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
-  if (!scene.textures.exists(TEX.sky)) {
+  addRaster(scene, TEX.lilyA, () => Raster.fromSprite(LILY_A));
+  addRaster(scene, TEX.lilyB, () => Raster.fromSprite(LILY_B));
+  addRaster(scene, TEX.reed, () => Raster.fromSprite(REED));
+  addRaster(scene, TEX.post, () => Raster.fromSprite(POST));
+  addRaster(scene, TEX.crate, () => Raster.fromSprite(CRATE));
+  addRaster(scene, TEX.board, () => Raster.fromSprite(NOTICE_BOARD));
+  for (const v of CAR_VARIANTS) addRaster(scene, carKey(v), () => Raster.fromSprite(carSprite(v)));
+  for (const lit of [false, true]) addRaster(scene, lanternKey(lit), () => Raster.fromSprite(lanternSprite(lit)));
+  for (const [name, s] of Object.entries(MOMENT_SPRITES)) addRaster(scene, momentKey(name), () => Raster.fromSprite(s));
+  addRaster(scene, TEX.clockSun, () => Raster.fromSprite(sunSprite()));
+  addRaster(scene, TEX.clockHalf, () => Raster.fromSprite(halfSunSprite()));
+  addRaster(scene, TEX.clockMoon, () => Raster.fromSprite(moonSprite()));
+  for (const id of WEATHER_IDS) addRaster(scene, weatherKey(id), () => Raster.fromSprite(weatherSprite(id)));
+  addRaster(scene, TEX.stripFish, () => Raster.fromSprite(stripFishSprite()));
+  addRaster(scene, TEX.stripNet, () => Raster.fromSprite(stripNetSprite()));
+  addRaster(scene, TEX.barFrame, () => Raster.fromSprite(barFrameSprite(BAR_INNER.w, BAR_INNER.h)));
+  addRaster(scene, TEX.stripFrame, () => Raster.fromSprite(barFrameSprite(STRIP_INNER.w, STRIP_INNER.h, 3)));
+  addRaster(scene, TEX.sky, () => {
     const sky = new Raster(W, FAR_SHORE_Y);
     paintSky(sky, 0x3f92e0, 0xaadef6);
-    addRaster(scene, TEX.sky, sky);
-  }
+    return sky;
+  });
 }
 
 /** Repaints the sky gradient into its canvas texture (call when the colours change). */
@@ -232,36 +236,36 @@ export { dogKey };
 /** Alex, Pajkel (seated and walking), the dog, plus the small props. */
 function createCharacterTextures(scene: Phaser.Scene): void {
   for (const head of ALEX_HEADS) {
-    for (const b of [0, 1] as const) addRaster(scene, alexKey(head, b), Raster.fromSprite(alexSprite(head, b)));
+    for (const b of [0, 1] as const) addRaster(scene, alexKey(head, b), () => Raster.fromSprite(alexSprite(head, b)));
   }
-  for (const b of [0, 1] as const) addRaster(scene, alexShowOffKey(b), Raster.fromSprite(alexShowOffSprite(b)));
-  addRaster(scene, ALEX_HANDS_KEY, Raster.fromSprite(alexShowOffHandsSprite()));
+  for (const b of [0, 1] as const) addRaster(scene, alexShowOffKey(b), () => Raster.fromSprite(alexShowOffSprite(b)));
+  addRaster(scene, ALEX_HANDS_KEY, () => Raster.fromSprite(alexShowOffHandsSprite()));
   for (const sp of SPECIES) {
-    for (const cls of FISH_SIZE_CLASSES) addRaster(scene, fishKey(sp.id, cls), Raster.fromSprite(fishSprite(sp.id, cls)));
-    addRaster(scene, fishIconKey(sp.id), Raster.fromSprite(fishIconSprite(sp.id)));
-    if (isHugged(sp.id)) addRaster(scene, fishHugKey(sp.id), Raster.fromSprite(fishHugSprite(sp.id)));
+    for (const cls of FISH_SIZE_CLASSES) addRaster(scene, fishKey(sp.id, cls), () => Raster.fromSprite(fishSprite(sp.id, cls)));
+    addRaster(scene, fishIconKey(sp.id), () => Raster.fromSprite(fishIconSprite(sp.id)));
+    if (isHugged(sp.id)) addRaster(scene, fishHugKey(sp.id), () => Raster.fromSprite(fishHugSprite(sp.id)));
   }
   for (const pose of PAJ_POSES) {
     for (const b of [0, 1] as const) {
-      addRaster(scene, pajSitKey(pose, b), Raster.fromSprite(pajkelSittingSprite(pose, b)));
-      addRaster(scene, pajSitKey(pose, b, true), Raster.fromSprite(pajkelSittingSprite(pose, b, true)));
+      addRaster(scene, pajSitKey(pose, b), () => Raster.fromSprite(pajkelSittingSprite(pose, b)));
+      addRaster(scene, pajSitKey(pose, b, true), () => Raster.fromSprite(pajkelSittingSprite(pose, b, true)));
     }
   }
   for (const pose of PAJ_WALK_POSES) {
-    addRaster(scene, pajWalkKey(pose), Raster.fromSprite(pajkelWalkSprite(pose)));
+    addRaster(scene, pajWalkKey(pose), () => Raster.fromSprite(pajkelWalkSprite(pose)));
   }
-  for (const f of allDogFrames()) addRaster(scene, dogKey(f), Raster.fromSprite(dogSprite(f)));
-  addRaster(scene, TEX.heart, Raster.fromSprite(HEART));
-  for (let i = 0; i < 4; i++) addRaster(scene, TEX.stickSpin[i], Raster.fromSprite(stickSpinSprite(i)));
-  for (const f of [0, 1] as const) addRaster(scene, TEX.stickPuff[f], Raster.fromSprite(stickPuffSprite(f)));
-  addRaster(scene, TEX.emptyChair, Raster.fromSprite(emptyChairSprite()));
-  addRaster(scene, TEX.emptyChairDeck, Raster.fromSprite(emptyChairSprite(true)));
-  for (let f = 0; f < CAMPFIRE_FRAMES; f++) addRaster(scene, campfireKey(f), Raster.fromSprite(campfireSprite(f)));
-  addRaster(scene, TEX.campTent, Raster.fromSprite(tentSprite()));
-  addRaster(scene, TEX.campPole, Raster.fromSprite(lightPoleSprite()));
-  addRaster(scene, TEX.campBed, Raster.fromSprite(dogBedSprite()));
-  for (let l = 0; l < WINDSOCK_LEVELS; l++) for (const f of [0, 1] as const) addRaster(scene, windsockKey(l, f), Raster.fromSprite(windsockSprite(l, f)));
-  addRaster(scene, TEX.steam, Raster.fromSprite(sprite('.w\nww\nw.', { w: PAL.white })));
-  addRaster(scene, TEX.stickCarry, Raster.fromSprite(stickCarrySprite()));
-  for (let v = 0; v < STICK_VARIANTS; v++) addRaster(scene, stickGroundKey(v as StickVariant), Raster.fromSprite(stickGroundSprite(v as StickVariant)));
+  for (const f of allDogFrames()) addRaster(scene, dogKey(f), () => Raster.fromSprite(dogSprite(f)));
+  addRaster(scene, TEX.heart, () => Raster.fromSprite(HEART));
+  for (let i = 0; i < 4; i++) addRaster(scene, TEX.stickSpin[i], () => Raster.fromSprite(stickSpinSprite(i)));
+  for (const f of [0, 1] as const) addRaster(scene, TEX.stickPuff[f], () => Raster.fromSprite(stickPuffSprite(f)));
+  addRaster(scene, TEX.emptyChair, () => Raster.fromSprite(emptyChairSprite()));
+  addRaster(scene, TEX.emptyChairDeck, () => Raster.fromSprite(emptyChairSprite(true)));
+  for (let f = 0; f < CAMPFIRE_FRAMES; f++) addRaster(scene, campfireKey(f), () => Raster.fromSprite(campfireSprite(f)));
+  addRaster(scene, TEX.campTent, () => Raster.fromSprite(tentSprite()));
+  addRaster(scene, TEX.campPole, () => Raster.fromSprite(lightPoleSprite()));
+  addRaster(scene, TEX.campBed, () => Raster.fromSprite(dogBedSprite()));
+  for (let l = 0; l < WINDSOCK_LEVELS; l++) for (const f of [0, 1] as const) addRaster(scene, windsockKey(l, f), () => Raster.fromSprite(windsockSprite(l, f)));
+  addRaster(scene, TEX.steam, () => Raster.fromSprite(sprite('.w\nww\nw.', { w: PAL.white })));
+  addRaster(scene, TEX.stickCarry, () => Raster.fromSprite(stickCarrySprite()));
+  for (let v = 0; v < STICK_VARIANTS; v++) addRaster(scene, stickGroundKey(v as StickVariant), () => Raster.fromSprite(stickGroundSprite(v as StickVariant)));
 }
