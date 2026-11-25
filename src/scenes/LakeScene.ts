@@ -10,7 +10,7 @@ import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistD
 import { showBottleCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
 import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
-import { blinkIsNight, blinkLines, chapterById, lineText, markPaleSeen, markSeen, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
+import { blinkIsNight, blinkLines, chapterById, chapterWaits, q7Lines, lineText, markPaleSeen, markSeen, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
 import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
@@ -418,6 +418,8 @@ export class LakeScene extends Phaser.Scene {
   private journalAll = false;
   private storyRun: { chapter: ChapterDef; night: boolean; preMs: number } | null = null;
   private storyTimerMs = rollStoryDelay();
+  /** The due chapter is holding its timer (the night blink before Pajkel is in the car). */
+  private storyWaiting = false;
   private storyLineMs = 0;
   /** Dev flag ?story=Qn: that chapter is today's, whatever the date rule says (null once seen). */
   private storyDev: ChapterDef | null = null;
@@ -1237,7 +1239,7 @@ export class LakeScene extends Phaser.Scene {
   /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
   private dueChapter(): ChapterDef | null {
     if (!this.storyOn || this.loc.storyPlaceId === null) return null;
-    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, this.loc.storyPlaceId, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player));
+    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, this.loc.storyPlaceId, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player), this.roadFixed());
   }
 
   /** A chapter is due or being told: random moments wait. */
@@ -1316,7 +1318,14 @@ export class LakeScene extends Phaser.Scene {
     }
     if (run || !this.storyOn) return;
     const chapter = this.dueChapter();
-    if (!chapter || !this.storyCalm()) return;
+    // The night blink waits (the timer is held) until Pajkel is asleep in the car, then fires soon after.
+    const waits = !!chapter && chapterWaits(chapter, this.clock.minute, isInCar(this.companions.state));
+    if (waits) this.storyWaiting = true;
+    else if (this.storyWaiting) {
+      this.storyWaiting = false;
+      this.storyTimerMs = Math.min(this.storyTimerMs, 5000);
+    }
+    if (!chapter || waits || !this.storyCalm()) return;
     this.storyTimerMs -= deltaMs;
     if (this.storyTimerMs <= 0) this.beginChapter(chapter);
   }
@@ -1377,7 +1386,9 @@ export class LakeScene extends Phaser.Scene {
     const run = this.storyRun;
     if (!run) return;
     const lines = run.chapter.kind === 'blink' ? blinkLines(run.night) : undefined;
-    this.setPlayer({ ...this.player, story: markSeen(storyOf(this.player), run.chapter.id, this.today, lines, run.night) });
+    // Q7 after the road was fixed: the alternative line, remembered for the journal.
+    const late = run.chapter.id === 'Q7' && this.roadFixed();
+    this.setPlayer({ ...this.player, story: markSeen(storyOf(this.player), run.chapter.id, this.today, late ? q7Lines(true) : lines, run.night, late) });
     if (this.storyDev?.id === run.chapter.id) this.storyDev = null;
     this.storyRun = null;
     this.storyTimerMs = rollStoryDelay();
@@ -1459,7 +1470,7 @@ export class LakeScene extends Phaser.Scene {
     this.catchTrophy = 'none';
     if (isTrophy(species)) {
       const t = addTrophy(this.player.trophies, hooked, this.today, perfect);
-      if (t.first || t.improved) this.setPlayer({ ...this.player, trophies: t.trophies });
+      if (t.changed) this.setPlayer({ ...this.player, trophies: t.trophies });
       this.catchTrophy = t.first ? 'first' : t.improved ? 'better' : 'same';
       trophyFirst = t.first;
     }
@@ -2529,16 +2540,16 @@ export class LakeScene extends Phaser.Scene {
     this.warnAge += _deltaMs;
     this.warnText.setVisible(this.warnAge < WARN_MS).setAlpha(Math.min(1, (WARN_MS - this.warnAge) / 400));
     this.updateTip(_deltaMs);
-    this.hint.setText(
-      s.kind === 'idle' ? this.tipText()
+    const hintText =
+      s.kind === 'idle' && this.slipNoteAge < SLIP_NOTE_MS ? SLIP_NOTE
+      : s.kind === 'idle' ? this.tipText()
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
       : s.kind === 'fighting' ? 'Hold to raise the bar'
       : s.kind === 'caught' ? (slipsAway(s.hooked.speciesId) ? 'Tap to let it go' : 'Tap to continue')
-      : '',
-    );
-    if (s.kind === 'idle' && this.slipNoteAge < SLIP_NOTE_MS) this.hint.setText(SLIP_NOTE);
+      : '';
+    if (this.hint.text !== hintText) this.hint.setText(hintText);
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
     this.drawPanels();
   }

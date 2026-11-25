@@ -1,4 +1,6 @@
 import { isValidDate } from '../daily/dates';
+import { WAKE_MINUTE } from '../bedtime';
+import { timeOfDay } from '../clock';
 import {
   BLINK_DAY_LINES,
   BLINK_NIGHT_LINES,
@@ -7,6 +9,7 @@ import {
   JOURNAL_BLINK_DAY,
   JOURNAL_BLINK_NIGHT,
   JOURNAL_PALE,
+  JOURNAL_Q7_LATE,
   JOURNAL_TOTAL,
   PALE_BEAT,
   STORY_LINES,
@@ -39,6 +42,8 @@ export interface StoryState {
   paleOn?: string;
   /** Q4 was told as the night blink (the journal's version); missing = the day bottle. */
   blinkNight?: boolean;
+  /** Q7 was told after the road was already fixed (the journal's alternative thought). */
+  q7Late?: boolean;
   /** How many journal pages she had seen when she last opened the Story tab (the dot). */
   looked?: number;
 }
@@ -85,8 +90,8 @@ export function withFlag(p: PlayerState, flag: keyof MilestoneFlags): PlayerStat
   return m[flag] ? p : { ...p, milestones: { ...m, [flag]: true } };
 }
 
-/** The minute of the game clock counts as a night visit (21:00 or later). */
-export const isNightVisit = (minute: number): boolean => minute >= STORY_TUNING.nightFromMinute;
+/** The minute of the game clock counts as a night visit (21:00 up to, not including, 05:00). */
+export const isNightVisit = (minute: number): boolean => minute >= STORY_TUNING.nightFromMinute || minute < WAKE_MINUTE;
 
 /** Flags that can be read off the rest of the save (a claimed quest today, a deep species in the log), merged with the stored ones. */
 export function recordMilestones(p: PlayerState): PlayerState {
@@ -104,7 +109,7 @@ export function storyMilestones(p: PlayerState): Record<string, boolean> {
     Q1: speciesCaught(p.log) > 0,
     Q2: m.quest === true,
     Q3: m.deep === true,
-    Q4: m.night === true,
+    Q4: m.night === true || bundles >= STORY_TUNING.q4FallbackBundles,
     Q5: bundles >= 1,
     Q6: p.rodId === 'carbon',
     Q7: bundles >= STORY_TUNING.q7Bundles,
@@ -117,16 +122,17 @@ export function seenToday(s: StoryState, today: string): number {
 }
 
 /** True when another chapter may be told on this date: fewer than `STORY_TUNING.perDay` were seen today. */
-export function slotFree(s: StoryState, today: string): boolean {
-  return isValidDate(today) && seenToday(s, today) < STORY_TUNING.perDay;
+export function slotFree(s: StoryState, today: string, catchUp = false): boolean {
+  return isValidDate(today) && (catchUp || seenToday(s, today) < STORY_TUNING.perDay);
 }
 
 /**
  * Today's chapter at this place: the next unseen one (strict order, never skipping), when its milestone is met
- * (`milestones`, by chapter id; see storyMilestones) and the day's cap is not reached; else null.
+ * (`milestones`, by chapter id; see storyMilestones) and the day's cap is not reached; else null. `catchUp` ignores
+ * the day's cap (the road is fixed, so the rest of the story should not trail behind); order and milestones still apply.
  */
-export function todaysChapter(s: StoryState, today: string, place: string, milestones: Readonly<Record<string, boolean>>): ChapterDef | null {
-  if (!slotFree(s, today)) return null;
+export function todaysChapter(s: StoryState, today: string, place: string, milestones: Readonly<Record<string, boolean>>, catchUp = false): ChapterDef | null {
+  if (!slotFree(s, today, catchUp)) return null;
   const next = chaptersOf(place).find((c) => !has(s.done, c.id)) ?? null;
   return next && milestones[next.id] === true ? next : null;
 }
@@ -151,10 +157,10 @@ export function nextLine(s: StoryState, canSpeak: boolean): { story: StoryState;
  * She has seen a chapter: it is recorded with today's date and its Pajkel lines are queued
  * (`lines` overrides the chapter's own, for the two versions of Q4). Seeing it twice changes nothing.
  */
-export function markSeen(s: StoryState, id: string, today: string, lines?: readonly string[], night?: boolean): StoryState {
+export function markSeen(s: StoryState, id: string, today: string, lines?: readonly string[], night?: boolean, late?: boolean): StoryState {
   const chapter = chapterById(id);
   if (!chapter || !isValidDate(today) || has(s.done, id)) return s;
-  const next: StoryState = { ...s, done: { ...s.done, [id]: today }, ...(id === 'Q4' && night ? { blinkNight: true } : {}) };
+  const next: StoryState = { ...s, done: { ...s.done, [id]: today }, ...(id === 'Q4' && night ? { blinkNight: true } : {}), ...(id === 'Q7' && late ? { q7Late: true } : {}) };
   return queueLines(next, lines ?? chapter.after);
 }
 
@@ -163,6 +169,17 @@ export const blinkLines = (night: boolean): readonly string[] => (night ? BLINK_
 
 /** Which version of Q4 plays: the night blink needs Pajkel asleep in the car and a dark sky. */
 export const blinkIsNight = (pajkelAsleepInCar: boolean, nightSky: boolean): boolean => pajkelAsleepInCar && nightSky;
+
+/**
+ * A chapter that should wait: the night blink before midnight while Pajkel is not yet asleep in the car
+ * (it would fall back to the day bottle). Midnight sends him to the car, then it can play.
+ */
+export function chapterWaits(chapter: ChapterDef, minute: number, pajkelInCar: boolean): boolean {
+  return chapter.kind === 'blink' && timeOfDay(minute) === 'night' && minute >= 12 * 60 && !pajkelInCar;
+}
+
+/** The lines Q7 queues: the usual, or the alternative when the road was already fixed. */
+export const q7Lines = (roadFixed: boolean): readonly string[] => (roadFixed ? ['q7Road'] : ['q7']);
 
 /** The Pale One bonus beat has not been shown yet. */
 export const paleBeatDue = (s: StoryState): boolean => !s.pale;
@@ -185,6 +202,7 @@ export function normalizeStory(v: unknown): StoryState {
   const out: StoryState = { done, queue: queue.slice(-STORY_TUNING.queueMax), pale: o.pale === true };
   if (o.pale === true && isValidDate(o.paleOn)) out.paleOn = o.paleOn;
   if (o.blinkNight === true && has(done, 'Q4')) out.blinkNight = true;
+  if (o.q7Late === true && has(done, 'Q7')) out.q7Late = true;
   if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), JOURNAL_TOTAL + 2);
   return out;
 }
@@ -210,7 +228,7 @@ export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[]
   const rows: { entry: JournalEntry; date: string | null; rank: number }[] = [];
   ALL.forEach((chapter, rank) => {
     if (!has(s.done, chapter.id)) return;
-    const def = chapter.id === 'Q4' ? (s.blinkNight ? JOURNAL_BLINK_NIGHT : JOURNAL_BLINK_DAY) : has(JOURNAL, chapter.id) ? JOURNAL[chapter.id] : undefined;
+    const def = chapter.id === 'Q4' ? (s.blinkNight ? JOURNAL_BLINK_NIGHT : JOURNAL_BLINK_DAY) : chapter.id === 'Q7' && s.q7Late ? JOURNAL_Q7_LATE : has(JOURNAL, chapter.id) ? JOURNAL[chapter.id] : undefined;
     if (def) rows.push({ entry: page(chapter.id, def, def.text ?? chapter.text ?? ''), date: s.done[chapter.id], rank });
   });
   if (s.pale) rows.push({ entry: page('pale', JOURNAL_PALE, JOURNAL_PALE.text ?? ''), date: s.paleOn ?? null, rank: ALL.length });

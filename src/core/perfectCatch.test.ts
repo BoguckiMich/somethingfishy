@@ -226,7 +226,8 @@ describe('the trophy board medal', () => {
     // the medal comes later on a catch that is not bigger
     const later = addTrophy(plain.trophies, big('mossback'), '2026-11-25', true);
     expect(later.trophies.mossback.medal).toBe(true);
-    expect(later).toMatchObject({ first: false, improved: false });
+    expect(later).toMatchObject({ first: false, improved: false, changed: true });
+    expect(addTrophy(later.trophies, big('mossback'), '2026-11-26', true).changed).toBe(false);
     // and a later bigger plain catch keeps it
     const bigger = addTrophy(a.trophies, { ...big('mossback'), lengthCm: big('mossback').lengthCm + 5 }, '2026-11-26');
     expect(bigger.trophies.mossback.medal).toBe(true);

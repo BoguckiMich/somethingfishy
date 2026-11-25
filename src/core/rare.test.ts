@@ -133,13 +133,13 @@ describe('the trophy board state', () => {
 
   it('the first catch is first; a bigger one replaces it; a smaller or equal one changes nothing', () => {
     const a = addTrophy(undefined, hooked('mossback', 100), '2026-11-24');
-    expect(a).toMatchObject({ first: true, improved: false });
+    expect(a).toMatchObject({ first: true, improved: false, changed: true });
     expect(a.trophies.mossback).toEqual({ lengthCm: 100, weightG: 4000, date: '2026-11-24' });
     const b = addTrophy(a.trophies, hooked('mossback', 110), '2026-11-25');
-    expect(b).toMatchObject({ first: false, improved: true });
+    expect(b).toMatchObject({ first: false, improved: true, changed: true });
     expect(b.trophies.mossback.date).toBe('2026-11-25');
     const c = addTrophy(b.trophies, hooked('mossback', 110), '2026-11-26');
-    expect(c).toMatchObject({ first: false, improved: false });
+    expect(c).toMatchObject({ first: false, improved: false, changed: false });
     expect(c.trophies).toBe(b.trophies);
     expect(addTrophy(b.trophies, hooked('goldenTench', 50), 'bad date').trophies.goldenTench.date).toBe('');
   });
