@@ -38,7 +38,7 @@ import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
-import { createTextures, ensureSignTexture, lanternKey, repaintSky, TEX, weatherKey } from '../art/textures';
+import { createRiverTextures, createTextures, ensureSignTexture, lanternKey, repaintSky, TEX, weatherKey } from '../art/textures';
 import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from '../art/signArt';
 import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
@@ -57,12 +57,17 @@ import { addTrophy, boardIds, fullBoard } from '../core/rare';
 import { showTrophyCard } from '../ui/trophyCard';
 import { campfireKey, ensureTrophyBoardTexture, windsockKey } from '../art/textures';
 import { BED_SIZE, CAMPFIRE_FLAME, CAMPFIRE_FRAMES, CAMPFIRE_SIZE, POLE_ANCHOR, POLE_SIZE, TENT_ANCHOR, TENT_SIZE } from '../art/campArt';
-import { BED_POS, FIRE_FEET, LIGHT_POLE, SOCK_FEET, SOCK_ORIGIN_X, TENT_FEET } from '../art/campLayout';
+import { SOCK_ORIGIN_X } from '../art/campLayout';
 import { allCamp, hasCamp, windsockLevel } from '../core/camp';
 import { PALE_ONE } from '../core/data/legendary';
 import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
-import { QUIET_LAKE } from '../core/data/locations';
+import { LOCATIONS, QUIET_LAKE } from '../core/data/locations';
+import { zoneAt, type Location, type Spots } from '../core/location';
+import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
+import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
+import { HUT_FEET, HUT_SIZE } from '../art/riverArt';
+import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
 import { SHOP } from '../core/data/shop';
@@ -197,14 +202,10 @@ const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
  * sprite (36 x 38) ends at y 498 and the fetch lawn (PLAY_AREA, y 500-554) starts below it, so the two never overlap;
  * the 56 x 56 tap area is just above the lawn too (y 444-500), right of the dock (x 116-244) and the crate's tap area.
  */
-const SIGN_FEET = { x: 276, y: 498 };
-const SIGN_HIT = new Phaser.Geom.Rectangle(SIGN_FEET.x - 28, SIGN_FEET.y - 54, 56, 56);
 /** A 9 x 9 sun, half sun or moon in front of the clock (slice 22c), and how big it is drawn. */
 const CLOCK_ICON_SCALE = 2;
 const QUEST_CUE_MS = 1800;
 /** The crate from the bait shop: feet position on the dock, and a finger-sized (44 x 44) tap area around it. */
-const CRATE_FEET = { x: 214, y: 458 };
-const CRATE_HIT = new Phaser.Geom.Rectangle(CRATE_FEET.x - 22, CRATE_FEET.y - 34, 44, 44);
 /** How often the device date is re-read (a game left open past midnight gets the new crate). */
 const DATE_CHECK_MS = 5000;
 /** The weather crossfade when the real hour flips (rain, fog, grey, wind). */
@@ -217,20 +218,15 @@ const GLINT_N = 130;
  * while the lower left is only grass and a bush. Its wheels touch down at y 546, clear of the hint line
  * (y 567-600) and the bar (y 602+).
  */
-const CAR_POS = { x: 0, y: 500 };
 /** The notice-board button, top right (a second way in beside the sign): 44 x 44, above the catch bar (it starts at y 50). */
 const BOARD_BTN = new Phaser.Geom.Rectangle(W - 8 - 44, 4, 44, 44);
-const CAR_HIT = new Phaser.Geom.Rectangle(0, 494, 84, 58);
 /**
  * The trophy board (slice 23d): on the grass above the car at the left, left of the dock (x 116+), clear of the car (y 500+) and of the
  * fetch lawn (PLAY_AREA x 100+, y 500+). Its feet are at the bottom middle; the tap area is a little bigger than the 40 x 34 sprite.
  */
-const TROPHY_FEET = { x: 58, y: 492 };
-const TROPHY_HIT = new Phaser.Geom.Rectangle(TROPHY_FEET.x - 28, TROPHY_FEET.y - 46, 56, 48);
 /** Where the camp items stand (slice 23e): the spots and the reasons are in art/campLayout.ts. */
 const LIGHT_BULBS = [PAL.redLight, PAL.gold, PAL.leafHi, PAL.blueFlower, PAL.pink] as const;
 /** The dock lantern's feet, and the centre of its glow (between the lantern and Alex, near the dock end). */
-const LANTERN_FEET = { x: 180, y: 388 };
 const GLOW_CENTER = { x: 194, y: 374 };
 const GLOW_RX = 64;
 const GLOW_COLOR = 0xffa94a;
@@ -280,11 +276,42 @@ function rollStoryDelay(): number {
   return STORY_TUNING.delayMs.min + Math.random() * (STORY_TUNING.delayMs.max - STORY_TUNING.delayMs.min);
 }
 
+/** The tap areas of a place's shore things: finger-sized boxes around the spots. */
+function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle } {
+  return {
+    car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
+    sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 54, 56, 56),
+    crate: new Phaser.Geom.Rectangle(sp.crate.x - 22, sp.crate.y - 34, 44, 44),
+    trophy: new Phaser.Geom.Rectangle(sp.trophy.x - 28, sp.trophy.y - 46, 56, 48),
+  };
+}
+
+/** Driving off takes this long (the car leaves the left edge), the screen then goes dark; the arrival is the same in reverse. */
+const DRIVE_OFF_MS = 1000;
+const DRIVE_COVER_FROM_MS = 600;
+const ARRIVE_MS = 1100;
+const ARRIVE_CLEAR_MS = 800;
+
 /** Lake screen: the angler on the dock, casting a float into the lake. */
 const ALL_MILESTONES: Record<string, boolean> = { Q1: true, Q2: true, Q3: true, Q4: true, Q5: true, Q6: true, Q7: true };
 
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
+  /** The place she is at (slice 25a): zones, fish, spots, background; set by applyPlace before the scenery is built. */
+  private loc: Location = QUIET_LAKE;
+  private hits = hitRects(QUIET_LAKE.spots);
+  /** Horizontal offset of the car while it drives off or arrives (0 = parked). */
+  private carDx = 0;
+  /** A drive in progress (slice 25a): the car leaving, then the road card; the scene is rebuilt for the new place after it. */
+  private travel: { to: string; ageMs: number; card: RoadCardHandle | null } | null = null;
+  /** After a drive: ms since arriving (the car rolls in from the left, the screen clears); null = not arriving. */
+  private arriveMs: number | null = null;
+  /** The road card that covers the screen until this scene has drawn its first frame. */
+  private coverCard: RoadCardHandle | undefined;
+  /** Dev flag ?travel=1: the River bend is open on the map whatever the checklist says. */
+  private travelAny = false;
+  /** The scene's pictures for the place's background (lake or river placeholder). */
+  private bg: { farShore: string; reflection: readonly string[]; water: string; nearShore: string } = { farShore: TEX.farShore, reflection: TEX.reflection, water: TEX.water, nearShore: TEX.nearShore };
   /** Coins, worms, bag, rod and log: one plain object, saved on every change via setPlayer. */
   private player: PlayerState = newPlayer();
   private ctx: SessionContext = {
@@ -395,6 +422,12 @@ export class LakeScene extends Phaser.Scene {
   private storyDev: ChapterDef | null = null;
   /** The Pale One slipped back and its card waits for a calm moment. */
   private paleCardPending = false;
+  private get spots(): Spots {
+    return this.loc.spots;
+  }
+  private get carPos(): { x: number; y: number } {
+    return { x: this.loc.spots.car.x + this.carDx, y: this.loc.spots.car.y };
+  }
   /** ?debug=bubble: ms until Pajkel says a line (dev only), or null. */
   private debugBubbleInMs: number | null = null;
   private debugToastInMs: number | null = null;
@@ -523,12 +556,21 @@ export class LakeScene extends Phaser.Scene {
     const params = pageParams();
     this.sandbox = isSandbox([...params.keys()]);
     const saveStatus = this.setupSave(params);
+    // Arriving from a drive (or a place change by loading): the state comes in the handoff, since a sandbox cannot re-read it.
+    const handoff = takeHandoff();
+    if (handoff) {
+      this.player = handoff.player;
+      this.clock = handoff.clock;
+      this.coverCard = handoff.card;
+      if (handoff.arrive) this.arriveMs = 0;
+      this.persist();
+    }
     // The dev sandbox pretends every hint was seen (a clean lake for the other flags); ?debug=fresh pretends none was.
     if (this.sandbox) this.setPlayer({ ...this.player, seen: params.get('debug') === 'fresh' ? (params.get('casts') === '3' ? ['cast1', 'cast2', 'cast3', 'crate', 'sign', 'dog'] : []) : allSeen() });
     // Same for Pajkel's weather line (slice 23b): only ?weather= (or ?debug=weatherline) lets him say it in the sandbox.
     if (this.sandbox && !params.has('weather') && params.get('debug') !== 'weatherline') this.setPlayer({ ...this.player, weatherSeen: weatherHourKey(this.today, this.hourNow) });
     const startHour = Number(params.get('time'));
-    if (startHour >= 0 && startHour < 24 && !!params.get('time')) {
+    if (startHour >= 0 && startHour < 24 && !!params.get('time') && !handoff) {
       this.clock = { ...NEW_GAME_CLOCK, minute: startHour * 60 };
     }
 
@@ -640,6 +682,11 @@ export class LakeScene extends Phaser.Scene {
       for (const [id, e] of Object.entries(this.player.log)) log[id] = { ...e, count: Math.floor(logCount) };
       this.setPlayer({ ...this.player, log });
     }
+    // Slice 25a: where she is. ?place=<id> starts there (dev, sandboxed); ?travel=1 opens the River bend on the map.
+    const placeParam = params.get('place');
+    if (placeParam && !handoff && LOCATIONS.some((l) => l.id === placeParam)) this.player = withPlace(this.player, placeParam);
+    this.travelAny = params.get('travel') === '1';
+    this.applyPlace(locationOf(this.player));
     this.syncRod();
     this.syncQuestsNow();
     // Dev-only: ?qdone=1 finishes the first quest (see the Claim button).
@@ -705,7 +752,7 @@ export class LakeScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.holdOn = null;
-      if (this.panel || this.sleepFade) return;
+      if (this.panel || this.sleepFade || this.travel) return;
       if (this.handleTap(pointer.worldX, pointer.worldY)) {
         this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
         return;
@@ -746,8 +793,20 @@ export class LakeScene extends Phaser.Scene {
       this.send({ type: this.input.activePointer.wasTouch ? 'cancel' : 'release' });
     });
 
+    // Dev-only: ?drive=<place id> starts the drive at once (screenshots of the road card).
+    const driveParam = params.get('drive');
+    if (driveParam) this.startTravel(driveParam);
+
     this.updateEerie(0, true); // opening inside the window (or a dev fight) starts with the look already there
     this.render();
+  }
+
+  /** Makes a place the current one: its data drives the zones, fish, spots and pictures. */
+  private applyPlace(loc: Location): void {
+    this.loc = loc;
+    this.hits = hitRects(loc.spots);
+    this.ctx = { ...this.ctx, location: loc };
+    this.bg = loc.background === 'river' ? { farShore: TEX.riverFarBank, reflection: TEX.riverReflection, water: TEX.riverWater, nearShore: TEX.riverNearBank } : { farShore: TEX.farShore, reflection: TEX.reflection, water: TEX.water, nearShore: TEX.nearShore };
   }
 
   /**
@@ -845,6 +904,7 @@ export class LakeScene extends Phaser.Scene {
     this.updateSound(deltaMs);
     this.updateStory(deltaMs);
     this.updateMoments(deltaMs);
+    this.updateTravel(deltaMs);
     if (this.debugToastInMs !== null && (this.debugToastInMs -= deltaMs) <= 0) {
       this.debugToastInMs = null;
       this.showToast('Quest done! +40 coins, +5 worms');
@@ -977,7 +1037,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** Can the road map open right now (fix/board-and-car)? Any companion mode; Alex idle or the bobber waiting. */
   private mapAllowed(): boolean {
-    return canOpenMap({ fishing: this.state.kind, panelOpen: !!this.panel, fading: !!this.sleepFade });
+    return canOpenMap({ fishing: this.state.kind, panelOpen: !!this.panel, fading: !!this.sleepFade }) && !this.travel;
   }
 
   /** The road map (slice 18): from the car at any time `canOpenMap` allows; "Nap in the car..." there opens the nap card when possible. */
@@ -990,6 +1050,11 @@ export class LakeScene extends Phaser.Scene {
         onNap: () => this.openNapCard(),
         onChecklist: () => this.openChecklist(),
         checklist: { done: checklistDone(this.player), total: bundleTotal },
+        current: this.loc.id,
+        travelAny: this.travelAny,
+        travel: () => this.travelStatus(),
+        onTravel: (id) => this.startTravel(id),
+        select: pageParams().get('select') ?? undefined,
       },
       () => (this.panel = null),
     );
@@ -1020,6 +1085,79 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
+  // ---- Travel (slice 25a) ------------------------------------------------------------------------
+
+  /** Can she drive now? Only with the line out of the water and nothing else going on (companions just fade with the screen). */
+  private travelStatus(): { available: boolean; reason: string } {
+    if (this.state.kind !== 'idle') return { available: false, reason: this.state.kind === 'waiting' ? 'Reel in first' : 'Not now' };
+    const ok = canTravel({ fishing: this.state.kind, panelOpen: false, fading: !!this.sleepFade, busy: this.travel !== null || this.storyRun !== null });
+    return ok ? { available: true, reason: '' } : { available: false, reason: 'Not now' };
+  }
+
+  /** "Drive there": the car rolls off the left edge, the screen goes dark, the road card shows, then the new place is built. */
+  private startTravel(to: string): void {
+    if (!this.travelStatus().available || to === this.loc.id || !LOCATIONS.some((l) => l.id === to)) return;
+    this.travel = { to, ageMs: 0, card: null };
+    sound.play('boof');
+  }
+
+  private updateTravel(deltaMs: number): void {
+    if (this.coverCard) {
+      // The new place has drawn a frame under the road card: let the card go.
+      this.coverCard.close();
+      this.coverCard = undefined;
+    }
+    const t = this.travel;
+    if (!t) {
+      if (this.arriveMs !== null) {
+        this.arriveMs += deltaMs;
+        const k = Math.min(1, this.arriveMs / ARRIVE_MS);
+        this.carDx = -(CAR_SIZE.w + 8) * (1 - k) * (1 - k);
+        if (this.arriveMs >= Math.max(ARRIVE_MS, ARRIVE_CLEAR_MS)) {
+          this.arriveMs = null;
+          this.carDx = 0;
+        }
+      }
+      return;
+    }
+    t.ageMs += deltaMs;
+    const k = Math.min(1, t.ageMs / DRIVE_OFF_MS);
+    this.carDx = -(CAR_SIZE.w + 8) * k * k;
+    if (t.ageMs >= DRIVE_OFF_MS && !t.card) {
+      t.card = showRoadCard(this.loc.id, t.to, () => this.finishTravel());
+    }
+  }
+
+  /** The black cover over the scene while driving off (0..1) and while arriving. */
+  private travelCover(): number {
+    if (this.travel) return Math.min(1, Math.max(0, (this.travel.ageMs - DRIVE_COVER_FROM_MS) / (DRIVE_OFF_MS - DRIVE_COVER_FROM_MS)));
+    if (this.arriveMs !== null) return Math.max(0, 1 - this.arriveMs / ARRIVE_CLEAR_MS);
+    return 0;
+  }
+
+  /** The road card is done: save the new place and the half hour on the clock, then rebuild the scene for the place. */
+  private finishTravel(): void {
+    const t = this.travel;
+    if (!t) return;
+    const total = this.clock.minute + TRAVEL_MINUTES;
+    const clock = total >= 1440 ? { day: this.clock.day + 1, minute: total - 1440 } : { ...this.clock, minute: total };
+    this.player = withPlace(this.player, t.to);
+    this.clock = clock;
+    this.persist();
+    this.remount(true, t.card ?? undefined);
+  }
+
+  /** Replaces this scene with a fresh one for the place in the player's state (Phaser keeps a scene's fields across a restart). */
+  private remount(arrive: boolean, card?: RoadCardHandle): void {
+    setHandoff({ player: this.player, clock: this.clock, arrive, card });
+    const game = this.game;
+    window.setTimeout(() => {
+      game.scene.stop('Lake');
+      game.scene.remove('Lake');
+      game.scene.add('Lake', LakeScene, true);
+    }, 0);
+  }
+
   /** A tap on the car (never casts): asleep inside makes a "Zzz...", otherwise the road map. */
   private tapCar(): void {
     if (!this.mapAllowed()) return;
@@ -1034,7 +1172,7 @@ export class LakeScene extends Phaser.Scene {
 
   private spawnZzz(big: boolean): void {
     const img = this.add
-      .image(CAR_POS.x + CAR_PARTS.window.x + 12, CAR_POS.y + CAR_PARTS.window.y, big ? TEX.zBig : TEX.zSmall)
+      .image(this.carPos.x + CAR_PARTS.window.x + 12, this.carPos.y + CAR_PARTS.window.y, big ? TEX.zBig : TEX.zSmall)
       .setDepth(Z.angler + 1);
     this.carZs.push({ img, age: 0 });
   }
@@ -1057,7 +1195,7 @@ export class LakeScene extends Phaser.Scene {
           this.startMoment(this.debugMoment.kind);
           this.debugMoment = null;
         }
-      } else {
+      } else if (this.loc.momentsId !== null) {
         const r = tickScheduler(this.momentGap, deltaMs, calm, Math.random);
         this.momentGap = r.scheduler;
         if (r.due) this.startMoment(pickMoment(this.clock.minute, Math.random, this.lastMoment));
@@ -1085,8 +1223,8 @@ export class LakeScene extends Phaser.Scene {
 
   /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
   private dueChapter(): ChapterDef | null {
-    if (!this.storyOn) return null;
-    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, QUIET_LAKE.id, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player));
+    if (!this.storyOn || this.loc.storyPlaceId === null) return null;
+    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, this.loc.storyPlaceId, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player));
   }
 
   /** A chapter is due or being told: random moments wait. */
@@ -1301,7 +1439,7 @@ export class LakeScene extends Phaser.Scene {
       timeOfDay: timeOfDay(this.clock.minute),
       isRecord: r.outcome.kind === 'newRecord',
     });
-    this.setPlayer(zone === 'deep' ? withFlag(q.player, 'deep') : q.player);
+    this.setPlayer(zone === 'deep' && this.loc.id === QUIET_LAKE.id ? withFlag(q.player, 'deep') : q.player);
     this.catchOutcome = r.outcome;
     // A rare trophy (slice 23d) goes on the board, not in the bag; its first catch gets the longest show-off and a special cheer.
     let trophyFirst = false;
@@ -1433,6 +1571,10 @@ export class LakeScene extends Phaser.Scene {
     if (!this.sandbox) backupSave(this.safeStorage());
     this.clock = save.clock;
     this.setPlayer(save.player);
+    if (locationOf(this.player).id !== this.loc.id) {
+      this.remount(false);
+      return;
+    }
     this.syncRod();
     this.syncQuestsNow();
     this.seenDone = doneCount(questsOf(this.player));
@@ -1447,6 +1589,10 @@ export class LakeScene extends Phaser.Scene {
     const fresh = startOver(this.currentSave());
     this.clock = fresh.clock;
     this.setPlayer(fresh.player);
+    if (locationOf(this.player).id !== this.loc.id) {
+      this.remount(false);
+      return;
+    }
     this.syncRod();
     this.syncQuestsNow();
     this.seenDone = doneCount(questsOf(this.player));
@@ -1772,15 +1918,15 @@ export class LakeScene extends Phaser.Scene {
     const on = k === 'idle' || k === 'waiting' || k === 'charging';
     switch (obj) {
       case 'car':
-        return CAR_HIT.contains(x, y);
+        return this.hits.car.contains(x, y);
       case 'crate':
-        return (k === 'idle' || k === 'charging') && this.crateVisible() && CRATE_HIT.contains(x, y);
+        return (k === 'idle' || k === 'charging') && this.crateVisible() && this.hits.crate.contains(x, y);
       case 'sign':
-        return on && SIGN_HIT.contains(x, y);
+        return on && this.hits.sign.contains(x, y);
       case 'chair':
         return on && chairEmpty(this.companions.state) && this.companions.chairRect().contains(x, y);
       case 'board':
-        return on && this.trophyKey !== '' && TROPHY_HIT.contains(x, y);
+        return on && this.trophyKey !== '' && this.hits.trophy.contains(x, y);
     }
   }
 
@@ -1910,10 +2056,11 @@ export class LakeScene extends Phaser.Scene {
       this.cloudImgs.push({ img: i, x: c.x, y: c.y, speed: c.speed });
     }
 
-    img(TEX.farShore, 0, FAR_SHORE_TOP, Z.farShore);
-    this.waterImg = img(TEX.water, 0, FAR_SHORE_Y, Z.water, false);
+    if (this.loc.background === 'river') createRiverTextures(this);
+    img(this.bg.farShore, 0, FAR_SHORE_TOP, Z.farShore);
+    this.waterImg = img(this.bg.water, 0, FAR_SHORE_Y, Z.water, false);
     this.waterGlow = this.add.graphics().setDepth(Z.waterGlow);
-    this.reflectionImg = this.add.image(0, FAR_SHORE_Y + 4, TEX.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(0.7);
+    this.reflectionImg = this.add.image(0, FAR_SHORE_Y + 4, this.bg.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(0.7);
     this.waterFx = this.add.graphics().setDepth(Z.waterFx);
     this.eerieFx = this.add.graphics().setDepth(Z.waterFx + 0.5);
     // Weather (slice 23b): fog over the water and far shore, and the rain over the whole scene (under the UI).
@@ -1939,13 +2086,15 @@ export class LakeScene extends Phaser.Scene {
       [TEX.reed, 340, 454],
       [TEX.reed, 340, 252],
       [TEX.reed, 8, 262],
-    ];   for (const [key, x, y] of decor) {
+    ];   for (const [key, x, y] of this.loc.background === 'lake' ? decor : []) {
       const i = this.add.image(x, y, key).setOrigin(0, key === TEX.reed ? 1 : 0).setDepth(Z.waterDecor);
       this.worldImgs.push(i);
     }
 
-    img(TEX.nearShore, 0, NEAR_SHORE_TOP, Z.nearShore);
-    img(TEX.dock, DOCK.x, DOCK.y, Z.dock);
+    img(this.bg.nearShore, 0, NEAR_SHORE_TOP, Z.nearShore);
+    img(TEX.dock, this.spots.dock.x, this.spots.dock.y, Z.dock);
+    // The river's hut (a plain rectangle for now) on the near bank at the right.
+    if (this.loc.background === 'river') this.add.image(HUT_FEET.x - HUT_SIZE.w / 2, HUT_FEET.y - HUT_SIZE.h, TEX.hut).setOrigin(0, 0).setDepth(Z.nearShore + 0.5);
 
     // Dock posts standing in the water.
     for (const [x, base] of POST_BASES) {
@@ -1968,27 +2117,27 @@ export class LakeScene extends Phaser.Scene {
     this.companions = new CompanionView(this);
     // The car's shadow and picture, the lantern and its glow, the fade.
     this.carFx = this.add.graphics().setDepth(Z.postFx - 0.2);
-    this.carImg = this.add.image(CAR_POS.x, CAR_POS.y, carKey('closed')).setOrigin(0, 0).setDepth(Z.postFx);
+    this.carImg = this.add.image(this.carPos.x, this.carPos.y, carKey('closed')).setOrigin(0, 0).setDepth(Z.postFx);
     this.worldImgs.push(this.carImg);
-    this.lanternImg = this.add.image(LANTERN_FEET.x, LANTERN_FEET.y, lanternKey(false)).setOrigin(0.5, 1).setDepth(Z.angler - 0.1).setVisible(false);
+    this.lanternImg = this.add.image(this.spots.lantern.x, this.spots.lantern.y, lanternKey(false)).setOrigin(0.5, 1).setDepth(Z.angler - 0.1).setVisible(false);
     this.lanternFx = this.add.graphics().setDepth(Z.angler + 0.4);
-    this.crateImg = this.add.image(CRATE_FEET.x, CRATE_FEET.y, TEX.crate).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
+    this.crateImg = this.add.image(this.spots.crate.x, this.spots.crate.y, TEX.crate).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.crateImg);
     this.crateFx = this.add.graphics().setDepth(Z.angler - 0.1);
-    this.signImg = this.add.image(SIGN_FEET.x, SIGN_FEET.y, ensureSignTexture(this, this.signLook())).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
+    this.signImg = this.add.image(this.spots.sign.x, this.spots.sign.y, ensureSignTexture(this, this.signLook())).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.signImg);
-    this.trophyImg = this.add.image(TROPHY_FEET.x, TROPHY_FEET.y, ensureTrophyBoardTexture(this, [])).setOrigin(0.5, 1).setDepth(Z.angler - 0.2).setVisible(false);
+    this.trophyImg = this.add.image(this.spots.trophy.x, this.spots.trophy.y, ensureTrophyBoardTexture(this, [])).setOrigin(0.5, 1).setDepth(Z.angler - 0.2).setVisible(false);
     this.worldImgs.push(this.trophyImg);
     this.glintFx = this.add.graphics().setDepth(Z.angler + 0.45);
     // The camp (slice 23e): ground things sort by their feet's y, a hair behind the other shore things (Z.angler - 0.3 .. -0.2).
     const campDepth = (feetY: number) => Z.angler - 0.3 + feetY / 10000;
-    this.campTent = this.add.image(TENT_FEET.x - TENT_SIZE.w / 2, TENT_FEET.y - TENT_SIZE.h, TEX.campTent).setOrigin(0, 0).setDepth(campDepth(TENT_FEET.y)).setVisible(false);
-    this.campPole = this.add.image(LIGHT_POLE.x, LIGHT_POLE.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(LIGHT_POLE.y + POLE_SIZE.h)).setVisible(false);
-    this.campPole2 = this.add.image(TENT_FEET.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x - POLE_ANCHOR.x, TENT_FEET.y - TENT_SIZE.h + TENT_ANCHOR.y - POLE_ANCHOR.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(TENT_FEET.y - TENT_SIZE.h + POLE_SIZE.h)).setVisible(false);
-    this.campBed = this.add.image(BED_POS.x, BED_POS.y, TEX.campBed).setOrigin(0, 0).setDepth(campDepth(BED_POS.y + BED_SIZE.h)).setVisible(false);
-    this.campSock = this.add.image(SOCK_FEET.x, SOCK_FEET.y, windsockKey(0, 0)).setOrigin(SOCK_ORIGIN_X, 1).setFlipX(true).setDepth(campDepth(SOCK_FEET.y)).setVisible(false);
+    this.campTent = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2, this.spots.camp.tent.y - TENT_SIZE.h, TEX.campTent).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y)).setVisible(false);
+    this.campPole = this.add.image(this.spots.camp.pole.x, this.spots.camp.pole.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.pole.y + POLE_SIZE.h)).setVisible(false);
+    this.campPole2 = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x - POLE_ANCHOR.x, this.spots.camp.tent.y - TENT_SIZE.h + TENT_ANCHOR.y - POLE_ANCHOR.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y - TENT_SIZE.h + POLE_SIZE.h)).setVisible(false);
+    this.campBed = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.bed.y + BED_SIZE.h)).setVisible(false);
+    this.campSock = this.add.image(this.spots.camp.sock.x, this.spots.camp.sock.y, windsockKey(0, 0)).setOrigin(SOCK_ORIGIN_X, 1).setFlipX(true).setDepth(campDepth(this.spots.camp.sock.y)).setVisible(false);
     this.worldImgs.push(this.campTent, this.campPole, this.campPole2, this.campBed, this.campSock);
-    this.campFire = this.add.image(FIRE_FEET.x, FIRE_FEET.y, campfireKey(0)).setOrigin(0.5, 1).setDepth(campDepth(FIRE_FEET.y)).setVisible(false);
+    this.campFire = this.add.image(this.spots.camp.fire.x, this.spots.camp.fire.y, campfireKey(0)).setOrigin(0.5, 1).setDepth(campDepth(this.spots.camp.fire.y)).setVisible(false);
     this.campFx = this.add.graphics().setDepth(Z.angler - 0.15);
 
     this.action = this.add.graphics().setDepth(Z.action);
@@ -2307,7 +2456,7 @@ export class LakeScene extends Phaser.Scene {
     if (wid) this.weatherIcon.setTexture(weatherKey(wid));
     this.clockIcon.setTexture(tod === 'day' ? TEX.clockSun : tod === 'night' ? TEX.clockMoon : TEX.clockHalf);
     if (s.kind === 'waiting') {
-      const zone = this.ctx.location.zones.find((z) => z.id === s.zone)!;
+      const zone = zoneAt(this.loc, s.distanceM);
       this.zoneLabel.setText(`${zone.name} · ${s.distanceM.toFixed(1)} m`).setVisible(true);
     } else if (s.kind === 'idle' || s.kind === 'caught' || s.kind === 'fighting') {
       this.zoneLabel.setVisible(false);
@@ -2382,7 +2531,7 @@ export class LakeScene extends Phaser.Scene {
   /** The trophy board shows once a rare fish is mounted (slice 23d); its texture changes with the set of mounted fish. */
   private drawTrophyBoard(): void {
     // The Pale One alone does not bring the board: it appears with the first rare fish.
-    const shown = this.player.trophies && Object.keys(this.player.trophies).length > 0 ? boardIds(this.player.trophies, this.player.log) : [];
+    const shown = this.loc.id === QUIET_LAKE.id && this.player.trophies && Object.keys(this.player.trophies).length > 0 ? boardIds(this.player.trophies, this.player.log) : [];
     const key = shown.length > 0 ? ensureTrophyBoardTexture(this, shown) : '';
     if (key !== this.trophyKey) {
       this.trophyKey = key;
@@ -2402,8 +2551,8 @@ export class LakeScene extends Phaser.Scene {
     look.slots.forEach((s, i) => {
       if (s !== 'claim') return;
       const at = signNoteCenter(i);
-      const cx = SIGN_FEET.x - SIGN_SIZE.w / 2 + at.x;
-      const cy = SIGN_FEET.y - SIGN_SIZE.h + at.y;
+      const cx = this.spots.sign.x - SIGN_SIZE.w / 2 + at.x;
+      const cy = this.spots.sign.y - SIGN_SIZE.h + at.y;
       const k = 0.5 + 0.5 * Math.sin((this.elapsed / 1400) * Math.PI * 2);
       g.fillStyle(PAL.gold, 0.14 + 0.14 * k).fillRect(cx - 9, cy - 10, 18, 20);
       g.fillStyle(PAL.gold, 0.18 + 0.18 * k).fillRect(cx - 6, cy - 7, 12, 14);
@@ -2414,8 +2563,8 @@ export class LakeScene extends Phaser.Scene {
     const c = this.companions.state;
     const dog = c.dog;
     const spots: Record<Glint, { x: number; y: number } | null> = {
-      car: { x: CAR_POS.x + CAR_PARTS.window.x + 14, y: CAR_POS.y + CAR_PARTS.window.y - 1 },
-      sign: { x: SIGN_FEET.x - SIGN_SIZE.w / 2 + SIGN_GLINT.x, y: SIGN_FEET.y - SIGN_SIZE.h + SIGN_GLINT.y },
+      car: { x: this.carPos.x + CAR_PARTS.window.x + 14, y: this.carPos.y + CAR_PARTS.window.y - 1 },
+      sign: { x: this.spots.sign.x - SIGN_SIZE.w / 2 + SIGN_GLINT.x, y: this.spots.sign.y - SIGN_SIZE.h + SIGN_GLINT.y },
       dog: { x: dog.x + 6, y: dog.y - DOG_SIZE.h - 2 },
       crate: null, // the crate has its own, constant twinkle (drawCrate)
     };
@@ -2431,8 +2580,8 @@ export class LakeScene extends Phaser.Scene {
 
   /** Until the car is tapped once: a small gold map pin bobs above its roof (its purpose is easy to miss). */
   private drawCarCue(g: Phaser.GameObjects.Graphics): void {
-    const x = CAR_POS.x + 34;
-    const y = CAR_POS.y - 28 + Math.round(3 * Math.sin(this.elapsed / 320));
+    const x = this.carPos.x + 34;
+    const y = this.carPos.y - 28 + Math.round(3 * Math.sin(this.elapsed / 320));
     const O = PAL.outline;
     // A 9 x 11 teardrop pin with a hole, outlined, and its small shadow.
     g.fillStyle(O, 0.25).fillRect(x - 6, y + 24, 12, 3);
@@ -2458,22 +2607,22 @@ export class LakeScene extends Phaser.Scene {
   private drawCar(look: DayLook, deltaMs: number): void {
     const c = this.companions.state;
     const variant = carVariant(c);
-    this.carImg.setTexture(carKey(variant));
+    this.carImg.setTexture(carKey(variant)).setPosition(this.carPos.x, this.carPos.y);
     const g = this.carFx;
     g.clear();
     // Soft shadow under the car.
-    g.fillStyle(PAL.outline, 0.22).fillRect(CAR_POS.x, CAR_POS.y + CAR_SIZE.h - 2, 70, 4);
-    g.fillStyle(PAL.outline, 0.12).fillRect(CAR_POS.x, CAR_POS.y + CAR_SIZE.h + 2, 62, 2);
+    g.fillStyle(PAL.outline, 0.22).fillRect(this.carPos.x, this.carPos.y + CAR_SIZE.h - 2, 70, 4);
+    g.fillStyle(PAL.outline, 0.12).fillRect(this.carPos.x, this.carPos.y + CAR_SIZE.h + 2, 62, 2);
     const night = 1 - look.sunAlpha;
     const led = CAR_PARTS.led;
     // The headlight strip is dim at night: a faint pale glow over the LED, never a beam.
-    g.fillStyle(PAL.foam, 0.18 + 0.3 * Math.max(0, night)).fillRect(CAR_POS.x + led.x, CAR_POS.y + led.y - 1, led.w, 3);
+    g.fillStyle(PAL.foam, 0.18 + 0.3 * Math.max(0, night)).fillRect(this.carPos.x + led.x, this.carPos.y + led.y - 1, led.w, 3);
     if (variant === 'light') {
       // Warm light spilling from the windows.
       const w = CAR_PARTS.window;
-      g.fillStyle(PAL.gold, 0.1).fillRect(CAR_POS.x + w.x - 6, CAR_POS.y + w.y - 6, w.w + 12, w.h + 12);
-      g.fillStyle(PAL.gold, 0.16).fillRect(CAR_POS.x + w.x - 3, CAR_POS.y + w.y - 3, w.w + 6, w.h + 6);
-      g.fillStyle(PAL.strawLight, 0.3).fillRect(CAR_POS.x + w.x, CAR_POS.y + w.y, w.w - 4, w.h - 2);
+      g.fillStyle(PAL.gold, 0.1).fillRect(this.carPos.x + w.x - 6, this.carPos.y + w.y - 6, w.w + 12, w.h + 12);
+      g.fillStyle(PAL.gold, 0.16).fillRect(this.carPos.x + w.x - 3, this.carPos.y + w.y - 3, w.w + 6, w.h + 6);
+      g.fillStyle(PAL.strawLight, 0.3).fillRect(this.carPos.x + w.x, this.carPos.y + w.y, w.w - 4, w.h - 2);
     }
     // Zzz floats (from a tap, and now and then on their own while they sleep).
     this.sinceAutoZ += deltaMs;
@@ -2484,7 +2633,7 @@ export class LakeScene extends Phaser.Scene {
     for (const z of this.carZs) {
       z.age += deltaMs;
       const t = z.age / ZZZ_MS;
-      z.img.setPosition(Math.round(CAR_POS.x + CAR_PARTS.window.x + 12 + t * 8), Math.round(CAR_POS.y + CAR_PARTS.window.y - t * 22)).setAlpha(Math.max(0, 1 - t));
+      z.img.setPosition(Math.round(this.carPos.x + CAR_PARTS.window.x + 12 + t * 8), Math.round(this.carPos.y + CAR_PARTS.window.y - t * 22)).setAlpha(Math.max(0, 1 - t));
     }
     this.carZs = this.carZs.filter((z) => {
       if (z.age >= ZZZ_MS) z.img.destroy();
@@ -2515,8 +2664,8 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     // The flame itself.
-    const fx = LANTERN_FEET.x - Math.floor(LANTERN_SIZE.w / 2) + LANTERN_FLAME.x;
-    const fy = LANTERN_FEET.y - LANTERN_SIZE.h + LANTERN_FLAME.y;
+    const fx = this.spots.lantern.x - Math.floor(LANTERN_SIZE.w / 2) + LANTERN_FLAME.x;
+    const fy = this.spots.lantern.y - LANTERN_SIZE.h + LANTERN_FLAME.y;
     g.fillStyle(PAL.gold, 0.25 * glow).fillRect(fx - 3, fy - 3, 7, 7);
   }
 
@@ -2550,8 +2699,8 @@ export class LakeScene extends Phaser.Scene {
       this.campFire.setVisible(true).setTexture(campfireKey(((frame % CAMPFIRE_FRAMES) + CAMPFIRE_FRAMES) % CAMPFIRE_FRAMES));
       // The logs go dark with the evening like everything else; the fire itself does not (the tint fades to white as the glow rises).
       this.campFire.setTint(lerpColor(look.worldTint, 0xffffff, Math.max(glow, 0.35)));
-      const cx = FIRE_FEET.x - CAMPFIRE_SIZE.w / 2 + CAMPFIRE_FLAME.x;
-      const cy = FIRE_FEET.y - CAMPFIRE_SIZE.h + CAMPFIRE_FLAME.y;
+      const cx = this.spots.camp.fire.x - CAMPFIRE_SIZE.w / 2 + CAMPFIRE_FLAME.x;
+      const cy = this.spots.camp.fire.y - CAMPFIRE_SIZE.h + CAMPFIRE_FLAME.y;
       if (glow > 0.02) {
         const flicker = 1 + 0.07 * Math.sin(this.elapsed / 110) + 0.04 * Math.sin(this.elapsed / 47);
         const rings = 6;
@@ -2584,10 +2733,10 @@ export class LakeScene extends Phaser.Scene {
 
     if (lights) {
       // The wire from the tent's ridge pole to the pole: a shallow sag, a bulb every ~9 px.
-      const ax = TENT_FEET.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x;
-      const ay = TENT_FEET.y - TENT_SIZE.h + TENT_ANCHOR.y;
-      const bx = LIGHT_POLE.x + POLE_ANCHOR.x;
-      const by = LIGHT_POLE.y + POLE_ANCHOR.y;
+      const ax = this.spots.camp.tent.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x;
+      const ay = this.spots.camp.tent.y - TENT_SIZE.h + TENT_ANCHOR.y;
+      const bx = this.spots.camp.pole.x + POLE_ANCHOR.x;
+      const by = this.spots.camp.pole.y + POLE_ANCHOR.y;
       const sag = 3;
       const wireY = (x: number) => {
         const t = (x - ax) / (bx - ax);
@@ -2622,6 +2771,8 @@ export class LakeScene extends Phaser.Scene {
     g.clear();
     const f = this.sleepFade;
     this.fadeText.setVisible(f !== null);
+    const cover = this.travelCover();
+    if (cover > 0) g.fillStyle(0x0a0e1e, cover).fillRect(0, 0, W, 640);
     if (!f) return;
     const v = fadeView(f);
     g.fillStyle(0x0a0e1e, v.alpha).fillRect(0, 0, W, 640);
@@ -2636,7 +2787,7 @@ export class LakeScene extends Phaser.Scene {
     if (!on) return;
     const t = (this.elapsed % 2400) / 2400;
     if (t > 0.45) return;
-    this.twinkle(this.crateFx, CRATE_FEET.x + 5, CRATE_FEET.y - 15, Math.sin((t / 0.45) * Math.PI)); // 0..1..0
+    this.twinkle(this.crateFx, this.spots.crate.x + 5, this.spots.crate.y - 15, Math.sin((t / 0.45) * Math.PI)); // 0..1..0
   }
 
   /**
@@ -2678,7 +2829,7 @@ export class LakeScene extends Phaser.Scene {
     for (const i of this.worldImgs) i.setTint(look.worldTint);
     this.waterImg.setTint(look.waterTint);
     this.reflectionImg.setTint(look.waterTint);
-    this.reflectionImg.setTexture(TEX.reflection[Math.floor(this.elapsed / 650) % 3]);
+    this.reflectionImg.setTexture(this.bg.reflection[Math.floor(this.elapsed / 650) % 3]);
 
     // Sun and moon on their arcs, rising behind the hills.
     const horizonY = FAR_SHORE_Y - 20;

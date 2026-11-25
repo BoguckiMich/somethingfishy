@@ -1,4 +1,5 @@
 import { normalizeCamp } from './camp';
+import { normalizePlace } from './place';
 import { normalizeTrophies } from './rare';
 import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
@@ -174,6 +175,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(normalizeWeatherSeen(p.weatherSeen) ? { weatherSeen: normalizeWeatherSeen(p.weatherSeen) } : {}),
     // The trophy board (slice 23d): stored only when a rare fish was caught (older saves have no key).
     ...(Object.keys(normalizeTrophies(p.trophies)).length > 0 ? { trophies: normalizeTrophies(p.trophies) } : {}),
+    // Where she is (slice 25a): stored only away from Quiet Lake (older saves have no key).
+    ...(normalizePlace(p.place) !== 'quiet-lake' ? { place: normalizePlace(p.place) } : {}),
     // The camp items (slice 23e): stored only when something is owned (older saves have no key).
     ...(normalizeCamp(p.camp).length > 0 ? { camp: normalizeCamp(p.camp) } : {}),
   };

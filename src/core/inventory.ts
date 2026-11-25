@@ -69,6 +69,8 @@ export interface PlayerState {
   trophies?: TrophyState;
   /** The camp items owned (slice 23e), ids of core/data/camp in shop order; missing = none. Read with campOwned(). */
   camp?: string[];
+  /** Where she is (slice 25a): a Location id; missing = Quiet Lake. Read with placeOf() (core/place.ts). */
+  place?: string;
 }
 
 export function newPlayer(): PlayerState {

@@ -7,7 +7,7 @@ import { weatherAllowsAnyTime, weatherWeightMult, type WeatherEffects } from './
 import { rollLegendary } from './legendary';
 import { RARE_TUNING } from './data/rare';
 import { rollRare } from './rare';
-import type { ZoneId } from './location';
+import type { FishPool, ZoneId } from './location';
 import type { Rng } from './random';
 
 /** A fish on the line: rolled once when the bobber lands, then carried through the fight to the catch. */
@@ -33,14 +33,16 @@ export const FISH_TUNING = {
 };
 
 /** The species that may bite here and now; some weathers (overcast) let the ones that like it bite at any time of day. */
-export function candidates(zone: ZoneId, time: TimeOfDay, fx?: WeatherEffects): Species[] {
-  return POOL_SPECIES.filter((s) => s.zone === zone && (s.times.includes(time) || weatherAllowsAnyTime(s, fx)));
+export function candidates(zone: ZoneId, time: TimeOfDay, fx?: WeatherEffects, pool?: FishPool): Species[] {
+  return POOL_SPECIES.filter((s) => s.zone === zone && (!pool || pool.species[s.id] !== undefined) && (s.times.includes(time) || weatherAllowsAnyTime(s, fx)));
 }
 
 /** The spawn weight of a species, with the bait's boost (slice 15c) on top; worms or none: the plain weight. */
-export function spawnWeight(species: Species, baitId?: string, fotdId?: string, fx?: WeatherEffects): number {
+export function spawnWeight(species: Species, baitId?: string, fotdId?: string, fx?: WeatherEffects, pool?: FishPool): number {
   const bait = baitById(baitId);
   let w = RARITY_WEIGHT[species.rarity];
+  // The place's own say (slice 25a): a multiplier per species; Quiet Lake has 1 for all, so nothing changes there.
+  if (pool) w *= pool.species[species.id] ?? 1;
   if (bait?.speciesBoost?.ids.includes(species.id)) w *= bait.speciesBoost.factor;
   if (bait?.rarityBoost?.rarity === species.rarity) w *= bait.rarityBoost.factor;
   // Today's fish bites more (slice 19); it stacks with the bait.
@@ -51,12 +53,15 @@ export function spawnWeight(species: Species, baitId?: string, fotdId?: string, 
 }
 
 /** Picks among the species zone + time allow; the bait and the fish of the day only reweight those, so they can never add a species. */
-export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: string, fotdId?: string, fx?: WeatherEffects): Species {
-  const pool = candidates(zone, time, fx);
-  const total = pool.reduce((sum, s) => sum + spawnWeight(s, baitId, fotdId, fx), 0);
+export function pickSpecies(zone: ZoneId, time: TimeOfDay, rng: Rng, baitId?: string, fotdId?: string, fx?: WeatherEffects, fishPool?: FishPool): Species {
+  let pool = candidates(zone, time, fx, fishPool);
+  // A small place may have nothing for this zone and hour: fall back to any of its species in the zone, then to the zone itself.
+  if (pool.length === 0 && fishPool) pool = POOL_SPECIES.filter((s) => s.zone === zone && fishPool.species[s.id] !== undefined);
+  if (pool.length === 0) pool = candidates(zone, time, fx);
+  const total = pool.reduce((sum, s) => sum + spawnWeight(s, baitId, fotdId, fx, fishPool), 0);
   let roll = rng() * total;
   for (const s of pool) {
-    roll -= spawnWeight(s, baitId, fotdId, fx);
+    roll -= spawnWeight(s, baitId, fotdId, fx, fishPool);
     if (roll < 0) return s;
   }
   return pool[pool.length - 1];
@@ -86,12 +91,14 @@ export interface CastPlace {
 }
 
 /** Picks the species (or the forced one) and rolls its size. A legendary or a trophy (slice 23d) may replace the normal pick. */
-export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects): HookedFish {
+export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects, fishPool?: FishPool): HookedFish {
+  // The trophies and the legendary are the lake's: a place whose pool has no `specials` never rolls them.
+  const specials = !fishPool || fishPool.specials;
   const species =
     (forcedId ? speciesById(forcedId) : undefined) ??
-    (place ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
-    (place ? rollRare({ zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
-    pickSpecies(zone, time, rng, baitId, fotdId, fx);
+    (place && specials ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
+    (place && specials ? rollRare({ zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
+    pickSpecies(zone, time, rng, baitId, fotdId, fx, fishPool);
   const lengthCm = rollLength(species, rng);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };
 }
