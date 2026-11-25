@@ -1,7 +1,7 @@
 import { distanceToY, FAR_SHORE_Y, SHORE_Y, W } from './layout';
 import { mulberry32 } from './raster';
 import { BOULDER_SIZES } from './riverSprites';
-import { RIVER_ROCKS, ROPE_FAR, ROPE_NEAR, riverBend, riverWaterline, type RiverRock } from './riverArt';
+import { RIVER_ROCKS, ROPE_FAR, ROPE_NEAR, riverBend, rightBankEdge, riverWaterline, type RiverRock } from './riverArt';
 
 /**
  * Pure positions for the river's moving pictures (slice 25b): foam streaks drifting along the bend, the riffle's standing-wave
@@ -10,13 +10,13 @@ import { RIVER_ROCKS, ROPE_FAR, ROPE_NEAR, riverBend, riverWaterline, type River
 
 // ---- Tunables ------------------------------------------------------------------------------------
 
-export const STREAK_COUNT = 24;
+export const STREAK_COUNT = 22;
 /** Drift speed in px/s of the farthest and the nearest streak (perspective). */
 export const STREAK_SPEED_FAR = 9;
-export const STREAK_SPEED_NEAR = 30;
+export const STREAK_SPEED_NEAR = 34;
 /** Streak lengths (px) far and near. */
-export const STREAK_LEN_FAR = 5;
-export const STREAK_LEN_NEAR = 18;
+export const STREAK_LEN_FAR = 6;
+export const STREAK_LEN_NEAR = 28;
 /** Rain makes the current this much faster (1 + this * rain visibility). */
 export const STREAK_RAIN_BOOST = 0.6;
 export const GLINT_COUNT = 16;
@@ -24,10 +24,12 @@ export const GLINT_COUNT = 16;
 export const GLINTS_PER_ROCK = 2;
 export const ROPE_SEGMENTS = 36;
 /** How far the rope hangs below the straight line at mid-span, in px. */
-export const ROPE_SAG = 26;
+export const ROPE_SAG = 22;
 /** Sideways sway at mid-span in px: barely in calm weather, more when it is windy. */
+/** How far the rope bows downstream (left) at mid-span, in px, so its hang reads even though it runs nearly straight up the screen. */
+export const ROPE_BOW = 13;
 export const ROPE_SWAY_CALM = 0.35;
-export const ROPE_SWAY_WINDY = 3.2;
+export const ROPE_SWAY_WINDY = 5.5;
 /** Rope sway cycle in rad/s (two layered sines). */
 export const ROPE_SWAY_SPEED = [1.1, 1.9] as const;
 
@@ -77,10 +79,11 @@ export function streakAt(s: Streak, t: number, speedMult: number): StreakDraw | 
   if (x < -len || x > W + 2) return null;
   const wl = Math.min(riverWaterline(x), riverWaterline(x - len));
   if (y > wl - 4 || y < FAR_SHORE_Y + 6) return null;
+  if (x > rightBankEdge(y) - 4) return null;
   // Fade in and out along the path.
   const edge = Math.min(u, 1 - u) * 6;
-  const alpha = Math.min(1, edge) * (0.62 + 0.33 * s.lane);
-  return { x: Math.round(x), y, len, slope, alpha, thick: s.lane > 0.55 };
+  const alpha = Math.min(1, edge) * (0.75 + 0.25 * s.lane);
+  return { x: Math.round(x), y, len, slope, alpha, thick: s.lane > 0.5 };
 }
 
 // ---- Riffle glints -------------------------------------------------------------------------------
@@ -101,7 +104,7 @@ export function makeGlints(): RiffleGlint[] {
   for (let i = 0; i < GLINT_COUNT; i++) {
     const x = 4 + Math.floor(rnd() * (W - 8));
     const y = top + Math.floor(rnd() * (SHORE_Y - top - 30));
-    if (y > riverWaterline(x) - 8) continue;
+    if (y > riverWaterline(x) - 8 || x > rightBankEdge(y) - 8) continue;
     out.push({ x, y, speed: 2.2 + rnd() * 2.6, phase: rnd() * 6.28, w: 2 + Math.floor(rnd() * 2) });
   }
   for (const rock of RIVER_ROCKS) {
@@ -129,7 +132,7 @@ export function ropeSway(t: number, windy: number): number {
 }
 
 /**
- * The rope as points from the landing's post (index 0) to the far post: a straight line hanging ROPE_SAG px at mid-span,
+ * The rope as points from the post on the left bank (index 0) to the far post: a straight line hanging ROPE_SAG px at mid-span,
  * swinging sideways by `sway` (zero at both ends). It runs between x 85 and x 130 (+/- the sway), far left of the bobber column.
  */
 export function ropePoints(sway: number, n = ROPE_SEGMENTS): { x: number; y: number }[] {
@@ -138,7 +141,7 @@ export function ropePoints(sway: number, n = ROPE_SEGMENTS): { x: number; y: num
     const t = i / n;
     const hump = Math.sin(Math.PI * t);
     out.push({
-      x: ROPE_NEAR.x + (ROPE_FAR.x - ROPE_NEAR.x) * t + sway * hump,
+      x: ROPE_NEAR.x + (ROPE_FAR.x - ROPE_NEAR.x) * t - ROPE_BOW * 4 * t * (1 - t) + sway * hump,
       y: ROPE_NEAR.y + (ROPE_FAR.y - ROPE_NEAR.y) * t + ROPE_SAG * 4 * t * (1 - t) * 0.55 + sway * 0.25 * hump,
     });
   }
@@ -161,15 +164,26 @@ export function rockFoam(rock: RiverRock, t: number): FoamRect[] {
   const out: FoamRect[] = [];
   const left = Math.round(rock.x - w / 2);
   const foot = rock.y - 1;
-  const arms = rock.size === 'l' ? 4 : rock.size === 'm' ? 3 : 2;
+  const arms = rock.size === 'l' ? 6 : rock.size === 'm' ? 5 : 4;
   for (let k = 0; k < arms; k++) {
     const flick = 0.55 + 0.45 * Math.sin(t * 3.1 + k * 1.7 + rock.x);
-    const len = 3 - (k > 1 ? 1 : 0);
-    out.push({ x: left - 3 - k * 3 - len + 1, y: foot - 1 - k, w: len, alpha: 0.75 * flick });
-    out.push({ x: left - 3 - k * 3 - len + 1, y: foot + 1 + k, w: len, alpha: 0.75 * (0.55 + 0.45 * Math.sin(t * 2.6 + k * 2.1 + rock.x)) });
+    const len = 5 - (k > 2 ? 2 : k > 0 ? 1 : 0);
+    out.push({ x: left - 3 - k * 3 - len + 1, y: foot - 1 - k, w: len, alpha: 0.95 * flick });
+    out.push({ x: left - 3 - k * 3 - len + 1, y: foot + 1 + k, w: len, alpha: 0.95 * (0.55 + 0.45 * Math.sin(t * 2.6 + k * 2.1 + rock.x)) });
   }
   // The ring: a thin wet line round its foot, a little wider than the rock.
   out.push({ x: left - 2, y: foot + 1, w: w + 4, alpha: 0.55 + 0.2 * Math.sin(t * 2 + rock.x) });
   return out;
 }
 
+
+/** A streak as short pieces that step down-left with the bend: [{x, y, w}], 6 px each, so a long near streak follows the slope. */
+export function streakSegments(d: StreakDraw): { x: number; y: number; w: number }[] {
+  const n = Math.max(1, Math.ceil(d.len / 6));
+  const out: { x: number; y: number; w: number }[] = [];
+  for (let k = 0; k < n; k++) {
+    const w = Math.min(6, d.len - k * 6);
+    out.push({ x: d.x - k * 6 - w, y: d.y + Math.round((d.slope * (k + 0.5)) / n), w });
+  }
+  return out;
+}

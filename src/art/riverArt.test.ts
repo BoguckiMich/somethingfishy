@@ -15,12 +15,17 @@ import {
   riverNearBankRaster,
   riverWaterline,
   riverWaterRaster,
+  rightBankEdge,
+  RIGHT_BANK,
+  riverRightBankRaster,
+  riverRightReflectionRaster,
   rockBox,
   ROPE_FAR,
   ROPE_NEAR,
+  ROPE_POST_POS,
 } from './riverArt';
-import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, ROPE_SWAY_CALM, ROPE_SWAY_WINDY, rockFoam, STREAK_COUNT, streakAt } from './riverFx';
-import { ALDER, boulderSprite, BOULDER_SIZES, FAR_POST, ROPE_POST, WILLOW } from './riverSprites';
+import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, ROPE_SWAY_CALM, ROPE_SWAY_WINDY, rockFoam, STREAK_COUNT, streakAt, streakSegments } from './riverFx';
+import { ALDER, boulderSprite, BOULDER_SIZES, FAR_POST, ROPE_POST, WILLOW, WILLOW_NEAR } from './riverSprites';
 import { campBoxes, type Box } from './campLayout';
 import { SIGN_SIZE } from './signArt';
 import { TRANSPARENT } from './pixelGrid';
@@ -87,12 +92,22 @@ describe('river water', () => {
 describe('ferry rope', () => {
   const ends = { near: ROPE_NEAR, far: ROPE_FAR };
 
-  it('goes from the landing post up-left to the far bank post around x 60-120', () => {
-    expect(ends.near.x).toBeGreaterThanOrEqual(DOCK.x);
-    expect(ends.near.x).toBeLessThan(DOCK.x + 16);
+  it('goes from a tall post on the left gravel bank (x 40-90, off the landing) up to the far bank post', () => {
+    expect(ends.near.x).toBeGreaterThanOrEqual(40);
+    expect(ends.near.x).toBeLessThanOrEqual(90);
+    expect(ends.near.x).toBeLessThan(DOCK.x - 20);
     expect(ends.far.x).toBeGreaterThanOrEqual(60);
     expect(ends.far.x).toBeLessThanOrEqual(120);
     expect(ends.far.y).toBeLessThan(FAR_SHORE_Y);
+    // The post stands near the waterline.
+    expect(Math.abs(ROPE_POST_POS.baseY - riverWaterline(ROPE_POST_POS.x))).toBeLessThan(12);
+  });
+
+  it('the rope post clears every boulder, the car and the camp', () => {
+    const post: Box = { x: ROPE_POST_POS.x, y: ROPE_POST_POS.baseY - ROPE_POST.height, w: ROPE_POST.width, h: ROPE_POST.height };
+    const b = campBoxes();
+    for (const rock of RIVER_ROCKS) expect(overlap(post, rockBox(rock)), `rock ${rock.x},${rock.y}`).toBe(false);
+    for (const box of [RIVER_BEND.spots.carHit, b.tent, b.pole, b.fire]) expect(overlap(post, box)).toBe(false);
   });
 
   it('stays left of the bobber column for its whole length, in every sway', () => {
@@ -109,6 +124,7 @@ describe('ferry rope', () => {
     expect(pts[pts.length - 1].y).toBeCloseTo(ROPE_FAR.y);
     const mid = pts[Math.floor(pts.length / 2)];
     expect(mid.y).toBeGreaterThan((ROPE_NEAR.y + ROPE_FAR.y) / 2);
+    expect(mid.x).toBeLessThan((ROPE_NEAR.x + ROPE_FAR.x) / 2 - 8); // bows downstream, visibly
     const swayed = ropePoints(3);
     expect(swayed[0]).toEqual(pts[0]);
     expect(swayed[Math.floor(pts.length / 2)].x).not.toBeCloseTo(mid.x);
@@ -118,6 +134,8 @@ describe('ferry rope', () => {
     const peak = (w: number) => Math.max(...Array.from({ length: 200 }, (_, i) => Math.abs(ropeSway(i * 0.1, w))));
     expect(peak(0)).toBeLessThanOrEqual(ROPE_SWAY_CALM + 1e-9);
     expect(peak(1)).toBeGreaterThan(peak(0) * 3);
+    expect(peak(1)).toBeGreaterThanOrEqual(4);
+    expect(peak(1)).toBeLessThanOrEqual(ROPE_SWAY_WINDY + 1e-9);
   });
 });
 
@@ -125,7 +143,8 @@ describe('hut, sign and windsock', () => {
   const boxes = campBoxes();
   const sign: Box = { x: RIVER_BEND.spots.sign.x - SIGN_SIZE.w / 2, y: RIVER_BEND.spots.sign.y - SIGN_SIZE.h, w: SIGN_SIZE.w, h: SIGN_SIZE.h };
 
-  it('the hut does not overlap the sign, the windsock or the crate', () => {
+  it('the hut keeps a margin from the screen edge and does not overlap the sign, the windsock or the crate', () => {
+    expect(W - (HUT_BOX.x + HUT_BOX.w)).toBeGreaterThanOrEqual(6);
     const crate: Box = { x: RIVER_BEND.spots.crate.x - 10, y: RIVER_BEND.spots.crate.y - 14, w: 20, h: 14 };
     for (const b of [sign, boxes.sock, crate, boxes.tent, boxes.fire, boxes.pole, boxes.bed]) expect(overlap(HUT_BOX, b)).toBe(false);
   });
@@ -217,7 +236,57 @@ describe('ferry landing', () => {
   });
 });
 
+describe('right bank', () => {
+  const bank = riverRightBankRaster();
+  const water = riverWaterRaster();
+
+  it('comes down and forward: the edge starts right of x 290 at the far end and reaches the screen edge lower down', () => {
+    expect(rightBankEdge(FAR_SHORE_Y)).toBeGreaterThanOrEqual(290);
+    expect(rightBankEdge(FAR_WATER_Y)).toBeGreaterThanOrEqual(290);
+    for (let y = FAR_SHORE_Y; y < 370; y++) expect(rightBankEdge(y + 1)).toBeGreaterThanOrEqual(rightBankEdge(y));
+    expect(rightBankEdge(360)).toBeGreaterThanOrEqual(W - 8);
+    expect([bank.width, bank.height]).toEqual([RIGHT_BANK.w, RIGHT_BANK.h]);
+  });
+
+  it('never touches the bobber column: no bank pixel at x 236-276, and the water under the column stays water', () => {
+    for (let x = 0; x < bank.width; x++) {
+      for (let y = 0; y < bank.height; y++) {
+        if (bank.alphaAt(x, y) > 0) expect(RIGHT_BANK.x + x).toBeGreaterThan(280);
+      }
+    }
+    for (let y = FAR_WATER_Y; y < 372; y++) expect(rightBankEdge(y)).toBeGreaterThan(276);
+    expect(WATER_COLORS.has(water.get(260, 300 - FAR_SHORE_Y))).toBe(true);
+  });
+
+  it('has trees on it, a nearer willow with long drooping fronds, and a reflection to the left of its edge', () => {
+    let opaque = 0;
+    for (let i = 0; i < bank.data.length; i += 4) if (bank.data[i + 3] > 0) opaque++;
+    expect(opaque).toBeGreaterThan(5000);
+    expect(WILLOW_NEAR.height).toBeGreaterThan(WILLOW.height + 10);
+    for (const f of [0, 1, 2]) {
+      const refl = riverRightReflectionRaster(bank, f);
+      let n = 0;
+      for (let i = 0; i < refl.data.length; i += 4) if (refl.data[i + 3] > 0) n++;
+      expect(n).toBeGreaterThan(200);
+      for (let x = 0; x < refl.width; x++) for (let y = 0; y < refl.height; y++) if (refl.alphaAt(x, y) > 0) expect(RIGHT_BANK.x + x).toBeGreaterThan(276);
+    }
+  });
+});
+
 describe('river motion', () => {
+  it('streaks are bold: near ones 14-30 px long and 2 px thick, and slant down-left with the bend', () => {
+    const near = { lane: 1, phase: 0.5 };
+    const d = streakAt(near, 1, 1);
+    expect(d).toBeTruthy();
+    expect(d!.len).toBeGreaterThanOrEqual(14);
+    expect(d!.len).toBeLessThanOrEqual(30);
+    expect(d!.thick).toBe(true);
+    const segs = streakSegments(d!);
+    expect(segs.length).toBeGreaterThan(2);
+    expect(segs[segs.length - 1].y).toBeGreaterThanOrEqual(segs[0].y); // further left is lower
+    expect(segs.reduce((a, s) => a + s.w, 0)).toBe(d!.len);
+  });
+
   it('has a few dozen foam streaks that drift right to left and speed up in rain', () => {
     const streaks = makeStreaks();
     expect(streaks.length).toBe(STREAK_COUNT);
@@ -225,9 +294,9 @@ describe('river motion', () => {
     const lane = streaks[streaks.length - 1];
     const xs = [0, 1, 2, 3].map((t) => streakAt(lane, t, 1)?.x ?? NaN).filter((x) => !Number.isNaN(x));
     for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeLessThan(xs[i - 1]);
-    const slow = streakAt(lane, 1, 1);
-    const fast = streakAt(lane, 1, 1.6);
-    expect(slow && fast).toBeTruthy();
+    const s = { lane: 0.5, phase: 0.4 };
+    expect(streakAt(s, 2, 1.6)).toEqual(streakAt(s, 3.2, 1)); // rain runs the same path 1.6x faster
+    expect(streakAt(s, 2, 1.6)).toBeTruthy();
   });
 
   it('near streaks are faster and longer than far ones; none lands on the gravel', () => {

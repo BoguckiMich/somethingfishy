@@ -30,7 +30,7 @@ import {
   POST,
   REED,
 } from './sprites';
-import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, riverWaterRaster, ropePostRaster } from './riverArt';
+import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, riverRightBankRaster, riverRightReflectionRaster, riverWaterRaster, ropePostRaster } from './riverArt';
 import { BOULDER_SIZES, weatheredPostSprite, type BoulderSize } from './riverSprites';
 import {
   cloudRaster,
@@ -59,6 +59,8 @@ export const TEX = {
   hut: 'hut',
   /** Slice 25b: the weathered ferry landing, its stilts, the rope post and the three boulder sizes. */
   riverLanding: 'riverLanding',
+  riverRightBank: 'riverRightBank',
+  riverRightReflection: ['riverRightReflect0', 'riverRightReflect1', 'riverRightReflect2'],
   riverPost: 'riverPost',
   ropePost: 'ropePost',
   clouds: ['cloud0', 'cloud1', 'cloud2'],
@@ -145,6 +147,9 @@ export function createRiverTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.riverNearBank, riverNearBankRaster());
   addRaster(scene, TEX.hut, hutRaster());
   addRaster(scene, TEX.riverLanding, riverLandingRaster());
+  const rightBank = riverRightBankRaster();
+  addRaster(scene, TEX.riverRightBank, rightBank);
+  TEX.riverRightReflection.forEach((key, i) => addRaster(scene, key, riverRightReflectionRaster(rightBank, i)));
   addRaster(scene, TEX.riverPost, Raster.fromSprite(weatheredPostSprite(POST)));
   addRaster(scene, TEX.ropePost, ropePostRaster());
   for (const size of Object.keys(BOULDER_SIZES) as BoulderSize[]) addRaster(scene, boulderKey(size), Raster.fromSprite(boulderTextureSprite(size)));

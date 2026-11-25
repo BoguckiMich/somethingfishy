@@ -17,6 +17,7 @@ import {
   ROPE_POST_KNOT,
   WILLOW,
   WILLOW_BIG,
+  WILLOW_NEAR,
   type BoulderSize,
 } from './riverSprites';
 import { RIVER_BEND } from '../core/data/locations';
@@ -49,13 +50,13 @@ export function riverWaterline(x: number): number {
 
 /** The river's bend as a y offset of the flow at column x: up at the top right where it comes in, lower at the left where it leaves. */
 export function riverBend(x: number): number {
-  return 12 - 30 * Math.pow(Math.min(1, Math.max(0, x / W)), 1.3);
+  return 20 - 70 * Math.pow(Math.min(1, Math.max(0, x / W)), 1.2);
 }
 
 /** The ferry rope: from the post on the landing's left edge up-left to the post on the far bank. */
-export const ROPE_POST_POS = { x: 120, baseY: 378 };
+export const ROPE_POST_POS = { x: 54, baseY: 446 };
 export const ROPE_NEAR = { x: ROPE_POST_POS.x + ROPE_POST_KNOT.x, y: ROPE_POST_POS.baseY - ROPE_POST.height + ROPE_POST_KNOT.y };
-export const FAR_POST_POS = { x: 92, baseY: FAR_SHORE_Y + 1 };
+export const FAR_POST_POS = { x: 80, baseY: FAR_SHORE_Y + 1 };
 export const ROPE_FAR = { x: FAR_POST_POS.x + 1, y: FAR_POST_POS.baseY - FAR_POST.height + FAR_POST_ROPE_Y };
 
 /** A boulder: bottom-centre position, size, whether it stands in the water (gets the white water V) and whether the picture is mirrored. */
@@ -74,10 +75,9 @@ export interface RiverRock {
 export const RIVER_ROCKS: readonly RiverRock[] = [
   { x: 30, y: 440, size: 'l', inWater: false, flip: false },
   { x: 72, y: 451, size: 'm', inWater: false, flip: true },
-  { x: 288, y: 451, size: 's', inWater: false, flip: false },
-  { x: 52, y: 420, size: 'm', inWater: true, flip: false },
+  { x: 38, y: 410, size: 'm', inWater: true, flip: false },
   { x: 88, y: 432, size: 's', inWater: true, flip: true },
-  { x: 288, y: 426, size: 'm', inWater: true, flip: true },
+  { x: 298, y: 386, size: 'm', inWater: true, flip: true },
   { x: 14, y: 398, size: 'l', inWater: true, flip: true },
 ];
 
@@ -143,7 +143,7 @@ const WATER_RAMP = [PAL.deep0, PAL.deep1, PAL.deep2, PAL.shallow0, PAL.shallow1,
 function riverRampPos(x: number, y: number): number {
   const poolEdge = distanceToY(RIVER_BEND.zones[1].toM); // 26 m
   const seamEdge = distanceToY(RIVER_BEND.zones[0].toM); // 12 m
-  const e = y - riverBend(x) * 0.9;
+  const e = y - riverBend(x) * 0.5;
   const wl = riverWaterline(x);
   let pos: number;
   if (e < poolEdge) pos = 0.15 + 1.9 * ((e - FAR_SHORE_Y) / (poolEdge - FAR_SHORE_Y));
@@ -201,6 +201,96 @@ export function riverWaterRaster(): Raster {
     for (let k = 0; k < len; k++) {
       const yy = wy + Math.round(((riverBend(x + k) - riverBend(x)) * 0.5));
       if (yy - FAR_SHORE_Y >= 0 && yy < riverWaterline(x + k) - 3) r.set(x + k, yy - FAR_SHORE_Y, WATER_RAMP[idx]);
+    }
+  }
+  // Current lanes: faint lighter ribbons along the bend, in dashes, so the flow reads even in a still picture.
+  for (const lane of [0.12, 0.26, 0.4, 0.54, 0.68, 0.82, 0.94]) {
+    const persp = 0.4 + 0.6 * lane;
+    const baseY = FAR_SHORE_Y + 16 + Math.pow(lane, 1.2) * (SHORE_Y - FAR_SHORE_Y - 40);
+    for (let x = 0; x < W; x++) {
+      const wy = Math.round(baseY + riverBend(x) * persp);
+      if (wy > riverWaterline(x) - 7 || x > rightBankEdge(wy) - 2) continue;
+      if (((x >> 3) + Math.floor(lane * 10)) % 3 === 0) continue; // gaps between dashes
+      for (let k = 0; k < (lane > 0.3 ? 2 : 1); k++) {
+        const ly = wy + k - FAR_SHORE_Y;
+        if (bayer(x, ly) < 0.6) {
+          const idx = Math.min(WATER_RAMP.length - 1, Math.round(riverRampPos(x, wy)) + 3);
+          r.set(x, ly, WATER_RAMP[idx]);
+        }
+      }
+    }
+  }
+  return r;
+}
+
+// ---- The right bank, coming forward --------------------------------------------------------------
+
+/** The right bank layer's place (world), drawn over the water: its trees overhang no further left than x 280 (the bobber column ends at 276). */
+export const RIGHT_BANK = { x: 272, y: 100, w: 88, h: 290 };
+/** Where the right bank's land starts at world y (x from there to the screen edge is bank): from x 290 at the far shore down and forward to the screen edge at y 372. */
+export function rightBankEdge(y: number): number {
+  if (y < FAR_SHORE_Y) return 290;
+  return Math.round(290 + 70 * Math.pow(Math.min(1.2, (y - FAR_SHORE_Y) / 200), 0.9));
+}
+
+/** The right bank: a wedge of forest floor with a muddy, stony lip on its left edge, a few boulders, alders and willows (two big, near ones low down). */
+export function riverRightBankRaster(): Raster {
+  const r = new Raster(RIGHT_BANK.w, RIGHT_BANK.h);
+  const rnd = mulberry32(5150);
+  const lx = (x: number) => x - RIGHT_BANK.x;
+  const ly = (y: number) => y - RIGHT_BANK.y;
+  for (let y = FAR_SHORE_Y - 4; y < RIGHT_BANK.y + RIGHT_BANK.h; y++) {
+    const e = rightBankEdge(y) + (rnd() < 0.3 ? 1 : 0) - (rnd() < 0.3 ? 1 : 0);
+    for (let x = e; x < RIGHT_BANK.x + RIGHT_BANK.w; x++) {
+      const dx = x - e;
+      let c: number;
+      if (dx < 1) c = rnd() < 0.5 ? PAL.woodDark : PAL.stoneDark;
+      else if (dx < 2) c = rnd() < 0.4 ? PAL.stone : PAL.woodDark;
+      else if (dx < 5) c = bayer(x, y) < 0.5 ? PAL.leaf : PAL.leafDark;
+      else c = bayer(x, y) < 0.3 + Math.min(0.4, dx / 60) ? PAL.leafDeep : PAL.leafDark;
+      r.set(lx(x), ly(y), c);
+    }
+  }
+  // Trees in rows down the wedge, far ones (top) small, near ones (bottom) big; later rows draw over earlier ones. Two big near willows on the lip.
+  type Tree = [typeof WILLOW, number, number, boolean];
+  const trees: Tree[] = [];
+  for (let by = 184; by <= 372; by += 11) {
+    const u = (by - 184) / 188;
+    for (const off of [12, 34, 56]) {
+      const sp = u < 0.25 ? (rnd() < 0.5 ? ALDER_LOW : ALDER) : u < 0.6 ? (rnd() < 0.5 ? ALDER_BIG : rnd() < 0.5 ? WILLOW : ALDER) : rnd() < 0.5 ? WILLOW_BIG : ALDER_BIG;
+      trees.push([sp, by + Math.floor(rnd() * 5), rightBankEdge(by) + off + Math.floor(rnd() * 8), rnd() < 0.5]);
+    }
+  }
+  trees.push([WILLOW_NEAR, 266, rightBankEdge(266) + 8, false]);
+  trees.push([WILLOW_NEAR, 334, rightBankEdge(334) + 6, true]);
+  trees.sort((p, q) => p[1] - q[1]);
+  for (const [sp, baseY, cx, flip] of trees) {
+    // Keep every crown right of the bobber column's guard line.
+    const x = Math.max(282, Math.round(cx - sp.width / 2));
+    r.blit(sp, lx(x), ly(baseY) - sp.height, { flip });
+  }
+  // Boulders on the lip.
+  for (const [by, sz, sd] of [[250, 's', 3], [306, 'm', 7], [364, 's', 5]] as const) {
+    r.blit(boulderSprite(sz, sd), lx(rightBankEdge(by) - 4), ly(by) - BOULDER_SIZES[sz].h, { flip: sd % 2 === 1 });
+  }
+  return r;
+}
+
+/** The right bank's reflection: the bank mirrored sideways across its edge, short, dimmed and streaky, in three wobble frames. World origin (RIGHT_BANK.x, FAR_SHORE_Y). */
+export function riverRightReflectionRaster(bank: Raster, frame: number): Raster {
+  const h = RIGHT_BANK.y + RIGHT_BANK.h - FAR_SHORE_Y;
+  const r = new Raster(RIGHT_BANK.w, h);
+  const phase = frame * 2.1;
+  for (let ry = 6; ry < h; ry++) {
+    const y = FAR_SHORE_Y + ry;
+    const e = rightBankEdge(y);
+    if ((ry + Math.round(phase)) % 4 === 0) continue; // ripple gaps
+    for (let dx = 1; dx <= 12; dx++) {
+      const wob = Math.round(Math.sin(y * 0.5 + phase) * 1.4);
+      const src = bank.get(e + dx + wob - RIGHT_BANK.x, y - 3 - Math.floor(dx / 3) - RIGHT_BANK.y);
+      if (src < 0) continue;
+      if (bayer(e - dx, y) > 1 - dx / 14) continue;
+      r.set(e - dx - RIGHT_BANK.x, ry, lerpColor(src, PAL.deep0, 0.55));
     }
   }
   return r;
@@ -279,12 +369,12 @@ export function riverNearBankRaster(): Raster {
 
 // ---- W.'s hut ------------------------------------------------------------------------------------
 
-export const HUT_SIZE = { w: 62, h: 44 };
+export const HUT_SIZE = { w: 66, h: 48 };
 /** Where the hut stands (feet, bottom middle): on the right bar, behind the notice-board sign (x 258-294, y 460+) and the windsock (y 452+). */
-export const HUT_FEET = { x: 329, y: 452 };
+export const HUT_FEET = { x: 319, y: 452 };
 export const HUT_BOX = { x: HUT_FEET.x - HUT_SIZE.w / 2, y: HUT_FEET.y - HUT_SIZE.h, w: HUT_SIZE.w, h: HUT_SIZE.h };
 /** Where the stove pipe's mouth is in the hut picture, and in the world: a steam wisp for the story goes here later. */
-export const HUT_PIPE_TOP_LOCAL = { x: 51, y: 1 };
+export const HUT_PIPE_TOP_LOCAL = { x: 55, y: 1 };
 export const HUT_PIPE_TOP = { x: HUT_BOX.x + HUT_PIPE_TOP_LOCAL.x, y: HUT_BOX.y + HUT_PIPE_TOP_LOCAL.y };
 
 /** A tiny 3 x 5 "W." for the plank sign. */
@@ -296,7 +386,7 @@ export function hutRaster(): Raster {
   const HH = HUT_SIZE.h;
   const r = new Raster(HW, HH);
   const rnd = mulberry32(31);
-  const wallTop = 16;
+  const wallTop = 18;
   // Walls: vertical plank boards in a few weathered tones.
   const tones = [lerpColor(PAL.wood, PAL.stone, 0.35), lerpColor(PAL.woodLight, PAL.stone, 0.35), lerpColor(PAL.woodDark, PAL.stone, 0.25)];
   for (let x = 3; x < HW - 3; x++) {
@@ -332,49 +422,49 @@ export function hutRaster(): Raster {
   r.rect(4, 7, HW - 8, 1, PAL.stoneLight);
   // Door (right): a darker plank door with a handle and a worn step.
   const dx = HW - 17;
-  r.rect(dx, 25, 12, 19, PAL.woodDeep);
-  r.rect(dx + 1, 26, 10, 18, PAL.woodDark);
-  for (const x of [dx + 4, dx + 7]) r.rect(x, 26, 1, 18, PAL.woodDeep);
-  r.rect(dx + 1, 26, 10, 1, PAL.wood);
-  r.set(dx + 9, 35, PAL.gold);
+  r.rect(dx, 27, 12, 21, PAL.woodDeep);
+  r.rect(dx + 1, 28, 10, 20, PAL.woodDark);
+  for (const x of [dx + 4, dx + 7]) r.rect(x, 28, 1, 20, PAL.woodDeep);
+  r.rect(dx + 1, 28, 10, 1, PAL.wood);
+  r.set(dx + 9, 37, PAL.gold);
   r.rect(dx - 1, HH - 1, 14, 1, PAL.stone);
   // Window (middle): a small four-pane window with a warm glass and a sill.
-  r.rect(27, 22, 12, 10, PAL.woodDeep);
-  r.rect(28, 23, 10, 8, PAL.cream);
-  r.rect(28, 23, 10, 2, lerpColor(PAL.cream, PAL.shallow3, 0.5));
-  r.rect(32, 23, 1, 8, PAL.woodDark);
-  r.rect(28, 27, 10, 1, PAL.woodDark);
-  r.rect(26, 32, 14, 1, PAL.woodLight);
+  r.rect(29, 24, 12, 10, PAL.woodDeep);
+  r.rect(30, 25, 10, 8, PAL.cream);
+  r.rect(30, 25, 10, 2, lerpColor(PAL.cream, PAL.shallow3, 0.5));
+  r.rect(34, 25, 1, 8, PAL.woodDark);
+  r.rect(30, 29, 10, 1, PAL.woodDark);
+  r.rect(28, 34, 14, 1, PAL.woodLight);
   // The plank sign (left): "W." in dark paint and a little painted fish.
-  r.rect(5, 22, 17, 12, PAL.woodDeep);
-  r.rect(6, 23, 15, 10, PAL.woodLight);
-  r.rect(6, 23, 15, 1, PAL.woodHi);
-  r.rect(6, 32, 15, 1, PAL.wood);
+  r.rect(5, 24, 17, 12, PAL.woodDeep);
+  r.rect(6, 25, 15, 10, PAL.woodLight);
+  r.rect(6, 25, 15, 1, PAL.woodHi);
+  r.rect(6, 34, 15, 1, PAL.wood);
   W_GLYPH.forEach((row, gy) => {
-    for (let gx = 0; gx < 3; gx++) if (row[gx] === '1') r.set(8 + gx, 25 + gy, PAL.woodDeep);
+    for (let gx = 0; gx < 3; gx++) if (row[gx] === '1') r.set(8 + gx, 27 + gy, PAL.woodDeep);
   });
-  r.set(11, 29, PAL.woodDeep);
+  r.set(11, 31, PAL.woodDeep);
   // fish: body, tail, eye
-  r.rect(14, 27, 5, 3, PAL.shallow1);
-  r.set(13, 26, PAL.shallow1);
-  r.set(13, 30, PAL.shallow1);
-  r.set(19, 28, PAL.shallow1);
-  r.set(16, 27, PAL.foam);
-  r.set(18, 28, PAL.outline);
+  r.rect(14, 29, 5, 3, PAL.shallow1);
+  r.set(13, 28, PAL.shallow1);
+  r.set(13, 32, PAL.shallow1);
+  r.set(19, 30, PAL.shallow1);
+  r.set(16, 29, PAL.foam);
+  r.set(18, 30, PAL.outline);
   // Stove pipe through the roof, with a cap, and a rusty kettle hanging on it.
-  r.rect(50, 1, 4, 10, PAL.stoneDark);
-  r.rect(50, 1, 1, 10, PAL.stone);
-  r.rect(49, 1, 6, 1, PAL.outlineSoft);
-  r.rect(49, 9, 6, 1, PAL.stone);
-  r.rect(55, 4, 6, 5, PAL.gingerDark); // kettle body
-  r.rect(55, 4, 2, 5, PAL.ginger);
-  r.rect(56, 3, 3, 1, PAL.gingerDark); // lid
-  r.set(57, 2, PAL.stoneDark); // knob
-  r.set(61, 5, PAL.gingerDark); // spout
-  r.set(61, 4, PAL.gingerDark);
-  r.set(54, 5, PAL.outlineSoft); // handle to the pipe
-  r.set(54, 4, PAL.outlineSoft);
-  r.set(56, 8, PAL.red); // a rusty patch
+  r.rect(54, 1, 4, 12, PAL.stoneDark);
+  r.rect(54, 1, 1, 12, PAL.stone);
+  r.rect(53, 1, 6, 1, PAL.outlineSoft);
+  r.rect(53, 11, 6, 1, PAL.stone);
+  r.rect(59, 4, 6, 5, PAL.gingerDark); // kettle body
+  r.rect(59, 4, 2, 5, PAL.ginger);
+  r.rect(60, 3, 3, 1, PAL.gingerDark); // lid
+  r.set(61, 2, PAL.stoneDark); // knob
+  r.set(65, 5, PAL.gingerDark); // spout
+  r.set(65, 4, PAL.gingerDark);
+  r.set(58, 5, PAL.outlineSoft); // handle to the pipe
+  r.set(58, 4, PAL.outlineSoft);
+  r.set(60, 8, PAL.red); // a rusty patch
   return r;
 }
 

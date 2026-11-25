@@ -242,3 +242,55 @@ export function scaleSprite(s: Sprite, k: number): Sprite {
 
 export const WILLOW_BIG = scaleSprite(WILLOW, 1.5);
 export const ALDER_BIG = scaleSprite(ALDER, 1.4);
+
+/**
+ * A large, near weeping willow (40 x 46): a round crown on a short trunk and many long fronds that hang nearly to the ground,
+ * each a column of light, mid and dark leaf with gaps; the trunk shows between them.
+ */
+export function willowNearSprite(seed = 5, w = 40, h = 46): Sprite {
+  const rnd = mulberry32(seed);
+  const pixels = new Int32Array(w * h).fill(TRANSPARENT);
+  const put = (x: number, y: number, c: number) => {
+    if (x >= 0 && y >= 0 && x < w && y < h) pixels[y * w + x] = c;
+  };
+  const cx = (w - 1) / 2;
+  const crownH = 17;
+  const trunkTop = crownH - 4;
+  // Trunk and two limbs.
+  for (let y = trunkTop; y < h; y++) {
+    const flare = y > h - 5 ? 1 : 0;
+    for (let x = Math.round(cx) - 1 - flare; x <= Math.round(cx) + 1 + flare; x++) put(x, y, x <= Math.round(cx) - 1 - flare + 0 ? PAL.woodDark : x === Math.round(cx) ? PAL.woodDark : PAL.woodDeep);
+  }
+  // Crown.
+  const edge: number[] = [];
+  for (let x = 0; x < w; x++) edge.push(crownH);
+  for (let y = 0; y < crownH; y++) {
+    for (let x = 0; x < w; x++) {
+      const nx = (x - cx) / (w / 2);
+      const ny = (y - crownH * 0.58) / (crownH * 0.58);
+      if (nx * nx + ny * ny > 1 + (rnd() - 0.5) * 0.18) continue;
+      const lit = 1 - ny * 0.55 - nx * 0.25 + (rnd() - 0.5) * 0.5;
+      put(x, y, lit > 0.95 ? PAL.leafHi : lit > 0.6 ? PAL.leafLight : lit > 0.2 ? PAL.leaf : PAL.leafDark);
+      edge[x] = Math.min(edge[x], y);
+    }
+  }
+  // Fronds: a long strand every 2 px, longer in the middle, ragged, tinted from light at the top to dark at the tail.
+  for (let x = 1; x < w - 1; x += 2) {
+    if (Math.abs(x - cx) < 2.5) continue;
+    let top = crownH;
+    for (let k = -1; k <= 1; k++) top = Math.min(top, edge[Math.max(0, Math.min(w - 1, x + k))]);
+    const start = Math.min(crownH - 2, top + 8);
+    const reach = (h - 1 - start) * (0.55 + 0.45 * Math.sin(Math.PI * (x / (w - 1)))) * (0.75 + rnd() * 0.25);
+    let sx = x;
+    for (let k = 0; k < reach; k++) {
+      const t = k / Math.max(1, reach);
+      if (k % 6 === 5 && rnd() < 0.5) continue; // a gap
+      put(sx, start + k, t < 0.3 ? PAL.leafLight : t < 0.7 ? PAL.leaf : PAL.leafDark);
+      if (k % 9 === 8) sx += rnd() < 0.5 ? -1 : 1;
+      if (k % 4 === 0 && t < 0.5) put(sx + 1, start + k, PAL.leafDark);
+    }
+  }
+  return { width: w, height: h, pixels };
+}
+
+export const WILLOW_NEAR = willowNearSprite();

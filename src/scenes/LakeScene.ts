@@ -66,8 +66,8 @@ import { LOCATIONS, QUIET_LAKE } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
-import { HUT_FEET, HUT_SIZE, RIVER_ROCKS, ROPE_POST_POS, riverWaterline } from '../art/riverArt';
-import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, rockFoam, STREAK_RAIN_BOOST, streakAt, type RiffleGlint, type Streak } from '../art/riverFx';
+import { HUT_FEET, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS, rightBankEdge, riverWaterline } from '../art/riverArt';
+import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, rockFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
@@ -512,6 +512,7 @@ export class LakeScene extends Phaser.Scene {
   private waterFx!: Phaser.GameObjects.Graphics;
   /** The river's moving pictures (slice 25b): foam streaks, riffle glints, white water behind rocks, and the ferry rope. */
   private riverFx?: Phaser.GameObjects.Graphics;
+  private rightReflectImg?: Phaser.GameObjects.Image;
   private ropeFx?: Phaser.GameObjects.Graphics;
   private riverStreaks: Streak[] = [];
   private riverGlints: RiffleGlint[] = [];
@@ -2116,7 +2117,10 @@ export class LakeScene extends Phaser.Scene {
         const i = this.add.image(rock.x, rock.y, boulderKey(rock.size)).setOrigin(0.5, 1).setFlipX(rock.flip).setDepth(Z.nearShore + 0.3 + rock.y / 10000);
         this.worldImgs.push(i);
       }
-      const rp = this.add.image(ROPE_POST_POS.x, ROPE_POST_POS.baseY, TEX.ropePost).setOrigin(0, 1).setDepth(Z.posts + 0.1);
+      const rp = this.add.image(ROPE_POST_POS.x, ROPE_POST_POS.baseY, TEX.ropePost).setOrigin(0, 1).setDepth(Z.nearShore + 0.35 + ROPE_POST_POS.baseY / 10000);
+      const rb = this.add.image(RIGHT_BANK.x, RIGHT_BANK.y, TEX.riverRightBank).setOrigin(0, 0).setDepth(Z.waterFx + 0.6);
+      this.worldImgs.push(rb);
+      this.rightReflectImg = this.add.image(RIGHT_BANK.x, FAR_SHORE_Y, TEX.riverRightReflection[0]).setOrigin(0, 0).setDepth(Z.reflection + 0.1).setAlpha(0.42);
       this.worldImgs.push(rp);
     }
 
@@ -2205,7 +2209,7 @@ export class LakeScene extends Phaser.Scene {
         speed: 0.8 + rnd() * 1.6,
       };
       // At the river the gravel bars rise out of the water: no sparkles on dry stones.
-      if (this.loc.background === 'river' && sp.y > riverWaterline(sp.x) - 3) continue;
+      if (this.loc.background === 'river' && (sp.y > riverWaterline(sp.x) - 3 || sp.x > rightBankEdge(sp.y) - 3)) continue;
       this.sparkles.push(sp);
     }
     for (let i = 0; i < 16; i++) {
@@ -2858,6 +2862,7 @@ export class LakeScene extends Phaser.Scene {
     this.waterImg.setTint(look.waterTint);
     this.reflectionImg.setTint(look.waterTint);
     this.reflectionImg.setTexture(this.bg.reflection[Math.floor(this.elapsed / 650) % 3]);
+    this.rightReflectImg?.setTint(look.waterTint).setTexture(TEX.riverRightReflection[Math.floor(this.elapsed / 650) % 3]);
 
     // Sun and moon on their arcs, rising behind the hills.
     const horizonY = FAR_SHORE_Y - 20;
@@ -2971,10 +2976,7 @@ export class LakeScene extends Phaser.Scene {
       const d = streakAt(s, this.riverFlowT, 1);
       if (!d) continue;
       g.fillStyle(foam, d.alpha * lightLevel * still);
-      const half = Math.ceil(d.len / 2);
-      const th = d.thick ? 2 : 1;
-      g.fillRect(d.x, d.y, half, th);
-      g.fillRect(d.x - (d.len - half), d.y + Math.round(d.slope / 2), d.len - half, th);
+      for (const seg of streakSegments(d)) g.fillRect(seg.x, seg.y, seg.w, d.thick ? 2 : 1);
     }
     // The riffle's standing-wave glints flicker in place.
     const glintColor = lerpColor(multiply(PAL.shallow3, look.waterTint), foam, 0.5);
