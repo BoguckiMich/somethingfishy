@@ -7,6 +7,8 @@ import {
   blinkIsNight,
   blinkLines,
   chapterWaits,
+  markSecondBlink,
+  secondBlinkDue,
   isNightVisit,
   q7Lines,
   journalChapterCount,
@@ -366,9 +368,39 @@ describe('night visits and the Q4 fallback', () => {
     expect(isNightVisit(5 * 60)).toBe(false);
     expect(isNightVisit(12 * 60)).toBe(false);
   });
-  it('Q4 also unlocks after one bundle (day players get the day version)', () => {
+  it('Q4 also unlocks after three bundles (day players get the day version)', () => {
     expect(storyMilestones(newPlayer()).Q4).toBe(false);
+    expect(STORY_TUNING.q4FallbackBundles).toBe(3);
+    expect(storyMilestones(withBundlesDone(newPlayer(), STORY_TUNING.q4FallbackBundles - 1)).Q4).toBe(false);
     expect(storyMilestones(withBundlesDone(newPlayer(), STORY_TUNING.q4FallbackBundles)).Q4).toBe(true);
+  });
+});
+
+describe('the second-chance blink', () => {
+  const day = (): ReturnType<typeof newStory> => markSeen(newStory(), 'Q4', '2026-12-04', blinkLines(false));
+  it('is due after the day version, at night, with Pajkel in the car', () => {
+    expect(secondBlinkDue(day(), true, true)).toBe(true);
+    expect(secondBlinkDue(day(), false, true)).toBe(false);
+    expect(secondBlinkDue(day(), true, false)).toBe(false);
+    expect(secondBlinkDue(newStory(), true, true)).toBe(false);
+  });
+  it('never for the night version or once already shown', () => {
+    expect(secondBlinkDue(markSeen(newStory(), 'Q4', '2026-12-04', blinkLines(true), true), true, true)).toBe(false);
+    expect(secondBlinkDue(markSecondBlink(day()), true, true)).toBe(false);
+  });
+  it('marks the night version, queues his night lines and keeps done; twice changes nothing', () => {
+    const s = markSecondBlink(day());
+    expect(s.blinkNight).toBe(true);
+    expect(s.blinkLater).toBe(true);
+    expect(s.done).toEqual(day().done);
+    expect(s.queue).toEqual(['q4']);
+    expect(markSecondBlink(s)).toBe(s);
+    expect(markSecondBlink(newStory())).toEqual(newStory());
+    expect(journalEntries(s).find((e) => e.id === 'Q4')?.thought).toBe(JOURNAL_BLINK_NIGHT.thought);
+  });
+  it('is saved only when Q4 is done', () => {
+    expect(normalizeStory(JSON.parse(JSON.stringify(markSecondBlink(day())))).blinkLater).toBe(true);
+    expect(normalizeStory({ done: { Q1: '2026-12-01' }, blinkLater: true }).blinkLater).toBeUndefined();
   });
 });
 

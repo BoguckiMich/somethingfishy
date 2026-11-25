@@ -127,7 +127,7 @@ export const STORY_TUNING = {
   /** Q7 comes when this many checklist bundles are done. */
   q7Bundles: 5,
   /** Q4 unlocks without the night flag once this many bundles are done (day-only players get the bottle version). */
-  q4FallbackBundles: 1,
+  q4FallbackBundles: 3,
   /** Real ms of calm play before today's chapter shows up. */
   delayMs: { min: 60_000, max: 90_000 },
   /** After a chapter was interrupted (a fight, a panel) the next try comes this much later. */

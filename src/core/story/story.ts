@@ -42,6 +42,8 @@ export interface StoryState {
   paleOn?: string;
   /** Q4 was told as the night blink (the journal's version); missing = the day bottle. */
   blinkNight?: boolean;
+  /** The night blink was shown later, as a bonus, after Q4 was told by day (blinkNight is then true too). */
+  blinkLater?: true;
   /** Q7 was told after the road was already fixed (the journal's alternative thought). */
   q7Late?: boolean;
   /** How many journal pages she had seen when she last opened the Story tab (the dot). */
@@ -178,6 +180,16 @@ export function chapterWaits(chapter: ChapterDef, minute: number, pajkelInCar: b
   return chapter.kind === 'blink' && timeOfDay(minute) === 'night' && minute >= 12 * 60 && !pajkelInCar;
 }
 
+/** Q4 was told by day: the first night Pajkel sleeps in the car under a night sky, the blink plays once more as a bonus beat. */
+export const secondBlinkDue = (s: StoryState, nightSky: boolean, pajkelInCar: boolean): boolean =>
+  has(s.done, 'Q4') && s.blinkNight !== true && s.blinkLater !== true && nightSky && pajkelInCar;
+
+/** The bonus blink was seen: the journal page becomes the night version and Pajkel's night lines queue. Twice changes nothing. */
+export function markSecondBlink(s: StoryState): StoryState {
+  if (!has(s.done, 'Q4') || s.blinkNight === true || s.blinkLater === true) return s;
+  return queueLines({ ...s, blinkNight: true, blinkLater: true }, BLINK_NIGHT_LINES);
+}
+
 /** The lines Q7 queues: the usual, or the alternative when the road was already fixed. */
 export const q7Lines = (roadFixed: boolean): readonly string[] => (roadFixed ? ['q7Road'] : ['q7']);
 
@@ -202,6 +214,7 @@ export function normalizeStory(v: unknown): StoryState {
   const out: StoryState = { done, queue: queue.slice(-STORY_TUNING.queueMax), pale: o.pale === true };
   if (o.pale === true && isValidDate(o.paleOn)) out.paleOn = o.paleOn;
   if (o.blinkNight === true && has(done, 'Q4')) out.blinkNight = true;
+  if (o.blinkLater === true && has(done, 'Q4')) out.blinkLater = true;
   if (o.q7Late === true && has(done, 'Q7')) out.q7Late = true;
   if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), JOURNAL_TOTAL + 2);
   return out;

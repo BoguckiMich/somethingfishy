@@ -10,7 +10,7 @@ import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistD
 import { showBottleCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
 import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
-import { blinkIsNight, blinkLines, chapterById, chapterWaits, q7Lines, lineText, markPaleSeen, markSeen, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
+import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Lines, lineText, markPaleSeen, markSecondBlink, markSeen, secondBlinkDue, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
 import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
@@ -416,7 +416,9 @@ export class LakeScene extends Phaser.Scene {
   private storyOn = true;
   /** Dev flag ?journal=all: the road counts as fixed for the Story tab. */
   private journalAll = false;
-  private storyRun: { chapter: ChapterDef; night: boolean; preMs: number } | null = null;
+  private storyRun: { chapter: ChapterDef; night: boolean; preMs: number; bonus?: 'blink' } | null = null;
+  /** Ms until the second-chance night blink starts (-1: its conditions do not hold now). */
+  private secondBlinkMs = -1;
   private storyTimerMs = rollStoryDelay();
   /** The due chapter is holding its timer (the night blink before Pajkel is in the car). */
   private storyWaiting = false;
@@ -675,7 +677,10 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     this.milestonesAll = params.get('milestones') === 'all';
-    this.storyOn = !this.sandbox || storyParam !== null || this.milestonesAll;
+    // Dev-only: ?q4day=1 marks Q4 as already told by day (today, no night version), so the second-chance blink can play.
+    const q4day = params.get('q4day') === '1';
+    if (q4day) this.setPlayer({ ...this.player, story: markSeen(storyOf(this.player), 'Q4', this.today, blinkLines(false)) });
+    this.storyOn = !this.sandbox || storyParam !== null || this.milestonesAll || q4day;
     // Dev-only: ?journal=all marks every chapter seen (the night Q4, the Pale One and the road fixed) so the Story tab is full;
     // with `&looked=1` the dot is already read. Nothing is queued, so Pajkel stays quiet.
     if (params.get('journal') === 'all') {
@@ -1336,9 +1341,28 @@ export class LakeScene extends Phaser.Scene {
       this.storyWaiting = false;
       this.storyTimerMs = Math.min(this.storyTimerMs, 5000);
     }
+    if (!chapter && this.nextChapter() === null) this.updateSecondBlink(deltaMs);
     if (!chapter || !this.storyCalm()) return;
     this.storyTimerMs -= deltaMs;
     if (this.storyTimerMs <= 0) this.beginChapter(chapter);
+  }
+
+  /** Q4 was told by day: the first calm night at the quiet lake with Pajkel asleep in the car, the blink plays once more. */
+  private updateSecondBlink(deltaMs: number): void {
+    const q4 = chapterById('Q4');
+    const here = q4 !== undefined && this.loc.storyPlaceId !== null && chaptersOf(this.loc.storyPlaceId).some((c) => c.id === q4.id);
+    const night = timeOfDay(this.clock.minute) === 'night';
+    if (!q4 || !here || !secondBlinkDue(storyOf(this.player), night, isInCar(this.companions.state))) {
+      this.secondBlinkMs = -1;
+      return;
+    }
+    if (!this.storyCalm()) return; // a fight or panel: the timer waits where it is
+    if (this.secondBlinkMs < 0) this.secondBlinkMs = 5000;
+    this.secondBlinkMs -= deltaMs;
+    if (this.secondBlinkMs > 0) return;
+    this.secondBlinkMs = -1;
+    this.storyRun = { chapter: q4, night: true, preMs: 0, bonus: 'blink' };
+    this.story.start('blink');
   }
 
   private beginChapter(chapter: ChapterDef): void {
@@ -1371,10 +1395,16 @@ export class LakeScene extends Phaser.Scene {
   /** A self-playing picture ended; cut short (a fight) means it is not seen and comes back a bit later. */
   private storyFinished(seen: boolean): void {
     if (!this.storyRun) return;
-    if (seen) this.completeChapter();
+    const bonus = this.storyRun.bonus === 'blink';
+    if (seen && bonus) {
+      this.setPlayer({ ...this.player, story: markSecondBlink(storyOf(this.player)) });
+      this.storyRun = null;
+      this.storyLineMs = Math.max(this.storyLineMs, 700);
+    } else if (seen) this.completeChapter();
     else {
       this.storyRun = null;
       this.storyTimerMs = STORY_TUNING.retryMs;
+      if (bonus) this.secondBlinkMs = STORY_TUNING.retryMs;
     }
   }
 
