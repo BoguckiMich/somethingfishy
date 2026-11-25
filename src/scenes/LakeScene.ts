@@ -38,7 +38,7 @@ import { mulberry32 } from '../art/raster';
 import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
-import { createRiverTextures, createTextures, ensureSignTexture, lanternKey, repaintSky, TEX, weatherKey } from '../art/textures';
+import { boulderKey, createRiverTextures, createTextures, ensureSignTexture, lanternKey, repaintSky, TEX, weatherKey } from '../art/textures';
 import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from '../art/signArt';
 import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
@@ -66,7 +66,8 @@ import { LOCATIONS, QUIET_LAKE } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
-import { HUT_FEET, HUT_SIZE } from '../art/riverArt';
+import { cottageWindow, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS } from '../art/riverArt';
+import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
@@ -509,6 +510,18 @@ export class LakeScene extends Phaser.Scene {
   private stars!: Phaser.GameObjects.Graphics;
   private waterGlow!: Phaser.GameObjects.Graphics;
   private waterFx!: Phaser.GameObjects.Graphics;
+  /** The river's moving pictures (slice 25b): foam streaks, riffle glints, white water behind rocks, and the ferry rope. */
+  private riverFx?: Phaser.GameObjects.Graphics;
+  private rightReflectImg?: Phaser.GameObjects.Image;
+  private jettyReflectImg?: Phaser.GameObjects.Image;
+  private ferryImg?: Phaser.GameObjects.Image;
+  private ferryReflectImg?: Phaser.GameObjects.Image;
+  private ropeFx?: Phaser.GameObjects.Graphics;
+  private riverStreaks: Streak[] = [];
+  private riverGlints: RiffleGlint[] = [];
+  /** The river's flow clock: real time scaled by the weather, so a rain shower speeds the streaks up without a jump. */
+  private riverFlowT = 0;
+  private riverLastT = 0;
   private postFx!: Phaser.GameObjects.Graphics;
   private action!: Phaser.GameObjects.Graphics;
   private fireflies!: Phaser.GameObjects.Graphics;
@@ -2057,12 +2070,19 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (this.loc.background === 'river') createRiverTextures(this);
-    img(this.bg.farShore, 0, FAR_SHORE_TOP, Z.farShore);
+    // At the river the far bank (with the farmstead) is drawn above the water glow and the water layers: its picture holds no pixel below `farShoreY`, so nothing washes over it.
+    img(this.bg.farShore, 0, FAR_SHORE_TOP, this.loc.background === 'river' ? Z.reflection + 0.5 : Z.farShore);
     this.waterImg = img(this.bg.water, 0, FAR_SHORE_Y, Z.water, false);
     this.waterGlow = this.add.graphics().setDepth(Z.waterGlow);
-    this.reflectionImg = this.add.image(0, FAR_SHORE_Y + 4, this.bg.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(0.7);
+    this.reflectionImg = this.add.image(0, this.loc.background === 'river' ? FAR_SHORE_Y : FAR_SHORE_Y + 4, this.bg.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(this.loc.background === 'river' ? 0.42 : 0.7);
     this.waterFx = this.add.graphics().setDepth(Z.waterFx);
     this.eerieFx = this.add.graphics().setDepth(Z.waterFx + 0.5);
+    if (this.loc.background === 'river') {
+      this.riverFx = this.add.graphics().setDepth(Z.waterFx + 0.2);
+      this.ropeFx = this.add.graphics().setDepth(Z.posts + 0.2);
+      this.riverStreaks = makeStreaks();
+      this.riverGlints = makeGlints();
+    }
     // Weather (slice 23b): fog over the water and far shore, and the rain over the whole scene (under the UI).
     this.fogFx = this.add.graphics().setDepth(Z.waterDecor + 0.5);
     this.weatherFxG = this.add.graphics().setDepth(Z.fireflies + 0.5);
@@ -2092,13 +2112,36 @@ export class LakeScene extends Phaser.Scene {
     }
 
     img(this.bg.nearShore, 0, NEAR_SHORE_TOP, Z.nearShore);
-    img(TEX.dock, this.spots.dock.x, this.spots.dock.y, Z.dock);
-    // The river's hut (a plain rectangle for now) on the near bank at the right.
-    if (this.loc.background === 'river') this.add.image(HUT_FEET.x - HUT_SIZE.w / 2, HUT_FEET.y - HUT_SIZE.h, TEX.hut).setOrigin(0, 0).setDepth(Z.nearShore + 0.5);
+    const river = this.loc.background === 'river';
+    img(river ? TEX.riverLanding : TEX.dock, this.spots.dock.x, this.spots.dock.y, Z.dock);
+    if (river) {
+      // W.'s hut on the near bank at the right, behind the sign and the windsock; the boulders along the bank and in the riffle; the rope post on the landing's left edge.
+      img(TEX.hut, HUT_FEET.x - HUT_SIZE.w / 2, HUT_FEET.y - HUT_SIZE.h, Z.nearShore + 0.5);
+      for (const rock of RIVER_ROCKS) {
+        const i = this.add.image(rock.x, rock.y, boulderKey(rock.size)).setOrigin(0.5, 1).setFlipX(rock.flip).setDepth(Z.nearShore + 0.3 + rock.y / 10000);
+        this.worldImgs.push(i);
+      }
+      const rp = this.add.image(ROPE_POST_POS.x, ROPE_POST_POS.baseY, TEX.ropePost).setOrigin(0, 1).setDepth(Z.nearShore + 0.35 + ROPE_POST_POS.baseY / 10000);
+      const rb = this.add.image(RIGHT_BANK.x, RIGHT_BANK.y, TEX.riverRightBank).setOrigin(0, 0).setDepth(Z.waterFx + 0.6);
+      this.worldImgs.push(rb);
+      // The ferry moored at the far post (it bobs a pixel with the current) and the stake sign by the rope post.
+      this.ferryImg = this.add.image(FERRY.x, FERRY.y, TEX.ferry).setOrigin(0, 0).setDepth(Z.waterFx + 0.55);
+      this.worldImgs.push(this.ferryImg);
+      this.ferryReflectImg = this.add.image(FERRY.x, FERRY.y + FERRY.h, TEX.ferryReflection).setOrigin(0, 0).setDepth(Z.reflection + 0.2).setAlpha(0.45);
+      const fsg = this.add.image(FERRY_SIGN_FEET.x, FERRY_SIGN_FEET.y, TEX.ferrySign).setOrigin(0.5, 1).setDepth(Z.nearShore + 0.35 + FERRY_SIGN_FEET.y / 10000);
+      this.worldImgs.push(fsg);
+      // The far landing: a short jetty the ferry is moored against, with a faint reflection.
+      const jb = jettyBox();
+      const jetty = this.add.image(JETTY.x, jb.y, TEX.jetty).setOrigin(0, 0).setDepth(Z.waterFx + 0.5);
+      this.worldImgs.push(jetty);
+      this.jettyReflectImg = this.add.image(JETTY.x, jb.y + JETTY.h, TEX.jettyReflection).setOrigin(0, 0).setDepth(Z.reflection + 0.2).setAlpha(0.4);
+      this.rightReflectImg = this.add.image(RIGHT_BANK.x, RIGHT_BANK.y, TEX.riverRightReflection[0]).setOrigin(0, 0).setDepth(Z.reflection + 0.1).setAlpha(0.42);
+      this.worldImgs.push(rp);
+    }
 
     // Dock posts standing in the water.
     for (const [x, base] of POST_BASES) {
-      const p = this.add.image(x, base, TEX.post).setOrigin(0.5, 1).setDepth(Z.posts);
+      const p = this.add.image(x, base, river ? TEX.riverPost : TEX.post).setOrigin(0.5, 1).setDepth(Z.posts);
       this.worldImgs.push(p);
     }
     this.postFx = this.add.graphics().setDepth(Z.postFx);
@@ -2174,12 +2217,15 @@ export class LakeScene extends Phaser.Scene {
       this.glintPhase.push(rnd() * 6.28);
     }
     for (let i = 0; i < 46; i++) {
-      this.sparkles.push({
+      const sp = {
         x: Math.floor(rnd() * W),
         y: FAR_SHORE_Y + 10 + Math.floor(Math.pow(rnd(), 0.8) * (SHORE_Y - FAR_SHORE_Y - 24)),
         phase: rnd() * 6.28,
         speed: 0.8 + rnd() * 1.6,
-      });
+      };
+      // At the river the gravel bars rise out of the water: no sparkles on dry stones.
+      if (this.loc.background === 'river' && !onOpenWater(sp.x, sp.y, 3)) continue;
+      this.sparkles.push(sp);
     }
     for (let i = 0; i < 16; i++) {
       this.flies.push({
@@ -2310,6 +2356,7 @@ export class LakeScene extends Phaser.Scene {
     const look = this.look2();
     this.applyLook(look);
     this.drawWaterFx(look);
+    if (this.riverFx && this.ropeFx) this.drawRiverFx(look);
     this.drawEerie();
     this.drawWeather(look);
     this.drawPosts(look);
@@ -2830,6 +2877,13 @@ export class LakeScene extends Phaser.Scene {
     this.waterImg.setTint(look.waterTint);
     this.reflectionImg.setTint(look.waterTint);
     this.reflectionImg.setTexture(this.bg.reflection[Math.floor(this.elapsed / 650) % 3]);
+    this.rightReflectImg?.setTint(look.waterTint).setTexture(TEX.riverRightReflection[Math.floor(this.elapsed / 650) % 3]);
+    if (this.ferryImg && this.ferryReflectImg) {
+      const bob = Math.sin(this.elapsed / 900) > 0.35 ? 1 : 0;
+      this.ferryImg.setY(FERRY.y + bob);
+      this.ferryReflectImg.setTint(look.waterTint).setY(FERRY.y + FERRY.h + bob);
+    }
+    this.jettyReflectImg?.setTint(look.waterTint);
 
     // Sun and moon on their arcs, rising behind the hills.
     const horizonY = FAR_SHORE_Y - 20;
@@ -2886,7 +2940,7 @@ export class LakeScene extends Phaser.Scene {
     // Drifting dashes (a windy day: more of them, and faster).
     const windy = this.weatherVis('windy');
     g.fillStyle(sparkleColor, (0.22 + 0.08 * windy) * lightLevel * still);
-    for (let i = 0; i < Math.round(12 + 14 * windy); i++) {
+    for (let i = 0; i < (this.loc.background === 'river' ? 0 : Math.round(12 + 14 * windy)); i++) {
       const y = FAR_SHORE_Y + 14 + ((i * 97) % (SHORE_Y - FAR_SHORE_Y - 40));
       const speed = 4 + (i % 3) * 3;
       const x = ((i * 53 + this.driftT * speed * (1 + 1.6 * windy)) % (W + 40)) - 20;
@@ -2920,7 +2974,65 @@ export class LakeScene extends Phaser.Scene {
       const y = FAR_SHORE_Y + 5 + u * depthPx;
       const x = cx + (r2 - 0.5) * 2 * (4 + u * 28);
       const len = 1 + Math.floor(r3 * 3);
+      // At the river the glitter stays on open water: not over the far bank and the farmstead, the point, the hut or the gravel.
+      if (this.loc.background === 'river' && !(onOpenWater(Math.round(x), Math.round(y)) && onOpenWater(Math.round(x) + len, Math.round(y)))) continue;
       g.fillStyle(color, v * strength * (1 - u * 0.7)).fillRect(Math.round(x), Math.round(y), len, 1);
+    }
+  }
+
+  /** The river's moving water (slice 25b): foam streaks along the bend, riffle glints, white water behind the rocks, and the ferry rope. A few dozen rects a frame. */
+  private drawRiverFx(look: DayLook): void {
+    const g = this.riverFx!;
+    const rg = this.ropeFx!;
+    g.clear();
+    rg.clear();
+    const t = this.elapsed / 1000;
+    const calm = this.eerieCalm;
+    const still = 1 - 0.85 * calm;
+    const lightLevel = Math.min(1, 0.4 + look.sunAlpha * 0.6 + look.moonAlpha * 0.25);
+    const foam = multiply(PAL.foam, look.waterTint);
+    // Streaks drift along the bend, ~1.6x faster in rain; the flow clock keeps its phase when the weather changes.
+    const dt = Math.max(0, this.elapsed - this.riverLastT) / 1000;
+    this.riverLastT = this.elapsed;
+    this.riverFlowT += dt * (1 + STREAK_RAIN_BOOST * this.weatherVis('rain')) * (1 - 0.9 * calm);
+    for (const s of this.riverStreaks) {
+      const d = streakAt(s, this.riverFlowT, 1);
+      if (!d) continue;
+      g.fillStyle(foam, d.alpha * lightLevel * still);
+      for (const seg of streakSegments(d)) g.fillRect(seg.x, seg.y, seg.w, d.thick ? 2 : 1);
+    }
+    // The riffle's standing-wave glints flicker in place.
+    const glintColor = lerpColor(multiply(PAL.shallow3, look.waterTint), foam, 0.5);
+    for (const gl of this.riverGlints) {
+      const a = glintAlpha(gl, t);
+      if (a > 0) g.fillStyle(glintColor, a * 0.8 * lightLevel * still).fillRect(gl.x, gl.y, gl.w, 1);
+    }
+    // The far cottage's window glows warmly after dusk.
+    const glow = Math.min(1, look.fireflyAlpha * 1.6);
+    if (glow > 0.05) {
+      const w = cottageWindow();
+      g.fillStyle(0xffc866, 0.22 * glow).fillRect(w.x - 2, w.y - 2, w.w + 4, w.h + 4);
+      g.fillStyle(0xffd98a, 0.9 * glow).fillRect(w.x, w.y, w.w, w.h);
+    }
+    // White water where the current meets the point's nose.
+    for (const f of spitFoam(t)) g.fillStyle(foam, Math.max(0, f.alpha) * lightLevel * still).fillRect(f.x, f.y, f.w, 1);
+    // White water behind the boulders in the water.
+    for (const rock of RIVER_ROCKS) {
+      for (const f of rockFoam(rock, t)) g.fillStyle(foam, f.alpha * lightLevel * still).fillRect(f.x, f.y, f.w, 1);
+    }
+    // The ferry rope: pixel-stepped, tinted by the day, swaying more when it is windy.
+    const pts = ropePoints(ropeSway(t, this.weatherVis('windy')));
+    const ropeCol = multiply(PAL.sand, look.worldTint);
+    const shadow = multiply(PAL.woodDark, look.worldTint);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const x = Math.round(Math.min(a.x, b.x));
+      const y = Math.round(Math.min(a.y, b.y));
+      const h = Math.max(1, Math.round(Math.abs(b.y - a.y)));
+      const w = Math.max(1, Math.round(Math.abs(b.x - a.x)) + 1);
+      rg.fillStyle(shadow, 0.5).fillRect(x + 1, y, w, h);
+      rg.fillStyle(ropeCol, 1).fillRect(x, y, w, h);
     }
   }
 
@@ -2937,6 +3049,7 @@ export class LakeScene extends Phaser.Scene {
       const x = 8 + hash01(i * 1.9 + cyc * 7.7 + 4) * (W - 16);
       const y = FAR_SHORE_Y + 12 + depth * span;
       const k = 0.5 + depth * 0.8;
+      if (this.loc.background === 'river' && !onOpenWater(Math.round(x), Math.round(y), 8)) continue;
       pixelEllipse(g, Math.round(x), Math.round(y), (1 + p * 5) * k, (0.5 + p * 1.6) * k, color, (1 - p) * 0.95 * Math.max(0.5, lightLevel) * still);
     }
   }

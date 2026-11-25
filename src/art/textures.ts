@@ -30,7 +30,8 @@ import {
   POST,
   REED,
 } from './sprites';
-import { hutRaster, riverFarBankRaster, riverNearBankRaster, riverWaterRaster } from './riverArt';
+import { boulderTextureSprite, hutRaster, riverFarBankRaster, riverLandingRaster, riverNearBankRaster, ferryRaster, ferryReflectionRaster, ferrySignRaster, jettyRaster, jettyReflectionRaster, riverFarReflectionRaster, riverRightBankRaster, riverRightReflectionRaster, riverWaterRaster, ropePostRaster } from './riverArt';
+import { BOULDER_SIZES, weatheredPostSprite, type BoulderSize } from './riverSprites';
 import {
   cloudRaster,
   dockRaster,
@@ -56,6 +57,17 @@ export const TEX = {
   riverWater: 'riverWater',
   riverNearBank: 'riverNearBank',
   hut: 'hut',
+  /** Slice 25b: the weathered ferry landing, its stilts, the rope post and the three boulder sizes. */
+  riverLanding: 'riverLanding',
+  riverRightBank: 'riverRightBank',
+  jetty: 'jetty',
+  jettyReflection: 'jettyReflection',
+  ferry: 'ferry',
+  ferryReflection: 'ferryReflection',
+  ferrySign: 'ferrySign',
+  riverRightReflection: ['riverRightReflect0', 'riverRightReflect1', 'riverRightReflect2'],
+  riverPost: 'riverPost',
+  ropePost: 'ropePost',
   clouds: ['cloud0', 'cloud1', 'cloud2'],
   sun: 'sun',
   moon: 'moon',
@@ -112,6 +124,9 @@ export function ensureTrophyBoardTexture(scene: Phaser.Scene, mounted: readonly 
   return key;
 }
 
+/** Texture key of a river boulder size (slice 25b). */
+export const boulderKey = (size: BoulderSize) => `boulder:${size}`;
+
 /** Texture key of the dock lantern (unlit / lit). */
 export const lanternKey = (lit: boolean) => `lantern:${lit ? 'on' : 'off'}`;
 
@@ -132,10 +147,22 @@ function addRaster(scene: Phaser.Scene, key: string, r: Raster): void {
 export function createRiverTextures(scene: Phaser.Scene): void {
   const bank = riverFarBankRaster();
   addRaster(scene, TEX.riverFarBank, bank);
-  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, reflectionRaster(bank, i)));
+  TEX.riverReflection.forEach((key, i) => addRaster(scene, key, riverFarReflectionRaster(bank, i)));
   addRaster(scene, TEX.riverWater, riverWaterRaster());
   addRaster(scene, TEX.riverNearBank, riverNearBankRaster());
   addRaster(scene, TEX.hut, hutRaster());
+  addRaster(scene, TEX.riverLanding, riverLandingRaster());
+  addRaster(scene, TEX.ferry, ferryRaster());
+  addRaster(scene, TEX.ferryReflection, ferryReflectionRaster());
+  addRaster(scene, TEX.ferrySign, ferrySignRaster());
+  addRaster(scene, TEX.jetty, jettyRaster());
+  addRaster(scene, TEX.jettyReflection, jettyReflectionRaster());
+  const rightBank = riverRightBankRaster();
+  addRaster(scene, TEX.riverRightBank, rightBank);
+  TEX.riverRightReflection.forEach((key, i) => addRaster(scene, key, riverRightReflectionRaster(rightBank, i)));
+  addRaster(scene, TEX.riverPost, Raster.fromSprite(weatheredPostSprite(POST)));
+  addRaster(scene, TEX.ropePost, ropePostRaster());
+  for (const size of Object.keys(BOULDER_SIZES) as BoulderSize[]) addRaster(scene, boulderKey(size), Raster.fromSprite(boulderTextureSprite(size)));
 }
 
 /** Bakes every sprite and scenery raster into textures. Call once at scene start. */
