@@ -1,0 +1,595 @@
+<title>Rybki Roadmap Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one reading column like a dock running into the lake; sections stack, chips carry state, a sticky jump bar on top. */
+:root {
+  --bg: #eef3f5;
+  --surface: #ffffff;
+  --surface-2: #e2eaee;
+  --fg: #1c2a36;
+  --muted: #566a78;
+  --line: #c9d6dd;
+  --wood: #7a4e26;
+  --gold: #a8740f;
+  --gold-bg: #f6e7c4;
+  --leaf: #3f7a31;
+  --leaf-bg: #dcebd3;
+  --red: #a63c30;
+  --red-bg: #f5dcd7;
+  --lake: #2f6f9e;
+  --lake-bg: #d6e6f1;
+  --grey-bg: #e4e8eb;
+  --display: 'VT323', ui-monospace, 'Courier New', monospace;
+  --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111c25; --surface: #1b2b3a; --surface-2: #223545; --fg: #e6edf1; --muted: #9db0bd; --line: #2f4557;
+    --wood: #d9a066; --gold: #f0c35a; --gold-bg: #3b3018; --leaf: #8fd07b; --leaf-bg: #1f3520;
+    --red: #f08b7d; --red-bg: #3d221f; --lake: #7fbfe9; --lake-bg: #1c3347; --grey-bg: #26333d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111c25; --surface: #1b2b3a; --surface-2: #223545; --fg: #e6edf1; --muted: #9db0bd; --line: #2f4557;
+  --wood: #d9a066; --gold: #f0c35a; --gold-bg: #3b3018; --leaf: #8fd07b; --leaf-bg: #1f3520;
+  --red: #f08b7d; --red-bg: #3d221f; --lake: #7fbfe9; --lake-bg: #1c3347; --grey-bg: #26333d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.05; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(44px, 8vw, 72px); }
+h2 { font-size: 40px; color: var(--wood); }
+h3 { font-size: 27px; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--lake); }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 0.88em; background: var(--surface-2); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+
+nav.jump { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+nav.jump .inner { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px; display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; }
+nav.jump a { font-family: var(--display); font-size: 21px; text-decoration: none; color: var(--fg); }
+nav.jump a:hover, nav.jump a:focus-visible { color: var(--gold); }
+nav.jump .count { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+header.top { padding-block: 40px 28px; display: grid; gap: 14px; border-bottom: 3px solid var(--wood); }
+.eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.lede { font-size: 17px; color: var(--muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; }
+.facts b { font-variant-numeric: tabular-nums; }
+
+section { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-top: 60px; }
+.intro { color: var(--muted); }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.c-done { background: var(--leaf-bg); color: var(--leaf); }
+.c-wip { background: var(--gold-bg); color: var(--gold); }
+.c-open { background: var(--lake-bg); color: var(--lake); }
+.c-bad { background: var(--red-bg); color: var(--red); }
+.c-grey { background: var(--grey-bg); color: var(--muted); }
+
+/* Milestone track */
+.track { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.ms { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 6px; align-content: start; }
+.ms.now { border: 2px solid var(--gold); }
+.ms h3 { font-size: 26px; }
+.ms p { font-size: 13.5px; color: var(--muted); }
+.bar { height: 8px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--leaf); }
+
+/* Lists of items */
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+.group { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.group h3 { color: var(--fg); }
+ul.items { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.items li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; font-size: 14px; min-width: 0; }
+ul.items li .tag { grid-row: span 2; }
+ul.items li small { grid-column: 2; color: var(--muted); font-size: 12.5px; }
+.slice { font-family: var(--display); font-size: 18px; color: var(--wood); min-width: 2.4em; }
+
+/* Issues table */
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+tr.cat td { background: var(--surface-2); font-family: var(--display); font-size: 22px; color: var(--wood); padding-block: 6px; }
+td.sev { white-space: nowrap; }
+td small { color: var(--muted); }
+
+/* Decision cards */
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.opt { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 10px; grid-template-rows: auto auto 1fr auto; }
+.opt.picked { border: 2px solid var(--gold); padding: 15px; }
+.opt .meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.opt p { font-size: 14px; }
+.opt ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); display: grid; gap: 3px; }
+.pick { justify-self: start; font: inherit; font-weight: 600; font-size: 13.5px; padding: 7px 14px; border-radius: 4px; border: 1px solid var(--wood); background: transparent; color: var(--wood); cursor: pointer; }
+.pick[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--surface); }
+.pick:focus-visible, .yn button:focus-visible { outline: 3px solid var(--lake); outline-offset: 2px; }
+
+.decisions { display: grid; gap: 10px; }
+.dec { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: center; }
+.dec p { font-size: 14px; }
+.dec .rec { grid-column: 1; font-size: 13px; color: var(--muted); }
+.yn { display: flex; gap: 6px; grid-row: span 2; grid-column: 2; }
+.yn button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 11px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); cursor: pointer; }
+.yn button[aria-pressed="true"].y { background: var(--leaf); border-color: var(--leaf); color: var(--surface); }
+.yn button[aria-pressed="true"].n { background: var(--red); border-color: var(--red); color: var(--surface); }
+.yn button[aria-pressed="true"].l { background: var(--gold); border-color: var(--gold); color: var(--surface); }
+
+.summary { background: var(--surface); border: 2px dashed var(--gold); border-radius: 6px; padding: 16px; display: grid; gap: 8px; }
+.summary ul { margin: 0; padding-left: 18px; font-size: 14px; }
+.summary .empty { color: var(--muted); font-size: 14px; }
+
+.roadrow { display: grid; grid-template-columns: 110px 1fr; gap: 6px 16px; padding-block: 14px; border-bottom: 1px solid var(--line); }
+.roadrow:last-child { border-bottom: 0; }
+.roadrow .when { font-family: var(--display); font-size: 26px; color: var(--wood); line-height: 1; }
+.roadrow ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px; }
+.roadrow small { color: var(--muted); }
+
+.ideas { columns: 2 300px; column-gap: 14px; }
+.idea { break-inside: avoid; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 4px; }
+.idea b { font-size: 14.5px; }
+.idea p { font-size: 13.5px; color: var(--muted); }
+.idea .src { font-size: 11.5px; letter-spacing: 0.04em; color: var(--lake); font-weight: 600; text-transform: uppercase; }
+
+footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+@media (max-width: 520px) {
+  .roadrow { grid-template-columns: 1fr; }
+  .dec { grid-template-columns: 1fr; }
+  .yn { grid-column: 1; grid-row: auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .opt, .pick, .yn button { transition: border-color .15s, background .15s; }
+}
+</style>
+
+<nav class="jump" aria-label="Sections">
+  <div class="inner">
+    <a href="#where">Where we are</a>
+    <a href="#built">Built</a>
+    <a href="#wrong">What's wrong</a>
+    <a href="#consult">Consultants</a>
+    <a href="#next">Tomorrow</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#ideas">Idea pool</a>
+    <span class="count" id="pickCount">0 picked</span>
+  </div>
+</nav>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">Something Fishy · state of the game · 25 Nov 2026</span>
+    <h1>Rybki Roadmap Review</h1>
+    <p class="lede">What is built, what is broken or weak, and what could come next. It draws on the external review in <code>docs/review/</code>, HANDOFF.md, ROADMAP.md and the Ideas list in GAME_DESIGN.md. Tap <b>Pick</b> on the options and answer the open decisions; your choices collect at the bottom of “Tomorrow” and stay in this browser.</p>
+    <div class="facts">
+      <span><b>main</b> at <code>1833af3</code>, pushed</span>
+      <span><b>936</b> tests passing in <b>67</b> files</span>
+      <span><b>~45</b> slices and fixes merged</span>
+      <span><b>19</b> fish in the log: 15 species, 3 trophies, the Pale One</span>
+      <span>Everything pushed has been <b>played on a phone</b></span>
+    </div>
+  </header>
+
+  <section id="where">
+    <h2>Where we are</h2>
+    <p class="intro">M1 (Quiet Lake) is functionally complete and has been played on a phone; only today's A1 fixes are new. M2 (River Bend) has its first two slices: travel and art.</p>
+    <div class="track">
+      <div class="ms now">
+        <span class="chip c-wip">Nearly done</span>
+        <h3>M1 · Quiet Lake</h3>
+        <div class="bar"><i style="width:90%"></i></div>
+        <p>Everything built and played. Left: the A2 balance pass and the pacing sim.</p>
+      </div>
+      <div class="ms">
+        <span class="chip c-wip">Started</span>
+        <h3>M2 · River Bend</h3>
+        <div class="bar"><i style="width:28%"></i></div>
+        <p>25a travel + 25b art merged. Next: the current mechanic, river fish, checklist and chapters R1–R6.</p>
+      </div>
+      <div class="ms">
+        <span class="chip c-grey">Not started</span>
+        <h3>M3 · Strangers</h3>
+        <div class="bar"><i style="width:0%"></i></div>
+        <p>Onboarding, Polish translation, Android build, privacy page, closed test with 12+ friends.</p>
+      </div>
+      <div class="ms">
+        <span class="chip c-grey">Not started</span>
+        <h3>M4 · Old Quarry</h3>
+        <div class="bar"><i style="width:0%"></i></div>
+        <p>Deep clear water, the Ironjaw, chapters O1–O7, fossils.</p>
+      </div>
+      <div class="ms">
+        <span class="chip c-grey">Not started</span>
+        <h3>M4.5 · Make it yours</h3>
+        <div class="bar"><i style="width:0%"></i></div>
+        <p>Looks and names for Alex, Pajkel, the car; the wardrobe card.</p>
+      </div>
+      <div class="ms">
+        <span class="chip c-grey">Not started</span>
+        <h3>M5 · Sea Pier</h3>
+        <div class="bar"><i style="width:0%"></i></div>
+        <p>The story ends. Version 2.0, the public Google Play release.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="built">
+    <h2>What's built</h2>
+    <p class="intro">Grouped by area. Everything pushed before today has been played on a phone, lightly for the newest parts.</p>
+    <div class="groups">
+      <div class="group">
+        <h3>Fishing</h3>
+        <ul class="items">
+          <li><span class="slice tag">1–2</span><span>Hold-to-charge cast, bobber, nibbles, 1 s hook window</span></li>
+          <li><span class="slice tag">5</span><span>Catch bar fight and show-off pose</span></li>
+          <li><span class="slice tag">6</span><span>Fish data, spawn rules, sizes</span></li>
+          <li><span class="slice tag">fix</span><span>Catch math audit: no passive wins, damped reel, shallow cap</span></li>
+          <li><span class="slice tag">fix</span><span>Charge meter holds 250 ms at full power</span></li>
+          <li><span class="slice tag">23f</span><span>Sweet spot, perfect catch, medal</span></li>
+          <li><span class="slice tag">12</span><span>The Pale One, the eerie window</span></li>
+          <li><span class="slice tag">23c–d</span><span>Ide, asp, burbot; 3 trophy fish with hints and a board</span></li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>World and time</h3>
+        <ul class="items">
+          <li><span class="slice tag">2–3</span><span>Game clock, day/night palettes</span></li>
+          <li><span class="slice tag">16</span><span>The car, bedtime, naps, the night kit</span></li>
+          <li><span class="slice tag">23b</span><span>Weather by real date and hour, 10 s crossfade</span></li>
+          <li><span class="slice tag">14</span><span>Lake moments: duck, frog, star, bottle, uncanny bubbles</span></li>
+          <li><span class="slice tag">25a</span><span>Places as data, driving to River Bend</span></li>
+          <li><span class="slice tag">25b</span><span>River Bend art: river, landing, hut, rocks, current</span></li>
+          <li><span class="slice tag">10a</span><span>Synthesised sounds and ambience</span></li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Progression and economy</h3>
+        <ul class="items">
+          <li><span class="slice tag">7</span><span>Bag, shop, coins, rods</span></li>
+          <li><span class="slice tag">15a–c</span><span>Prices by rarity, lines, reels, baits</span></li>
+          <li><span class="slice tag">13a–b</span><span>Daily bait box with streak, 3 daily quests</span></li>
+          <li><span class="slice tag">19</span><span>Size stars, fish of the day</span></li>
+          <li><span class="slice tag">20</span><span>The Doorstep checklist (6 bundles)</span></li>
+          <li><span class="slice tag">23a</span><span>Gear gated by bundles</span></li>
+          <li><span class="slice tag">23e</span><span>Camp items (5,500 coins)</span></li>
+          <li><span class="slice tag">22e</span><span>Fish knowledge (Grzesiu's idea)</span></li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Story and characters</h3>
+        <ul class="items">
+          <li><span class="slice tag">4</span><span>Alex, Pajkel, Bestia; petting; names</span></li>
+          <li><span class="slice tag">17</span><span>“No take, only throw” fetch</span></li>
+          <li><span class="slice tag">21, 24</span><span>Chapters Q1–Q8 following progress</span></li>
+          <li><span class="slice tag">22d</span><span>Story journal with Alex's and Pajkel's thoughts</span></li>
+          <li><span class="slice tag">22a</span><span>Pajkel's chair, sip and pour, new sticks</span></li>
+          <li><span class="slice tag">art</span><span>Pajkel redrawn (face, white cap, walk); Bestia's gallop and tail</span></li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Interface</h3>
+        <ul class="items">
+          <li><span class="slice tag">8</span><span>Fish log, personal bests</span></li>
+          <li><span class="slice tag">9</span><span>Autosave, export code, settings</span></li>
+          <li><span class="slice tag">22b</span><span>Friendlier panels: tabs, accordion, fades</span></li>
+          <li><span class="slice tag">22c</span><span>Hint line, glints, shore sign, 44 px targets</span></li>
+          <li><span class="slice tag">18</span><span>Road map with four places</span></li>
+          <li><span class="slice tag">fix</span><span>Tester input: tap vs hold, fight toast queue, board button</span></li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Tech and today's fixes</h3>
+        <ul class="items">
+          <li><span class="slice tag">11</span><span>PWA, offline, GitHub Pages deploy</span></li>
+          <li><span class="slice tag">11b</span><span>Crisp rendering at device resolution, VT323</span></li>
+          <li><span class="slice tag">A1</span><span>Texture cache, audio resume and limiter, story Q4/Q7, trophy medal, load and start over</span><small>Merged today, seen live in the browser</small></li>
+          <li><span class="slice tag">fix</span><span>“Hooked! Pajkel cheers!” toast removed</span><small>Tester feedback, today</small></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="wrong">
+    <h2>What's wrong</h2>
+    <p class="intro">Open problems, mostly from the external review. <span class="chip c-done">Checked</span> means I confirmed it in the code; <span class="chip c-grey">Review says</span> means it is the reviewer's claim and not yet checked. Two review “blockers” were wrong: the fonts load fine on GitHub Pages (Vite rewrites the path), and W.'s hut already darkens at night.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Problem</th><th>Why it matters</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr class="cat"><td colspan="3">Balance and pacing (review A2)</td></tr>
+          <tr><td>Perfect catch is near impossible on darting fish</td><td>Review sim: 0% for a human on the Golden Tench and Silver Ghost. Breaks “perfect rare catch = top achievement”. HANDOFF already noted medals on deep fish are a long shot.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>Sunny weather does nothing to bites</td><td>The zone multiplier hits every candidate in the same zone, so it cancels out.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Gear gates bypassed in minutes</td><td>Duck Tax (1 bleak) + Dawn Chorus unlock the Carbon rod before any deep fishing.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Dawn Chorus asks for day-only fish</td><td>Roach, rudd and bleak are <code>times: ['day']</code>.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Corn costs more than it earns everywhere</td><td>A bait nobody should buy.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>Free naps + deep night farm ~200 coins/min</td><td>The whole shop in ~85 minutes.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>Asp's difficulty erased by the shallow cap</td><td>Every asp fights at 0.40.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Fog invisible after 10:00, Old Mossback still bites</td><td>The HUD and Pajkel say fog, the lake shows none.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Interface and feedback</td></tr>
+          <tr><td>No live cue that a perfect run is still alive</td><td>The best moment of a fight is invisible.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Red sweet spot on green, nothing else</td><td>Red-green colourblind players can't see it.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Tapping a shore object flicks the rod</td><td>Known since the tester-input fix.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Two ways into the notice board</td><td>The button skips the story bottle and collides with the update toast. Waiting on your call.</td><td class="sev"><span class="chip c-open">Decision</span></td></tr>
+          <tr><td>Catch screen crowding at 360 px</td><td>Bubble over Alex, size line off-centre, cramped wind icon, name tag over sprites.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>No “new gear in the shop” after a bundle</td><td>The gate unlocks silently.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>No haptics toggle</td><td>The phone always vibrates, even in bed.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Words and story</td></tr>
+          <tr><td>Custom names ignored in many lines</td><td>“Gold star, Alex!” after renaming her.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>“Catch a eel”, “Catch 2 eel”</td><td>Grammar in daily quests.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>★ ✓ ○ fall back to a system font</td><td>“★ New record!” breaks the pixel look.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>“The DS4 won't drive on vibes.”</td><td>Personal, fine for the gift; a choice before going public.</td><td class="sev"><span class="chip c-open">Decision</span></td></tr>
+          <tr><td>“the lake” texts shown at River Bend</td><td>Location-unaware copy.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Art and sound</td></tr>
+          <tr><td>Rain, wind, campfire and river are silent</td><td>Visuals with no sound bed.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>One fanfare for every big moment</td><td>Trophy, perfect and medal sound the same.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>Camp is static</td><td>Bestia never uses her bed, which reads flat; the tent is a plain sprite (both in HANDOFF).</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Campfire burns in rain, lights cross the trophy board</td><td>Seen in the review's night-rain screenshot.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>Moon and glitter at full brightness in rain</td><td>Seen in the review's night-rain screenshot.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>River Bend dock missing a corner</td><td>Grass shows through under the crate.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+          <tr><td>Mixed pixel scales in the HUD and panels</td><td>9×9 icon drawn at 16 px; 1×/2×/3× side by side.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Engineering</td></tr>
+          <tr><td>LakeScene.ts is ~3,300 lines</td><td>Most cross-system bugs start there.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Render scale up to 4× on 1080p phones</td><td>1440×2560 backing store; battery and heat.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>No tests for UI and scene code</td><td>Today's bugs all lived there.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Save numbers unbounded, no boot error screen</td><td>Rare, but a blank screen with no hint.</td><td class="sev"><span class="chip c-grey">Review says</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Blocks M2 work</td></tr>
+          <tr><td>Riffle and seam share one fish pool</td><td>Both map to <code>shallow</code>.</td><td class="sev"><span class="chip c-bad">Blocks 25d</span></td></tr>
+          <tr><td>Companion spots hardcoded to Quiet Lake</td><td>The river can't have its own layout.</td><td class="sev"><span class="chip c-bad">Blocks M2</span></td></tr>
+          <tr><td>Current mechanic design contradictions</td><td>Auto reel-in with no aiming; one-sided drift may revive the old sinker bug; Ferry Pike's 90 ms release window.</td><td class="sev"><span class="chip c-open">Decision</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Found by the consultants</td></tr>
+          <tr><td>A1 regression: Shiver 1 is almost always lost</td><td>Q4 now also unlocks after 1 bundle, and Duck Tax is one bleak, so nearly everyone gets the day bottle and never sees the blinking star.</td><td class="sev"><span class="chip c-bad">Urgent</span></td></tr>
+          <tr><td>Duck (Q2) and footprints (Q5) play while the companions sleep</td><td>Between 00:00 and 05:00 Bestia barks from inside the closed car.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>Old Mossback hint plays at River Bend</td><td>Pajkel talks about a Quiet Lake trophy at the river.</td><td class="sev"><span class="chip c-done">Checked</span></td></tr>
+          <tr><td>First-catch trophy line dropped at night; fog lines after 10:00</td><td>Small story and copy slips.</td><td class="sev"><span class="chip c-grey">Consultants say</span></td></tr>
+          <tr><td>“Sell all” sells fish the checklist needs</td><td>No warning; the most regrettable mistake in the game.</td><td class="sev"><span class="chip c-grey">Consultants say</span></td></tr>
+          <tr><td>Catch screen skipped by an excited thumb</td><td>The tap guard after a fight is only 400 ms.</td><td class="sev"><span class="chip c-grey">Consultants say</span></td></tr>
+
+          <tr class="cat"><td colspan="3">Not played yet</td></tr>
+          <tr><td>Today's A1 fixes</td><td>Audio after the app was in the background, the Q4 night blink, loading a save code.</td><td class="sev"><span class="chip c-wip">New today</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="consult">
+    <h2>What the consultants said</h2>
+    <p class="intro">From <code>docs/review/10-ceo-story-ux-proposals.md</code>: a CEO merging a storyteller and a UI/UX designer, both reading the code. Their brief: the game should feel like Alex's private 10–15 minute sanctuary in bed, one-handed, often with the sound off. Their top 10, with my take.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>Proposal</th><th>What Alex notices</th><th>Size</th><th>My take</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Bites and fights readable with the sound off</td><td>Droplets on a nibble, a gold splash and edge pulse on a bite, a bobber tip that stays bright at night, a catch bar that visibly answers her thumb.</td><td>S–M</td><td><span class="chip c-done">Yes</span><br><small>The strongest UX idea in the report.</small></td></tr>
+          <tr><td>2</td><td>Protect Shiver 1, and visual silence for the 3 shivers</td><td>The blinking star still happens; fireflies and ripples stop, the float is moon-white, one soft heartbeat buzz.</td><td>S</td><td><span class="chip c-bad">Now</span><br><small>Fixes my A1 regression.</small></td></tr>
+          <tr><td>3</td><td>Tap Pajkel to chat; he reacts to big losses and hard perfect catches</td><td>Short lines about the weather, the bag, the chair, Bestia; now and then a warm one (“Warm enough?”).</td><td>S</td><td><span class="chip c-done">Yes</span><br><small>Cheap and full of character.</small></td></tr>
+          <tr><td>4</td><td>Zone notches on the cast charge bar</td><td>She sees “Shallow” flip to “Deep” before she lets go.</td><td>S</td><td><span class="chip c-open">With M2</span><br><small>Pays off most with three river zones.</small></td></tr>
+          <tr><td>5</td><td>Checklist protection in Bag and Shop, “Use now” for new bait</td><td>A pip on fish the checklist needs, a warning above “Sell all”, Close always at the bottom.</td><td>M</td><td><span class="chip c-done">Yes</span></td></tr>
+          <tr><td>6</td><td>Bedside soundscape</td><td>Soft rain, a crackling campfire, the river's rush.</td><td>M</td><td><span class="chip c-done">Yes</span><br><small>Same as the “Camp life and sound” option.</small></td></tr>
+          <tr><td>7</td><td>Gentle welcome</td><td>A lighter name card, no “Days in a row”, a welcome-back line from Pajkel.</td><td>S</td><td><span class="chip c-done">Yes</span></td></tr>
+          <tr><td>8</td><td>In-bed comfort</td><td>A haptics switch, a longer guard on the catch screen, an optional warm dim mode, the catch bar on the left.</td><td>S–M</td><td><span class="chip c-wip">Partly</span><br><small>Switch and guard yes; dim mode and the left bar are your call.</small></td></tr>
+          <tr><td>9</td><td>Living shore</td><td>The duck keeps chasing the sandwich, a drawer of found bottles in the journal, a ribbon on the sign when a fish fits the checklist.</td><td>S–M</td><td><span class="chip c-grey">Later</span></td></tr>
+          <tr><td>10</td><td>Field-guide fish log and a compact shop</td><td>Flip between species with one thumb, a pip on fish that bite now.</td><td>M</td><td><span class="chip c-grey">Later</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="intro"><b>They would remove:</b> the top-right board button (everyone agrees); the separate Bag button, folded into “Shop · n/10” so Settings gets a real 44 px button; routine “goes in the bag” toasts, duplicate “Gold!” text and the streak wording on the bait box. <b>They rejected:</b> hidden sub-tabs in the shop (the night kit got missed that way before) and a buzz on every full-power cast.</p>
+  </section>
+
+  <section id="next">
+    <h2>Tomorrow: where to continue</h2>
+    <p class="intro">Each option is roughly one to three slices. Pick as many as you like; order them when we talk.</p>
+    <div class="options" id="options">
+      <article class="opt" data-id="shiver">
+        <div class="meta"><span class="chip c-open">An hour</span><span class="chip c-bad">Urgent</span></div>
+        <h3>Story hotfix</h3>
+        <p>Undo the Shiver 1 regression (fallback at 3 bundles, blink still plays later), hold the duck and footprints while the companions sleep, keep the Mossback hint at Quiet Lake.</p>
+        <ul><li>Before Alex reaches Q4, if she hasn't</li><li>Small, core rules with tests</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="quiet">
+        <div class="meta"><span class="chip c-open">~1 day</span><span class="chip c-done">High feel</span></div>
+        <h3>Consultants' quick batch</h3>
+        <p>Their #1, #3, #7 and the safe half of #8: readable bites and fights with the sound off, tap-to-chat Pajkel, a gentle welcome, a haptics switch and a longer catch-screen guard.</p>
+        <ul><li>Makes the next Quiet Lake session warmer</li><li>Overlaps “A3 · Fight and screen feedback”</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="phone">
+        <div class="meta"><span class="chip c-open">An hour</span><span class="chip c-done">Low risk</span></div>
+        <h3>Check the review's guesses in play</h3>
+        <p>A short session aimed at the review's unchecked claims: try for a perfect catch on a darting fish, fish on a sunny hour, a foggy afternoon, a night with naps.</p>
+        <ul><li>Turns “review says” into real priorities</li><li>Also tries today's A1 push (audio after the background, Q4)</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="a2">
+        <div class="meta"><span class="chip c-open">~1 day</span><span class="chip c-wip">Needs decisions</span></div>
+        <h3>A2 · Balance pass</h3>
+        <p>Make the numbers honest: perfect-catch grace window, sunny weather that works, real gear gates, cheaper corn with a use, Dawn Chorus fish at dawn, asp at its real difficulty, a calmer deep-night income.</p>
+        <ul><li>Finishes M1 “pacing rework”</li><li>Pure core changes with bot sims</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="a3ux">
+        <div class="meta"><span class="chip c-open">~1 day</span><span class="chip c-done">High feel</span></div>
+        <h3>A3 · Fight and screen feedback</h3>
+        <p>A live perfect-catch star, a sweet spot with a white or gold edge, no rod flick on shore taps, a tidy catch screen, “new gear” after a bundle, a haptics switch.</p>
+        <ul><li>Most of what testers will notice</li><li>Includes the board-button decision</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="a3copy">
+        <div class="meta"><span class="chip c-open">Half a day</span><span class="chip c-done">Low risk</span></div>
+        <h3>A3 · Words pass</h3>
+        <p>Custom names everywhere, quest grammar, pixel stars instead of ★ ✓ ○, location-aware “lake” texts, stale weather lines, a tiny text helper so River Bend copy lands in one place.</p>
+        <ul><li>Small, mechanical, visible</li><li>Prepares for Polish later</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="cozy">
+        <div class="meta"><span class="chip c-open">1–2 days</span><span class="chip c-done">High charm</span></div>
+        <h3>Camp life and sound</h3>
+        <p>Bestia sleeps in a redrawn bed, the fire dims in rain and crackles, Pajkel warms his hands, the tent glows. Rain, wind and campfire sound beds, and distinct trophy and medal stingers.</p>
+        <ul><li>Pays off the 5,500-coin camp</li><li>Big for playing in bed</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="m2prep">
+        <div class="meta"><span class="chip c-open">~1 day</span><span class="chip c-wip">Needs decisions</span></div>
+        <h3>M2 groundwork</h3>
+        <p>Separate fish pools per river zone, companion spots per place, render scale capped at 3, and a revised current and Ferry Pike design before slice 25c.</p>
+        <ul><li>Unblocks 25c–25g</li><li>Some LakeScene extraction on the way</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+      <article class="opt" data-id="m2">
+        <div class="meta"><span class="chip c-open">Several days</span><span class="chip c-wip">Needs groundwork</span></div>
+        <h3>M2 · River Bend content</h3>
+        <p>25c current, 25d river fish, 25e checklist + chapters R1–R6 + moments, 25f trophies + the Ferryman, 25g river gear.</p>
+        <ul><li>The next big thing for Alex</li><li>Best after the groundwork</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
+    </div>
+
+    <h3>Open decisions</h3>
+    <p class="intro">Each overturns or settles something in GAME_DESIGN.md or RIVER_BEND.md. The line under each is my recommendation.</p>
+    <div class="decisions" id="decisions">
+      <div class="dec" data-id="d-perfect"><p><b>Perfect catch grace.</b> Allow ~300 ms outside the zone before a run stops being perfect?</p><span class="rec">Yes. Aim for a 15–25% perfect rate for a skilled player on max gear.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-gates"><p><b>Gear gates.</b> Tie the Carbon rod to “Bottom of Things” and Fluoro/Pro to “Night Shift” instead of a bundle count?</p><span class="rec">Yes. It keeps the gate meaning “you've fished deep”.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-board"><p><b>Notice board.</b> Remove the top-right button and keep only the shore sign?</p><span class="rec">Yes. If testers still miss the sign, add a badge in the bottom bar, not top-right.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-naps"><p><b>Naps.</b> Keep them free, but trim deep-night prices and add a short cooldown?</p><span class="rec">Yes, a 2-minute cooldown at most. Never an energy bar.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-river"><p><b>River current.</b> Drop the forced auto reel-in until aimed casting exists, and give river fights a pattern rather than one-sided drift?</p><span class="rec">Yes. Widen the Ferry Pike band to 18–26 m too.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-scale"><p><b>Render scale.</b> Cap it at 3× (from 4×) for battery and heat?</p><span class="rec">Yes, then check text sharpness on your phone; it cuts the pixels drawn per frame by about 44% on 1080p phones.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-bag"><p><b>Bag into Shop.</b> Fold the Bag button into “Shop · n/10” so Settings gets a full 44 px button?</p><span class="rec">Your call. It saves taps but changes muscle memory.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-paj"><p><b>Pajkel's tap lines.</b> Allow subtle inside jokes, not only universal cozy lines?</p><span class="rec">Universal in the public repo; inside jokes could go in the hidden “— P.” bottles instead.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-order"><p><b>Polish before River Bend.</b> Ship the Quiet Lake polish first, and bundle zone notches and river sound into M2?</p><span class="rec">Yes. Alex's next session gets warmer; nothing is touched twice.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-dim"><p><b>Bedtime dim mode.</b> A Settings switch that warms and dims the whole screen?</p><span class="rec">Only if Alex plays in a dark room a lot; it is easy to add later.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+      <div class="dec" data-id="d-notes"><p><b>Personal notes.</b> Start the hidden “— P.” bottles on real-day milestones (day 3, 7, 14, 30)?</p><span class="rec">Your call. You said “later” before; it is the strongest gift moment in the idea pool.</span><div class="yn"><button class="y" type="button" aria-pressed="false">Yes</button><button class="l" type="button" aria-pressed="false">Later</button><button class="n" type="button" aria-pressed="false">No</button></div></div>
+    </div>
+
+    <div class="summary" aria-live="polite">
+      <h3>Your picks</h3>
+      <div id="summary"><p class="empty">Nothing picked yet.</p></div>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <h2>Roadmap</h2>
+    <p class="intro">From ROADMAP.md, with the review's phases folded in. Every milestone ends in something Alex can play for weeks.</p>
+    <div class="group">
+      <div class="roadrow"><span class="when">Now</span><div><b>Finish M1</b> <span class="chip c-wip">Open</span><ul><li>Play today's A1 fixes</li><li>A2 balance pass, then the pacing sim and price rebalance</li><li>A3 feedback and words pass</li></ul></div></div>
+      <div class="roadrow"><span class="when">M2</span><div><b>Road trip: River Bend</b> <span class="chip c-wip">2 of 7 slices</span><ul><li><span class="chip c-done">Done</span> 25a location as data and travel · 25b river art</li><li>Groundwork: zone fish pools, companion spots per place</li><li>25c current (bobber drift, seam bonus) · 25d trout, grayling, nase, chub, barbel, vimba</li><li>25e “Against the Current” checklist, chapters R1–R6, kingfisher/otter/heron moments</li><li>25f rare river fish, river trophy board, the Ferryman · 25g trotting float, heavy lead</li><li>Fish log pages per place · weekly quest (Monday reset) · river and rain ambience</li></ul><small>Done when she can drive there and back and the river has about two weeks of its own goals.</small></div></div>
+      <div class="roadrow"><span class="when">M3</span><div><b>Ready for strangers</b><ul><li>Short first-time tutorial · choose your character</li><li>Decide personal vs public content (Pajkel, Bestia, the DS4, band nods)</li><li>Polish translation with proper plurals; all text in one place</li><li>Performance on a mid-range Android; render scale; texture atlas</li><li>Capacitor Android build, target API 36, edge-to-edge safe areas, Android Back closes panels</li><li>Privacy page, About &amp; licences, saves backed up, a local error log</li><li>Google Play closed test: 12+ testers for 14 days</li></ul></div></div>
+      <div class="roadrow"><span class="when">M4</span><div><b>Old Quarry</b><ul><li>Deep clear water, odd fish, the Ironjaw (noon legendary)</li><li>Chapters O1–O7, quarry checklist, fossil collection</li></ul></div></div>
+      <div class="roadrow"><span class="when">M4.5</span><div><b>Make it yours</b><ul><li>Hair, outfit and colours for Alex and Pajkel; rename and recolour the car</li><li>The wardrobe card</li></ul></div></div>
+      <div class="roadrow"><span class="when">M5</span><div><b>Sea Pier: In Waves</b> <span class="chip c-open">Version 2.0</span><ul><li>Dunwater, gulls, the Other Angler, the finale at dawn</li><li>The Pale Scale pendant, the epilogue at Quiet Lake</li><li>Public Google Play release</li></ul></div></div>
+    </div>
+  </section>
+
+  <section id="ideas">
+    <h2>Idea pool</h2>
+    <p class="intro">Everything proposed so far and not scheduled, from GAME_DESIGN.md (yours and the testers'), the external review, and its retention ideas. The source is in blue.</p>
+    <div class="ideas">
+      <div class="idea"><span class="src">GAME_DESIGN · user</span><b>Aimed casting + lake features</b><p>Slide the thumb to aim; reeds, lilies, a sunken log, a drop-off each hold different fish. Build both together.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · Stardew-like</span><b>Treasure in the catch bar</b><p>A chest drifts through the bar; keep it in the zone to grab coins, bait or a cosmetic. Missing it costs nothing.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · tester</span><b>Switch between owned rods</b><p>Fish shallow with a light rod for fun or quests; needs rods to differ beyond “bigger is better”.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · user</span><b>Species that need a special bait</b><p>Glow bait at night, fish strip for a predator; a “needs …” hint in the log.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · tester</span><b>Achievements + total weight per species</b><p>Badges and a running weight per fish in the log.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · user</span><b>Livelier fight reactions</b><p>Pajkel leans in and cheers during the fight, Bestia watches the line.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · user</span><b>Rotating fish facts</b><p>A pool of facts per species, maybe one on every catch; unlockable facts tied to chapters (R5, O3, E1).</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · user</span><b>Personal bottle notes from Pajkel</b><p>Hidden notes for Alex, with a Notes page to reread them. You said “far future”.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · user</span><b>NPC tournaments, later online leaderboards</b><p>“Biggest bream before 18:00” against named NPC anglers; online needs a backend and accounts.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · v2a</span><b>Worm farm</b><p>Soil plots you feed; worms multiply over game days, feed decides the worm type.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · v2b</span><b>Fields and bait crafting</b><p>Grow corn and wheat; craft hook bait and groundbait from recipes.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · v2c</span><b>Spinning</b><p>Lures and wobblers; retrieve speed and depth decide what attacks.</p></div>
+      <div class="idea"><span class="src">GAME_DESIGN · v2d</span><b>Feeder fishing</b><p>Heavy cast, bite alarm, maybe two rods; for carp, bream, catfish.</p></div>
+      <div class="idea"><span class="src">ROADMAP · after M5</span><b>Trophy wall or aquarium on the dock</b><p>Show off the favourite catches where Alex fishes.</p></div>
+      <div class="idea"><span class="src">ROADMAP · after M5</span><b>Seasonal events</b><p>Frozen pond, lantern festival; more places from STORY §7; cloud sync.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Morning forecast + a daily lake quirk</b><p>Pajkel's one-line forecast on the first visit; a quirk like “biting frenzy” or “big fish day”.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Streak curiosities in the bait box</b><p>At higher streak tiers: Pajkel's secret dough, postcards for the journal, bobber colours.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Pajkel's request as quest #3</b><p>“Pajkel wants a 50+ cm pike today”, with rewards scaled to the current rod.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Weekly derby</b><p>One relaxed 7-day goal with a cosmetic reward, not coins.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Weekend bait boat</b><p>A visiting boat that sells one rotating cosmetic and buys one category at ×2.5.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Mastery crowns</b><p>Fish knowledge tiers scaled by rarity (1/3/8 for rares); a crown and a tiny perk at the top tier.</p></div>
+      <div class="idea"><span class="src">Review · retention</span><b>Pick your trophy wall</b><p>Choose 3–5 favourite catches to display; a reason to chase medals after the log is full.</p></div>
+      <div class="idea"><span class="src">Review · game design</span><b>Weather forecast in the HUD</b><p>Tap the clock to see the current weather's effect and time to the next hour.</p></div>
+      <div class="idea"><span class="src">Review · game design</span><b>Lock fish in the bag</b><p>“Sell all” skips checklist and gold fish.</p></div>
+      <div class="idea"><span class="src">Review · game design</span><b>Dinosaur hoodie for 3/3 trophies</b><p>A wearable reward for Alex from GAME_DESIGN §2b.</p></div>
+      <div class="idea"><span class="src">Review · audio</span><b>Drive and foley sounds</b><p>Engine and gravel on the road card, wet footsteps in Q5, a sound for the blinking star, Bestia petting.</p></div>
+      <div class="idea"><span class="src">Review · UI/UX</span><b>Colourblind and high-contrast catch bar</b><p>A setting with blue and gold, or patterned zones.</p></div>
+      <div class="idea"><span class="src">Review · engineering</span><b>Dev FPS overlay and a local error log</b><p>Profile on low-end Android; copy a diagnostic log from Settings for beta testers.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    Sources: docs/review/00–09 (external review, 25 Nov 2026), docs/review/10 (consultants), docs/HANDOFF.md, docs/ROADMAP.md, docs/GAME_DESIGN.md §4–5, docs/RIVER_BEND.md §9, git history on main. Picks are stored only in this browser.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var KEY = 'rybki-roadmap-picks-v1';
+  var state = { opts: {}, decs: {} };
+  try { var raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var opts = Array.prototype.slice.call(document.querySelectorAll('.opt'));
+  var decs = Array.prototype.slice.call(document.querySelectorAll('.dec'));
+
+  function render() {
+    var picked = [];
+    opts.forEach(function (o) {
+      var on = !!state.opts[o.dataset.id];
+      o.classList.toggle('picked', on);
+      var b = o.querySelector('.pick');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = on ? 'Picked' : 'Pick';
+      if (on) picked.push(o.querySelector('h3').textContent);
+    });
+    var answers = [];
+    decs.forEach(function (d) {
+      var v = state.decs[d.dataset.id] || '';
+      d.querySelectorAll('.yn button').forEach(function (b) {
+        var val = b.classList.contains('y') ? 'Yes' : b.classList.contains('n') ? 'No' : 'Later';
+        b.setAttribute('aria-pressed', v === val ? 'true' : 'false');
+      });
+      if (v) answers.push(d.querySelector('b').textContent.replace(/\.$/, '') + ': ' + v);
+    });
+    var box = document.getElementById('summary');
+    box.textContent = '';
+    if (!picked.length && !answers.length) {
+      var p = document.createElement('p'); p.className = 'empty'; p.textContent = 'Nothing picked yet.'; box.appendChild(p);
+    } else {
+      if (picked.length) { box.appendChild(list('Work to do', picked)); }
+      if (answers.length) { box.appendChild(list('Decisions', answers)); }
+    }
+    document.getElementById('pickCount').textContent = picked.length + ' picked · ' + answers.length + '/' + decs.length + ' decided';
+  }
+  function list(title, items) {
+    var wrap = document.createElement('div');
+    var h = document.createElement('b'); h.textContent = title; wrap.appendChild(h);
+    var ul = document.createElement('ul');
+    items.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+    wrap.appendChild(ul);
+    return wrap;
+  }
+  opts.forEach(function (o) {
+    o.querySelector('.pick').addEventListener('click', function () {
+      state.opts[o.dataset.id] = !state.opts[o.dataset.id]; save(); render();
+    });
+  });
+  decs.forEach(function (d) {
+    d.querySelectorAll('.yn button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var val = b.classList.contains('y') ? 'Yes' : b.classList.contains('n') ? 'No' : 'Later';
+        state.decs[d.dataset.id] = state.decs[d.dataset.id] === val ? '' : val; save(); render();
+      });
+    });
+  });
+  render();
+})();
+</script>
