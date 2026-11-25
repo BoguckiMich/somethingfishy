@@ -411,8 +411,8 @@ export function alexShowOffSprite(breath: 0 | 1): Sprite {
 export const PAJ_SIZE = { w: 40, h: 48 };
 /** The sprite row that sits on the anchor: the chair legs and the shadow hang below it (slice 22a). */
 export const PAJ_ORIGIN_Y = 42;
-/** The top row of his hair (the speech bubble points at it). */
-export const PAJ_HEAD_TOP = 7;
+/** The top row of his cap (the speech bubble points at it). */
+export const PAJ_HEAD_TOP = 8;
 export type PajPose = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look';
 /** Every seated frame, in the order the textures are baked. */
 export const PAJ_POSES: readonly PajPose[] = ['sit', 'sipLift', 'sipDrink', 'pourReach', 'pour', 'cheer', 'look'];
@@ -521,6 +521,38 @@ const cup = (p: Pix, x: number, y: number) => {
 };
 
 /**
+ * The white cap seen from behind: a rounded crown over the top of the head (rows 7..12), shaded at the
+ * rim and edges, the strap opening at the back with hair showing through under a strap, and, when his
+ * head is turned, the brim tip poking out past the face side with its darker underside.
+ */
+function paintSeatedCap(p: Pix, look: boolean, dy: number): void {
+  const s = (x: number, y: number, c: number) => p.set(x, y + dy, c);
+  const maxX = (y: number) => (look ? 24 : y <= 9 ? 24 : y === 10 ? 23 : y === 11 ? 21 : 20);
+  for (let y = 7; y <= 12; y++) {
+    for (let x = 8; x <= maxX(y); x++) {
+      if (((x - 16.5) / 7.8) ** 2 + ((y - 12) / 5.6) ** 2 > 1) continue;
+      const rim = y === 12 || (y === 11 && (x <= 10 || x >= 23));
+      s(x, y, rim || x <= 9 || (look && x >= 24) ? PAL.capShade : PAL.capWhite);
+    }
+  }
+  // Seam: down the middle from behind, curving towards the brim when turned.
+  if (look) for (let y = 8; y <= 10; y++) s(16, y, PAL.capShade), s(17, y, PAL.capShade);
+  else for (const [x, y] of [[15, 8], [16, 9], [18, 9], [19, 10]]) s(x, y, PAL.capShade);
+  // The adjustment strap: an opening in the rim, hair behind it, a strap across.
+  for (let x = 15; x <= 18; x++) {
+    s(x, 11, PAL.capShade);
+    s(x, 12, PAL.pajHair);
+  }
+  s(14, 12, PAL.capShade);
+  s(19, 12, PAL.capShade);
+  if (!look) {
+    for (let x = 22; x <= 26; x++) s(x, 10, PAL.capWhite); // the brim
+    for (let x = 23; x <= 26; x++) s(x, 11, PAL.capBrimUnder);
+    s(22, 10, PAL.capWhite);
+  }
+}
+
+/**
  * Seen from behind, sitting in a red camp chair on the dock, the rod leaning against its left arm and
  * the thermos standing on the planks to his right. Slate jacket with a collar, two shoulders and a
  * back seam; the head is turned a little to the right so the sunglasses, cheek and the long beard
@@ -568,7 +600,7 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
     for (let y = 14; y <= 22; y++) for (let x = x0; x <= x1; x++) if (noise(x + 3, y) > density + (y - 14) * 0.035) up.set(x, y + (y < 18 ? dy : 0), y >= 18 ? PAL.pajHairDark : pajHair(x, y));
   };
   if (pose === 'look') {
-    up.ell(16.5, 12 + dy, 7.5, 6.5, hair);
+    up.ell(16.5, 12.6 + dy, 7.5, 5.9, hair);
     lobe(8, 13, 0.08);
     lobe(21, 25, 0.08);
     for (let y = 14; y <= 21; y++) {
@@ -592,7 +624,7 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
     face(13, 20, 25, PAL.skin); // the nose going out
     face(14, 20, 26, PAL.skin); // nose tip, the cheek
     face(15, 21, 26, PAL.skin);
-    for (let y = 6; y <= 18; y++) {
+    for (let y = 7 + dy; y <= 18; y++) {
       for (let x = 8; x <= 25; x++) {
         const inside = ((x - 16.5) / 7.5) ** 2 + ((y - 12 - dy) / 5.5) ** 2 <= 1;
         if (inside && (x < 20 || y <= 9 + dy)) up.set(x, y, hair(x, y));
@@ -628,6 +660,8 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
       }
     }
   }
+
+  paintSeatedCap(up, pose === 'look', dy);
 
   // The arm, the cup and the thermos in hand.
   const sleeve = (x: number, y: number, w: number, h: number) => {
@@ -821,8 +855,19 @@ function pajHead(p: Pix, bob: number): void {
     for (let x = x0; x <= x1; x++) s(x, y, typeof c === 'number' ? c : c(x, y));
   };
   // Skull: a slightly flat crown, the back rounder and lower; a few strands break the silhouette.
-  p.ell(14.5, 9.3 + bob, 6.6, 6.2, pajHair);
+  // (the cap covers the top of it: only what comes out under the cap is seen)
+  p.ell(14.5, 10 + bob, 6.8, 5.5, pajHair);
   p.ell(11.5, 11.5 + bob, 3.8, 4.2, pajHair);
+  // Tufts at the back and over the ear, a couple of strands at the temple.
+  s(7, 9, pajHair(7, 9));
+  s(6, 10, PAL.pajHairDark);
+  s(7, 10, PAL.pajHairLight);
+  s(7, 11, pajHair(7, 11));
+  s(8, 8, PAL.pajHairLight);
+  s(13, 10, PAL.pajHairLight);
+  s(17, 7, PAL.pajHairDark);
+  s(18, 7, pajHair(18, 7));
+  s(19, 7, PAL.pajHairLight);
   // Hair falling behind the neck to the shoulders.
   for (let y = 12; y <= 21; y++) for (let x = 8; x <= 12; x++) if (noise(x, y + 4) > 0.15 + (y - 12) * 0.04) p.set(x, y + bob, y > 15 ? PAL.pajHairDark : pajHair(x, y));
   // Neck behind the beard, in shade.
@@ -830,17 +875,13 @@ function pajHead(p: Pix, bob: number): void {
   row(14, 17, 15, PAL.skinShade);
   row(14, 17, 16, PAL.skinShade);
   // Face: bare skin from the hairline to the profile line (forehead, brow ridge, bridge dip, the nose).
-  row(21, 22, 7, PAL.skin); // forehead under the fringe
+  row(21, 22, 7, PAL.skin); // forehead under the brim
   row(19, 23, 8, PAL.skin); // brow ridge sticks out
   row(17, 22, 9, PAL.skin); // the dip at the bridge
   row(17, 23, 10, PAL.skin); // the nose starts
   row(14, 24, 11, PAL.skin);
   row(17, 25, 12, PAL.skin); // nose tip
-  // Fringe over the top of the forehead, strands over the brow.
-  row(19, 22, 6, pajHair);
-  s(20, 7, PAL.pajHairLight);
-  s(18, 8, pajHair(18, 8));
-  s(17, 7, PAL.pajHairDark);
+  s(18, 8, pajHair(18, 8)); // a strand at the temple
   // Eyebrow, lens (with a glint), temple arm to the ear.
   row(20, 22, 8, PAL.pajHairDark);
   row(19, 21, 9, PAL.outline);
@@ -879,6 +920,34 @@ function pajHead(p: Pix, bob: number): void {
     for (let x = x0; x <= x1; x++) s(x, y, x === x1 && y <= 22 ? PAL.beardLight : pajBeard(x, y));
   }
   row(16, 17, 15, PAL.beardDark); // the jaw line under the ear
+  pajCap(p, bob);
+}
+
+/**
+ * The white baseball cap on the side-view head: a low rounded crown from the brow back to above the ear,
+ * shaded along its lower edge and back, a seam, and a short brim over the sunglasses with a darker
+ * underside and a 1 px shadow on the forehead (slice: cap).
+ */
+function pajCap(p: Pix, bob: number): void {
+  const s = (x: number, y: number, c: number) => p.set(x, y + bob, c);
+  // Lowest cap row per column: the brow line in front, a step up behind the temple, above the ear at the side.
+  const lowest = (x: number) => (x >= 17 ? 6 : x >= 15 ? 7 : x >= 12 ? 8 : 9);
+  for (let y = 4; y <= 9; y++) {
+    for (let x = 5; x <= 22; x++) {
+      if (((x - 14.5) / 7.8) ** 2 + ((y - 8.7) / 4.9) ** 2 > 1 || y > lowest(x)) continue;
+      const edge = y === lowest(x) || (x < 12 && y >= lowest(x) - 1) || x <= 8;
+      s(x, y, edge && x < 17 ? PAL.capShade : PAL.capWhite);
+    }
+  }
+  s(21, 6, PAL.capWhite);
+  s(12, 4, PAL.capShade); // seam, from the button down to the brim
+  s(13, 5, PAL.capShade);
+  s(15, 6, PAL.capShade);
+  s(16, 6, PAL.capShade);
+  // Brim: sticks forward over the lens, white on top, a darker underside.
+  for (let x = 20; x <= 25; x++) s(x, 7, PAL.capWhite);
+  for (let x = 21; x <= 26; x++) s(x, 8, PAL.capBrimUnder);
+  s(23, 9, PAL.skinShade); // shadow of the brim
 }
 
 
