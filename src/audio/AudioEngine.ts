@@ -49,9 +49,9 @@ export class AudioEngine {
     });
   }
 
-  /** The graph once unlocked and not paused; null before the first gesture or without Web Audio. */
+  /** The graph once unlocked, running and not paused; null otherwise, so sounds are dropped (not queued) while suspended. */
   get ready(): AudioGraph | null {
-    return this.graph && !this.paused && this.graph.ctx.state !== 'closed' ? this.graph : null;
+    return this.graph && !this.paused && this.graph.ctx.state === 'running' ? this.graph : null;
   }
 
   /** Called from a user gesture: builds the context on first use, resumes it when it slept. */
@@ -69,7 +69,19 @@ export class AudioEngine {
         const ctx = new Ctor();
         const master = ctx.createGain();
         master.gain.value = document.visibilityState === 'hidden' ? 0 : 0.8;
-        master.connect(ctx.destination);
+        // A gentle limiter so a burst of sounds never clips.
+        try {
+          const limiter = ctx.createDynamicsCompressor();
+          limiter.threshold.value = -6;
+          limiter.knee.value = 6;
+          limiter.ratio.value = 4;
+          limiter.attack.value = 0.003;
+          limiter.release.value = 0.25;
+          master.connect(limiter);
+          limiter.connect(ctx.destination);
+        } catch {
+          master.connect(ctx.destination);
+        }
         const sfxBus = ctx.createGain();
         const ambBus = ctx.createGain();
         sfxBus.gain.value = this.sfxGain;
@@ -91,9 +103,13 @@ export class AudioEngine {
     const g = this.graph;
     if (!g) return;
     try {
-      g.master.gain.cancelScheduledValues(g.ctx.currentTime);
-      g.master.gain.setValueAtTime(0, g.ctx.currentTime);
-      void g.ctx.suspend().catch(() => undefined);
+      const now = g.ctx.currentTime;
+      g.master.gain.cancelScheduledValues(now);
+      g.master.gain.setValueAtTime(g.master.gain.value, now);
+      g.master.gain.linearRampToValueAtTime(0, now + 0.015);
+      window.setTimeout(() => {
+        if (this.paused) void g.ctx.suspend().catch(() => undefined);
+      }, 20);
     } catch {
       // ignore
     }
