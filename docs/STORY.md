@@ -65,6 +65,8 @@ Lake" gets explained in O6: W. didn't write that one.
 - **No chapter needs the night kit.** A night chapter shows its night version if she is there
   between 21:00 and 05:00, and the **day version** (listed under it) if she plays without the kit or
   only by day. Each chapter is delivered once, in one version.
+  A player who got Q4's day version still sees the blink once, the first night she is at the lake
+  while Pajkel sleeps in the car (a bonus beat, no daily slot); the journal page then shows the night version.
 - **Pajkel's lines** follow the bedtime rule: he only speaks when awake and on the dock. A line due
   while he sleeps waits until 05:00, which is the running gag.
 - **Delivery:** each chapter appears within ~1–2 real minutes of the visit's start, so it's never
