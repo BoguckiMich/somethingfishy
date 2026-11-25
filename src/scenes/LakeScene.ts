@@ -66,7 +66,7 @@ import { LOCATIONS, QUIET_LAKE } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
-import { cottageWindow, FERRY, FERRY_SIGN_FEET, farShoreY, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS, rightBankEdge, riverWaterline } from '../art/riverArt';
+import { cottageWindow, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS } from '../art/riverArt';
 import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
@@ -2070,7 +2070,8 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (this.loc.background === 'river') createRiverTextures(this);
-    img(this.bg.farShore, 0, FAR_SHORE_TOP, Z.farShore);
+    // At the river the far bank (with the farmstead) is drawn above the water glow and the water layers: its picture holds no pixel below `farShoreY`, so nothing washes over it.
+    img(this.bg.farShore, 0, FAR_SHORE_TOP, this.loc.background === 'river' ? Z.reflection + 0.5 : Z.farShore);
     this.waterImg = img(this.bg.water, 0, FAR_SHORE_Y, Z.water, false);
     this.waterGlow = this.add.graphics().setDepth(Z.waterGlow);
     this.reflectionImg = this.add.image(0, this.loc.background === 'river' ? FAR_SHORE_Y : FAR_SHORE_Y + 4, this.bg.reflection[0]).setOrigin(0, 0).setDepth(Z.reflection).setAlpha(this.loc.background === 'river' ? 0.42 : 0.7);
@@ -2223,7 +2224,7 @@ export class LakeScene extends Phaser.Scene {
         speed: 0.8 + rnd() * 1.6,
       };
       // At the river the gravel bars rise out of the water: no sparkles on dry stones.
-      if (this.loc.background === 'river' && (sp.y > riverWaterline(sp.x) - 3 || sp.x > rightBankEdge(sp.y) - 3 || sp.y < farShoreY(sp.x) + 3)) continue;
+      if (this.loc.background === 'river' && !onOpenWater(sp.x, sp.y, 3)) continue;
       this.sparkles.push(sp);
     }
     for (let i = 0; i < 16; i++) {
@@ -2973,6 +2974,8 @@ export class LakeScene extends Phaser.Scene {
       const y = FAR_SHORE_Y + 5 + u * depthPx;
       const x = cx + (r2 - 0.5) * 2 * (4 + u * 28);
       const len = 1 + Math.floor(r3 * 3);
+      // At the river the glitter stays on open water: not over the far bank and the farmstead, the point, the hut or the gravel.
+      if (this.loc.background === 'river' && !(onOpenWater(Math.round(x), Math.round(y)) && onOpenWater(Math.round(x) + len, Math.round(y)))) continue;
       g.fillStyle(color, v * strength * (1 - u * 0.7)).fillRect(Math.round(x), Math.round(y), len, 1);
     }
   }
@@ -3046,6 +3049,7 @@ export class LakeScene extends Phaser.Scene {
       const x = 8 + hash01(i * 1.9 + cyc * 7.7 + 4) * (W - 16);
       const y = FAR_SHORE_Y + 12 + depth * span;
       const k = 0.5 + depth * 0.8;
+      if (this.loc.background === 'river' && !onOpenWater(Math.round(x), Math.round(y), 8)) continue;
       pixelEllipse(g, Math.round(x), Math.round(y), (1 + p * 5) * k, (0.5 + p * 1.6) * k, color, (1 - p) * 0.95 * Math.max(0.5, lightLevel) * still);
     }
   }

@@ -17,10 +17,12 @@ import {
   riverWaterline,
   riverWaterRaster,
   COTTAGE,
+  underFarmstead,
   cottageBox,
   cottageWindow,
   farShoreY,
   isRightLand,
+  onOpenWater,
   jettyBox,
   jettyRaster,
   jettyReflectionRaster,
@@ -301,6 +303,39 @@ describe('one wide river band, the far shoreline and the point', () => {
     }
   });
 
+  it('the far reflection and the water are transparent above the shoreline, and the far bank holds nothing below it', () => {
+    const far = riverFarBankRaster();
+    for (const f of [0, 1, 2]) {
+      const refl = riverFarReflectionRaster(far, f);
+      for (let x = 0; x < W; x++) {
+        for (let y = 0; y < farShoreY(x) - FAR_SHORE_Y; y++) expect(refl.alphaAt(x, y), `reflection x ${x} y ${y + FAR_SHORE_Y}`).toBe(0);
+      }
+    }
+    for (let x = 0; x < W; x++) {
+      for (let y = FAR_SHORE_TOP; y < farShoreY(x); y++) expect(water.alphaAt(x, y - FAR_SHORE_Y)).toBe(0);
+      for (let y = farShoreY(x); y < farShoreY(x) + 30; y++) expect(far.alphaAt(x, y - FAR_SHORE_TOP), `far bank below the shore at x ${x}`).toBe(0);
+    }
+  });
+
+  it('the farmstead reflection is short and faint, directly under the shoreline', () => {
+    const far = riverFarBankRaster();
+    for (const f of [0, 1, 2]) {
+      const refl = riverFarReflectionRaster(far, f);
+      let rows = 0;
+      let px = 0;
+      for (let x = 0; x < W; x++) {
+        if (!underFarmstead(x)) continue;
+        for (let y = 0; y < refl.height; y++) {
+          if (refl.alphaAt(x, y) === 0) continue;
+          px++;
+          rows = Math.max(rows, y + FAR_SHORE_Y - farShoreY(x) + 1);
+        }
+      }
+      expect(rows).toBeLessThanOrEqual(10);
+      expect(px).toBeLessThan(260);
+    }
+  });
+
   it('the far reflection hangs from the shoreline', () => {
     const far = riverFarBankRaster();
     for (const f of [0, 1, 2]) {
@@ -392,6 +427,7 @@ describe('far landing and cottage', () => {
     expect(cottage.y + cottage.h).toBeLessThanOrEqual(farShoreY(cottage.x + cottage.w / 2));
     expect(cottage.y + cottage.h).toBeGreaterThanOrEqual(farShoreY(cottage.x + cottage.w / 2) - 6);
     expect(overlap(cottage, BOBBER_COLUMN)).toBe(false);
+    for (let x = cottage.x - 12; x <= cottage.x + cottage.w; x++) expect(cottage.y + cottage.h, `cottage above the water at x ${x}`).toBeLessThanOrEqual(farShoreY(x));
   });
 
   it('the jetty is a short plank jetty left of x 200 at the far shore with the ferry moored against it', () => {
@@ -539,5 +575,19 @@ describe('ferry and ferry sign', () => {
     for (const [name, other] of others) expect(overlap(box, other), name).toBe(false);
     const r = ferrySignRaster();
     expect([r.width, r.height]).toEqual([box.w, box.h]);
+  });
+});
+
+describe('glitter stays on open water', () => {
+  it('onOpenWater is false over the far bank, the farmstead, the jetty line, the point, the hut and the gravel, true on the river', () => {
+    const cottage = cottageBox();
+    for (let x = cottage.x; x < cottage.x + cottage.w; x += 3) for (let y = cottage.y; y < cottage.y + cottage.h; y++) expect(onOpenWater(x, y), `cottage ${x},${y}`).toBe(false);
+    for (let x = 0; x < W; x += 5) for (let y = FAR_SHORE_Y - 40; y < farShoreY(x) + 2; y++) expect(onOpenWater(x, y), `far bank ${x},${y}`).toBe(false);
+    for (let x = 0; x < W; x += 5) expect(onOpenWater(x, riverWaterline(x) + 1), `gravel ${x}`).toBe(false);
+    expect(onOpenWater(330, 420)).toBe(false); // the point and the hut
+    expect(onOpenWater(350, 396)).toBe(false);
+    for (const x of [20, 100, 180, 256, 330]) expect(onOpenWater(x, Math.max(farShoreY(x) + 8, 230)), `river ${x}`).toBe(true);
+    // The whole bobber column is open water from the far shore to the near gravel.
+    for (let x = 236; x <= 276; x += 4) for (let y = farShoreY(x) + 3; y < SHORE_Y - 8; y += 6) expect(onOpenWater(x, y)).toBe(true);
   });
 });

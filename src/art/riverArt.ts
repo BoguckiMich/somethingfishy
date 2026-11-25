@@ -116,7 +116,13 @@ export const COTTAGE = { x: 34, w: 34, h: 28 };
 const COTTAGE_SPRITE_W = 46;
 const COTTAGE_FENCE_W = 12;
 /** The cottage's feet (world y of its walls' bottom): just above the far shoreline. */
-export const cottageFeetY = () => farShoreY(COTTAGE.x + COTTAGE.w / 2) - 2;
+export const cottageFeetY = (): number => {
+  let low = 999;
+  for (let x = COTTAGE.x - COTTAGE_FENCE_W; x <= COTTAGE.x + COTTAGE.w; x++) low = Math.min(low, farShoreY(x));
+  return low - 2; // above the shoreline along its whole width
+};
+/** Whether column x of the far reflection lies under the farmstead (its reflection is kept short and faint). */
+export const underFarmstead = (x: number) => x >= COTTAGE.x - COTTAGE_FENCE_W - 2 && x < COTTAGE.x + COTTAGE.w + 2;
 export const cottageBox = () => ({ x: COTTAGE.x, y: cottageFeetY() - COTTAGE.h, w: COTTAGE.w, h: COTTAGE.h });
 /** The window (local to the cottage body) that glows at night; its world place follows. */
 const COTTAGE_WINDOW_LOCAL = { x: 8, y: 17, w: 6, h: 6 };
@@ -224,6 +230,10 @@ export function riverFarBankRaster(): Raster {
   }
   // The far ferry post, in front of the trees (the rope ends at the ferry's pulley beside it).
   r.blit(FAR_POST, FAR_POST_POS.x, FAR_POST_POS.baseY - FAR_POST.height - FAR_SHORE_TOP);
+  // The bank is drawn over the water layers, so nothing of it may hang below the shoreline (trees and rocks are wider than one column).
+  for (let cx = 0; cx < W; cx++) {
+    for (let y = base(cx); y < FS_H; y++) r.data[(y * r.width + cx) * 4 + 3] = 0;
+  }
   return r;
 }
 
@@ -234,7 +244,8 @@ export function riverFarReflectionRaster(bank: Raster, frame: number): Raster {
   const phase = frame * 2.1;
   for (let x = 0; x < W; x++) {
     const sh = farShoreY(x);
-    for (let ry = 0; ry < 46; ry++) {
+    const home = underFarmstead(x);
+    for (let ry = 0; ry < (home ? 10 : 46); ry++) {
       const ty = sh - FAR_SHORE_Y + ry;
       if (ty >= height) break;
       const sy = sh - FAR_SHORE_TOP - 1 - ry;
@@ -242,9 +253,9 @@ export function riverFarReflectionRaster(bank: Raster, frame: number): Raster {
       const dx = Math.round(Math.sin(ry * 0.6 + phase) * (1 + ry / 24));
       const c = bank.get(x - dx, sy);
       if (c < 0) continue;
-      if (bayer(x, ry) > (1 - ry / 46) * 1.15) continue;
+      if (bayer(x, ry) > (home ? (1 - ry / 10) * 0.45 : (1 - ry / 46) * 1.15)) continue;
       if ((ry + Math.round(phase)) % 5 === 0 && bayer(x + ry, ry) > 0.45) continue;
-      r.set(x, ty, lerpColor(c, PAL.deep0, 0.5));
+      r.set(x, ty, lerpColor(c, PAL.deep0, home ? 0.7 : 0.5));
     }
   }
   return r;
@@ -403,6 +414,14 @@ export function rightBankEdge(y: number): number {
 /** True where a world point is land of the point. */
 export const isRightLand = (x: number, y: number) => x >= rightBankEdge(y);
 
+/**
+ * Whether a world point is open water of the river: below the far shoreline, above the gravel along the near bank and left of the point. The sun and moon
+ * glitter, the sparkles and the rain rings are drawn only here, never over the far bank, the farmstead, the point, the hut or the gravel. `pad` keeps them off the edges.
+ */
+export function onOpenWater(x: number, y: number, pad = 2): boolean {
+  return y >= farShoreY(x) + pad && y < riverWaterline(x) - pad && x < rightBankEdge(y) - pad;
+}
+
 const scaled = new Map<string, Sprite>();
 /** A tree sprite at a perspective scale (cached). */
 function treeAt(sp: Sprite, name: string, scale: number): Sprite {
@@ -466,7 +485,8 @@ export function riverRightBankRaster(): Raster {
       trees.push({ sp, by: by + Math.floor(rnd() * 4), cx: Math.max(318, rightBankEdge(by) + 6) + k * 18 + rnd() * 10, flip: rnd() < 0.5 });
     }
   }
-  for (const [by, sp, flip] of [[404, WILLOW_NEAR, false], [428, treeAt(WILLOW_BIG, 'wb', 1.1), true]] as const) {
+  for (const [by, sp, flip] of [[392, WILLOW_NEAR, false]] as const) {
+    // Stands on the nose just above the hut's roof, so its fronds hang over the water to the left of the hut.
     trees.push({ sp, by, cx: rightBankEdge(by) + 2, flip });
   }
   trees.sort((p, q) => p.by - q.by);
