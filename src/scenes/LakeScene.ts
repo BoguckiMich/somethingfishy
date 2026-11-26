@@ -464,6 +464,10 @@ export class LakeScene extends Phaser.Scene {
   private napTarget: NapOption | null = null;
   /** `Date.now()` when the last nap woke them (balance A2: a 2-minute rest before the next nap); not saved. */
   private lastNapAt: number | undefined;
+  /** Game ms left of the rest after the last nap (counts down in update, so the nap card can tick; started from the saved stamp). */
+  private napRestMs = 0;
+  private napCardHandle: PanelHandle | null = null;
+  private napCardSecond = -1;
   /** 00:00 passed and the sequence is waiting for a fight, the show-off or a panel to end. */
   private bedPending = false;
   /** 01:00 passed without the kit and the warning is waiting for a fight, a panel or a card to end. */
@@ -851,6 +855,9 @@ export class LakeScene extends Phaser.Scene {
     this.clock = loaded.save.clock;
     // A save loaded between 02:00 and 05:00 without the night kit wakes at 05:00 (no sequence).
     this.clock = loadClock(this.clock, hasNightKit(this.player));
+    // The rest after the last nap survives a reload; a clock set back never makes it longer than two minutes.
+    this.lastNapAt = this.player.napAt;
+    this.napRestMs = napCooldownLeftMs(this.lastNapAt, Date.now());
     this.persist();
     const onHide = () => {
       if (document.visibilityState === 'hidden') this.persist();
@@ -891,6 +898,7 @@ export class LakeScene extends Phaser.Scene {
     this.sinceDateCheck += deltaMs;
     if (this.sinceDateCheck >= DATE_CHECK_MS) this.refreshDate();
     this.updateWeather(deltaMs);
+    this.updateNapRest(deltaMs);
     if (this.sinceClockSave >= CLOCK_SAVE_MS) this.persist();
     // A map opened over a waiting line holds the line: no nibble or bite is missed behind the panel.
     const lineHeld = this.panel !== null && this.state.kind === 'waiting';
@@ -1017,7 +1025,7 @@ export class LakeScene extends Phaser.Scene {
       const kit = hasNightKit(this.player);
       const nap = c.bed?.kind === 'nap' && this.napTarget;
       this.clock = nap ? napWakeClock(this.clock, this.napTarget!.minute, kit) : morningClock(this.clock);
-      if (nap) this.lastNapAt = Date.now();
+      if (nap) this.startNapRest();
       this.napTarget = null;
       // Alex's 02:00 where they were not in the car yet (the screen is black): they are in it now.
       if (c.mode !== 'bed') startInCar(c);
@@ -1036,6 +1044,24 @@ export class LakeScene extends Phaser.Scene {
     if (r.done) this.sleepFade = null;
   }
 
+  /** A nap woke them: the 2-minute rest starts now and the stamp is saved (so a reload keeps it). */
+  private startNapRest(): void {
+    this.lastNapAt = Date.now();
+    this.napRestMs = napCooldownLeftMs(this.lastNapAt, this.lastNapAt);
+    this.setPlayer({ ...this.player, napAt: this.lastNapAt });
+  }
+
+  /** Counts the rest down; an open nap card redraws each second (and the buttons come on at 0). */
+  private updateNapRest(deltaMs: number): void {
+    if (this.napRestMs <= 0) return;
+    this.napRestMs = Math.max(0, this.napRestMs - deltaMs);
+    const sec = Math.ceil(this.napRestMs / 1000);
+    if (sec !== this.napCardSecond) {
+      this.napCardSecond = sec;
+      if (this.napCardHandle && this.panel === this.napCardHandle) this.napCardHandle.refresh();
+    }
+  }
+
   /** The nap card: only from the dock, with Alex idle. */
   private openNapCard(): void {
     const c = this.companions.state;
@@ -1046,11 +1072,18 @@ export class LakeScene extends Phaser.Scene {
       (o) => {
         this.napTarget = o;
         startNap(this.companions.state);
+        // The walk to the car takes a while before the screen fades: say so (balance A2).
+        this.showToast('Off to nap...');
       },
-      () => (this.panel = null),
+      () => {
+        this.panel = null;
+        this.napCardHandle = null;
+      },
       this.clock.minute,
-      () => napCooldownLeftMs(this.lastNapAt, Date.now()),
+      () => this.napRestMs,
     );
+    this.napCardHandle = this.panel;
+    this.napCardSecond = -1;
   }
 
   /** The trophy board's card (slice 23d): only while idle. */
@@ -1072,7 +1105,7 @@ export class LakeScene extends Phaser.Scene {
     this.swallowUp = false;
     this.panel = showMapPanel(
       {
-        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state), cooldownLeftMs: napCooldownLeftMs(this.lastNapAt, Date.now()) }),
+        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state), cooldownLeftMs: this.napRestMs }),
         onNap: () => this.openNapCard(),
         onChecklist: () => this.openChecklist(),
         checklist: { done: checklistDone(this.player), total: bundleTotal },
@@ -3129,11 +3162,12 @@ export class LakeScene extends Phaser.Scene {
       const top = FAR_SHORE_Y - 52;
       const bands = 24;
       const bandH = Math.ceil((SHORE_Y - top) / bands);
-      const color = multiply(0xe4ebee, look.worldTint);
+      const color = multiply(0xf4f7f8, look.worldTint);
       for (let i = 0; i < bands; i++) {
         const u = i / (bands - 1);
-        // Thickest low over the far shore, thinner toward the near water.
-        const a = 0.7 * strength * Math.min(1, u * 2.5) * (1 - 0.65 * u);
+        // Thickest over the far bank (it fades in over the first bands so there is no hard top edge), thinner toward the near water,
+        // but still a clear milk over the whole lake (balance A2: the old one was too faint to see against the grey-blue water).
+        const a = 1.0 * strength * Math.min(1, 0.35 + u * 6) * (1 - 0.45 * u);
         fg.fillStyle(color, a).fillRect(0, top + i * bandH, W, bandH);
       }
       // A few slow wisps on top.
@@ -3141,7 +3175,7 @@ export class LakeScene extends Phaser.Scene {
         const w = 90 + hash01(i * 4.1) * 80;
         const x = ((hash01(i * 1.3) * (W + w) + t * (3 + (i % 3) * 2)) % (W + w)) - w;
         const y = FAR_SHORE_Y + 8 + hash01(i * 8.9) * (SHORE_Y - FAR_SHORE_Y - 90);
-        fg.fillStyle(color, 0.16 * strength).fillRect(Math.round(x), Math.round(y), Math.round(w), 7);
+        fg.fillStyle(color, 0.28 * strength).fillRect(Math.round(x), Math.round(y), Math.round(w), 7);
       }
     }
   }

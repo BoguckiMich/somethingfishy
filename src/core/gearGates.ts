@@ -20,11 +20,14 @@ export function gearUnlocked(itemId: string, p: PlayerState): boolean {
   return 'bundle' in gate ? bundleDone(p, gate.bundle) : countedDone(gate, p) >= gate.count;
 }
 
-/** The lock line of a shop card: "Unlocks after The Bottom of Things", or "Unlocks after a main checklist bundle (0/1)". */
+/** Where the checklist is, said on every lock line: the car opens the road map, which has the Quiet Lake checklist button. */
+export const CHECKLIST_WHERE = 'Quiet Lake checklist: tap the car';
+
+/** The lock line of a shop card: "Finish The Bottom of Things (Quiet Lake checklist: tap the car)", or the same for "a main bundle (0/1)". */
 export function gateText(itemId: string, p: PlayerState): string {
   const gate = gateFor(itemId);
   if (!gate) return '';
-  if ('bundle' in gate) return `Unlocks after ${bundleById(gate.bundle)?.name ?? 'a checklist bundle'}`;
+  if ('bundle' in gate) return `Finish ${bundleById(gate.bundle)?.name ?? 'a checklist bundle'} (${CHECKLIST_WHERE})`;
   const have = Math.min(gate.count, countedDone(gate, p));
-  return `Unlocks after ${gate.count === 1 ? 'a main checklist bundle' : `${gate.count} main checklist bundles`} (${have}/${gate.count})`;
+  return `Finish ${gate.count === 1 ? 'a main bundle' : `${gate.count} main bundles`} ${have}/${gate.count} (${CHECKLIST_WHERE})`;
 }

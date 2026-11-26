@@ -60,10 +60,10 @@ describe('gear gates (slice 23a, reworked in balance A2)', () => {
     }
   });
   it('the lock text names the bundle, or counts the main ones', () => {
-    expect(gateText('carbon', newPlayer())).toBe('Unlocks after The Bottom of Things');
-    expect(gateText('fluoro', newPlayer())).toBe('Unlocks after Night Shift');
-    expect(gateText('braided', newPlayer())).toBe('Unlocks after a main checklist bundle (0/1)');
-    expect(gateText('braided', withDone(['duck-tax']))).toBe('Unlocks after a main checklist bundle (0/1)');
+    expect(gateText('carbon', newPlayer())).toBe('Finish The Bottom of Things (Quiet Lake checklist: tap the car)');
+    expect(gateText('fluoro', newPlayer())).toBe('Finish Night Shift (Quiet Lake checklist: tap the car)');
+    expect(gateText('braided', newPlayer())).toBe('Finish a main bundle 0/1 (Quiet Lake checklist: tap the car)');
+    expect(gateText('braided', withDone(['duck-tax']))).toBe('Finish a main bundle 0/1 (Quiet Lake checklist: tap the car)');
     expect(gateText('bamboo', newPlayer())).toBe('');
   });
   it('a locked item cannot be bought even with the coins', () => {

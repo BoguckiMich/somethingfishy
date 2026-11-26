@@ -55,5 +55,5 @@ export const WEATHER_LOOK = {
   fogThinFromMinute: 8 * 60 + 30,
   fogThinToMinute: 10 * 60,
   /** The fog never thins below this (0..1) for as long as the weather is fog, so what you see is what the rare fish and Old Mossback need. */
-  fogFloor: 0.5,
+  fogFloor: 0.6,
 };

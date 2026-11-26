@@ -11,12 +11,8 @@ import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
  */
 export function showNapCard(kit: boolean, pick: (o: NapOption) => void, onClose: () => void, minute = 12 * 60, cooldownLeft: () => number = () => 0): PanelHandle {
   const primary = napPrimaryId(minute);
-  // After a nap they rest a little (balance A2): the buttons wait and a kind line counts down; the card refreshes itself each second.
-  let timer: ReturnType<typeof setInterval> | undefined;
-  const stop = () => {
-    if (timer !== undefined) clearInterval(timer);
-    timer = undefined;
-  };
+  // After a nap they rest a little (balance A2): the buttons wait and a kind line counts down. The scene refreshes the card each second
+  // (game time, so it also runs when stepped) and the buttons come on at 0.
   const panel: PanelHandle = openPanel(
     'Nap until...',
     (body) => {
@@ -30,7 +26,6 @@ export function showNapCard(kit: boolean, pick: (o: NapOption) => void, onClose:
           woodButton(
             o.label,
             () => {
-              stop();
               panel.close();
               pick(o);
             },
@@ -38,14 +33,9 @@ export function showNapCard(kit: boolean, pick: (o: NapOption) => void, onClose:
           ),
         );
       }
-      if (left > 0 && timer === undefined) timer = setInterval(() => panel.refresh(), 1000);
-      if (left <= 0) stop();
       body.append(col);
     },
-    () => {
-      stop();
-      onClose();
-    },
+    onClose,
     true,
     `It's ${formatClock(minute)} now`,
   );

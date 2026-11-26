@@ -66,6 +66,8 @@ export interface PlayerState {
   seen?: string[];
   /** The real hour (YYYY-MM-DD-HH) Pajkel last said a weather line for (slice 23b, hourly since 2026-11-24; an old plain date is read as its hour 00); missing = never. */
   weatherSeen?: string;
+  /** `Date.now()` when the last nap woke them (balance A2: a 2-minute rest before the next nap, `core/bedtime.napCooldownLeftMs`); missing = never. Saved so a reload does not skip the rest. */
+  napAt?: number;
   /** The trophy board (slice 23d): the biggest catch of each rare fish; missing = none caught yet. */
   trophies?: TrophyState;
   /** The camp items owned (slice 23e), ids of core/data/camp in shop order; missing = none. Read with campOwned(). */

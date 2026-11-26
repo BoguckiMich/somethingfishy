@@ -313,3 +313,11 @@ describe('trophy board (slice 23d)', () => {
     expect(normalizeSave({ version: 1, player: { trophies: 5 }, clock: {} }).player).not.toHaveProperty('trophies');
   });
 });
+
+describe('the last nap stamp (balance A2)', () => {
+  it('is kept when it is a real time stamp and dropped otherwise', () => {
+    expect(normalizeSave({ version: 1, player: { napAt: 1_764_000_000_000 }, clock: {} }).player.napAt).toBe(1_764_000_000_000);
+    for (const bad of ['now', -5, 0, NaN, null, {}]) expect(normalizeSave({ version: 1, player: { napAt: bad }, clock: {} }).player).not.toHaveProperty('napAt');
+    expect(normalizeSave({ version: 1, player: {}, clock: {} }).player).not.toHaveProperty('napAt');
+  });
+});
