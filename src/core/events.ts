@@ -24,5 +24,5 @@ export type GameEvent =
       /** The fish never left the green zone during the fight (slice 23f). Missing = no. */
       perfect?: boolean;
     }
-  /** The catch bar ran empty. Slice 7 hooks losing the bait onto this. */
-  | { type: 'fishLost'; zone: ZoneId; pattern: FishPattern; difficulty: number; speciesId: string; slipped?: boolean };
+  /** The catch bar ran empty (classic), or the line went slack too long / snapped (line style, `snapped`). Slice 7 hooks losing the bait onto this. */
+  | { type: 'fishLost'; zone: ZoneId; pattern: FishPattern; difficulty: number; speciesId: string; slipped?: boolean; snapped?: boolean };

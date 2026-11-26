@@ -22,7 +22,13 @@ Coordinates are GAME coordinates: x 0-360, y 0-640 (top-left origin).
   hold x y ms                 touch down, game time runs for ms, touch up (charge a cast, press the catch bar)
   swipe x1 y1 x2 y2 ms        touch down, drag, touch up
   step ms                     advance game time (50 ms ticks); nothing moves unless you step
-  fight [maxMs]               auto-play the catch bar (hold when the fish is above the zone) until the fight ends
+  fight [maxMs]               auto-play the fight until it ends: the classic catch bar (hold when the fish is above the zone) or, when it is
+                              a line fight (?catch=line or Settings), the line bot below (style-aware)
+  fight-line [maxMs] [--mode decent|hold|never] [--until warn|cut|surge|steady|red|caught]
+                              play a Line fight (slice 28). decent (default): hold while the tension is below the middle of the gold band and
+                              no surge is showing, let go on a surge or above the middle. hold: never let go (the line snaps). never: never hold
+                              (the hook slips from slack). --until stops the bot and leaves the thumb as it is: when a surge is telegraphed (the splash), at the first surge pull, at a steady
+                              moment (tension in the gold band), in the red, or at the catch (default: until the fight ends)
   wait <kind> [maxMs]         step until fishing kind is idle|charging|casting|waiting|bite|fighting|caught|lost (default max 60000)
   state                       compact JSON: fishing kind, clock, coins, bag, panel, toast, bar info...
   text                        visible DOM text (panels are DOM overlays)
@@ -158,6 +164,11 @@ async function readState(c) {
     if (s.kind === 'fighting') {
       const b = s.bar;
       out.bar = { zone: +b.zone.toFixed(2), fish: +b.fish.toFixed(2), progress: +b.progress.toFixed(2), holding: b.holding };
+      if (s.line) {
+        const l = s.line;
+        out.line = { distanceM: +l.distanceM.toFixed(1), startM: l.startM, tension: +l.tension.toFixed(2), phase: l.phase, strength: +l.strength.toFixed(2), lateral: +l.lateral.toFixed(2), holding: l.holding, redS: +l.redS.toFixed(2), slackS: +l.slackS.toFixed(2) };
+        delete out.bar;
+      }
       out.fish = s.hooked.speciesId;
     }
     if (s.kind === 'caught') out.fish = s.hooked.speciesId;
@@ -312,6 +323,8 @@ const commands = {
 
   // Simple bot for the catch bar: finger down while the fish is above the zone centre (higher = up).
   async fight(c) {
+    const style = await c.eval('(() => { const s = window.__rybki.scene.state; return s.kind === "fighting" && s.line ? "line" : "classic"; })()');
+    if (style === 'line') return commands['fight-line'](c);
     const maxMs = Number(pos[1] || 60000);
     const r = await canvasRect(c);
     let down = false;
@@ -328,6 +341,45 @@ const commands = {
     if (down) await touch(c, 'touchEnd', r, 180, 300);
     await step(c, 100);
     console.log(JSON.stringify({ fightMs: t, ...(await readState(c)) }));
+  },
+
+  // Slice 28: the Line fight bot. Reads only what a player sees: the tension, whether a surge is showing (the telegraph splash or the pull).
+  async 'fight-line'(c) {
+    const maxMs = Number(pos[1] || 90000);
+    const mode = flags.mode || 'decent';
+    const until = flags.until || 'caught';
+    const r = await canvasRect(c);
+    const probe = () => c.eval(`(() => {
+      const s = window.__rybki.scene.state;
+      if (s.kind !== 'fighting' || !s.line) return { kind: s.kind };
+      const l = s.line;
+      return { kind: s.kind, phase: l.phase, tension: l.tension, holding: l.holding, strength: l.strength, cutWarn: l.cutWarn, phaseT: l.phaseT, phaseTotal: l.phaseTotal };
+    })()`);
+    // The game starts a fight with the hooking press still down: one real press and release puts the thumb in sync.
+    await touch(c, 'touchStart', r, 180, 300);
+    await touch(c, 'touchEnd', r, 180, 300);
+    let down = false;
+    let t = 0;
+    let stopped = null;
+    for (; t < maxMs; t += 50) {
+      const p = await probe();
+      if (p.kind !== 'fighting') break;
+      const surging = p.phase === 'warn' || p.phase === 'run';
+      const want = mode === 'hold' ? true : mode === 'never' ? false : !surging && p.tension < 0.5;
+      if (until === 'cut' && p.cutWarn > 0.1) { stopped = 'cut'; break; }
+      if (until === 'warn' && p.phase === 'warn' && p.phaseT < p.phaseTotal * 0.5) { stopped = 'warn'; break; }
+      if (until === 'surge' && p.phase === 'run' && p.phaseTotal - p.phaseT > 0.4) { stopped = 'surge'; break; }
+      if (until === 'steady' && p.tension > 0.4 && p.tension < 0.6 && p.phase === 'calm' && p.holding) { stopped = 'steady'; break; }
+      if (until === 'red' && p.tension > 0.8) { stopped = 'red'; break; }
+      if (want !== down) {
+        await touch(c, want ? 'touchStart' : 'touchEnd', r, 180, 300);
+        down = want;
+      }
+      await step(c, 50);
+    }
+    if (!stopped && down) await touch(c, 'touchEnd', r, 180, 300);
+    if (!stopped) await step(c, 100);
+    console.log(JSON.stringify({ fightMs: t, mode, stopped, ...(await readState(c)) }));
   },
 
   async wait(c) {

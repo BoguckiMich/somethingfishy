@@ -1,3 +1,5 @@
+import { CATCH_STYLES, DEFAULT_CATCH_STYLE, type CatchStyle } from './fight';
+
 /**
  * Device sound preferences. Not part of SaveData and not in the export code: they live under
  * their own key and storage is injected (same pattern as profile.ts).
@@ -9,9 +11,11 @@ export interface SoundSettings {
   ambience: number;
   /** Phone vibration (nibble, bite, catch...). On by default (A3). */
   haptics: boolean;
+  /** Which fight a hooked fish gives (slice 28): the vertical catch bar or the feel-the-line fight. Classic by default until the testers have compared. */
+  catchStyle: CatchStyle;
 }
 
-export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: 100, ambience: 100, haptics: true };
+export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: 100, ambience: 100, haptics: true, catchStyle: DEFAULT_CATCH_STYLE };
 
 export const SOUND_SETTINGS_KEY = 'rybki.settings.v1';
 
@@ -27,6 +31,7 @@ export function normalizeSoundSettings(raw: Partial<Record<keyof SoundSettings, 
     sfx: volume(raw?.sfx, DEFAULT_SOUND_SETTINGS.sfx),
     ambience: volume(raw?.ambience, DEFAULT_SOUND_SETTINGS.ambience),
     haptics: typeof raw?.haptics === 'boolean' ? raw.haptics : DEFAULT_SOUND_SETTINGS.haptics,
+    catchStyle: CATCH_STYLES.find((s) => s === raw?.catchStyle) ?? DEFAULT_SOUND_SETTINGS.catchStyle,
   };
 }
 

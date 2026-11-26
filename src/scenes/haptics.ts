@@ -34,4 +34,10 @@ export const HAPTICS = {
   hooked: 30,
   caught: [30, 50, 30, 50, 90],
   escaped: [20, 60, 20],
+  /** The line fight (slice 28): a surge is telegraphed, it hits, the line is near the red, in the red; the line snapped. */
+  lineWarn: 22,
+  lineSurge: 45,
+  lineStrain: 10,
+  lineRed: [25, 15, 25],
+  snapped: [90, 30, 60],
 } satisfies Record<string, number | number[]>;

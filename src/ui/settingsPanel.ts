@@ -28,6 +28,8 @@ export interface SettingsStore {
   /** The Sounds / Ambience volumes, 0..100 (saved by the setter unless sandboxed). */
   soundSettings(): SoundSettings;
   setSoundSettings(s: SoundSettings): void;
+  /** The dev flag ?catch=, when it overrides the choice for this session. */
+  catchStyleFlag?(): string | null;
   /** Dev sandbox: nothing here reaches storage. */
   sandbox: boolean;
 }
@@ -219,6 +221,20 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
       ),
       vibeResult,
     );
+
+    // Catch style (slice 28): the classic catch bar or the feel-the-line fight; read when a fight starts, saved with the device settings.
+    body.append(sectionTitle('Fishing'));
+    const line = sounds.catchStyle === 'line';
+    body.append(
+      row(
+        woodButton(`Catch style: ${line ? 'Line' : 'Classic'}`, () => {
+          store.setSoundSettings({ ...store.soundSettings(), catchStyle: line ? 'classic' : 'line' });
+          panel.refresh();
+        }),
+      ),
+      note(line ? 'Line: hold to reel, let go when the fish pulls. Keep the line out of the red.' : 'Classic: hold to raise the bar and keep the fish inside it.', COLORS.dim),
+    );
+    if (store.catchStyleFlag?.()) body.append(note(`The dev flag ?catch=${store.catchStyleFlag()} is on for this session.`, COLORS.amber));
 
     body.append(sectionTitle('Names'));
     // The three fields of the first-launch card, plus a button that keeps the typing (nothing is lost on a refresh).
