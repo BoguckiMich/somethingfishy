@@ -2530,7 +2530,7 @@ export class LakeScene extends Phaser.Scene {
     // Her hands go over the fish so they grip it.
     this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
     this.worldImgs.push(this.showOffHands);
-    this.companions = new CompanionView(this);
+    this.companions = new CompanionView(this, this.spots);
     // The car's shadow and picture, the lantern and its glow, the fade.
     this.carFx = this.add.graphics().setDepth(Z.postFx - 0.2);
     this.carImg = this.add.image(this.carPos.x, this.carPos.y, carKey('closed')).setOrigin(0, 0).setDepth(Z.postFx);

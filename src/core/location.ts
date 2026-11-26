@@ -38,6 +38,43 @@ export interface FishPool {
   specials: boolean;
 }
 
+/** The pebble outing of the companions (slice 26b): where Pajkel stands at the stones and how they walk there. */
+export interface ShoreSpots {
+  /** His feet at the stones, and where Bestia sits beside him. */
+  stand: Point;
+  dogSit: Point;
+  /** From the chair: the waypoint along the front of the dock (him, her). */
+  pajDockVia: Point;
+  dogDockVia: Point;
+  /** From the grass: when he stands below `belowY` he first walks up to `y` (never left of `minX`); she goes via `dogVia`. */
+  pajLane: { belowY: number; y: number; minX: number };
+  dogVia: Point;
+}
+
+/** Everything the companions (scenes/companions/behaviour.ts) need to know about a place's ground (M2 groundwork B). The lawn is `Spots.playArea`; the fire and the dog bed come from `Spots.camp`. */
+export interface CompanionSpots {
+  /** Feet on the landing: his chair, and where Bestia lies. */
+  paj: Point;
+  dog: Point;
+  /** Two waypoints each from the landing down to the grass (nearest the landing first). */
+  pajDown: Point[];
+  dogDown: Point[];
+  /** Feet above this y are still on the planks, below it on the grass. */
+  grassY: number;
+  /** Where they stand when a play session starts. */
+  playPaj: Point;
+  playDog: Point;
+  /** Where Pajkel stands to get in and out of the car, and where Bestia waits beside him. */
+  carStand: Point;
+  carDog: Point;
+  /** The zone below the campfire where his head would cover the flames (`halfW` either side, `below` its feet) and where he is nudged to. */
+  fireKeepOff: { halfW: number; below: number; standX: number };
+  /** Bestia's playful run to the car at bedtime: x ranges right and left of `midX`, a y range, and the last waypoint's ranges. */
+  zigzag: { midX: number; rightX: [number, number]; leftX: [number, number]; y: [number, number]; homeX: [number, number]; homeY: [number, number] };
+  /** The pebble outing; null at a place without skipping stones. */
+  shore: ShoreSpots | null;
+}
+
 /** Where things stand in the 360 x 640 scene (feet = bottom middle unless noted). */
 export interface Spots {
   /** Top-left of the dock / landing picture. */
@@ -52,6 +89,8 @@ export interface Spots {
   /** Top-left of the skipping stones on the near shore (slice 26); a place without them (the River bend) omits it. */
   stones?: Point;
   camp: { tent: Point; pole: Point; fire: Point; bed: Point; sock: Point };
+  /** Where the companions stand, walk and play (M2 groundwork B). */
+  companions: CompanionSpots;
   /** The fetch lawn of the companions. */
   playArea: PlayArea;
 }
