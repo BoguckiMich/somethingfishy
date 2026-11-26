@@ -6,6 +6,8 @@ keeps its ➡️ as the decision. Story beats, moments and the checklist already
 to the systems we built since (hourly weather, rare trophy fish, camp, gear gates, story milestones,
 perfect catch). Layout picture: `docs/sketches/river-bend.svg`._
 
+_**Revised 2026-11-26 (M2 groundwork A), decided with the user:** no forced auto reel-in (§4 ❓1, §9), river fights get a pattern feel instead of one-sided bar gravity (§4 ❓2), the Ferry pike's rope band is 18-26 m (§5), and R4 has a fallback milestone (§7 ❓6). Each is marked "(decided 2026-11-26)"._
+
 ## 1. The feel in one line
 
 Quiet Lake is still water you wait on. **River bend is moving water you read.** The bobber drifts,
@@ -43,17 +45,26 @@ still mean something, and the deep pool waits for the carbon rod as before.
 
 ❓1. **How does the current change fishing?**
 ➡️ **The bobber drifts downstream while waiting**, slowly, from where it landed toward the left edge
-(a few px per second, faster on rain/high-water hours). After ~20-30 s it reaches the end of the run
-and she reels in automatically ("The current took it.", no worm lost). Bites come **more often while
+(a few px per second, faster on rain/high-water hours). **(decided 2026-11-26)** There is **no forced
+auto reel-in**: when the bobber reaches the end of the run it slows and settles in the slack water of
+the eddy and waits there as long as she likes (bites there are rarer than in the seam, so it nudges her
+to reel in and cast again, but never takes the decision away). The forced "The current took it." reel-in
+is dropped until aimed casting exists (see below). Bites come **more often while
 the bobber passes through the seam**, so where you cast matters: cast upstream (right) to get a long
-drift through the seam. Simple, readable, no new controls: it is still hold-and-release.
+drift through the seam. Simple, readable, no new controls: it is still hold-and-release. A forced reel-in only makes sense once she
+can aim the cast upstream and so choose the length of the drift herself.
 Open: should the cast aim left/right at all? Today casting has only distance. ➡️ Not now; the drift
 starts at a fixed point and only the distance (zone) is chosen; aiming can come with "aimed casting"
 from the Ideas list later.
 
 ❓2. **Does the current change the fight?**
-➡️ Yes, lightly: river fish pull with the current, so the catch bar gets a gentle constant drift in
-one direction (like the "windy" weather but stronger). Trout and asp use the darting pattern a lot.
+➡️ Yes, as a **pattern or speed feel, not a one-sided bar gravity** **(decided 2026-11-26)**. A constant
+pull in one direction would make river fish simply harder than lake fish of the same difficulty. Instead
+the river fights run in **surges with the current**: the fish holds, then the bar's fish-marker speeds up
+for a moment (a "surge", a second or two, a short telegraph before it) and calms again, so the rhythm
+is what she reads. Rain and high water make the surges a bit more frequent. It stays symmetric: the bar is
+not pushed to one side. Trout and asp keep the darting pattern, barbel and the Ferryman use sinker and
+abyssal; the surge is added on top as a new modifier (tested and simulated in slice 25c).
 
 ## 5. Fish (6 normal + 3 rare trophies + the legendary)
 
@@ -82,7 +93,7 @@ river; perch and pike can turn up in the river's slow pool). The fish log stays 
 - **The Barbel King**: a huge old barbel with a white moustache; **overcast + dusk + bend pool + fish strip**.
   Hint: "The old king eats at dusk, when the sky can't make up its mind."
 - **Ferry pike**: a long pike that lives under the ferry rope; **windy + day + seam + any bait, cast exactly
-  under the rope (20-24 m)**. Hint: "Something hunts under the rope when the wind shakes it."
+  under the rope (18-26 m, widened 2026-11-26, decided; the whole seam, so the narrow 20-24 m band is gone)**. Hint: "Something hunts under the rope when the wind shakes it."
 
 **Legendary: The Ferryman** (STORY.md): a huge old sturgeon, dusk, deep pool by the far ferry post,
 carbon rod. Its own eerie window like the Pale One: at dusk the ferry rope creaks by itself and the
@@ -113,7 +124,9 @@ checklist bundles, same pattern as 23a. Rods/lines/reels stay as they are.
 
 ❓6. **Story pacing (R1-R6)**: milestones like Quiet Lake (slice 24) instead of days.
 ➡️ R1 first arrival · R2 first river catch · R3 first catch in the seam · R4 first dusk at the river
-(the duck finds them) · R5 first river bundle · R6 river checklist done (gate key tag -> quarry).
+(the duck finds them; **(decided 2026-11-26)** fallback if the dusk trigger can be missed: R4 also fires
+on the **third river catch after R3**, or on the first river day that ends without a dusk visit, so the
+chapter chain can never stall behind one time of day) · R5 first river bundle · R6 river checklist done (gate key tag -> quarry).
 Cap 2 per real day, strict order, as at the lake.
 
 ❓7. **Checklist "Against the Current"**: STORY.md has Swift Water, The Hunter, Ferry Fare (800),
@@ -142,7 +155,7 @@ everywhere (it is the real hour), which also keeps the code simple.
 1. **Location as data + travel**: scene takes a `Location` (background, zones, fish pool, moments, spots for
    car/camp/companions), map "Drive there", the fade. River scene with placeholder art.
 2. **River art**: bend, current animation, ferry landing and rope, W.'s hut, far bank willows, the camp spots.
-3. **Current mechanic**: bobber drift, seam bonus, auto reel-in, fight drift; tests and a sim.
+3. **Current mechanic**: bobber drift, seam bonus, the settle-in-the-eddy end of the run (no forced reel-in, decided 2026-11-26), river fight surges (decided 2026-11-26); tests and a sim.
 4. **River fish**: trout, grayling, nase, chub, barbel, vimba (+ shared asp, perch, pike) with art and facts.
 5. **River checklist + story R1-R6 + river moments** (kingfisher, otter, upstream lantern, paper boat, heron).
 6. **Rare river fish + river trophy board, the Ferryman**.

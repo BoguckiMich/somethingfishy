@@ -12,6 +12,11 @@ export interface Zone {
   toM: number;
   /** Which depth class fish rules treat this band as. */
   fishZone: ZoneId;
+  /**
+   * This band's own fish (M2 groundwork A): a weight multiplier per species id that REPLACES the location's `fishPool.species`
+   * for casts landing here. Absent = inherit the location's pool. Every id must also be in the location's pool (`livesAt`).
+   */
+  fishPool?: Readonly<Record<string, number>>;
 }
 
 export interface Point {
@@ -76,6 +81,12 @@ export interface Location {
 export function zoneAt(location: Location, distanceM: number): Zone {
   const zone = location.zones.find((z) => distanceM >= z.fromM && distanceM < z.toM);
   return zone ?? location.zones[location.zones.length - 1];
+}
+
+/** The fish pool for a cast landing at `distanceM`: the zone's own species if it has any, else the location's; the trophies flag always comes from the location. */
+export function poolAt(location: Location, distanceM: number): FishPool {
+  const own = zoneAt(location, distanceM).fishPool;
+  return own ? { species: own, specials: location.fishPool.specials } : location.fishPool;
 }
 
 /** The depth classes this much reach covers on the location, in zone order, no duplicates. */

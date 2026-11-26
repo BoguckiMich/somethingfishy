@@ -6,18 +6,17 @@
  * resize/rotation only rescales the canvas via CSS, so text is then slightly over- or under-sampled).
  */
 import Phaser from 'phaser';
+import { renderScaleFor } from './renderScaleMath';
 import { H as GAME_HEIGHT, W as GAME_WIDTH } from './art/layout';
 
 let scaleK = 1;
 
-/** K = ceil(on-screen CSS scale of the 360x640 canvas x devicePixelRatio), clamped to 1..4. */
+/** K = ceil(on-screen CSS scale of the 360x640 canvas x devicePixelRatio), clamped to 1..MAX_RENDER_SCALE. */
 export function pickRenderScale(): number {
   if (typeof window === 'undefined') return 1;
   const fit = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
   const dpr = window.devicePixelRatio || 1;
-  // -0.02: a scale like 3.001 must not tip into 4.
-  const k = Math.ceil(fit * dpr - 0.02);
-  scaleK = Math.min(4, Math.max(1, k));
+  scaleK = renderScaleFor(fit, dpr);
   return scaleK;
 }
 

@@ -7,7 +7,7 @@ import { baitById } from './data/baits';
 import type { WeatherEffects } from './daily/weather';
 import { fightProfile, rollHookedFish, type HookedFish } from './fish';
 import type { BarGear, Rod } from './gear';
-import { zoneAt, type Location, type ZoneId } from './location';
+import { poolAt, zoneAt, type Location, type ZoneId } from './location';
 import type { Rng } from './random';
 import { randInt, randRange } from './random';
 
@@ -144,7 +144,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         bait,
         ctx.fotdId?.(),
         fx,
-        ctx.location.fishPool,
+        poolAt(ctx.location, state.distanceM),
       );
       return same({
         kind: 'waiting',

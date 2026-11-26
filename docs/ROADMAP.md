@@ -45,10 +45,12 @@ The first lake has a beginning, a middle and an end.
 ## M2 · "Road trip: River bend" (first sketch: `docs/RIVER_BEND.md`, `docs/sketches/river-bend.svg`)
 The first real travel.
 - [ ] Travel by car (map → drive fade → new scene), companions and the duck come along
-- [ ] Location as data: background art, zones, moments, fish pool per place
+- [ ] Location as data: background art, zones, moments, fish pool per place and per zone (groundwork A, done)
+- [ ] River current (decided 2026-11-26): the bobber drifts and settles in the eddy, no forced auto reel-in until aimed casting exists; river fights surge with the current instead of pulling the bar one way; Ferry pike band 18-26 m; R4 gets a fallback trigger
 - [ ] River bend art (bend, current, the old ferry hut), 6 river fish + the Ferryman
 - [ ] Fish log pages per place; quests and fish of the day aware of places
 - [ ] River moments, River checklist "Against the Current", chapters R1-R6
+- [x] Render scale capped at 3 (groundwork A)
 - [ ] Weekly quest (one bigger goal, Monday reset)
 
 **Done when:** she can drive to the river and back, and the river has ~2 weeks of its own goals.

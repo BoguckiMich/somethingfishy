@@ -40,9 +40,12 @@ export const RIVER_BEND: Location = {
   name: 'River bend',
   maxDistanceM: 40,
   zones: [
-    { id: 'riffle', name: 'Riffle', fromM: 0, toM: 12, fishZone: 'shallow' },
-    { id: 'seam', name: 'Seam', fromM: 12, toM: 26, fishZone: 'shallow' },
-    { id: 'pool', name: 'Bend pool', fromM: 26, toM: 40, fishZone: 'deep' },
+    // Per-zone pools (M2 groundwork A) follow RIVER_BEND.md section 3/5 as far as the species exist. TODO(25d): riffle = nase, trout,
+    // grayling, small chub; seam = chub, asp, barbel, vimba; pool = barbel, big chub (+ the Ferryman). Until those exist: roach stands in
+    // for the nase, asp lives in the seam ("the money spot"), pike and bream hold in the slow pool.
+    { id: 'riffle', name: 'Riffle', fromM: 0, toM: 12, fishZone: 'shallow', fishPool: { roach: 2, perch: 1 } },
+    { id: 'seam', name: 'Seam', fromM: 12, toM: 26, fishZone: 'shallow', fishPool: { asp: 3, perch: 1, roach: 1 } },
+    { id: 'pool', name: 'Bend pool', fromM: 26, toM: 40, fishZone: 'deep', fishPool: { pike: 1, bream: 1 } },
   ],
   fishPool: { species: { asp: 3, perch: 1, roach: 1.5, pike: 0.7, bream: 1 }, specials: false },
   background: 'river',
