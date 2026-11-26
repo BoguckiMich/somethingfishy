@@ -68,7 +68,7 @@ import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
 import { cottageWindow, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS } from '../art/riverArt';
-import { glintAlpha, makeGlints, makeStreaks, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
+import { glintAlpha, makeGlints, makeStreaks, ropePixels, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
@@ -3474,15 +3474,10 @@ export class LakeScene extends Phaser.Scene {
     const pts = ropePoints(ropeSway(t, this.weatherVis('windy')));
     const ropeCol = multiply(PAL.sand, look.worldTint);
     const shadow = multiply(PAL.woodDark, look.worldTint);
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const x = Math.round(Math.min(a.x, b.x));
-      const y = Math.round(Math.min(a.y, b.y));
-      const h = Math.max(1, Math.round(Math.abs(b.y - a.y)));
-      const w = Math.max(1, Math.round(Math.abs(b.x - a.x)) + 1);
-      rg.fillStyle(shadow, 0.5).fillRect(x + 1, y, w, h);
-      rg.fillStyle(ropeCol, 1).fillRect(x, y, w, h);
+    // A pixel line, not a box per segment (boxes filled whole diagonals and made the far end look fat): 2 px near us, 1 px far away.
+    for (const p of ropePixels(pts)) {
+      rg.fillStyle(shadow, 0.5).fillRect(p.x + 1, p.y, p.size, p.size);
+      rg.fillStyle(ropeCol, 1).fillRect(p.x, p.y, p.size, p.size);
     }
   }
 

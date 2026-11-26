@@ -1,6 +1,6 @@
 import { FONT, FS, LINE } from '../font';
 import { sound } from '../audio/sound';
-import { HAPTICS, vibrate } from '../scenes/haptics';
+import { HAPTICS, testVibration, vibrate } from '../scenes/haptics';
 import type { Profile } from '../core/profile';
 import type { SoundSettings } from '../core/soundSettings';
 import { saveSummary, type SaveData } from '../core/save';
@@ -185,6 +185,7 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
 
     body.append(sectionTitle('Sound'));
     const sounds = store.soundSettings();
+    const vibeResult = note('', COLORS.dim);
     body.append(
       volumeRow(
         'Sounds',
@@ -206,7 +207,17 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
           if (on) vibrate(HAPTICS.hooked);
           panel.refresh();
         }),
+        woodButton('Test', () => {
+          const r = testVibration();
+          vibeResult.textContent =
+            r === 'missing'
+              ? 'This browser has no vibration (iPhone, Firefox and some others).'
+              : r === 'refused'
+                ? 'The browser refused to vibrate. Check its site settings.'
+                : 'Sent a buzz. Nothing felt? Check the phone\'s vibration settings.';
+        }),
       ),
+      vibeResult,
     );
 
     body.append(sectionTitle('Names'));

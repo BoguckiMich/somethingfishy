@@ -150,6 +150,34 @@ export function ropePoints(sway: number, n = ROPE_SEGMENTS): { x: number; y: num
   return out;
 }
 
+/** How far along the rope (0 = near post, 1 = far ferry) it is still drawn 2 px thick; beyond, 1 px (perspective). */
+export const ROPE_THICK_UNTIL = 0.4;
+
+/**
+ * The rope as whole pixels along the curve (one per pixel step, no gaps, no doubles), each with its size by
+ * distance: 2 near us, 1 far away. `pts` runs from the near post to the far ferry (ropePoints).
+ */
+export function ropePixels(pts: readonly { x: number; y: number }[]): { x: number; y: number; size: number }[] {
+  const out: { x: number; y: number; size: number }[] = [];
+  const seen = new Set<string>();
+  const last = pts.length - 1;
+  for (let i = 0; i < last; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y))));
+    for (let s = 0; s <= steps; s++) {
+      const f = s / steps;
+      const x = Math.round(a.x + (b.x - a.x) * f);
+      const y = Math.round(a.y + (b.y - a.y) * f);
+      const key = `${x},${y}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ x, y, size: (i + f) / last < ROPE_THICK_UNTIL ? 2 : 1 });
+    }
+  }
+  return out;
+}
+
 // ---- White water behind rocks --------------------------------------------------------------------
 
 export interface FoamRect {
