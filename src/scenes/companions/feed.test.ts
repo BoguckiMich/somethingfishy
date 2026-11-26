@@ -184,7 +184,8 @@ describe('feeding while she naps in her bed', () => {
     expect(s.dog.shape).toBe('run');
     expect(runUntil(s, rng, () => s.feed === null)).toBeGreaterThan(0);
     expect(s.fedCount).toBe(1);
-    expect(s.play.phase).toBe('napCircle');
+    expect(s.mode).toBe('dock');
+    expect(s.nap?.phase).toBe('circle');
     expect(runUntil(s, rng, () => isCurled(s))).toBeGreaterThan(0);
     expect(dist(s.dog, DOG_BED_SPOT)).toBeLessThan(2);
   });

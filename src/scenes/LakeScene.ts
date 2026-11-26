@@ -119,7 +119,7 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { fishScreenPos, LineFightView } from './LineFightView';
-import { bowlHasFood, feedBusy, feedRequest, carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { inDockBed, bowlHasFood, feedBusy, feedRequest, carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipText, throwFor, type FlickSample } from '../core/skipping';
 import { pebbleRoute } from './pebbleRoute';
@@ -293,9 +293,9 @@ function rollStoryDelay(): number {
 /** The tap areas of a place's shore things: finger-sized boxes around the spots. */
 function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle; stones: Phaser.Geom.Rectangle | null; bed: Phaser.Geom.Rectangle; bowl: Phaser.Geom.Rectangle } {
   return {
-    // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed: its picture, a little bigger.
+    // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed (on the dock, slice 31): its picture and a thumb of room to the left, front and back; its right edge stops short of the bait crate's box.
     stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 12, sp.stones.y - 12, Math.min(STONES_SIZE.w + 24, 118 - (sp.stones.x - 12)), STONES_SIZE.h + 26) : null,
-    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 8, BED_SIZE.h + 9),
+    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 4, BED_SIZE.h + 9),
     // The food bowl (slice 30): its picture and a generous thumb of room all round (clear of the car's box above and the bottom bar below).
     bowl: new Phaser.Geom.Rectangle(sp.bowl.x - 16, sp.bowl.y - 2, BOWL_SIZE.w + 32, BOWL_SIZE.h + 22),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
@@ -2642,7 +2642,7 @@ export class LakeScene extends Phaser.Scene {
     this.campTent = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2, this.spots.camp.tent.y - TENT_SIZE.h, TEX.campTent).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y)).setVisible(false);
     this.campPole = this.add.image(this.spots.camp.pole.x, this.spots.camp.pole.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.pole.y + POLE_SIZE.h)).setVisible(false);
     this.campPole2 = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x - POLE_ANCHOR.x, this.spots.camp.tent.y - TENT_SIZE.h + TENT_ANCHOR.y - POLE_ANCHOR.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y - TENT_SIZE.h + POLE_SIZE.h)).setVisible(false);
-    this.campBed = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.bed.y + BED_SIZE.h)).setVisible(false);
+    this.campBed = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(Z.dock + 0.5).setVisible(false); // on the dock slice 31: above the planks, under Bestia
     this.campSock = this.add.image(this.spots.camp.sock.x, this.spots.camp.sock.y, windsockKey(0, 0)).setOrigin(SOCK_ORIGIN_X, 1).setFlipX(true).setDepth(campDepth(this.spots.camp.sock.y)).setVisible(false);
     this.campBedFront = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(Z.angler + 0.3).setCrop(0, BED_FRONT_FROM, BED_SIZE.w, BED_SIZE.h - BED_FRONT_FROM).setVisible(false);
     // Her food bowl (slice 30): free and always there, on the grass by the car; sorted by its feet like the camp things.
@@ -3264,7 +3264,7 @@ export class LakeScene extends Phaser.Scene {
     this.campTent.setVisible(hasCamp(p, 'tent'));
     this.campBed.setVisible(hasCamp(p, 'dogbed'));
     this.bowlImg.setTexture(bowlHasFood(this.companions.state) ? TEX.bowlFull : TEX.bowl);
-    this.campBedFront.setVisible(hasCamp(p, 'dogbed') && this.companions.state.dog.shape === 'curl');
+    this.campBedFront.setVisible(hasCamp(p, 'dogbed') && inDockBed(this.companions.state));
     const lights = hasCamp(p, 'lights');
     this.campPole.setVisible(lights);
     this.campPole2.setVisible(lights && !hasCamp(p, 'tent'));

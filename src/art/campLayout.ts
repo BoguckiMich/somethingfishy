@@ -2,17 +2,17 @@ import { BED_SIZE, CAMPFIRE_SIZE, POLE_SIZE, TENT_SIZE, WINDSOCK_RING, WINDSOCK_
 
 /**
  * Where the camp items stand (slice 23e), pure data so a test can keep them clear of the car, the trophy board, the notice-board sign, the
- * fetch lawn and the hint line. All on the grass left of the dock (the windsock on the right shore). World coordinates (360 x 640).
+ * fetch lawn and the hint line. All on the grass left of the dock (the windsock on the right shore, Bestia's bed on the dock). World coordinates (360 x 640).
  *  - the tent leans in from the left edge above the car (x -6..34, y 450-494), the trophy board is right of it (x 38+);
  *  - the string lights run from the tent's ridge pole (x 14, y 451) to a pole at x 88 (y 448), above the trophy board's top (y 458);
  *  - the campfire is right of the trophy board and left of the dock (x 96-116, y 481-497), the fetch lawn starts at y 500;
- *  - Bestia's bed sits below the lawn's bottom edge (y 555-566, the lawn ends at y 554), right of the car, above the hint line (y 567);
+ *  - Bestia's bed lies ON THE DOCK (slice 31), exactly under her lying spot beside Pajkel's chair (x 164-192, y 421-433, her feet at 178,430);
  *  - the windsock stands on the right shore (x 302-334, y 452-496), right of the notice-board sign (x 258-294).
  */
 export const TENT_FEET = { x: 14, y: 494 };
 export const LIGHT_POLE = { x: 85, y: 447 };
 export const FIRE_FEET = { x: 106, y: 497 };
-export const BED_POS = { x: 80, y: 555 };
+export const BED_POS = { x: 164, y: 421 };
 /** The windsock's pole stands here; the cone is drawn to its left (the sprite is mirrored). */
 export const SOCK_FEET = { x: 330, y: 496 };
 
