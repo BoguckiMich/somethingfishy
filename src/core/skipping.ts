@@ -1,18 +1,21 @@
 import { isValidDate } from './daily/dates';
 import type { PlayerState } from './inventory';
+import type { Rng } from './random';
 
 /** Pebble skipping (slice 26): how a flick turns into skips, where the pebble touches the water, the best-skips record. Pure. */
 export const SKIP_TUNING = {
   minSkips: 1,
   maxSkips: 5,
-  /** A plain tap throws a medium pebble. */
-  tapSkips: 3,
+  /** A plain tap throws an ordinary pebble (slice 26b: 2 or 3 skips, a coin flip). */
+  tapSkips: [2, 3] as readonly number[],
+  /** A swipe that reaches this many skips is Pajkel really going for it: a bigger wind-up (a longer crouch). */
+  bigFrom: 3,
   /** A press that moves less than this (px) is a tap. */
   swipeMinPx: 12,
   /** The flick speed is measured over the last this many ms before the release. */
   sampleMs: 110,
   /** Flick speed (px per ms) that reaches 2, 3, 4 and 5 skips; slower is 1. */
-  speedSteps: [0.3, 0.7, 1.2, 1.9] as readonly number[],
+  speedSteps: [0.3, 0.7, 1.2, 1.43] as readonly number[],
   /** The first touch-down, the gap to the second (both in m from the dock), and how the gaps shrink. */
   firstM: 5,
   gapM: 5,
@@ -48,13 +51,19 @@ export interface Throw {
   skips: number;
   /** Which way it drifts sideways: -1 (left) .. 1 (right), from the swipe; a tap is 0. */
   side: number;
+  /** A fast swipe: he winds up bigger (slice 26b). A tap never is. */
+  big: boolean;
 }
 
-/** A press from `down` to `up` with the drag `samples` (the last one at the release): a tap throws a medium pebble, a swipe by its speed. */
-export function throwFor(down: { x: number; y: number }, up: { x: number; y: number }, samples: readonly FlickSample[]): Throw {
+/** A press from `down` to `up` with the drag `samples` (the last one at the release): a tap throws an ordinary pebble (2-3 skips), a swipe by its speed. */
+export function throwFor(down: { x: number; y: number }, up: { x: number; y: number }, samples: readonly FlickSample[], rng: Rng = Math.random): Throw {
   const moved = Math.hypot(up.x - down.x, up.y - down.y);
-  if (moved < SKIP_TUNING.swipeMinPx) return { skips: SKIP_TUNING.tapSkips, side: 0 };
-  return { skips: skipsForSpeed(flickSpeed(samples)), side: Math.max(-1, Math.min(1, (up.x - down.x) / 80)) };
+  if (moved < SKIP_TUNING.swipeMinPx) {
+    const t = SKIP_TUNING.tapSkips;
+    return { skips: t[Math.min(t.length - 1, Math.floor(rng() * t.length))], side: 0, big: false };
+  }
+  const skips = skipsForSpeed(flickSpeed(samples));
+  return { skips, side: Math.max(-1, Math.min(1, (up.x - down.x) / 80)), big: skips >= SKIP_TUNING.bigFrom };
 }
 
 /** Where a pebble of `skips` skips touches the water, in m from the dock: one touch-down per skip, then the last one where it sinks. */

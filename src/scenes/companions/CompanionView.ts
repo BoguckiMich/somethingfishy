@@ -5,6 +5,7 @@ import { lerpColor } from '../../art/dayCycle';
 import { PAL } from '../../art/palette';
 import { TEX, pajSitKey, pajWalkKey, stickGroundKey } from '../../art/textures';
 import { FONT, FS, textPad } from '../../font';
+import { WOOF_TEXT } from '../../core/data/pajkelLines';
 import { tr } from '../../i18n/en';
 import { drawFrame } from '../frameDraw';
 import {
@@ -43,6 +44,9 @@ const BUBBLE_LIFT = 30;
 const BUBBLE_MARGIN = 4;
 const BUBBLE_VIEW_W = W;
 const BUBBLE_INK = '#241a2e';
+/** While he stands left of this x the bubble is at most SHORE_BUBBLE_W wide. */
+const SHORE_BUBBLE_X = 130;
+const SHORE_BUBBLE_W = 140;
 /** Above the characters and the show-off, below the HUD panels (LakeScene's uiPanel is 30). */
 const BUBBLE_DEPTH = 28;
 
@@ -69,6 +73,8 @@ export class CompanionView {
   private hearts: { img: Phaser.GameObjects.Image; age: number; life: number }[] = [];
   private bubbleGfx: Phaser.GameObjects.Graphics;
   private bubbleText: Phaser.GameObjects.Text;
+  /** Bestia's one "Woof!" after a five-skip pebble (slice 26b). */
+  private woof: Phaser.GameObjects.Text;
 
   constructor(
     private scene: Phaser.Scene,
@@ -88,6 +94,11 @@ export class CompanionView {
     this.bubbleText = scene
       .add.text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.small}px`, color: BUBBLE_INK, padding: textPad(7, 4), align: 'center', wordWrap: { width: BUBBLE_VIEW_W - 2 * BUBBLE_MARGIN } })
       .setDepth(BUBBLE_DEPTH + 1)
+      .setVisible(false);
+    this.woof = scene.add
+      .text(0, 0, tr(WOOF_TEXT), { fontFamily: FONT, fontSize: `${FS.small}px`, color: '#fff6e0', stroke: BUBBLE_INK, strokeThickness: 3, padding: textPad(2, 1) })
+      .setOrigin(0.5, 1)
+      .setDepth(BUBBLE_DEPTH)
       .setVisible(false);
   }
 
@@ -113,6 +124,8 @@ export class CompanionView {
     if (!b) return;
     const p = this.state.paj;
     const alpha = bubbleAlpha(b);
+    // Out on the left shore (the pebble outing) the bubble wraps to two lines so it stays clear of Alex on the dock (slice 26b).
+    this.bubbleText.setWordWrapWidth(p.x < SHORE_BUBBLE_X ? SHORE_BUBBLE_W : BUBBLE_VIEW_W - 2 * BUBBLE_MARGIN);
     const shown = tr(b.text); // the lines hold {player} {dog} {water} placeholders
     if (this.bubbleText.text !== shown) this.bubbleText.setText(shown);
     const w = Math.round(this.bubbleText.width);
@@ -215,6 +228,9 @@ export class CompanionView {
         : p.shape === 'stretch' ? (pajStretchHigh(s) ? 'stretch1' : 'stretch0')
         : p.shape === 'throw' ? 'throw'
         : p.shape === 'bend' ? 'bend'
+        : p.shape === 'windup' ? 'flick0'
+        : p.shape === 'flick' ? 'flick1'
+        : p.shape === 'rejoice' ? (Math.floor(elapsed / 180) % 2 === 0 ? 'stretch0' : 'stretch1')
         : 'stand';
       this.paj.setTexture(pajWalkKey(key)).setOrigin(0.5, 50 / PAJ_WALK_SIZE.h).setFlipX(p.face < 0);
     }
@@ -292,6 +308,14 @@ export class CompanionView {
     });
 
     this.drawBubble();
+
+    // A woof: pops up over her head and drifts up as it fades.
+    const wl = s.woofMs;
+    this.woof.setVisible(wl > 0 && dogVisible(s));
+    if (wl > 0) {
+      const t = 1 - wl / 800;
+      this.woof.setPosition(Math.round(d.x - 6), Math.round(d.y - 30 - t * 6)).setAlpha(Math.min(1, wl / 250));
+    }
 
     // Hearts float up and fade.
     for (const h of this.hearts) {

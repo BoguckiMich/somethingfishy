@@ -3,7 +3,7 @@
  * `tickCompanions(dt)`, game events and player presses, then draws whatever it reports.
  * Positions are screen coordinates; sprites are anchored at their feet (bottom centre).
  */
-import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE } from '../../core/data/pajkelLines';
+import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE, ONE_SEC_LINE, SKIP_FIVE_LINES, SKIP_LOW_LINES, SKIP_MID_LINES } from '../../core/data/pajkelLines';
 import type { Rng } from '../../core/random';
 
 export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
@@ -98,8 +98,8 @@ export interface Bubble {
 }
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl';
-export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend';
-export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed';
+export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend' | 'windup' | 'flick' | 'rejoice';
+export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed' | 'shore';
 /**
  * One round of "no take, only throw" (slice 17): he throws, she fetches (`throw`), trots back (`bring`)
  * and stops out of reach, he steps in (`tease`), she dodges (`dodge`) and runs off with it (`keepAway`),
@@ -338,7 +338,84 @@ export interface Companions {
   /** Fetch rounds finished since the game started (slice 26: the scene counts the rises for the Stick Museum). */
   roundsDone: number;
   play: PlayState;
+  /** The pebble outing (mode 'shore', slice 26b). */
+  shore: ShoreState;
+  /** A pebble throw asked for while he is busy walking or fetching: he comes over as soon as he can. */
+  pebbleWant: PebbleThrow | null;
+  /** The pebble has left his hand: the scene takes it once (`takePebbleRelease`) and flies it over the water. */
+  release: PebbleRelease | null;
+  /** He cheers where he stands (ms left; the standing cheer frames). */
+  rejoiceMs: number;
+  /** Bestia's one "Woof!" (ms left). */
+  woofMs: number;
 }
+
+/** One throw of a pebble, as the stones were tapped or swiped (see core/skipping.ts `throwFor`). */
+export interface PebbleThrow {
+  skips: number;
+  /** Sideways drift of the flight, -1..1. */
+  side: number;
+  /** A fast swipe: a longer crouch. */
+  big: boolean;
+}
+
+export interface PebbleRelease extends PebbleThrow {
+  /** Where the pebble leaves his hand (screen px). */
+  from: Point;
+}
+
+/**
+ * The pebble outing (slice 26b): he walks to the stones (`walk`), picks one up (`pick`), turns to the water and winds up (`windUp`, longer when
+ * `big`), flicks it sideways (`flick`, the pebble leaves his hand), watches it skip (`watch`, until the scene says where it sank), reacts
+ * (`react`) and waits for another tap (`idle`); after `idleBackMs` of nothing he walks back to his chair.
+ */
+export type ShorePhase = 'walk' | 'pick' | 'windUp' | 'flick' | 'watch' | 'react' | 'idle';
+
+export interface ShoreState {
+  phase: ShorePhase;
+  phaseMs: number;
+  /** The throw in hand (or about to be), and the next one asked for while his hands were busy. */
+  cur: PebbleThrow | null;
+  next: PebbleThrow | null;
+  /** Ms at the stones with nothing to do. */
+  idleMs: number;
+  /** She cast (or hooked): once the throw in hand is done he walks back. */
+  leave: boolean;
+  /** How long this reaction lasts. */
+  reactTotalMs: number;
+}
+
+function newShore(): ShoreState {
+  return { phase: 'walk', phaseMs: 0, cur: null, next: null, idleMs: 0, leave: false, reactTotalMs: 0 };
+}
+
+export const SHORE_TUNING = {
+  /** His feet at the stones (the stones are at x 93-115, y 460-472: he stands just left of them and a step in front), and Bestia beside him. */
+  stand: { x: 80, y: 479 } as Point,
+  dogSit: { x: 54, y: 485 } as Point,
+  walkSpeed: 62,
+  /** The pick-up: a bend to the stones. */
+  pickMs: 700,
+  /** Wind-up of an ordinary throw, and of a big one (a long crouch, then the arm back). */
+  windUpMs: 380,
+  windUpBigMs: 1100,
+  /** The crouch part of a big wind-up. */
+  crouchMs: 600,
+  flickMs: 240,
+  /** The pebble leaves his hand this far into the flick, from this far in front of his feet and this high. */
+  releaseMs: 90,
+  hand: { dx: 13, dy: -22 },
+  /** If the scene never says where the pebble sank he looks away after this long. */
+  watchMaxMs: 4500,
+  reactMs: 900,
+  reactFiveMs: 2400,
+  /** With nothing to do he walks back to his chair after this long. */
+  idleBackMs: 5000,
+  woofMs: 800,
+  /** Odds that a lesser throw gets a small word. */
+  lowLineOdds: 0.35,
+  midLineOdds: 0.5,
+};
 
 export interface PlayState {
   phase: PlayPhase;
@@ -366,6 +443,8 @@ export interface PlayState {
   stickSide: 1 | -1;
   /** A stick she tapped mid-round (slice 26): he throws it as soon as the round is over. */
   queued: GroundStick | null;
+  /** Where they go once the round in progress is over (slice 26b): back to the dock after a cast, or over to the stones after a tap on them. */
+  after: 'none' | 'dock' | 'stones';
   /** The chase: which way round him she slides while he blocks her way (0 = not blocked). */
   slide: 1 | -1 | 0;
   /** How long this nap lasts curled, and how long the getting up takes (slice 27). */
@@ -391,6 +470,7 @@ function newPlay(): PlayState {
     hopTo: { x: 0, y: 0 },
     stickSide: 1,
     queued: null,
+    after: 'none',
     slide: 0,
     napMs: 0,
     wakeMs: NAP_TUNING.wakeMs,
@@ -453,23 +533,128 @@ export function createCompanions(rng: Rng = Math.random): Companions {
     giveBackChance: PLAY_TUNING.giveBackChance,
     roundsDone: 0,
     play: newPlay(),
+    shore: newShore(),
+    pebbleWant: null,
+    release: null,
+    rejoiceMs: 0,
+    woofMs: 0,
   };
 }
 
 // ---- Player-facing hooks ----------------------------------------------------------------
 
-/** A player press (cast/tap): everyone heads back to the dock. */
-export function companionPress(s: Companions): void {
+/** Phases of a fetch round in progress: the throw, her bringing it, the tease, the dodge and the chase. The round is over once it is counted (`giveUp`, `drop`). */
+const ROUND_PHASES: readonly PlayPhase[] = ['throw', 'bring', 'tease', 'dodge', 'keepAway'];
+/** How long he shrugs / says thanks at the end of a round before the family moves on (slice 26b). */
+const ROUND_END_MS = 600;
+
+/**
+ * A player press (a cast, a hook): the family heads back to the dock (slice 26b: without breaking things up).
+ * A fetch round in progress is played to its end first (she brings the stick back or keeps it), then they walk back; between rounds they go at once.
+ * At the stones he finishes the throw in hand and then walks back; with nothing in hand he goes at once.
+ */
+export function companionPress(s: Companions, fishing = 'idle'): void {
   s.idleMs = 0;
-  if (s.mode === 'play' || s.mode === 'leaving') beginReturn(s);
+  // The hook press (and any press in the fight or on the catch card) does not send him back from the stones: he stays, cheers, and goes when it is over.
+  if (s.mode === 'shore' && (fishing === 'bite' || fishing === 'fighting' || fishing === 'caught')) return;
+  s.pebbleWant = null;
+  if (s.mode === 'leaving') beginReturn(s);
+  else if (s.mode === 'play') {
+    if (ROUND_PHASES.includes(s.play.phase)) s.play.after = 'dock';
+    else beginReturn(s);
+  } else if (s.mode === 'shore') {
+    const sh = s.shore;
+    sh.next = null;
+    if (sh.phase === 'walk' || sh.phase === 'idle') beginReturn(s);
+    else sh.leave = true;
+  }
+}
+
+/** What the stones do for a tap while fishing is in `fishing`: only while she is idle, casting, waiting or has a bite (never in a fight or the show-off). */
+export const pebblesAllowed = (fishing: string): boolean => fishing === 'idle' || fishing === 'waiting' || fishing === 'casting' || fishing === 'bite';
+
+/**
+ * A tap or swipe on the stones (slice 26b). Pajkel does the throwing:
+ *  - in his chair: he gets up and walks over ('started');
+ *  - at the stones: another throw ('started' when his hands are free, 'queued' when he is mid-throw);
+ *  - fetching or walking: he finishes that first and comes over, with "One sec!" ('queued');
+ *  - asleep, in the car, walking to bed, or the fishing is mid-cast / fight: nothing ('no').
+ */
+export function pebbleRequest(s: Companions, t: PebbleThrow, fishing: string): 'started' | 'queued' | 'no' {
+  if (!pebblesAllowed(fishing)) return 'no';
+  if (s.mode === 'bed') return 'no';
+  s.idleMs = 0;
+  if (s.mode === 'dock') {
+    beginShore(s, t);
+    return 'started';
+  }
+  if (s.mode === 'shore') {
+    const sh = s.shore;
+    sh.leave = false;
+    sh.idleMs = 0;
+    if (sh.phase === 'walk') {
+      sh.cur = t;
+      return 'started';
+    }
+    if (sh.phase === 'idle') {
+      startThrow(s, t);
+      return 'started';
+    }
+    sh.next = t;
+    return 'queued';
+  }
+  // Busy elsewhere: remember the throw, say so, come as soon as this is done.
+  if (s.pebbleWant === null) pajSay(s, ONE_SEC_LINE);
+  s.pebbleWant = t;
+  if (s.mode === 'play') s.play.after = 'stones';
+  return 'queued';
+}
+
+/** The scene takes the pebble that has just left his hand (once). */
+export function takePebbleRelease(s: Companions): PebbleRelease | null {
+  const r = s.release;
+  s.release = null;
+  return r;
+}
+
+/**
+ * The pebble sank (the scene counts the skips): he reacts. 5 skips: he cheers, "Five! Did you see that?", Bestia barks once. Returns whether it was a five
+ * (the scene makes Alex glance over). Only while he is at the stones watching it does it change anything on his side.
+ */
+export function pebbleLanded(s: Companions, skips: number, rng: Rng = Math.random): { five: boolean } {
+  const five = skips >= 5;
+  const sh = s.shore;
+  if (s.mode !== 'shore' || sh.phase !== 'watch') return { five };
+  const T = SHORE_TUNING;
+  sh.phase = 'react';
+  sh.phaseMs = 0;
+  sh.reactTotalMs = five ? T.reactFiveMs : T.reactMs;
+  if (five) {
+    s.rejoiceMs = T.reactFiveMs;
+    pajSay(s, pickLine(SKIP_FIVE_LINES, rng));
+    s.woofMs = T.woofMs;
+  } else if (skips >= 3) {
+    s.rejoiceMs = 700;
+    if (rng() < T.midLineOdds) pajSay(s, pickLine(SKIP_MID_LINES, rng));
+  } else if (rng() < T.lowLineOdds) pajSay(s, pickLine(SKIP_LOW_LINES, rng));
+  return { five };
 }
 
 /** `big` (a new species or record) makes the catch reaction longer and bigger. */
 export function companionEvent(s: Companions, e: GameEventKind, big = false): void {
   const d = s.dog;
   s.idleMs = 0;
-  if (e === 'bite' && (s.mode === 'play' || s.mode === 'leaving')) beginReturn(s);
-  if (s.mode !== 'dock') return;
+  if (s.mode !== 'dock') {
+    // Away from the chair (fetching, at the stones): a hook or a catch is cheered from where he stands (slice 26b).
+    if (e === 'hooked') s.rejoiceMs = Math.max(s.rejoiceMs, 1800);
+    else if (e === 'fishCaught') s.rejoiceMs = Math.max(s.rejoiceMs, big ? 3000 : 2000);
+    // Nothing more is thrown at the stones once the fish is on.
+    if (e === 'hooked') {
+      s.pebbleWant = null;
+      if (s.mode === 'shore') s.shore.next = null;
+    }
+    return;
+  }
   d.sleeping = false;
   d.restMs = 0;
   if (e === 'nibble') {
@@ -570,6 +755,11 @@ function beginBed(s: Companions, kind: BedKind, phase: BedPhase): BedState {
   s.dog.path = [];
   s.paj.path = [];
   s.idleMs = 0;
+  s.pebbleWant = null;
+  s.release = null;
+  s.rejoiceMs = 0;
+  s.woofMs = 0;
+  s.shore = newShore();
   s.bed = { kind, phase, phaseMs: 0, carried: false, pajA: 1, dogA: 1, door: false, light: false };
   return s.bed;
 }
@@ -651,13 +841,19 @@ function setReaction(s: Companions, r: Companions['dog']['reaction']): void {
   s.dog.reactMs = 0;
 }
 
-function beginReturn(s: Companions): void {
-  s.mode = 'returning';
-  // Every stick on the grass fades out over fadeOutMs instead of popping away; the one in her mouth is dropped.
+/** Leaving the grass: every stick on it fades out over fadeOutMs instead of popping away; the one in her mouth is dropped. */
+function clearGrass(s: Companions): void {
   if (s.stick.state === 'carried') dropCarried(s);
   else if (s.stick.state === 'ground') layStick(s, clampArea(s.stick), 'old', s.stick.variant);
   s.stick.state = 'hidden';
   for (const g of s.sticks) if (g.fadeMs === null) g.fadeMs = STICK_TUNING.fadeOutMs;
+  s.play.after = 'none';
+  s.pebbleWant = null;
+}
+
+function beginReturn(s: Companions): void {
+  s.mode = 'returning';
+  clearGrass(s);
   s.paj.path = [{ x: PAJ_PATH_DOWN[1].x, y: PAJ_PATH_DOWN[1].y }, PAJ_PATH_DOWN[0], PAJ_SPOT];
   s.dog.path = [DOG_PATH_DOWN[1], DOG_PATH_DOWN[0], DOG_SPOT];
   s.dog.reaction = 'none';
@@ -665,6 +861,38 @@ function beginReturn(s: Companions): void {
   s.dog.wagMs = 0;
   s.paj.shape = 'walk';
   s.dog.shape = 'run';
+}
+
+/** Goes to the stones with `t` as the throw to make (from the chair, or from the grass), Bestia trotting after him. */
+function beginShore(s: Companions, t: PebbleThrow | null): void {
+  const fromDock = s.mode === 'dock';
+  s.mode = 'shore';
+  clearGrass(s);
+  s.shore = { ...newShore(), cur: t };
+  const T = SHORE_TUNING;
+  const p = s.paj;
+  const d = s.dog;
+  // From the chair: down the planks, then along the front of the dock; from the grass: up to the same line first (clear of the campfire).
+  p.path = fromDock ? [PAJ_PATH_DOWN[0], { x: 140, y: 480 }, { ...T.stand }] : [...(p.y > 488 ? [{ x: Math.max(p.x, 140), y: 484 }] : []), { ...T.stand }];
+  d.path = fromDock ? [DOG_PATH_DOWN[0], { x: 160, y: 488 }, { ...T.dogSit }] : [{ x: 120, y: 488 }, { ...T.dogSit }];
+  p.shape = 'walk';
+  d.shape = 'run';
+  d.reaction = 'none';
+  d.hop = 0;
+  d.wagMs = 0;
+  d.sleeping = false;
+  d.restMs = 0;
+}
+
+/** At the stones with free hands: he bends for a pebble. */
+function startThrow(s: Companions, t: PebbleThrow): void {
+  const sh = s.shore;
+  sh.cur = t;
+  sh.next = null;
+  sh.idleMs = 0;
+  sh.phase = 'pick';
+  sh.phaseMs = 0;
+  s.paj.face = 1;
 }
 
 function beginLeave(s: Companions): void {
@@ -751,9 +979,13 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
       s.mode = 'play';
       s.play = newPlay();
       s.sticks = [];
+      // The stones were tapped on the way: he does not even start a round.
+      if (s.pebbleWant) beginShore(s, s.pebbleWant);
     }
   } else if (s.mode === 'play') {
     tickPlay(s, dtMs, ctx, rng);
+  } else if (s.mode === 'shore') {
+    tickShore(s, dtMs, ctx, rng);
   } else if (s.mode === 'bed') {
     tickBed(s, dtMs, rng);
   } else {
@@ -773,9 +1005,113 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
       s.dog.reaction = 'sit';
       s.dog.reactMs = 0;
       s.idleMs = 0;
+      // The stones were tapped on the way back: straight off again, no sitting down in between.
+      if (s.pebbleWant) beginShore(s, s.pebbleWant);
     }
   }
+  if (s.woofMs > 0) s.woofMs = Math.max(0, s.woofMs - dtMs);
+  if (s.rejoiceMs > 0) {
+    s.rejoiceMs = Math.max(0, s.rejoiceMs - dtMs);
+    // Standing still (fetch, the stones): the arms go up. Walking, throwing and bending are left alone.
+    if (s.paj.shape === 'stand' && (s.mode === 'play' || s.mode === 'shore' || s.mode === 'leaving')) s.paj.shape = 'rejoice';
+  }
   s.paj.walkDist += Math.hypot(s.paj.x - pajFrom.x, s.paj.y - pajFrom.y);
+}
+
+/** The pebble outing (slice 26b): see `ShorePhase`. */
+function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
+  const sh = s.shore;
+  const p = s.paj;
+  const d = s.dog;
+  const T = SHORE_TUNING;
+  sh.phaseMs += dtMs;
+  const fighting = ctx.fishing === 'fighting' || ctx.fishing === 'caught';
+  // Bestia trots over and sits beside him, looking at the water; a woof is a small hop.
+  const dDone = follow(d, DOG_RUN_SPEED * 0.7, dtMs);
+  d.hop = s.woofMs > 0 ? Math.abs(Math.sin(s.woofMs / 90)) * 2 : 0;
+  d.shape = !dDone ? 'run' : s.woofMs > 0 ? 'stand' : 'sit';
+  if (dDone) d.face = 1;
+  const go = (phase: ShorePhase) => {
+    sh.phase = phase;
+    sh.phaseMs = 0;
+  };
+  switch (sh.phase) {
+    case 'walk': {
+      const done = follow(p, T.walkSpeed, dtMs);
+      p.shape = done ? 'stand' : 'walk';
+      if (done) {
+        if (sh.cur) startThrow(s, sh.cur);
+        else {
+          p.face = -1;
+          go('idle');
+        }
+      }
+      break;
+    }
+    case 'pick': {
+      // A bend to the stones on his right.
+      p.shape = 'bend';
+      p.face = 1;
+      if (sh.phaseMs >= T.pickMs) {
+        p.face = -1;
+        p.shape = sh.cur?.big ? 'bend' : 'windup';
+        go('windUp');
+      }
+      break;
+    }
+    case 'windUp': {
+      const big = sh.cur?.big === true;
+      const total = big ? T.windUpBigMs : T.windUpMs;
+      p.face = -1;
+      p.shape = big && sh.phaseMs < T.crouchMs ? 'bend' : 'windup';
+      if (sh.phaseMs >= total) {
+        p.shape = 'flick';
+        go('flick');
+      }
+      break;
+    }
+    case 'flick': {
+      p.face = -1;
+      p.shape = 'flick';
+      if (sh.cur && sh.phaseMs - dtMs < T.releaseMs && sh.phaseMs >= T.releaseMs) {
+        s.release = { ...sh.cur, from: { x: p.x + p.face * T.hand.dx, y: p.y + T.hand.dy } };
+      }
+      if (sh.phaseMs >= T.flickMs) {
+        p.shape = 'stand';
+        go('watch');
+      }
+      break;
+    }
+    case 'watch': {
+      // Until the scene says where it sank (pebbleLanded); if it never does he gives up looking.
+      p.shape = 'stand';
+      if (sh.phaseMs >= T.watchMaxMs) pebbleLanded(s, sh.cur?.skips ?? 1, rng);
+      break;
+    }
+    case 'react': {
+      p.shape = 'stand';
+      if (sh.phaseMs >= sh.reactTotalMs && !fighting) {
+        sh.cur = null;
+        if (sh.leave) {
+          beginReturn(s);
+        } else if (sh.next && pebblesAllowed(ctx.fishing)) {
+          startThrow(s, sh.next);
+        } else {
+          sh.next = null;
+          sh.idleMs = 0;
+          go('idle');
+        }
+      }
+      break;
+    }
+    case 'idle': {
+      p.shape = 'stand';
+      p.face = -1;
+      if (!fighting) sh.idleMs += dtMs; // the walk-back timer stands still during a fight and the catch card
+      if (sh.idleMs >= T.idleBackMs) beginReturn(s);
+      break;
+    }
+  }
 }
 
 function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
@@ -1304,7 +1640,20 @@ function tickPlay(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng):
   if (p.shape === 'walk' && p.walkHoldMs === 0) p.shape = 'stand';
 }
 
+/** The family leaves the grass for where `pl.after` says (slice 26b): the stones, or the dock. */
+function leaveGrass(s: Companions): void {
+  const to = s.play.after;
+  if (to === 'stones' && s.pebbleWant) beginShore(s, s.pebbleWant);
+  else beginReturn(s);
+}
+
 function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
+  // A cast or a tap on the stones came in during a round: once it is over (or between two rounds) they go.
+  const wait = s.play.after;
+  if (wait !== 'none' && !ROUND_PHASES.includes(s.play.phase) && ((s.play.phase !== 'giveUp' && s.play.phase !== 'drop') || s.play.phaseMs >= ROUND_END_MS)) {
+    leaveGrass(s);
+    return;
+  }
   takeQueued(s);
   const pl = s.play;
   const p = s.paj;
