@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { QUIET_LAKE, RIVER_BEND } from '../../core/data/locations';
 import { seededRng } from '../../core/random';
 import {
+  DOG_BED_SPOT,
   FEED_ANIM,
   bowlHasFood,
   bowlStand,
@@ -175,7 +176,7 @@ describe('feeding on the lawn', () => {
 });
 
 describe('feeding while she naps in her bed', () => {
-  it('she gets up, eats, and starts a rest on the lawn instead of going back to sleep', () => {
+  it('she gets up, eats, goes back to her bed and curls up again', () => {
     const { s, rng } = fresh();
     startNapNow(s);
     expect(isCurled(s)).toBe(true);
@@ -183,8 +184,9 @@ describe('feeding while she naps in her bed', () => {
     expect(s.dog.shape).toBe('run');
     expect(runUntil(s, rng, () => s.feed === null)).toBeGreaterThan(0);
     expect(s.fedCount).toBe(1);
-    expect(s.play.phase).toBe('rest');
-    expect(isCurled(s)).toBe(false);
+    expect(s.play.phase).toBe('napCircle');
+    expect(runUntil(s, rng, () => isCurled(s))).toBeGreaterThan(0);
+    expect(dist(s.dog, DOG_BED_SPOT)).toBeLessThan(2);
   });
 
   it('at night she sleeps and is not woken for it', () => {

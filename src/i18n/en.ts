@@ -55,4 +55,6 @@ export const EN = {
   feedBonus: 'Spoiled. Good.',
   feedAsleep: '{dog} is asleep.',
   feedBedtime: 'Bedtime first.',
+  feedAfter: '{dog} can eat after this one.',
+  feedHeading: 'For {dog}',
 } as const;

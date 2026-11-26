@@ -15,7 +15,7 @@ import { bagTier } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { CAMP_ITEMS } from '../core/data/camp';
-import { tr } from '../i18n/en';
+import { EN, tr } from '../i18n/en';
 import { buyCampItem, hasCamp } from '../core/camp';
 import type { Line, Reel, Rod } from '../core/gear';
 import { gateText, gearUnlocked } from '../core/gearGates';
@@ -346,7 +346,25 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
         return;
       }
 
-      body.append(el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:0 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`, 'Bait'));
+      // Dog treats for Bestia's bowl (slice 30): a basic, sold at every place, first in the list under its own small heading.
+      const headingCss = `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold};margin:0 0 6px;border-bottom:2px solid ${COLORS.woodLight};padding-bottom:3px`;
+      if (sold(stock, TREATS.id)) {
+        body.append(
+          el('div', headingCss, tr(EN.feedHeading)),
+          itemCard({
+            id: TREATS.id,
+            name: treatsOf(p) > 0 ? `${TREATS.name} x${TREATS.packSize} (have ${treatsOf(p)})` : `${TREATS.name} x${TREATS.packSize}`,
+            price: TREATS.price,
+            effect: tr("For {dog}'s bowl by the car. She will be so pleased."),
+            coins: p.coins,
+            buy: () => {
+              apply(buyTreats(store.get(), stock), TREATS.id);
+              panel.refresh();
+            },
+          }),
+        );
+      }
+      body.append(el('div', headingCss + ';margin-top:10px', 'Bait'));
       body.append(
         itemCard({
           id: 'worms',
@@ -373,23 +391,6 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
             coins: p.coins,
             buy: () => {
               apply(buyBait(store.get(), bait.id, stock), bait.id);
-              panel.refresh();
-            },
-          }),
-        );
-      }
-
-      // Dog treats for Bestia's bowl (slice 30): a basic, sold at every place.
-      if (sold(stock, TREATS.id)) {
-        body.append(
-          itemCard({
-            id: TREATS.id,
-            name: treatsOf(p) > 0 ? `${TREATS.name} x${TREATS.packSize} (have ${treatsOf(p)})` : `${TREATS.name} x${TREATS.packSize}`,
-            price: TREATS.price,
-            effect: tr("For {dog}'s bowl by the car. She will be so pleased."),
-            coins: p.coins,
-            buy: () => {
-              apply(buyTreats(store.get(), stock), TREATS.id);
               panel.refresh();
             },
           }),

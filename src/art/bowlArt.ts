@@ -3,29 +3,37 @@ import { PAL } from './palette';
 import type { Sprite } from './pixelGrid';
 
 /**
- * Bestia's food bowl (slice 30): a small blue bowl seen from a little above, standing on the grass by the car. Two pictures: empty,
- * and with a heap of kibble in it (shown from the moment a treat goes in until she has eaten it). Feet are the bottom row.
+ * Bestia's food bowl (slice 30): a terracotta bowl seen from a little above, standing on the grass by the car (warm, so it never echoes
+ * her blue bed). Two pictures: empty, and with a mound of kibble heaped over the rim (shown from the moment a treat goes in until she has
+ * eaten it). Feet are the bottom row.
  */
-export const BOWL_SIZE = { w: 20, h: 11 };
+export const BOWL_SIZE = { w: 24, h: 13 };
+
+const CLAY = 0xc4623a;
+const CLAY_DARK = 0x8f3f26;
+const CLAY_LIGHT = 0xe9946a;
+const KIBBLE = 0x9a6234;
 
 export function bowlSprite(full: boolean): Sprite {
   const p = new Pix(BOWL_SIZE.w, BOWL_SIZE.h);
-  const cx = 9.5;
-  // The outer wall (denim, dark along the front) and the foot ring under it.
-  p.ell(cx, 6.6, 8.4, 3.6, PAL.denimDark);
-  p.ell(cx, 5.8, 8.4, 3.4, PAL.denim);
-  p.rect(6, 9, 8, 1, PAL.denimDark);
-  // The wide, light rim round the mouth (lit along the back), then the hollow inside it.
-  p.ell(cx, 4.2, 8.4, 3.6, (_x, y) => (y <= 2 ? PAL.white : PAL.blueFlower));
-  p.ell(cx, 4.6, 6.3, 2.4, PAL.denimDark);
-  p.ell(cx, 5.1, 5.4, 1.7, PAL.denim);
+  const cx = 11.5;
+  // The outer wall (clay, dark along the front) and the foot ring under it.
+  p.ell(cx, 8, 10.4, 4.2, CLAY_DARK);
+  p.ell(cx, 7, 10.4, 4, CLAY);
+  p.rect(7, 11, 10, 1, CLAY_DARK);
+  // A cream stripe round the wall, like a painted bowl.
+  for (let x = 3; x <= 20; x++) p.set(x, 9, PAL.cream);
+  // The wide, light rim round the mouth (lit along the back), then the dark hollow inside it.
+  p.ell(cx, 5.2, 10.4, 4.3, (_x, y) => (y <= 2 ? PAL.white : CLAY_LIGHT));
+  p.ell(cx, 5.6, 8.2, 3, CLAY_DARK);
+  if (!full) p.ell(cx, 6.2, 7, 2.1, CLAY);
   if (full) {
-    // A little heap of kibble over the hollow.
-    p.ell(cx, 4.0, 5.6, 2.3, PAL.woodLight);
-    p.ell(cx, 3.4, 4.2, 1.4, PAL.straw);
-    for (const [x, y] of [[6, 4], [9, 5], [12, 4], [8, 3], [11, 3]]) p.set(x, y, PAL.wood);
-    p.set(7, 2, PAL.strawLight);
-    p.set(10, 2, PAL.strawLight);
+    // A mound of kibble heaped well over the rim.
+    p.ell(cx, 5, 8.6, 3, KIBBLE);
+    p.ell(cx, 3.2, 6.6, 3, KIBBLE);
+    p.ell(cx, 2.2, 4.4, 1.8, PAL.woodLight);
+    for (const [x, y] of [[7, 5], [10, 6], [14, 5], [16, 6], [9, 3], [13, 3], [11, 1], [15, 4], [6, 6]]) p.rect(x, y, 2, 1, PAL.woodDark);
+    for (const [x, y] of [[8, 4], [12, 2], [14, 4], [10, 4]]) p.rect(x, y, 2, 1, PAL.woodHi);
   }
   p.outline();
   return p.done();

@@ -634,6 +634,8 @@ export class LakeScene extends Phaser.Scene {
   private roundsSeen = 0;
   /** Meals finished that the scene has counted (slice 30). */
   private fedSeen = 0;
+  /** The bowl was tapped with the line out: she eats as soon as it is back (slice 30). */
+  private feedLater = false;
   /** The fetch phase last frame, to bark when it changes. */
   private lastPlayPhase: string | null = null;
   private elapsed = 0;
@@ -2326,7 +2328,7 @@ export class LakeScene extends Phaser.Scene {
       case 'bed':
         return (k === 'idle' || k === 'charging') && hasCamp(this.player, 'dogbed') && this.hits.bed.contains(x, y);
       case 'bowl':
-        return on && this.hits.bowl.contains(x, y);
+        return (on || k === 'casting') && this.hits.bowl.contains(x, y);
     }
   }
 
@@ -2378,18 +2380,28 @@ export class LakeScene extends Phaser.Scene {
    */
   private tapBowl(): void {
     const k = this.state.kind;
-    if ((k !== 'idle' && k !== 'waiting') || this.panel || this.sleepFade) return;
+    if ((k !== 'idle' && k !== 'waiting' && k !== 'casting') || this.panel || this.sleepFade) return;
+    this.markHint('bowl');
     const c = this.companions.state;
-    if (feedBusy(c)) return; // a treat is already in the bowl
+    if (feedBusy(c) || this.feedLater) return; // a treat is already in the bowl
     const check = checkFeed(this.player, this.today);
     if (check === 'noTreats') return this.showToast(EN.feedNoTreats);
     if (check === 'full') return this.showToast(EN.feedFull);
+    // The line is out: the rod stays as it is, she eats once it is reeled in.
+    if (k !== 'idle') {
+      this.feedLater = true;
+      return this.showToast(EN.feedAfter);
+    }
     const r = feedRequest(c, { night: timeOfDay(this.clock.minute) === 'night' });
     if (r === 'no') this.showToast(c.mode === 'bed' && !isInCar(c) ? EN.feedBedtime : EN.feedAsleep);
   }
 
   /** A meal finished (slice 30): the treat leaves the bag, today's count goes up, a heart pops; the first of the day switches the cozy bonus on and Pajkel says so. */
   private updateFeeding(): void {
+    if (this.feedLater && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
+      this.feedLater = false;
+      this.tapBowl();
+    }
     const done = this.companions.state.fedCount;
     while (this.fedSeen < done) {
       this.fedSeen++;
@@ -3130,8 +3142,9 @@ export class LakeScene extends Phaser.Scene {
       dog: { x: dog.x + 6, y: dog.y - DOG_SIZE.h - 2 },
       crate: null, // the crate has its own, constant twinkle (drawCrate)
       stones: this.spots.stones ? { x: this.spots.stones.x + STONES_SIZE.w - 6, y: this.spots.stones.y + 2 } : null,
+      bowl: { x: this.spots.bowl.x + BOWL_SIZE.w - 4, y: this.spots.bowl.y - 2 },
     };
-    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed', stones: this.spots.stones !== undefined });
+    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed', stones: this.spots.stones !== undefined, bowl: true });
     if (live.includes('car')) this.drawCarCue(g);
     for (const id of live) {
       const k = glintPhase(this.elapsed, GLINTS.indexOf(id));

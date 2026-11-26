@@ -2137,6 +2137,8 @@ export interface FeedState {
   y: number;
   face: 1 | -1;
   path: Point[];
+  /** She was napping in her bed: she goes back and curls up again. */
+  nap: boolean;
   /** A cast came mid-meal: the family goes back as this press asks once she is done (the fishing state at that press). */
   press: string | null;
 }
@@ -2191,6 +2193,7 @@ function feedBack(s: Companions, f: FeedState): Point[] {
   const lane = { x: FEED_ANIM.laneX, y: FEED_ANIM.laneY };
   if (f.from === 'dock') return [lane, ...[...dogDown(s)].reverse().map((p) => ({ ...p })), { ...cs(s).dog }];
   if (f.from === 'shore') return [lane, { ...(cs(s).shore?.dogVia ?? lane) }, { ...(cs(s).shore?.dogSit ?? cs(s).dog) }];
+  if (f.nap) return [lane, { ...bedSpot(s.spots) }];
   return [lane, clampArea(s, { x: s.paj.x + 30, y: s.paj.y + 4 })];
 }
 
@@ -2206,7 +2209,7 @@ function startFeed(s: Companions): void {
   d.sleeping = false;
   d.restMs = 0;
   d.path = [];
-  s.feed = { phase: 'go', phaseMs: 0, from, x: d.x, y: d.y, face: d.face, path: feedRoute(s, d, from === 'dock' && d.y < cs(s).grassY + 40), press: null };
+  s.feed = { phase: 'go', phaseMs: 0, from, x: d.x, y: d.y, face: d.face, path: feedRoute(s, d, from === 'dock'), nap: isNapping(s), press: null };
   d.shape = 'run';
 }
 
@@ -2293,10 +2296,10 @@ function finishFeed(s: Companions): void {
     d.reaction = 'sit';
     d.reactMs = 0;
   } else if (f.from === 'shore') d.face = -1;
-  else if (isNapping(s)) {
-    // She has left her bed: the lawn game starts over with a rest.
-    s.play.phase = 'rest';
-    s.play.phaseMs = 0;
+  else if (f.nap && s.mode === 'play') {
+    // She is back at her bed: one turn on the spot and she curls up again.
+    d.shape = 'stand';
+    go(s.play, 'napCircle');
   }
   if (f.press !== null) companionPress(s, f.press);
 }
