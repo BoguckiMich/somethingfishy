@@ -98,7 +98,7 @@ export interface Bubble {
 }
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl';
-export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend' | 'windup' | 'flick' | 'rejoice';
+export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend' | 'pick' | 'pickUp' | 'windup' | 'flick' | 'rejoice';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed' | 'shore';
 /**
  * One round of "no take, only throw" (slice 17): he throws, she fetches (`throw`), trots back (`bring`)
@@ -390,9 +390,9 @@ function newShore(): ShoreState {
 }
 
 export const SHORE_TUNING = {
-  /** His feet at the stones (the stones are at x 93-115, y 460-472: he stands just left of them and a step in front), and Bestia beside him. */
-  stand: { x: 80, y: 479 } as Point,
-  dogSit: { x: 54, y: 485 } as Point,
+  /** His feet at the stones (the stones are at x 93-115, y 460-472: he stands at their right, clear of the trophy board and the campfire), and Bestia beside him by the dock corner. */
+  stand: { x: 122, y: 479 } as Point,
+  dogSit: { x: 150, y: 484 } as Point,
   walkSpeed: 62,
   /** The pick-up: a bend to the stones. */
   pickMs: 700,
@@ -874,7 +874,7 @@ function beginShore(s: Companions, t: PebbleThrow | null): void {
   const d = s.dog;
   // From the chair: down the planks, then along the front of the dock; from the grass: up to the same line first (clear of the campfire).
   p.path = fromDock ? [PAJ_PATH_DOWN[0], { x: 140, y: 480 }, { ...T.stand }] : [...(p.y > 488 ? [{ x: Math.max(p.x, 140), y: 484 }] : []), { ...T.stand }];
-  d.path = fromDock ? [DOG_PATH_DOWN[0], { x: 160, y: 488 }, { ...T.dogSit }] : [{ x: 120, y: 488 }, { ...T.dogSit }];
+  d.path = fromDock ? [DOG_PATH_DOWN[0], { x: 160, y: 488 }, { ...T.dogSit }] : [{ ...T.dogSit }];
   p.shape = 'walk';
   d.shape = 'run';
   d.reaction = 'none';
@@ -1030,7 +1030,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
   const dDone = follow(d, DOG_RUN_SPEED * 0.7, dtMs);
   d.hop = s.woofMs > 0 ? Math.abs(Math.sin(s.woofMs / 90)) * 2 : 0;
   d.shape = !dDone ? 'run' : s.woofMs > 0 ? 'stand' : 'sit';
-  if (dDone) d.face = 1;
+  if (dDone) d.face = -1; // sits turned left, toward him and the pebbles
   const go = (phase: ShorePhase) => {
     sh.phase = phase;
     sh.phaseMs = 0;
@@ -1049,12 +1049,11 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
       break;
     }
     case 'pick': {
-      // A bend to the stones on his right.
-      p.shape = 'bend';
-      p.face = 1;
+      // A short crouch to the stones at his left: hand down, then a stone up.
+      p.shape = sh.phaseMs < T.pickMs * 0.55 ? 'pick' : 'pickUp';
+      p.face = -1;
       if (sh.phaseMs >= T.pickMs) {
-        p.face = -1;
-        p.shape = sh.cur?.big ? 'bend' : 'windup';
+        p.shape = sh.cur?.big ? 'pickUp' : 'windup';
         go('windUp');
       }
       break;
@@ -1063,7 +1062,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
       const big = sh.cur?.big === true;
       const total = big ? T.windUpBigMs : T.windUpMs;
       p.face = -1;
-      p.shape = big && sh.phaseMs < T.crouchMs ? 'bend' : 'windup';
+      p.shape = big && sh.phaseMs < T.crouchMs ? 'pickUp' : 'windup';
       if (sh.phaseMs >= total) {
         p.shape = 'flick';
         go('flick');

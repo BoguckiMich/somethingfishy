@@ -228,6 +228,8 @@ export class CompanionView {
         : p.shape === 'stretch' ? (pajStretchHigh(s) ? 'stretch1' : 'stretch0')
         : p.shape === 'throw' ? 'throw'
         : p.shape === 'bend' ? 'bend'
+        : p.shape === 'pick' ? 'crouch0'
+        : p.shape === 'pickUp' ? 'crouch1'
         : p.shape === 'windup' ? 'flick0'
         : p.shape === 'flick' ? 'flick1'
         : p.shape === 'rejoice' ? (Math.floor(elapsed / 180) % 2 === 0 ? 'stretch0' : 'stretch1')

@@ -744,11 +744,11 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
 
 // Standing / walking side view, facing right (flip for left).
 export const PAJ_WALK_SIZE = { w: 32, h: 52 };
-export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1' | 'bend' | 'flick0' | 'flick1';
+export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1' | 'bend' | 'flick0' | 'flick1' | 'crouch0' | 'crouch1';
 /** Number of frames in the walk cycle (walk0..walkN-1; carry0..carryN-1 is the same cycle with Bestia in his arms). */
 export const PAJ_WALK_FRAMES = 4;
 /** Every standing / walking pose, in the order the textures are baked. */
-export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1', 'bend', 'flick0', 'flick1'];
+export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1', 'bend', 'flick0', 'flick1', 'crouch0', 'crouch1'];
 
 /**
  * Bestia held in Pajkel's arms (slice 16), painted into his walking sprite: her body lies across the
@@ -970,7 +970,12 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   const swung = (x: number): LegPose => [[x, hipY], [18, 41], [15, 45], 3];
   let far: LegPose;
   let near: LegPose;
-  if (!walking) {
+  const crouch = pose.startsWith('crouch');
+  if (crouch) {
+    // Crouching at the stones (slice 26b): knees bent forward, hips low, the body lowered 7 px.
+    far = [[12, 37], [19, 42], [14, 48], 0];
+    near = [[14, 37], [21, 42], [17, 48], 0];
+  } else if (!walking) {
     far = [[14, hipY], [13, 42], [12, 48], 0];
     near = [[16, hipY], [16, 42], [16, 48], 0];
   } else if (f === 0) [far, near] = [back(14), fwd(16)];
@@ -979,12 +984,20 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   else [far, near] = [planted(15), swung(15)];
   pajLeg(p, false, far);
   pajLeg(p, true, near);
-  pajTorso(p, bob);
+  pajTorso(p, crouch ? 7 : bob);
   if (carry) paintCarriedDog(p, bob);
   else if (stretch) paintStretchArms(p, pose === 'stretch1');
   else if (pose === 'bend') {
     // Picking a stick up: the near arm reaches down and forward to the grass, hand open.
     pajArm(p, 17, 22, 23, 43, true);
+  } else if (crouch) {
+    // A short pick-up: the arm of normal length drops from the low shoulder to the stones by his shoes; crouch1 lifts a stone.
+    if (pose === 'crouch0') pajArm(p, 17, 29, 22, 41, true);
+    else {
+      pajArm(p, 17, 29, 22, 39, true);
+      p.rect(23, 41, 3, 2, PAL.stoneLight);
+      p.set(23, 41, PAL.white);
+    }
   } else if (pose === 'flick0') {
     // Skipping a pebble (slice 26b), wind-up: the near arm back and low, a flat stone pinched in the fingers.
     pajArm(p, 17, 22, 8, 33, true);
@@ -996,7 +1009,7 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   } else if (pose !== 'throw') {
     pajArm(p, 16, 22 + bob, 16 + swing, 31 + bob, true);
   }
-  pajHead(p, bob);
+  pajHead(p, crouch ? 7 : bob);
   if (pose === 'throw') {
     // The arm winds up in front of the beard, stick in the fist.
     for (let dx = 0; dx < 4; dx++) p.line(17 + dx, 22, 24 + dx, 11, dx === 3 ? PAL.jacketDark : dx === 0 ? PAL.jacketLight : PAL.jacket);
