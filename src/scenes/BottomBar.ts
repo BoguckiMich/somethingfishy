@@ -47,6 +47,8 @@ export interface BarView {
   /** The fish log: species found and how many there are (the label reads "Log 6/13"). */
   logFound: number;
   logTotal: number;
+  /** A small dot on the Shop button: new gear is waiting there (A3). */
+  shopDot?: boolean;
 }
 
 /** The bottom bar: Bag (n/10), Shop, Log, the bait chip and the gear (settings). Drawn with Phaser; taps come from the scene. */
@@ -98,6 +100,12 @@ export class BottomBar {
       if (id === 'bait') this.baitIcon.setTexture(baitIconKey(v.baitId)).setAlpha(a);
       label.setColor(full ? '#ffb347' : '#fff6e4');
       label.setAlpha(a);
+      if (id === 'shop' && v.shopDot) {
+        // A gold dot on the button's top right corner, breathing a little.
+        const bx = r.right - 7;
+        const by = r.y + 1;
+        g.fillStyle(PAL.outline).fillRect(bx, by, 8, 8).fillStyle(PAL.gold).fillRect(bx + 1, by + 1, 6, 6).fillStyle(PAL.white, 0.8).fillRect(bx + 2, by + 2, 2, 2);
+      }
     });
   }
 }

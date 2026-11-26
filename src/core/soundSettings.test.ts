@@ -20,25 +20,25 @@ describe('sound settings', () => {
   });
 
   it('defaults to full volume for both', () => {
-    expect(DEFAULT_SOUND_SETTINGS).toEqual({ sfx: 100, ambience: 100 });
-    expect(loadSoundSettings(undefined)).toEqual({ sfx: 100, ambience: 100 });
-    expect(loadSoundSettings(memory())).toEqual({ sfx: 100, ambience: 100 });
+    expect(DEFAULT_SOUND_SETTINGS).toEqual({ sfx: 100, ambience: 100, haptics: true });
+    expect(loadSoundSettings(undefined)).toEqual({ sfx: 100, ambience: 100, haptics: true });
+    expect(loadSoundSettings(memory())).toEqual({ sfx: 100, ambience: 100, haptics: true });
   });
 
   it('round-trips through storage', () => {
     const m = memory();
-    expect(saveSoundSettings(m, { sfx: 0, ambience: 40 })).toBe(true);
-    expect(loadSoundSettings(m)).toEqual({ sfx: 0, ambience: 40 });
-    expect(JSON.parse(m.data.get(SOUND_SETTINGS_KEY)!)).toEqual({ sfx: 0, ambience: 40 });
+    expect(saveSoundSettings(m, { sfx: 0, ambience: 40, haptics: false })).toBe(true);
+    expect(loadSoundSettings(m)).toEqual({ sfx: 0, ambience: 40, haptics: false });
+    expect(JSON.parse(m.data.get(SOUND_SETTINGS_KEY)!)).toEqual({ sfx: 0, ambience: 40, haptics: false });
   });
 
   it('reads the old on/off toggles as full / silent', () => {
-    expect(loadSoundSettings(memory('{"sfx":false,"ambience":true}'))).toEqual({ sfx: 0, ambience: 100 });
+    expect(loadSoundSettings(memory('{"sfx":false,"ambience":true}'))).toEqual({ sfx: 0, ambience: 100, haptics: true });
   });
 
   it('clamps and rounds volumes to whole percents', () => {
-    expect(normalizeSoundSettings({ sfx: 150, ambience: -3 })).toEqual({ sfx: 100, ambience: 0 });
-    expect(normalizeSoundSettings({ sfx: 33.6, ambience: 50 })).toEqual({ sfx: 34, ambience: 50 });
+    expect(normalizeSoundSettings({ sfx: 150, ambience: -3 })).toEqual({ sfx: 100, ambience: 0, haptics: true });
+    expect(normalizeSoundSettings({ sfx: 33.6, ambience: 50 })).toEqual({ sfx: 34, ambience: 50, haptics: true });
   });
 
   it('survives junk', () => {
@@ -50,8 +50,8 @@ describe('sound settings', () => {
   });
 
   it('keeps a valid field next to a broken one', () => {
-    expect(loadSoundSettings(memory('{"sfx":20,"ambience":"x"}'))).toEqual({ sfx: 20, ambience: 100 });
-    expect(normalizeSoundSettings({ ambience: 0 })).toEqual({ sfx: 100, ambience: 0 });
+    expect(loadSoundSettings(memory('{"sfx":20,"ambience":"x"}'))).toEqual({ sfx: 20, ambience: 100, haptics: true });
+    expect(normalizeSoundSettings({ ambience: 0 })).toEqual({ sfx: 100, ambience: 0, haptics: true });
   });
 
   it('reports a failed write without throwing', () => {
@@ -70,5 +70,11 @@ describe('volumeGain', () => {
     expect(volumeGain(0)).toBe(0);
     expect(volumeGain(100)).toBe(1);
     expect(volumeGain(50)).toBeCloseTo(0.25);
+  });
+
+  it('haptics default on, read as saved, and junk falls back to on', () => {
+    expect(loadSoundSettings(memory('{"haptics":false}')).haptics).toBe(false);
+    expect(loadSoundSettings(memory('{"haptics":"no"}')).haptics).toBe(true);
+    expect(normalizeSoundSettings(undefined).haptics).toBe(true);
   });
 });
