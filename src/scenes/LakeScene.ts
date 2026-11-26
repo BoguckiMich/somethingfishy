@@ -2953,7 +2953,7 @@ export class LakeScene extends Phaser.Scene {
       .setVisible(this.wormCueAge < 1200)
       .setAlpha(Math.min(1, (1200 - this.wormCueAge) / 400))
       // On the catch card it floats up by the HUD's right side, clear of the strip at the bottom and the bait chip.
-      .setPosition(this.state.kind === 'caught' ? W - 44 : baitChipRect().centerX, (this.state.kind === 'caught' ? 118 : baitChipRect().y - 16) - this.wormCueAge / 100);
+      .setPosition(this.state.kind === 'caught' ? W - 44 : baitChipRect().centerX, (this.state.kind === 'caught' ? 84 : baitChipRect().y - 16) - this.wormCueAge / 100);
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.warnAge += _deltaMs;
     this.warnText.setVisible(this.warnAge < WARN_MS).setAlpha(Math.min(1, (WARN_MS - this.warnAge) / 400));

@@ -16,7 +16,7 @@ import { STAR_ROWS, multiplyColor } from './CatchBarView';
 
 const DEPTH = 15.6;
 /** The tension gauge: a half circle (slack at the left, red at the right), by the reel, clear of the line and of Alex's head. */
-export const LINE_DIAL = { cx: 124, cy: 318, r: 26 };
+export const LINE_DIAL = { cx: 106, cy: 312, r: 46 };
 const GOLD_DARK = 0xb98a2c;
 const STEEL = 0x6f86a0;
 
@@ -125,22 +125,24 @@ export class LineFightView {
       g.fillStyle(t(PAL.redLight), 1).fillRect(x - 1, my - 1, 4, 10).fillRect(x - 1, my + 13, 4, 3);
       g.fillStyle(t(PAL.white), 0.7).fillRect(x - 1, my - 1, 1, 10);
     }
-    // A sideways cut is telegraphed: a small splash on the side it will dart to, and an arrow pointing there.
+    // A sideways cut is telegraphed: a big splash on the side it will dart to, and a big arrow pointing there (twice the first size).
     if (line.cutWarn > 0) {
       const dir = line.cutTarget >= line.lateral ? 1 : -1;
       const w = 1 - line.cutWarn / T.cutWarnS;
-      const sx = x + dir * Math.round(12 * k);
-      ring((3 + w * 5) * k, (1.2 + w * 2) * k, 0.9, dir * Math.round(12 * k), 0);
-      for (let i = 0; i < 4; i++) g.fillStyle(t(PAL.white), 0.9).fillRect(sx + (i - 2) * 2, y - 2 - Math.round(w * 4 + (i % 2) * 2), 1, 2);
-      const ax = Math.min(350, Math.max(10, x + dir * Math.round(24 * k)));
+      const off = dir * Math.round(24 * k);
+      const sx = x + off;
+      ring((6 + w * 10) * k, (2.4 + w * 4) * k, 0.9, off, 0);
+      ring((4 + w * 6) * k, (1.6 + w * 2.6) * k, 0.7, off, 0);
+      for (let i = 0; i < 6; i++) g.fillStyle(t(PAL.white), 0.9).fillRect(sx + (i - 3) * 4, y - 4 - Math.round(w * 8 + (i % 2) * 4), 2, 4);
+      const ax = Math.min(345, Math.max(15, x + dir * Math.round(48 * k)));
       const on = Math.floor(ms / 90) % 2 === 0 ? 1 : 0.6;
-      for (let s = 0; s <= 4; s++) {
-        const px2 = ax - dir * (4 - s);
-        g.fillStyle(PAL.outline, on).fillRect(px2 - 1, y - 5 + s - 1, 4, 4).fillRect(px2 - 1, y + 5 - s - 1, 4, 4);
+      for (let s = 0; s <= 8; s++) {
+        const px2 = ax - dir * (8 - s);
+        g.fillStyle(PAL.outline, on).fillRect(px2 - 2, y - 10 + s - 2, 8, 8).fillRect(px2 - 2, y + 10 - s - 2, 8, 8);
       }
-      for (let s = 0; s <= 4; s++) {
-        const px2 = ax - dir * (4 - s);
-        g.fillStyle(t(PAL.white), on).fillRect(px2, y - 5 + s, 2, 2).fillRect(px2, y + 5 - s, 2, 2);
+      for (let s = 0; s <= 8; s++) {
+        const px2 = ax - dir * (8 - s);
+        g.fillStyle(t(PAL.white), on).fillRect(px2, y - 10 + s, 4, 4).fillRect(px2, y + 10 - s, 4, 4);
       }
     }
     // The run: a big churn, a wake streaming behind the fish, and flying drops.
@@ -194,7 +196,7 @@ export class LineFightView {
       g.fillRect(px - w, cy - dy, w * 2, 1);
     }
     const danger = line.redS > 0.04 || line.slackS > 0.08;
-    g.fillRect(px - 20, cy + 1, 40, danger ? 42 : 24);
+    g.fillRect(px - 32, cy + 1, 64, danger ? 46 : 28);
 
     const theta = (tt: number) => Math.PI * (1 + tt);
     const arc = (t0: number, t1: number, r0: number, r1: number, colour: number, every = 1, alpha = 1) => {
@@ -265,7 +267,7 @@ export class LineFightView {
     const slackShare = Math.min(1, line.slackS / (trophy ? T.trophySlackS : T.slackS));
     const bar = (y: number, share: number, colour: number, label: 'snap' | 'slip') => {
       if (share < 0.04) return;
-      const w = 40;
+      const w = 64;
       const x0 = px - w / 2;
       g.fillStyle(PAL.outline, 1).fillRect(x0 - 1, y - 1, w + 2, 5);
       g.fillStyle(t(PAL.outlineSoft), 1).fillRect(x0, y, w, 3);

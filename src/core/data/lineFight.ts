@@ -46,8 +46,8 @@ export const LINE_FIGHT_TUNING = {
   slackFloor: 0.12,
   /** The steady (gold) band, drawn on the gauge: centred on `goldCenter`, `goldWidth` wide for an easy fish and narrow for a hard one (difficulty^goldCurve); trophies at most `trophyGoldMax`. */
   goldCenter: 0.5,
-  goldWidth: [0.15, 0.12] as [number, number],
-  goldCurve: 1,
+  goldWidth: [0.24, 0.12] as [number, number],
+  goldCurve: 0.7,
   /** The rod widens or narrows the band: + goldPerZone x (zoneSize - goldZoneRef) (bamboo about -0.03, fiberglass 0, carbon +0.03). */
   goldPerZone: 0.35,
   goldZoneRef: 0.34,
@@ -76,7 +76,7 @@ export const LINE_FIGHT_TUNING = {
   tickGapMs: 160,
   /** Slack for longer than this in one go and the hook slips (seconds). Trophies: `trophySlackS`. */
   slackS: 2.0,
-  trophySlackS: 1.3,
+  trophySlackS: 1.7,
   /** Slack time drains at this share of the rate it builds while the line is taut, so a player who lets go most of the time still loses it, but a short slack is forgiven. */
   slackRecovery: 0.5,
   /** ...and only once the tension is back above this (a jerk of a cut that lifts it just over the floor does not count). */
@@ -91,6 +91,8 @@ export const LINE_FIGHT_TUNING = {
   cutWarnS: 0.38,
   /** Thumb up this long (counting only the calm between surges) and the hook slips: the surges lift the tension, so slack alone would never end a passive fight. */
   releasedSlipS: 4,
+  /** Thumb-up time during a run counts this much (a legit let-go through a surge must not slip the hook). */
+  releasedRunShare: 0.2,
   /** The fish tires near the dock: surge strength is x(tireFloor + (1 - tireFloor) * distance / tireM) in the last tireM metres. */
   tireM: 3,
   tireFloor: 0.2,
@@ -132,6 +134,12 @@ export const LINE_FIGHT_TUNING = {
   difficultyCurve: 0.75,
   /** A cut's jerk is not felt at all below this tension (a loose line can not be jerked); with the thumb up it is only this share of it. */
   kickFrom: 0.2,
+  /** A cut's jerk is felt over this long (s), at a rate of `kickTotalRef` per `kickS`: a full 1.0 jerk takes kickS. */
+  kickS: 0.5,
+  kickTotalRef: 1,
+  /** Cap on the climb of the needle outside a cut: this many gold-widths per second (10/3 = a third of the band per 100 ms), x(1 + riseCapSurge x surge) in a surge. */
+  riseCapPerS: 10 / 3,
+  riseCapSurge: 0.7,
   kickReleased: 0.25,
   /** The cut's jerk blends with the difficulty to this power (steeper than the other ranges: the hard darters really yank). */
   kickCurve: 2.5,
@@ -141,7 +149,7 @@ export const LINE_FIGHT_TUNING = {
     // Long steady pulls: a surge you can ride, gentle at first.
     smooth: { pull: [0.1, 0.4], every: [3.4, 1.4], strength: [0.35, 0.8], run: [2.0, 3.4], warn: [0.75, 0.38], cutEvery: [3.2, 2.2], cutReach: [0.3, 0.6], cutSpeed: 0.7, cutKick: [0, 1.3], rise: [0.22, 0.29], fall: [0.45, 0.6], holdMul: 1.22, reel: 1, strengthSpread: 0.1 },
     // Quick sideways cuts that jerk the line, and short sharp surges.
-    darting: { pull: [0.12, 0.36], every: [2.2, 0.9], strength: [0.4, 1], run: [0.7, 1.3], warn: [0.6, 0.35], cutEvery: [1.5, 0.7], cutReach: [0.5, 1], cutSpeed: 3.2, cutKick: [0.3, 1.6], rise: [0.22, 0.29], fall: [0.5, 0.6], holdMul: 1.05, reel: 1, strengthSpread: 0.15 },
+    darting: { pull: [0.12, 0.36], every: [2.2, 0.9], strength: [0.4, 1], run: [0.7, 1.3], warn: [0.6, 0.35], cutEvery: [1.5, 0.7], cutReach: [0.5, 1], cutSpeed: 3.2, cutKick: [0.3, 1.6], rise: [0.22, 0.29], fall: [0.5, 0.6], holdMul: 1.08, reel: 1, strengthSpread: 0.15 },
     // Heavy and deep: a high steady pull and slow tension, so reel in short patient pulls.
     sinker: { pull: [0.26, 0.5], every: [3.8, 1.8], strength: [0.45, 0.9], run: [1.8, 3.2], warn: [0.85, 0.4], cutEvery: [4.5, 3.5], cutReach: [0.15, 0.3], cutSpeed: 0.5, cutKick: [0, 0.5], rise: [0.22, 0.26], fall: [0.35, 0.5], holdMul: 0.78, reel: 0.95, strengthSpread: 0.1 },
     // Surges out of nowhere, uneven in length and weight.
@@ -171,7 +179,7 @@ export const SIGNATURE_TUNING = {
   /** The second surge of a flash comes after this short warning. */
   flashWarnS: 0.22,
   /** How long a feint goes limp before the pull. */
-  feintHushS: 0.95,
+  feintHushS: 1.2,
   /** A dive: strength, run time and warning. */
   diveStrength: 0.6,
   diveRunS: 2.2,

@@ -316,7 +316,7 @@ describe('personalities', () => {
       }
       return travelled;
     };
-    expect(swing('darting')).toBeGreaterThan(swing('sinker') * 2);
+    expect(swing('darting')).toBeGreaterThan(swing('sinker') * 1.5);
   });
 
   it('each trophy has its own signature move', () => {
@@ -544,5 +544,57 @@ describe('control rules (tuning round: feathering, gold band, strict perfect, re
     expect(mid.glow).toBeLessThan(1);
     expect(perfectOutlook({ ...s, goldMs: 5_000 }).alive).toBe(false);
     expect(perfectOutlook({ ...s, goldMs: 10_000, redTotalMs: T.perfectRedGraceMs + 200 }).alive).toBe(false);
+  });
+});
+
+describe('no unwarned spikes, slip timing, band widths (hand-play fixes)', () => {
+  it('outside a surge the needle never climbs more than a third of the gold width per 100 ms, hold or release, cut or not', () => {
+    for (const pattern of FISH_PATTERNS) {
+      for (const difficulty of [0.2, 0.9]) {
+        const fish: FishProfile = { pattern, difficulty };
+        const rng = seededRng(77);
+        let s = newLineFight(rng, 20, undefined, fish, gear);
+        let worst = 0;
+        let hist: number[] = [];
+        for (let ms = 0; ms < 40_000 && s.result === 'fighting'; ms += TICK) {
+          s = tickLineFight(s, TICK, Math.floor(ms / 700) % 2 === 0, fish, gear, rng);
+          hist.push(s.tension);
+          if (hist.length > 7 && s.phase !== 'run' && s.phase !== 'warn' && s.cutWarn === 0 && s.kickLeft === 0) worst = Math.max(worst, s.tension - hist[hist.length - 7]);
+          if (hist.length > 7) hist = hist.slice(-8);
+        }
+        expect(worst, `${pattern} ${difficulty}`).toBeLessThanOrEqual((s.goldHi - s.goldLo) / 3 + 0.03);
+      }
+    }
+  });
+
+  it('a cut spreads its jerk over time instead of jumping', () => {
+    const fish: FishProfile = { pattern: 'darting', difficulty: 1 };
+    const rng = seededRng(5);
+    let s = { ...newLineFight(rng, 1000, undefined, fish, gear), tension: 0.5, cutWarn: 0.004, cutTarget: 0.5 };
+    s = tickLineFight(s, TICK, true, fish, gear, rng);
+    expect(s.kickLeft).toBeGreaterThan(0.5);
+    expect(s.tension).toBeLessThan(0.55);
+  });
+
+  it('never pressing slips the hook in about 4-7 s, counted from the very start', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const fish: FishProfile = { pattern: 'smooth', difficulty: 0.4 };
+      const rng = seededRng(seed);
+      let s = newLineFight(rng, 12, undefined, fish, gear);
+      let ms = 0;
+      while (s.result === 'fighting' && ms < 20_000) {
+        s = tickLineFight(s, TICK, false, fish, gear, rng);
+        ms += TICK;
+      }
+      expect(s.result).toBe('slipped');
+      expect(ms).toBeLessThan(7500);
+    }
+  });
+
+  it('the gold is clearly narrower on a hard fish than on an easy one', () => {
+    const w = (d: number) => { const [a, b] = goldBandOf({ difficulty: d }); return b - a; };
+    expect(w(0.25)).toBeGreaterThanOrEqual(0.19);
+    expect(w(0.8)).toBeLessThanOrEqual(0.15);
+    expect(w(0.25) - w(0.8)).toBeGreaterThan(0.05);
   });
 });

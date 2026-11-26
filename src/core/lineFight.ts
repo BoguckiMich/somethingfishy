@@ -86,6 +86,8 @@ export interface LineFightState {
   redTotalMs: number;
   slackTotalMs: number;
   /** Fight time after the first second, and how much of it the needle spent inside the gold (ms): a perfect catch needs `perfectGold` of it. */
+  /** The part of a cut's jerk still to be felt (it is spread over `kickS`). */
+  kickLeft: number;
   timedMs: number;
   goldMs: number;
   /** The gold band of this fish (tension): narrower the harder the fish. The rules and the gauge both read it. */
@@ -142,6 +144,7 @@ export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?
     redS: 0,
     redTotalMs: 0,
     slackTotalMs: 0,
+    kickLeft: 0,
     timedMs: 0,
     goldMs: 0,
     goldLo,
@@ -233,7 +236,7 @@ function startSurge(s: LineFightState, fish: FishProfile, cfg: LinePattern, gear
       s.chain = 1;
     } else if (s.signature === 'feint') {
       s.feint = true;
-      strength = Math.max(strength * 1.35, 0.9);
+      strength = Math.max(strength * 1.5, 1);
     } else {
       strength = SIGNATURE_TUNING.diveStrength;
       warn = SIGNATURE_TUNING.diveWarnS;
@@ -313,7 +316,7 @@ export function tickLineFight(
         s.cutWarn = 0;
         s.lateralTarget = s.cutTarget;
         // A cut jerks the line: at once, and hard if it is taut (a loose line can not be jerked).
-      s.tension = Math.min(1, s.tension + (cfg.cutKick[0] + (cfg.cutKick[1] - cfg.cutKick[0]) * Math.pow(d, T.kickCurve)) * (s.tension < T.kickFrom ? 0 : holding ? 1 : T.kickReleased));
+      s.kickLeft += (cfg.cutKick[0] + (cfg.cutKick[1] - cfg.cutKick[0]) * Math.pow(d, T.kickCurve)) * (s.tension < T.kickFrom ? 0 : holding ? 1 : T.kickReleased);
       }
     } else {
       s.cutTimer -= h;
@@ -332,12 +335,21 @@ export function tickLineFight(
     const wobble = 1 + 0.15 * Math.sin(s.elapsedMs / 1000 * 1.3 + s.wobble);
     const base = s.phase === 'hush' ? 0.02 : lerp(cfg.pull, d) * wobble;
     const pull = base + surge;
+    const tensionBefore = s.tension;
     if (holding) {
       // Feathering: the tension climbs steadily while the thumb is down, the faster the heavier the fish and the pull.
       s.tension = s.tension + (cfg.rise[0] + (cfg.rise[1] - cfg.rise[0]) * Math.pow(d, T.riseCurve) + T.risePull * pull) * (1 + T.surgeRise * surge) * h;
     } else {
       const target = T.release + T.releaseGain * base + (T.surgeHold[0] + (T.surgeHold[1] - T.surgeHold[0]) * Math.pow(d, T.surgeHoldCurve)) * cfg.holdMul * surge;
       s.tension = s.tension > target ? Math.max(target, s.tension - lerp(cfg.fall, d) * h) : s.tension + (target - s.tension) * Math.min(1, T.releaseLag * h);
+    }
+    // Nothing but a telegraphed cut may lift the needle fast: the climb is capped at a third of the gold's width per 100 ms (a little more in a surge).
+    s.tension = Math.min(s.tension, tensionBefore + (s.goldHi - s.goldLo) * T.riseCapPerS * (1 + T.riseCapSurge * surge) * h);
+    // A cut's jerk is not instant: it is spread over `kickS` so the needle climbs where the player can see it and let go.
+    if (s.kickLeft > 0) {
+      const part = Math.min(s.kickLeft, (T.kickTotalRef / T.kickS) * h);
+      s.kickLeft -= part;
+      s.tension += part;
     }
     s.tension = clamp(s.tension, 0, 1);
 
@@ -380,7 +392,7 @@ export function tickLineFight(
       break;
     }
     // The thumb-up time in the calm between surges (a surge lifts the tension, so only the quiet counts); any holding starts it over.
-    s.releasedS = holding ? 0 : s.phase === 'calm' || s.phase === 'hush' ? s.releasedS + h : s.releasedS;
+    s.releasedS = holding ? 0 : s.releasedS + (s.phase === 'run' ? T.releasedRunShare : s.phase === 'warn' ? 0.6 : 1) * (s.tension < s.goldLo ? 1 : 0.3) * h;
     if (s.slackS > slackLimit || s.releasedS > T.releasedSlipS) {
       s.result = 'slipped';
       break;

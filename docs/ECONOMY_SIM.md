@@ -95,14 +95,16 @@ fiberglass 1.4, carbon 2.4), trophies x1.15.
 **Bots.** Classic: hold while the fish is above the zone centre. Line: sees the tension and its speed, and whether a surge, a feint or a cut is showing; holds while the needle (where it will be when the thumb lands) is below the middle
 of the gold, lets go above it or at any telegraph. Every press and release lands `delayMs` late with uniform timing noise: *decent* 200 ms +-100 ms, *skilled* 150 ms +-50 ms. Reaction lapses are a realistic 3 % / 2 % (were 22 % / 6 %).
 
-**Catch rate, decent bot** (classic -> line, 300 fights per cell; fiberglass / carbon unless noted): roach 100 -> 99, rudd 100 -> 97, bleak/perch (bamboo) 100 -> 94-96, eel 100 -> 90, asp bamboo 97 -> 98; bream 93/99 -> 100/100; tench 99/100 -> 100/100;
-carp 79/92 -> 78/93; pike 63/84 -> 73/87; zander, burbot 98-100 -> 99-100; catfish 74/93 -> 79/91; golden tench (fiberglass / carbon / top gear) 44/70/100 -> 46/64/95; mossback 61/86/99 -> 67/87/100; silver ghost (bamboo / fiberglass / top)
-21/45/100 -> 35/58/93; Pale One 52/80 -> 61/72. **Within 10 points of the classic bar in every cell except silver ghost on bamboo and fiberglass (+13 each, the feint is hard to tune: a slack slip and a snap both end it);** eel -10 and pike
-fiberglass +10 are on the edge. Median won-fight length: shallow 4-6 s, deep 6-14 s (the faster reel and the tiring bonus; classic 8-25 s); golden tench and silver ghost on fiberglass are under 50 % catch so their median is the 120 s cap.
+**Hand-play fixes (tester, ~200 ms decisions).** The unwarned spikes were the sideways cut's jerk (up to +1.6 at once on a taut line, with the surge phase still reading "calm"): it is now spread over 0.5 s (`kickS`), and nothing else may lift the needle
+faster than a third of the gold's width per 100 ms (`riseCapPerS`, a bit more in a surge; tested on every pattern). Gold: 0.24 (easy) to 0.12 (hard) by difficulty^0.7, so perch 0.21 vs a 0.8 fish 0.14. Never pressing slips in about 4-7 s: thumb-up time
+counts from the very start, at full rate in calm and hush, 0.6x in a telegraph and 0.2x in a run, and only 0.3x while the needle is up in the gold or above (`releasedSlipS` 4). Trophy slack limit 1.7 s.
 
-**Perfect catch, skilled bot, top gear** (150 ms, +-50 ms): classic darting 11 %, trophies 3 %, others 35 %; **line skilled: darting 31 %, trophies 9 %** (golden tench 12, silver ghost 11, mossback 3), pike 14 %, bleak 43, perch 51, asp 18, **easy fish
-roach 25 %, rudd 12 %**, crucian 23, others 19 %; line decent: darting 20 %, trophies 7 %, others 14 %. Before this round: darting 77 %, trophies 42 %, others 69 %. Darting for the skilled bot is above the 15-25 % aim because bleak and perch (easy
-darters) are high; pike and the trophies are in range.
+**Catch rate, decent bot** (classic -> line, 300 fights per cell; fiberglass / carbon unless noted): bleak/perch (bamboo) 100 -> 96-97, eel 100 -> 90, asp bamboo 97 -> 98; bream 93/99 -> 100/100; carp 79/92 -> 80/94; pike 63/84 -> 76/87;
+catfish 74/93 -> 80/92; golden tench (fiberglass / carbon / top gear) 44/70/100 -> 47/64/97; mossback 61/86/99 -> 70/87/100; silver ghost (bamboo / fiberglass / top) 21/45/100 -> 51/62/93; Pale One 52/80 -> 62/75. **Within 10 points of classic
+in every cell except pike fiberglass (+13) and silver ghost on bamboo (+30) and fiberglass (+17):** the feint (slack slip or snap) is hard to tune on the low rods. Eel -10 is on the edge. Median won-fight length: shallow 4-5 s, deep 7-14 s.
+
+**Perfect catch, skilled bot, top gear** (150 ms, +-50 ms): classic darting 11 %, trophies 3 %, others 35 %; **line skilled: darting 41 %, trophies 8 %** (golden tench 11, silver ghost 10, mossback 4), pike 17 %, bleak 57, perch 64, asp 26, **easy fish roach 33 %,
+rudd 14 %**; line decent: darting 30 %, trophies 7 %. Before the control rounds: darting 77 %, trophies 42 %. Darting is above the 15-25 % aim only because bleak and perch (easy darters) are high; pike and the trophies are in range.
 
 **Dumb players:** never holding and holding forever both land 0 % on every fish tested (roach included: it snaps after about 3-4 s of holding); the hook slips after 4 s of calm with the thumb up; a 60 s safety net says "It got away".
 
