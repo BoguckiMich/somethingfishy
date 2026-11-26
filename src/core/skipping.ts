@@ -36,15 +36,21 @@ export function skipsForSpeed(pxPerMs: number): number {
   return Math.min(SKIP_TUNING.maxSkips, n);
 }
 
-/** Speed (px per ms) over the last `sampleMs` of the drag, ending at the release sample. Fewer than two samples = 0. */
+/**
+ * The flick's speed (px per ms): the fastest stretch of at most `sampleMs` anywhere in the drag (2026-11-26: it was the
+ * last stretch only, but a thumb slows down just before it lifts, so a real flick on a phone read as slow).
+ * Fewer than two samples = 0.
+ */
 export function flickSpeed(samples: readonly FlickSample[]): number {
-  if (samples.length < 2) return 0;
-  const last = samples[samples.length - 1];
-  let first = last;
-  for (let i = samples.length - 1; i >= 0 && last.t - samples[i].t <= SKIP_TUNING.sampleMs; i--) first = samples[i];
-  const dt = last.t - first.t;
-  if (dt <= 0) return 0;
-  return Math.hypot(last.x - first.x, last.y - first.y) / dt;
+  let best = 0;
+  for (let end = 1; end < samples.length; end++) {
+    const last = samples[end];
+    let first = last;
+    for (let i = end - 1; i >= 0 && last.t - samples[i].t <= SKIP_TUNING.sampleMs; i--) first = samples[i];
+    const dt = last.t - first.t;
+    if (dt > 0) best = Math.max(best, Math.hypot(last.x - first.x, last.y - first.y) / dt);
+  }
+  return best;
 }
 
 export interface Throw {

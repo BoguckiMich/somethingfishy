@@ -10,7 +10,7 @@ describe('flick speed to skips', () => {
     expect([0, 0.1, 0.3, 0.5, 0.7, 1, 1.2, 1.5, 1.9, 5, 99].map(skipsForSpeed)).toEqual([1, 1, 2, 2, 3, 3, 4, 5, 5, 5, 5]);
   });
 
-  it('measures the speed over the last 110 ms only', () => {
+  it('measures the fastest 110 ms stretch of the drag', () => {
     const slowThenFast: FlickSample[] = [
       { x: 0, y: 0, t: 0 },
       { x: 10, y: 0, t: 200 },
@@ -22,6 +22,18 @@ describe('flick speed to skips', () => {
     expect(flickSpeed([])).toBe(0);
     expect(flickSpeed([{ x: 0, y: 0, t: 5 }])).toBe(0);
     expect(flickSpeed([{ x: 0, y: 0, t: 5 }, { x: 9, y: 9, t: 5 }])).toBe(0);
+  });
+
+  it('a thumb that slows down before lifting still counts as a fast flick', () => {
+    const fastThenStop: FlickSample[] = [
+      { x: 0, y: 0, t: 0 },
+      { x: 0, y: -80, t: 50 },
+      { x: 0, y: -150, t: 100 },
+      { x: 0, y: -155, t: 180 },
+      { x: 0, y: -155, t: 230 },
+    ];
+    expect(flickSpeed(fastThenStop)).toBeGreaterThanOrEqual(1.43);
+    expect(skipsForSpeed(flickSpeed(fastThenStop))).toBe(5);
   });
 });
 
