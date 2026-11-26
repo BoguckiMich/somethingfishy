@@ -30,6 +30,8 @@ export interface MapOptions {
   onChecklist: () => void;
   /** Bundles done (of `total`) and whether the road is fixed (all done): they change the River bend pin. */
   checklist: { done: number; total: number };
+  /** The River bend checklist (slice 25e): the Old quarry's hint on the map follows it, and at the river its button replaces the lake's. */
+  river: { done: number; total: number };
   /** Whether a nap is possible right now, and why not (read on every render). */
   nap: () => NapStatus;
   /** The place she is at (slice 25a), and the dev flag ?travel=1 that opens the River bend regardless of the checklist. */
@@ -47,8 +49,16 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
   const roadFixed = checklist.done >= checklist.total;
   /** Open = she can fish there: Quiet Lake always, the River bend once the road is fixed (or with ?travel=1). */
   const isOpen = (p: (typeof MAP_PLACES)[number]): boolean => p.id === 'river-bend' ? roadFixed || opts.travelAny : p.status === 'open';
-  const blurbOf = (p: (typeof MAP_PLACES)[number]): string =>
-    p.id === 'river-bend' && !isOpen(p) ? `Finish the Quiet Lake checklist to fix the road (${checklist.done}/${checklist.total})` : p.blurb;
+  const riverDone = opts.river.done >= opts.river.total;
+  const blurbOf = (p: (typeof MAP_PLACES)[number]): string => {
+    if (p.id === 'river-bend' && !isOpen(p)) return `Finish the Quiet Lake checklist to fix the road (${checklist.done}/${checklist.total})`;
+    // The Old quarry is still on its way: the hint says what to do (slice 25e; R6 hands her the gate tag).
+    if (p.id === 'old-quarry') {
+      if (riverDone) return 'The gate tag says OLD QUARRY. The road is not ready yet.';
+      return isOpen(MAP_PLACES.find((q) => q.id === 'river-bend')!) ? `Past the River bend, behind a gate. Finish the River bend checklist (${opts.river.done}/${opts.river.total})` : p.blurb;
+    }
+    return p.blurb;
+  };
   let selected: string = opts.select && MAP_PLACES.some((p) => p.id === opts.select) ? opts.select : opts.current;
   const pins = { open: asCanvas(pinSprite(true)), soon: asCanvas(pinSprite(false)) };
   const ring = asCanvas(selectRingSprite());
@@ -145,8 +155,9 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
           }, t.available ? {} : { disabledReason: tr(t.reason) }),
         );
       }
+      const atRiver = opts.current === 'river-bend';
       nap.append(
-        woodButton(`Quiet Lake checklist ${checklist.done}/${checklist.total}`, () => {
+        woodButton(atRiver ? `River bend checklist ${opts.river.done}/${opts.river.total}` : `Quiet Lake checklist ${checklist.done}/${checklist.total}`, () => {
           panel.close();
           onChecklist();
         }),

@@ -1,4 +1,4 @@
-import { EERIE_NOTE_WINDOW, MOMENTS, MOMENT_KINDS, MOMENT_TUNING, NOTES, type MomentKind, type NoteDef } from '../data/moments';
+import { EERIE_NOTE_WINDOW, MOMENTS, MOMENT_POOLS, MOMENT_TUNING, NOTES, type MomentKind, type NoteDef } from '../data/moments';
 import type { LayerMix } from '../eerie';
 import type { PlayerState } from '../inventory';
 import { randInt, randRange, type Rng } from '../random';
@@ -46,8 +46,12 @@ export function tickScheduler(s: Scheduler, dtMs: number, active: boolean, rng: 
 // ---- Picking ----------------------------------------------------------------------------------
 
 /** The moments whose clock window is open at this game minute. */
-export function momentsAt(minute: number): MomentKind[] {
-  return MOMENT_KINDS.filter((k) => inHourWindow(minute, MOMENTS[k].fromHour, MOMENTS[k].toHour));
+export function momentsAt(minute: number, momentsId = 'lake'): MomentKind[] {
+  const pool = MOMENT_POOLS[momentsId] ?? MOMENT_POOLS.lake;
+  return pool.filter((k) => {
+    const d = MOMENTS[k];
+    return inHourWindow(minute, d.fromHour, d.toHour) || (d.alsoFromHour !== undefined && d.alsoToHour !== undefined && inHourWindow(minute, d.alsoFromHour, d.alsoToHour));
+  });
 }
 
 /**
@@ -62,8 +66,8 @@ export function momentsAt(minute: number): MomentKind[] {
  * bottle 2 = 8 (04-05 has no star: 6), i.e. 4.5 / 12.5 = 0.36 early and 4.5 / 10.5 = 0.43 in the
  * last hour, about 0.38 over the window. The test in moments.test.ts simulates whole nights.
  */
-export function pickMoment(minute: number, rng: Rng, last: MomentKind | null = null): MomentKind {
-  let pool = momentsAt(minute);
+export function pickMoment(minute: number, rng: Rng, last: MomentKind | null = null, momentsId = 'lake'): MomentKind {
+  let pool = momentsAt(minute, momentsId);
   if (pool.length > 1 && last) pool = pool.filter((k) => k !== last);
   const total = pool.reduce((a, k) => a + MOMENTS[k].weight, 0);
   let x = rng() * total;
@@ -157,6 +161,12 @@ export function normalizeNotes(v: unknown): NotesState {
 export function claimStar(player: PlayerState, rng: Rng): { player: PlayerState; coins: number } {
   const coins = randInt(rng, MOMENT_TUNING.starCoins.min, MOMENT_TUNING.starCoins.max);
   return { player: { ...player, coins: player.coins + coins }, coins };
+}
+
+/** A caught paper boat (River bend): about 1 time in 4 it holds 2-5 worms (added at once), else it is only a boat (worms 0). */
+export function claimBoat(player: PlayerState, rng: Rng): { player: PlayerState; worms: number } {
+  const worms = rng() < MOMENT_TUNING.boatWormChance ? randInt(rng, MOMENT_TUNING.boatWorms.min, MOMENT_TUNING.boatWorms.max) : 0;
+  return { player: worms > 0 ? { ...player, worms: player.worms + worms } : player, worms };
 }
 
 export interface BottleContents {

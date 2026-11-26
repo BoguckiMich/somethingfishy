@@ -144,7 +144,7 @@ describe('normalising', () => {
   it('fixes garbage', () => {
     for (const v of [undefined, null, 5, 'x', [], { a: 1 }]) {
       const s = normalizeChecklist(v);
-      expect(Object.keys(s)).toHaveLength(6);
+      expect(Object.keys(s)).toHaveLength(12);
       expect(Object.values(s).every((a) => a.every((f) => !f))).toBe(true);
     }
     const s = normalizeChecklist({ ghost: [true], 'dawn-chorus': [true, 'yes', 1, true, true], 'duck-tax': 'x', petrol: [true] });

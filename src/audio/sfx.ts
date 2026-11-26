@@ -17,6 +17,7 @@ export const SFX_NAMES = [
   'tap',
   'boof',
   'quack',
+  'chirp',
   'sparkle',
   'clink',
   'bubbles',
@@ -167,6 +168,12 @@ const PLAYERS: Record<SfxName, Player> = {
     };
     one(0, 460, 1);
     one(0.17, 420, 0.75);
+  },
+  // A kingfisher's "tsee-tsee": two thin, high, quick chirps, each sliding down a little.
+  chirp: (g, out, t, v) => {
+    [0, 0.12].forEach((at, i) => {
+      tone(g, out, t, { f0: (4300 - i * 300) * v.pitch, f1: 3300 * v.pitch, at, dur: 0.08, attack: 0.006, peak: 0.07 * v.volume });
+    });
   },
   // A wish coming true: a quick rising run of tiny high bells.
   sparkle: (g, out, t, v) => {

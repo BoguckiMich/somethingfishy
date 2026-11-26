@@ -6,12 +6,12 @@ import { showBaitBoxCard } from '../ui/baitBoxCard';
 import { openBaitPicker } from '../ui/baitPicker';
 import { showQuestPanel, type NoticeTab } from '../ui/questPanel';
 import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
-import { allButPetrol, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots, withBundlesDone } from '../core/checklist/checklist';
-import { showBottleCard, showStoryCard } from '../ui/bottleCard';
+import { allButPetrol, allDone as checklistAllDone, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots, totalOf, withBundlesDone } from '../core/checklist/checklist';
+import { showBottleCard, showChapterCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
 import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
-import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Lines, lineText, markPaleSeen, markSecondBlink, markSeen, secondBlinkDue, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
-import { claimStar, momentClockRunning, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
+import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Lines, lineText, markPaleSeen, markSecondBlink, markSeen, secondBlinkDue, nextLine, paleBeatDue, queueLines, recordMilestones, recordRiverCatch, recordRiverVisit, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
+import { claimBoat, claimStar, momentClockRunning, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
 import { applyCatchToPlayer, claimableCount, doneCount, questsOf, retargetQuests, syncQuests } from '../core/quests/quests';
@@ -66,7 +66,7 @@ import { allCamp, campfireLook, hasCamp, tentGlow, windsockLevel } from '../core
 import { PALE_ONE } from '../core/data/legendary';
 import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
-import { LOCATIONS, QUIET_LAKE } from '../core/data/locations';
+import { LOCATIONS, QUIET_LAKE, RIVER_BEND } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
@@ -320,7 +320,7 @@ const ARRIVE_MS = 1100;
 const ARRIVE_CLEAR_MS = 800;
 
 /** Lake screen: the angler on the dock, casting a float into the lake. */
-const ALL_MILESTONES: Record<string, boolean> = { Q1: true, Q2: true, Q3: true, Q4: true, Q5: true, Q6: true, Q7: true };
+const ALL_MILESTONES: Record<string, boolean> = { Q1: true, Q2: true, Q3: true, Q4: true, Q5: true, Q6: true, Q7: true, R1: true, R2: true, R3: true, R4: true, R5: true, R6: true };
 
 export class LakeScene extends Phaser.Scene {
   private state: FishingState = INITIAL_STATE;
@@ -449,6 +449,8 @@ export class LakeScene extends Phaser.Scene {
   /** The due chapter is holding its timer (the night blink before Pajkel is in the car). */
   private storyWaiting = false;
   private storyLineMs = 0;
+  /** The chapter whose card was already shown this visit (R1 shows its card once even if the picture after it is cut short). */
+  private cardShownFor: string | null = null;
   /** Dev flag ?story=Qn: that chapter is today's, whatever the date rule says (null once seen). */
   private storyDev: ChapterDef | null = null;
   /** The Pale One slipped back and its card waits for a calm moment. */
@@ -533,6 +535,8 @@ export class LakeScene extends Phaser.Scene {
   private catchStar: Tier = 'none';
   /** The fish never left the green zone (slice 23f); a perfect catch is also stored on the bag fish. */
   private catchPerfect = false;
+  /** Bestia was playing fetch when the fish was landed (the river checklist's stick slot, slice 25e). */
+  private catchFetch = false;
   private catchFotd = false;
   /** The caught fish fits an open checklist slot and has room in the bag (slice 20). */
   private catchFits = false;
@@ -735,11 +739,14 @@ export class LakeScene extends Phaser.Scene {
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
     if (params.has('worms') && Number.isFinite(wormsParam)) this.setPlayer({ ...this.player, worms: Math.max(0, Math.floor(wormsParam)) });
+    // The dev flags below act on the checklist of the place she starts at (?place= is read again further down).
+    const placeFlag = params.get('place');
+    const flagPlace = placeFlag && !handoff && LOCATIONS.some((l) => l.id === placeFlag) ? placeFlag : locationOf(this.player).id;
     // Dev-only: ?cl=done fills every checklist slot but the petrol payment; ?cl=all fills them all (road fixed).
-    if (params.get('cl') === 'done') this.setPlayer(allButPetrol(this.player));
-    if (params.get('cl') === 'all') this.setPlayer(allButPetrol({ ...this.player, checklist: undefined }, true));
+    if (params.get('cl') === 'done') this.setPlayer(allButPetrol(this.player, false, flagPlace));
+    if (params.get('cl') === 'all') this.setPlayer(allButPetrol(flagPlace === QUIET_LAKE.id ? { ...this.player, checklist: undefined } : this.player, true, flagPlace));
     // Dev-only: ?bundles=N finishes the first N checklist bundles (shop gear gates, slice 23a; applied after ?cl=).
-    if (params.has('bundles')) this.setPlayer(withBundlesDone(this.player, Math.max(0, Math.floor(Number(params.get('bundles')) || 0))));
+    if (params.has('bundles')) this.setPlayer(withBundlesDone(this.player, Math.max(0, Math.floor(Number(params.get('bundles')) || 0)), this.loc.checklistId ?? undefined));
     // Dev-only: ?story=Q1..Q7 makes that chapter today's and starts it in ~3 s; ?story=pale shows the Pale One card.
     const storyParam = params.get('story');
     if (storyParam === 'pale') this.paleCardPending = true;
@@ -758,7 +765,7 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?journal=all marks every chapter seen (the night Q4, the Pale One and the road fixed) so the Story tab is full;
     // with `&looked=1` the dot is already read. Nothing is queued, so Pajkel stays quiet.
     if (params.get('journal') === 'all') {
-      const done = Object.fromEntries(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7'].map((id, i) => [id, `2026-11-0${i + 1}`]));
+      const done = Object.fromEntries(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6'].map((id, i) => [id, `2026-11-${String(i + 1).padStart(2, '0')}`]));
       this.journalAll = true;
       this.setPlayer({ ...this.player, story: { done, queue: [], pale: true, paleOn: '2026-11-04', blinkNight: true } });
     }
@@ -1245,6 +1252,7 @@ export class LakeScene extends Phaser.Scene {
         onNap: () => this.openNapCard(),
         onChecklist: () => this.openChecklist(),
         checklist: { done: checklistDone(this.player), total: bundleTotal },
+        river: { done: checklistDone(this.player, 'river-bend'), total: totalOf('river-bend') },
         current: this.loc.id,
         travelAny: this.travelAny,
         travel: () => this.travelStatus(),
@@ -1261,16 +1269,25 @@ export class LakeScene extends Phaser.Scene {
     this.swallowUp = false;
     this.panel = showChecklistPanel(
       {
+        place: this.loc.checklistId ?? 'quiet-lake',
         get: () => this.player,
         fotdId: () => this.fotdId(),
         set: (p) => this.setPlayer(p),
         onHandIn: (r, bundle, allFixed) => {
           if (!r.finished) return;
+          // The river's last bundle: the gate tag chapter (R6) comes soon, no road card of its own.
+          if (allFixed && this.loc.id !== QUIET_LAKE.id) {
+            sound.play('coin');
+            const text = r.reward ? checklistRewardText(r.reward) : '';
+            this.showToast(text ? `${bundle.name} done! ${text}` : `${bundle.name} done!`);
+            this.storyTimerMs = Math.min(this.storyTimerMs, 6000);
+            return;
+          }
           sound.play('coin');
           const text = r.reward ? checklistRewardText(r.reward) : '';
           this.showToast(text ? `${bundle.name} done! ${text}` : `${bundle.name} done!`);
           // This bundle opened some gear in the shop (A3): a dot on the Shop button until she opens it, and a second toast.
-          if (gearOpenedBy(bundle.id, this.player).length > 0) {
+          if (this.loc.id === QUIET_LAKE.id && gearOpenedBy(bundle.id, this.player).length > 0) {
             this.shopDot = true;
             this.gearToastTimer?.remove();
             this.gearToastTimer = this.time.delayedCall(2600, () => this.showToast(EN.newGearInShop));
@@ -1397,7 +1414,7 @@ export class LakeScene extends Phaser.Scene {
       } else if (this.loc.momentsId !== null) {
         const r = tickScheduler(this.momentGap, deltaMs, calm, Math.random);
         this.momentGap = r.scheduler;
-        if (r.due) this.startMoment(pickMoment(this.clock.minute, Math.random, this.lastMoment));
+        if (r.due) this.startMoment(pickMoment(this.clock.minute, Math.random, this.lastMoment, this.loc.momentsId ?? undefined));
       }
     }
     sound.setUncanny(this.moments.uncanny || this.story.uncanny);
@@ -1432,7 +1449,7 @@ export class LakeScene extends Phaser.Scene {
   /** Today's chapter at this place: the dev flag, else the pure date rule (only when the story is on). */
   private nextChapter(): ChapterDef | null {
     if (!this.storyOn || this.loc.storyPlaceId === null) return null;
-    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, this.loc.storyPlaceId, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player), this.roadFixed());
+    return this.storyDev ?? todaysChapter(storyOf(this.player), this.today, this.loc.storyPlaceId, this.milestonesAll ? ALL_MILESTONES : storyMilestones(this.player), this.checklistCatchUp());
   }
 
   /** A chapter is due or being told: random moments wait. */
@@ -1465,6 +1482,11 @@ export class LakeScene extends Phaser.Scene {
   private updateStory(deltaMs: number): void {
     // First night visit: the game clock at or after 21:00 while playing (Q4's milestone).
     if (this.player.milestones?.night !== true && isNightVisit(this.clock.minute)) this.setPlayer(withFlag(this.player, 'night'));
+    // At the river, the dusk (or the night coming without a dusk visit) opens R4 (slice 25e); the pure helper returns the same player when nothing changes.
+    if (this.loc.id === RIVER_BEND.id) {
+      const seen = recordRiverVisit(this.player, this.clock.minute);
+      if (seen !== this.player) this.setPlayer(seen);
+    }
     // The Pale One card and Pajkel's queued lines.
     if (this.paleCardPending && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
       this.paleCardPending = false;
@@ -1546,6 +1568,22 @@ export class LakeScene extends Phaser.Scene {
     const c = this.companions.state;
     this.storyRun = { chapter, night: false, preMs: 0 };
     switch (chapter.kind) {
+      case 'card':
+      case 'stick': {
+        // A card (River bend R1, R2, R6) opens only while she is idle; with the line out it waits a few seconds and tries again.
+        if (this.state.kind !== 'idle' && this.cardShownFor !== chapter.id) {
+          this.storyRun = null;
+          this.storyTimerMs = STORY_TUNING.retryMs / 4;
+          return;
+        }
+        const play = () => {
+          if (chapter.kind === 'stick') this.story.start('stick');
+          else this.completeChapter();
+        };
+        if (this.cardShownFor === chapter.id) play();
+        else this.openChapterCard(chapter, play);
+        break;
+      }
       case 'bottle': {
         const before = chapter.before ?? [];
         if (before.length > 0 && this.pajCanSpeak()) {
@@ -1554,7 +1592,7 @@ export class LakeScene extends Phaser.Scene {
           this.storyRun.preMs = 3600;
         } else {
           if (before.length > 0) this.setPlayer({ ...this.player, story: queueLines(storyOf(this.player), before) });
-          this.story.start('bottle');
+          this.story.start('bottle', chapter.drift === true);
         }
         break;
       }
@@ -1567,6 +1605,21 @@ export class LakeScene extends Phaser.Scene {
       default:
         this.story.start(chapter.kind);
     }
+  }
+
+  /** The card of a chapter (slice 25e); closing it goes on with `then` (the picture, or the chapter counts as seen). */
+  private openChapterCard(chapter: ChapterDef, then: () => void): void {
+    if (!chapter.card) {
+      then();
+      return;
+    }
+    this.swallowUp = false;
+    this.cardShownFor = chapter.id;
+    this.panel = showChapterCard(chapter.card, () => {
+      this.panel = null;
+      this.storyLineMs = Math.max(this.storyLineMs, 1000);
+      then();
+    });
   }
 
   /** A self-playing picture ended; cut short (a fight) means it is not seen and comes back a bit later. */
@@ -1668,17 +1721,23 @@ export class LakeScene extends Phaser.Scene {
     if (prev.kind === 'caught' && next.kind === 'idle') this.stowCatch(prev.hooked);
   }
 
+  /** Where and how the fish in hand was caught, for the river checklist's story slots (slice 25e). */
+  private catchCtx(): { place: string; fetch: boolean } {
+    return { place: this.loc.id, fetch: this.catchFetch };
+  }
+
   /**
    * A won fight goes in the log before the bag decision. A new species gets the longer show-off;
    * a new species or record makes the companions react bigger.
    */
-  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean, perfect = false): void {
+  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean, perfect = false, distanceM?: number): void {
     const r = recordCatch(this.player.log, hooked, perfect);
     const species = speciesById(hooked.speciesId);
     this.catchPerfect = perfect;
+    this.catchFetch = this.companions.state.mode === 'play';
     this.catchStar = species ? catchTierFor(species, hooked.lengthCm, perfect) : 'none';
     this.catchFotd = hooked.speciesId === this.fotdId();
-    this.catchFits = !slipsAway(hooked.speciesId) && !isTrophy(species) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked, undefined, perfect)).length > 0;
+    this.catchFits = !slipsAway(hooked.speciesId) && !isTrophy(species) && this.player.bag.length < SHOP.bagSlots && fittingSlots(this.player, toBagFish(hooked, undefined, perfect, this.clock.minute, this.catchCtx()), this.loc.checklistId ?? undefined).length > 0;
     // The catch also moves today's quests (the game clock gives the time of day, the log the record).
     const q = applyCatchToPlayer({ ...this.player, log: r.log }, {
       speciesId: hooked.speciesId,
@@ -1686,7 +1745,7 @@ export class LakeScene extends Phaser.Scene {
       timeOfDay: timeOfDay(this.clock.minute),
       isRecord: r.outcome.kind === 'newRecord',
     });
-    this.setPlayer(zone === 'deep' && this.loc.id === QUIET_LAKE.id ? withFlag(q.player, 'deep') : q.player);
+    this.setPlayer(zone === 'deep' && this.loc.id === QUIET_LAKE.id ? withFlag(q.player, 'deep') : this.loc.id === RIVER_BEND.id ? recordRiverCatch(q.player, distanceM === undefined ? 'riffle' : zoneAt(this.loc, distanceM).id) : q.player);
     this.catchOutcome = r.outcome;
     // A rare trophy (slice 23d) goes on the board, not in the bag; its first catch gets the longest show-off and a special cheer.
     let trophyFirst = false;
@@ -1756,7 +1815,7 @@ export class LakeScene extends Phaser.Scene {
       else if (this.catchTrophy === 'same') this.showToast(TROPHY_TEXT.backInLake);
       return;
     }
-    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect, this.clock.minute);
+    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect, this.clock.minute, this.catchCtx());
     if (r.result === 'added') {
       this.setPlayer(r.state);
       this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);
@@ -1885,7 +1944,16 @@ export class LakeScene extends Phaser.Scene {
         const lengthCm = Math.round(sp.lengthCm[0] + (sp.lengthCm[1] - sp.lengthCm[0]) * share);
         return toBagFish({ speciesId: id, lengthCm, weightG: Math.round(sp.bodyFactor * lengthCm ** 3) });
       };
-      const bag = [mk('roach', 0.3), mk('bleak', 0.2), mk('crucian', 0.4), mk('carp', 0.95), mk('perch', 0.95), mk('eel', 0.4)];
+      // At the river the bag holds river fish, two caught at dusk, one while Bestia fetched and one perfectly.
+      const river = this.loc.id === RIVER_BEND.id;
+      const mkRiver = (id: string, share: number, perfect: boolean, minute: number, fetch: boolean): BagFish => {
+        const sp = SPECIES.find((x) => x.id === id)!;
+        const lengthCm = Math.round(sp.lengthCm[0] + (sp.lengthCm[1] - sp.lengthCm[0]) * share);
+        return toBagFish({ speciesId: id, lengthCm, weightG: Math.round(sp.bodyFactor * lengthCm ** 3) }, undefined, perfect, minute, { place: RIVER_BEND.id, fetch });
+      };
+      const bag = river
+        ? [mkRiver('trout', 0.4, false, 12 * 60, false), mkRiver('chub', 0.3, false, 18 * 60 + 30, false), mkRiver('nase', 0.3, false, 18 * 60 + 40, false), mkRiver('barbel', 0.5, true, 12 * 60, true), mkRiver('pike', 0.5, false, 12 * 60, false), mkRiver('grayling', 0.4, false, 12 * 60, false)]
+        : [mk('roach', 0.3), mk('bleak', 0.2), mk('crucian', 0.4), mk('carp', 0.95), mk('perch', 0.95), mk('eel', 0.4)];
       const base = this.player.coins < 600 ? { ...this.player, coins: 600 } : this.player;
       const next = { ...base, bag };
       this.setPlayer(next);
@@ -1957,7 +2025,7 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'fishCaught':
         vibrate(HAPTICS.caught);
-        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true, e.perfect === true);
+        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true, e.perfect === true, (this.state as { distanceM?: number }).distanceM);
         sound.play(catchJingle({ outcome: this.catchOutcome.kind, star: this.catchStar, perfect: this.catchPerfect, trophy: this.catchTrophy !== 'none', slips: slipsAway(e.speciesId) }));
         break;
       case 'fishLost':
@@ -2087,7 +2155,7 @@ export class LakeScene extends Phaser.Scene {
         today: () => this.today,
         fotdId: () => this.fotdId(),
         openChecklist: () => this.openChecklist(),
-        checklist: () => ({ done: checklistDone(this.player), total: bundleTotal }),
+        checklist: () => ({ done: checklistDone(this.player, this.loc.checklistId ?? undefined), total: totalOf(this.loc.checklistId ?? undefined) }),
         roadFixed: () => this.roadFixed(),
         names: () => ({ alex: this.profile.player, paj: this.profile.companion }),
       },
@@ -2104,6 +2172,12 @@ export class LakeScene extends Phaser.Scene {
   /** The Quiet Lake checklist is done: the road is fixed (the last journal page). */
   private roadFixed(): boolean {
     return this.journalAll || checklistDone(this.player) >= bundleTotal;
+  }
+
+  /** This place's checklist is done: the rest of its story may catch up (a looser daily cap, order and milestones still apply). */
+  private checklistCatchUp(): boolean {
+    if (this.journalAll) return true;
+    return checklistAllDone(this.player, this.loc.storyPlaceId ?? undefined);
   }
 
   private crateVisible(): boolean {
@@ -2606,6 +2680,11 @@ export class LakeScene extends Phaser.Scene {
           return r.coins;
         },
         openBottle: () => this.openBottleCard(),
+        claimBoat: () => {
+          const r = claimBoat(this.player, Math.random);
+          this.setPlayer(r.player);
+          return r.worms;
+        },
       },
       Math.random,
     );

@@ -1,7 +1,8 @@
 import { FS, LINE } from '../font';
 import { journalIconSprite } from '../art/journalIconArt';
-import { journalChapterCount, journalEntries, journalHasNew, markJournalLooked, storyOf, type JournalEntry } from '../core/story/story';
-import { JOURNAL_TOTAL } from '../core/data/story';
+import { journalChapterCount, journalEntries, journalHasNew, journalTotal, markJournalLooked, storyOf, type JournalEntry } from '../core/story/story';
+import { checklistFor } from '../core/data/checklist';
+import { locationById } from '../core/data/locations';
 import { spriteCanvas } from './spriteCanvas';
 import { claimQuest, questText, questsOf, rerollQuest, canReroll, type Quest } from '../core/quests/quests';
 import type { PlayerState } from '../core/inventory';
@@ -100,6 +101,7 @@ function journalRow(e: JournalEntry, names: { alex: string; paj: string }): HTML
   const pic = el('div', 'flex:none;width:44px;height:36px;display:flex;align-items:center;justify-content:center');
   pic.append(spriteCanvas(icon, icon.width * scale));
   const col = el('div', 'flex:1;min-width:0');
+  if (e.place !== 'quiet-lake') col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim}`, `${locationById(e.place).name} · ${e.id}`));
   col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.text}`, tr(e.text)));
   const thought = el('div', `margin-top:4px;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`);
   thought.append(el('span', `color:${COLORS.gold}`, `${e.by === 'alex' ? names.alex : names.paj}: `), el('span', 'font-style:italic;font-synthesis:style', tr(e.thought)));
@@ -159,17 +161,18 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         panel.refresh();
       };
       // The checklist entry sits right under the tabs so it never hides below the quests (fix/board-and-car).
-      // The lake's checklist and rumours stay at the lake; the river has neither yet.
-      const atLake = locationOf(p).checklistId !== null;
+      // Each place has its own checklist (slice 25e); the lake's rumours stay at the lake, the river's wait for its rare fish.
+      const here = locationOf(p);
+      const atLake = here.id === 'quiet-lake';
       const cl = store.checklist();
       const clRow = el('div', 'margin:2px 0 8px');
-      const clBtn = woodButton(`Quiet Lake checklist ${cl.done}/${cl.total}`, () => {
+      const clBtn = woodButton(`${checklistFor(here.checklistId ?? undefined).label} ${cl.done}/${cl.total}`, () => {
         panel.close();
         store.openChecklist();
       }, { variant: 'wood' });
       clBtn.style.width = '100%';
       clRow.append(clBtn);
-      if (atLake) body.append(clRow);
+      if (here.checklistId !== null) body.append(clRow);
       const fid = store.fotdId();
       const frow = fid ? fotdRow(fid) : undefined;
       if (frow) body.append(frow);
@@ -215,7 +218,11 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
     },
     onClose,
     true,
-    () => (tab === 'story' ? `Chapter ${journalChapterCount(storyOf(store.get()), store.roadFixed())} of ${JOURNAL_TOTAL}` : ''),
+    () => {
+      if (tab !== 'story') return '';
+      const place = locationOf(store.get()).storyPlaceId ?? 'quiet-lake';
+      return `Chapter ${journalChapterCount(storyOf(store.get()), store.roadFixed(), place)} of ${journalTotal(place)}`;
+    },
   );
   return panel;
 }

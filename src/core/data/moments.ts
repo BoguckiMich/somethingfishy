@@ -3,13 +3,22 @@
  * core/moments/; the pictures in art/momentArt.ts and scenes/MomentsView.ts.
  */
 
-export const MOMENT_KINDS = ['duck', 'frog', 'jump', 'star', 'bottle', 'bubbles', 'shape'] as const;
+export const LAKE_KINDS = ['duck', 'frog', 'jump', 'star', 'bottle', 'bubbles', 'shape'] as const;
+/** The River bend's moments (slice 25e, docs/STORY.md section 4): they never appear at the lake, and the lake's never at the river. */
+export const RIVER_KINDS = ['kingfisher', 'otter', 'lantern', 'paperBoat', 'heron'] as const;
+export const MOMENT_KINDS = [...LAKE_KINDS, ...RIVER_KINDS] as const;
 export type MomentKind = (typeof MOMENT_KINDS)[number];
+
+/** Which moments a place plays (`Location.momentsId`). */
+export const MOMENT_POOLS: Record<string, readonly MomentKind[]> = { lake: LAKE_KINDS, river: RIVER_KINDS };
 
 export interface MomentDef {
   /** Game-clock window in hours: from (inclusive) to (exclusive); `to` < `from` wraps past midnight. */
   fromHour: number;
   toHour: number;
+  /** A second window of the day (the otter comes at dawn and at dusk). */
+  alsoFromHour?: number;
+  alsoToHour?: number;
   /** Relative chance among the moments whose window is open. */
   weight: number;
   /** Part of the eerie pair: only at night, quiets the crickets while on screen. */
@@ -26,6 +35,12 @@ export const MOMENTS: Record<MomentKind, MomentDef> = {
   bottle: { fromHour: 0, toHour: 24, weight: 2, uncanny: false, durationMs: 62_000 },
   bubbles: { fromHour: 1, toHour: 5, weight: 2.5, uncanny: true, durationMs: 12_000 },
   shape: { fromHour: 1, toHour: 5, weight: 2, uncanny: true, durationMs: 11_000 },
+  // River bend (slice 25e). The lantern is the river's one uncanny moment (22-04, like the lake's pair it quiets the crickets).
+  kingfisher: { fromHour: 6, toHour: 18, weight: 4, uncanny: false, durationMs: 14_000 },
+  otter: { fromHour: 5, toHour: 8, alsoFromHour: 18, alsoToHour: 21, weight: 3, uncanny: false, durationMs: 22_000 },
+  lantern: { fromHour: 22, toHour: 4, weight: 3, uncanny: true, durationMs: 24_000 },
+  paperBoat: { fromHour: 0, toHour: 24, weight: 3, uncanny: false, durationMs: 26_000 },
+  heron: { fromHour: 5, toHour: 9, weight: 3, uncanny: false, durationMs: 26_000 },
 };
 
 export const MOMENT_TUNING = {
@@ -36,6 +51,9 @@ export const MOMENT_TUNING = {
   /** A bottle holds worms with this chance (about 1 in 4), this many. */
   bottleWormChance: 0.25,
   bottleWorms: { min: 2, max: 5 },
+  /** A tapped paper boat at the river holds worms with this chance (about 1 in 4), this many (STORY.md section 4). */
+  boatWormChance: 0.25,
+  boatWorms: { min: 2, max: 5 },
   /** Cricket gain factor while an uncanny moment is on screen (eased by the ambient bed). */
   cricketDip: 0.2,
   /** A chapter figure on screen when a fight starts fades out this fast (real ms); lake moments wait instead (see pausedAlpha). */

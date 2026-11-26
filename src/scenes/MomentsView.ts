@@ -21,6 +21,8 @@ export interface MomentHooks {
   claimStar(): number;
   /** The bottle was tapped: open its note card. */
   openBottle(): void;
+  /** A paper boat was caught: grant its worms (about 1 in 4 holds some) and return how many (0 = an empty boat). */
+  claimBoat(): number;
 }
 
 /** Layers (the scene's Z: waterFx 8, waterDecor 9, nearShore 10). */
@@ -37,6 +39,16 @@ const JUMP_AREA = { x: [40, 320], y: [236, 330] } as const;
 const BUBBLE_AREA = { x: [70, 230], y: [262, 332] } as const;
 const SHAPE_AREA = { x: [70, 220], y: [250, 320] } as const;
 const FLOAT_MS = 1500;
+/** River bend (slice 25e): where its moments play. The river runs right to left; the rope and landing are on the left, the dock in the middle. */
+const KINGFISHER_DIVE_X = [120, 300] as const;
+const KINGFISHER_Y = { min: 244, max: 292 };
+const OTTER_AREA = { x: [130, 270], y: [240, 282] } as const;
+const LANTERN_Y = { min: 262, max: 300 };
+const BOAT_Y = { min: 262, max: 322 };
+/** The heron's feet: in the shallows by the right bank. */
+const HERON_FEET = { x: 300, y: 350 };
+/** The kingfisher's timeline (ms): fly in, hover, dive, under the water, emerge with a fish, fly away. */
+const KF = { inEnd: 2000, hoverEnd: 2500, diveEnd: 2850, underEnd: 3400, emergeEnd: 4200, end: 7200 } as const;
 
 const multiply = (a: number, b: number): number => {
   const ch = (s: number) => Math.round((((a >> s) & 255) * ((b >> s) & 255)) / 255);
@@ -198,6 +210,34 @@ export class MomentsView {
         a.x = Math.round(randRange(r, SHAPE_AREA.x[0], SHAPE_AREA.x[1]));
         a.y = Math.round(randRange(r, SHAPE_AREA.y[0], SHAPE_AREA.y[1]));
         break;
+      case 'kingfisher':
+        // `to` is where it dives (the water), `from.x` where it came in from.
+        a.to = { x: Math.round(randRange(r, KINGFISHER_DIVE_X[0], KINGFISHER_DIVE_X[1])), y: Math.round(randRange(r, KINGFISHER_Y.min, KINGFISHER_Y.max)) };
+        a.from = { x: a.dir > 0 ? -16 : W + 16, y: 0 };
+        a.x = a.from.x;
+        a.y = a.to.y - 60;
+        break;
+      case 'otter':
+        a.x = Math.round(randRange(r, OTTER_AREA.x[0], OTTER_AREA.x[1]));
+        a.y = Math.round(randRange(r, OTTER_AREA.y[0], OTTER_AREA.y[1]));
+        a.speed = 3; // drifts a little downstream (left) while it eats
+        break;
+      case 'lantern':
+        a.dir = 1; // upstream, to the right
+        a.x = 20;
+        a.y = Math.round(randRange(r, LANTERN_Y.min, LANTERN_Y.max));
+        a.speed = 9;
+        break;
+      case 'paperBoat':
+        a.dir = -1; // downstream, to the left
+        a.x = W + 12;
+        a.y = Math.round(randRange(r, BOAT_Y.min, BOAT_Y.max));
+        a.speed = randRange(r, 13, 17);
+        break;
+      case 'heron':
+        a.x = HERON_FEET.x;
+        a.y = HERON_FEET.y;
+        break;
     }
     this.active = a;
   }
@@ -249,6 +289,16 @@ export class MomentsView {
         return box(a.x, a.y - 12, 40, 44);
       case 'shape':
         return box(a.x, a.y, 40, 40);
+      case 'kingfisher':
+        return a.stage === 0 && a.age > 400 && a.age < KF.diveEnd ? box(a.x, a.y, 44, 44) : null;
+      case 'otter':
+        return a.stage === 0 && a.age > 500 ? box(a.x, a.y, 44, 28) : a.stage === 2 ? box(a.x, a.y - 4, 36, 36) : null;
+      case 'lantern':
+        return box(a.x, a.y, 40, 44);
+      case 'paperBoat':
+        return box(a.x, a.y, 44, 36);
+      case 'heron':
+        return a.stage === 0 && a.age > 600 ? box(a.x, a.y - 14, 40, 52) : null;
     }
   }
 
@@ -288,6 +338,37 @@ export class MomentsView {
       case 'shape':
         this.showFloat('…', a.x, a.y - 12, false);
         this.rings.push({ x: a.x, y: a.y, age: 0, ms: 1100, rx: 10, ry: 3 });
+        break;
+      case 'kingfisher':
+        // It is off at once, chirping, without its fish.
+        this.hooks.sfx('chirp');
+        this.showFloat('Tsee!', a.x, a.y + 26, false);
+        a.stage = 1;
+        a.tappedAge = 0;
+        a.leftAt = a.age;
+        a.from = { x: a.dir > 0 ? -16 : W + 16, y: 0 };
+        break;
+      case 'otter':
+        // It rolls over and dives (stage 1), is gone a moment, then pops up again a little way off (stage 2) and dives for good.
+        this.hooks.sfx('plop');
+        a.stage = 1;
+        a.leftAt = a.age;
+        this.rings.push({ x: a.x, y: a.y + 3, age: 0, ms: 1400, rx: 16, ry: 4.5 });
+        break;
+      case 'lantern':
+        this.showFloat('...', a.x, a.y + 30, false);
+        break;
+      case 'paperBoat': {
+        const worms = this.hooks.claimBoat();
+        this.hooks.sfx(worms > 0 ? 'sparkle' : 'tap');
+        this.showFloat(worms > 0 ? `+${worms} worms!` : 'Only a boat.', a.x, a.y + 26, false);
+        break;
+      }
+      case 'heron':
+        this.hooks.sfx('boof');
+        this.showFloat('Hmph.', a.x, a.y + 10, false);
+        a.stage = 1;
+        a.leftAt = a.age;
         break;
     }
     return true;
@@ -356,6 +437,21 @@ export class MomentsView {
       case 'shape':
         done = this.updateShape(a, dtMs, tint) || done;
         break;
+      case 'kingfisher':
+        done = this.updateKingfisher(a, tint);
+        break;
+      case 'otter':
+        done = this.updateOtter(a, dtMs, alpha, tint) || done;
+        break;
+      case 'lantern':
+        done = this.updateLantern(a, dtMs, alpha, tint) || done;
+        break;
+      case 'paperBoat':
+        done = this.updatePaperBoat(a, dtMs, alpha, tint) || done;
+        break;
+      case 'heron':
+        done = this.updateHeron(a, dtMs, alpha, tint) || done;
+        break;
     }
     this.main.setAlpha(this.main.alpha * this.dim);
     this.second.setAlpha(this.second.alpha * this.dim);
@@ -374,7 +470,7 @@ export class MomentsView {
   }
 
   private place(img: Phaser.GameObjects.Image, key: string, x: number, y: number, alpha: number, tint: number, depth: number): void {
-    img.setTexture(momentKey(key)).setPosition(Math.round(x), Math.round(y)).setAlpha(alpha).setTint(tint).setDepth(depth).setVisible(true);
+    img.setTexture(momentKey(key)).setPosition(Math.round(x), Math.round(y)).setAlpha(alpha).setTint(tint).setDepth(depth).setVisible(true).setOrigin(0.5, 0.5).setFlipX(false).setFlipY(false).setAngle(0);
   }
 
   private drawRings(tint: number): void {
@@ -578,6 +674,187 @@ export class MomentsView {
     this.bubbles = this.bubbles.filter((b) => b.age < RISE_MS);
     if (stopped) return this.bubbles.length === 0 || a.tappedAge > 700;
     return a.age >= a.life && this.bubbles.length === 0;
+  }
+
+  // ---- River bend moments (slice 25e) ---------------------------------------------------------
+
+  /** A small silver fish held in a beak at (x, y), pointing `dir` (drawn with rects: 5 x 2). */
+  private fishInBeak(x: number, y: number, dir: 1 | -1, alpha: number, tint: number): void {
+    const x0 = dir > 0 ? x : x - 4;
+    this.fx.fillStyle(PAL.outline, alpha).fillRect(x0 - 1, y - 1, 7, 4);
+    this.fx.fillStyle(multiply(PAL.foam, tint), alpha).fillRect(x0, y, 5, 2);
+    this.fx.fillStyle(multiply(PAL.shallow2, tint), alpha).fillRect(dir > 0 ? x0 + 4 : x0, y, 1, 2);
+  }
+
+  /** The kingfisher: a blue flash flies in, hovers, dives with a splash and comes up with a fish, then is gone. A tap sends it off chirping. */
+  private updateKingfisher(a: Active, tint: number): boolean {
+    const d = a.dir;
+    const ex = a.from.x; // where it came in from: it leaves toward the same side
+    const wing = Math.floor(a.age / 110) % 2 === 0 ? 'kingfisherUp' : 'kingfisherDown';
+    const face = (img: Phaser.GameObjects.Image, dir: number) => img.setFlipX(dir < 0);
+    if (a.stage === 1) {
+      // Chased off by the tap: straight away, rising, back toward where it came from.
+      const t = (a.age - a.leftAt) / 1800;
+      if (t >= 1) return true;
+      const out = ex < 0 ? -1 : 1;
+      const x = a.x + out * t * 200;
+      this.place(this.main, wing, x, a.y - t * 60, 1 - t * t, tint, DEPTH.water + 0.1);
+      face(this.main, out);
+      return false;
+    }
+    const dive = a.to;
+    const startX = ex;
+    const hoverY = dive.y - 58;
+    if (a.age < KF.inEnd) {
+      const t = ease(a.age / KF.inEnd);
+      a.x = startX + (dive.x - startX) * t;
+      a.y = hoverY - Math.sin(t * Math.PI) * 18;
+      this.place(this.main, wing, a.x, a.y, Math.min(1, a.age / 250), tint, DEPTH.water + 0.1);
+      face(this.main, d);
+    } else if (a.age < KF.hoverEnd) {
+      a.x = dive.x;
+      a.y = hoverY + Math.round(Math.sin(a.age / 60) * 1);
+      this.place(this.main, wing, a.x, a.y, 1, tint, DEPTH.water + 0.1);
+      face(this.main, d);
+    } else if (a.age < KF.diveEnd) {
+      const t = (a.age - KF.hoverEnd) / (KF.diveEnd - KF.hoverEnd);
+      a.y = hoverY + (dive.y - hoverY) * t * t;
+      this.place(this.main, 'kingfisherDive', a.x, a.y, 1, tint, DEPTH.water + 0.1);
+    } else if (a.age < KF.underEnd) {
+      if (a.stage === 0 && a.leftAt < 0) {
+        a.leftAt = -2; // the splash, once
+        this.hooks.sfx('plop');
+        this.rings.push({ x: dive.x, y: dive.y + 4, age: 0, ms: 1300, rx: 12, ry: 3.5 });
+        this.rings.push({ x: dive.x, y: dive.y + 4, age: -250, ms: 1300, rx: 12, ry: 3.5 });
+      }
+    } else if (a.age < KF.emergeEnd) {
+      const t = (a.age - KF.underEnd) / (KF.emergeEnd - KF.underEnd);
+      a.y = dive.y - t * 42;
+      this.place(this.main, wing, a.x, a.y, 1, tint, DEPTH.water + 0.1);
+      face(this.main, d);
+      this.fishInBeak(Math.round(a.x) + d * 9, Math.round(a.y) - 1, d, 1, tint);
+    } else {
+      const t = (a.age - KF.emergeEnd) / (KF.end - KF.emergeEnd);
+      if (t >= 1) return true;
+      a.x = dive.x + d * t * 220;
+      a.y = dive.y - 42 - t * 40;
+      this.place(this.main, wing, a.x, a.y, 1 - t * t, tint, DEPTH.water + 0.1);
+      face(this.main, d);
+      this.fishInBeak(Math.round(a.x) + d * 9, Math.round(a.y) - 1, d, 1 - t * t, tint);
+    }
+    return false;
+  }
+
+  /** The otter floats on its back eating, drifting a little; a tap makes it roll and dive, then pop up again nearby. */
+  private updateOtter(a: Active, dtMs: number, alpha: number, tint: number): boolean {
+    const bob = Math.round(Math.sin(a.age / 700));
+    if (a.stage === 0) {
+      a.x -= a.speed * (dtMs / 1000);
+      const left = a.life - a.age;
+      if (left < 700) {
+        // It gets bored and dives by itself.
+        this.place(this.main, 'otterDive', a.x, a.y - 2, Math.max(0, left / 700), tint, DEPTH.water);
+        if (left <= 0) this.rings.push({ x: a.x, y: a.y + 3, age: 0, ms: 1200, rx: 14, ry: 4 });
+        return false;
+      }
+      this.place(this.main, 'otterBack', a.x, a.y + bob, alpha, tint, DEPTH.water);
+      // Now and then a little paw rolls the fish: a tiny splash ring.
+      const k = (a.age % 2600) / 2600;
+      if (k < 0.45) this.ring(a.x - 4, a.y + 6, 4 + k * 12, 1.5 + k * 4, (1 - k / 0.45) * 0.6 * alpha, tint);
+      return false;
+    }
+    const since = a.age - a.leftAt;
+    if (a.stage === 1) {
+      // The roll and the dive: the arched back, then nothing for a moment.
+      if (since < 450) this.place(this.main, 'otterDive', a.x, a.y - 2 + since / 150, 1, tint, DEPTH.water);
+      if (since >= 1700) {
+        a.stage = 2;
+        a.leftAt = a.age;
+        a.x = Math.max(60, Math.min(300, a.x + (this.rng() < 0.5 ? -34 : 34)));
+        a.tappedAge = -1; // it can be tapped once more
+        this.hooks.sfx('plop');
+        this.rings.push({ x: a.x, y: a.y + 5, age: 0, ms: 1300, rx: 12, ry: 3.5 });
+      }
+      return false;
+    }
+    // Popped up again: its head above the water, looking at you, then down for good.
+    if (since > 2600) {
+      this.rings.push({ x: a.x, y: a.y + 5, age: 0, ms: 1100, rx: 10, ry: 3 });
+      return true;
+    }
+    const rise = Math.min(1, since / 300);
+    this.place(this.main, 'otterHead', a.x, a.y + 2 - rise * 3 + Math.round(Math.sin(since / 300)), Math.min(1, since / 250) * (since > 2300 ? (2600 - since) / 300 : 1), tint, DEPTH.water);
+    return false;
+  }
+
+  /** The upstream lantern: a small light drifts up the river with nothing under it. A tap puts it out softly. */
+  private updateLantern(a: Active, dtMs: number, alpha: number, tint: number): boolean {
+    const out = a.tappedAge >= 0;
+    const fadeEnd = Math.min(1, Math.max(0, (a.life - a.age) / 3000));
+    const snuff = out ? Math.max(0, 1 - a.tappedAge / 1400) : 1;
+    if (!out) a.x += a.speed * (dtMs / 1000);
+    const bob = Math.round(Math.sin(a.age / 800));
+    const al = alpha * fadeEnd * snuff;
+    if (al <= 0) return out || a.x > W + 20;
+    const flick = 0.75 + 0.25 * Math.sin(a.age / 130) * Math.sin(a.age / 310);
+    const cx = Math.round(a.x);
+    const cy = Math.round(a.y + bob);
+    // The glow: stepped soft squares (it is a light, so it ignores the day tint).
+    for (let r = 4; r >= 1; r--) {
+      this.fx.fillStyle(PAL.gold, 0.035 * al * flick * (5 - r) / 2).fillRect(cx - r * 3 - 2, cy - 4 - r * 2, r * 6 + 4, r * 4 + 6);
+    }
+    this.place(this.main, 'lantern', cx, cy - 2, al, lift(tint), DEPTH.water);
+    // Its reflection, shorter and dimmer, and the light on the water around it.
+    this.place(this.second, 'lantern', cx, cy + 14, al * 0.35 * flick, lift(tint), DEPTH.water - 0.01);
+    this.second.setFlipY(true);
+    this.fx.fillStyle(PAL.gold, 0.25 * al * flick).fillRect(cx - 7, cy + 10, 14, 1).fillRect(cx - 4, cy + 12, 8, 1);
+    return a.x > W + 24;
+  }
+
+  /** The paper boat floats downstream past the dock; a tap catches it (about 1 time in 4 it holds worms). */
+  private updatePaperBoat(a: Active, dtMs: number, alpha: number, tint: number): boolean {
+    const caught = a.tappedAge >= 0;
+    if (!caught) a.x += a.dir * a.speed * (dtMs / 1000);
+    const bob = Math.round(Math.sin(a.age / 450));
+    if (caught) {
+      const t = a.tappedAge / 700;
+      if (t >= 1) return true;
+      this.place(this.main, 'paperBoat', a.x, a.y + bob - t * 12, alpha * (1 - t), tint, DEPTH.water);
+      return false;
+    }
+    this.place(this.main, 'paperBoat', a.x, a.y + bob, alpha, tint, DEPTH.water);
+    // A short wake and a ring now and then.
+    for (let i = 1; i <= 3; i++) this.fx.fillStyle(multiply(PAL.foam, tint), alpha * (0.7 - i * 0.16)).fillRect(Math.round(a.x) + 8 + i * 3, Math.round(a.y) + 5 + bob, 1, 1);
+    return a.x < -20;
+  }
+
+  /** The heron stands in the shallows, perfectly still, staring at Bestia (a boof from the dock); a tap and it stalks off, offended. */
+  private updateHeron(a: Active, dtMs: number, alpha: number, tint: number): boolean {
+    if (a.stage === 0) {
+      if (a.nextSound === 0 && a.age > 1800) {
+        a.nextSound = 1;
+        this.hooks.sfx('boof'); // Bestia stares back, and says so
+      }
+      const left = a.life - a.age;
+      if (left < 6000) {
+        a.stage = 1; // it has had enough and wanders off by itself
+        a.leftAt = a.age;
+        return false;
+      }
+      this.place(this.main, 'heronStand', a.x, a.y, alpha, tint, DEPTH.water);
+      this.main.setOrigin(0.5, 1).setFlipX(true);
+      this.ring(a.x, a.y, 9, 2.2, 0.5 * alpha, tint);
+      return false;
+    }
+    // Stalking off to the right, slowly, one long leg at a time.
+    const since = a.age - a.leftAt;
+    a.x += 15 * (dtMs / 1000);
+    const step = Math.floor(since / 420) % 2 === 0 ? 'heronStep' : 'heronStand';
+    const al = alpha * Math.max(0, 1 - Math.max(0, a.x - 330) / 40);
+    this.place(this.main, step, a.x, a.y, al, tint, DEPTH.water);
+    this.main.setOrigin(0.5, 1).setFlipX(false);
+    if (Math.floor(since / 420) !== Math.floor((since - dtMs) / 420)) this.rings.push({ x: a.x, y: a.y, age: 0, ms: 900, rx: 6, ry: 1.8 });
+    return a.x > 372;
   }
 
   private updateShape(a: Active, dtMs: number, tint: number): boolean {

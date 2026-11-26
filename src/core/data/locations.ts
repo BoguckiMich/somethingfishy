@@ -85,9 +85,9 @@ export const RIVER_BEND: Location = {
   // same ground. What differs: no skipping stones (the left gravel bar is the river's own), so no pebble outing (`shore: null`). A test
   // checks every point is on land (not in the river, not in the hut), so a later layout change cannot drop them in the water.
   spots: { ...QUIET_LAKE.spots, stones: undefined, companions: { ...QUIET_COMPANIONS, shore: null } },
-  momentsId: null,
-  checklistId: null,
-  storyPlaceId: null,
+  momentsId: 'river',
+  checklistId: 'river-bend',
+  storyPlaceId: 'river-bend',
   shop: RIVER_BEND_STOCK,
 };
 

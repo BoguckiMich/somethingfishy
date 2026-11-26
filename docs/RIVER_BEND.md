@@ -157,7 +157,7 @@ everywhere (it is the real hour), which also keeps the code simple.
 2. **River art**: bend, current animation, ferry landing and rope, W.'s hut, far bank willows, the camp spots.
 3. **Current mechanic**: bobber drift, seam bonus, the settle-in-the-eddy end of the run (no forced reel-in, decided 2026-11-26), river fight surges (decided 2026-11-26); tests and a sim.
 4. **River fish** (BUILT, slice 25d): trout, grayling, nase, chub, barbel, vimba (+ shared asp, perch, pike) with art and facts.
-5. **River checklist + story R1-R6 + river moments** (kingfisher, otter, upstream lantern, paper boat, heron).
+5. **River checklist + story R1-R6 + river moments** (BUILT, slice 25e): kingfisher, otter, upstream lantern, paper boat, heron.
 6. **Rare river fish + river trophy board, the Ferryman**.
 7. **River gear** (trotting float, heavy lead) behind river bundles.
 
