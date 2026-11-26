@@ -144,6 +144,6 @@ describe('the chase never freezes at any frame time', () => {
           }
         }
       }
-    });
+    }, 30_000); // 160 runs of 60 s each: ~6 s alone, slower under a full parallel run
   }
 });
