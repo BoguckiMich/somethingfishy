@@ -5,7 +5,7 @@ import { STARTER_BAR_GEAR } from './data/barGear';
 import { LINE_FIGHT_TUNING as T, SIGNATURE_MOVES } from './data/lineFight';
 import { RODS } from './data/rods';
 import { LINES } from './data/tackle';
-import { inRed, isPerfectLine, isSlack, lineGearOf, lineProgress, newLineFight, surgeLevel, tickLineFight, warnLevel, type LineFightState } from './lineFight';
+import { goldBandOf, inGold, inRed, isPerfectLine, perfectOutlook, reelFactor, isSlack, lineGearOf, lineProgress, newLineFight, surgeLevel, tickLineFight, warnLevel, type LineFightState } from './lineFight';
 import { seededRng } from './random';
 
 const TICK = 16;
@@ -22,7 +22,10 @@ function run(s: LineFightState, fish: FishProfile, thumb: (s: LineFightState, ms
   return s;
 }
 /** A decent thumb: hold below the middle of the gold band, let go on a surge. */
-const decent = (s: LineFightState) => s.phase !== 'warn' && s.phase !== 'run' && s.tension < (T.goldBand[0] + T.goldBand[1]) / 2;
+const decent = (s: LineFightState) => s.phase !== 'warn' && s.phase !== 'run' && s.tension < (s.goldLo + s.goldHi) / 2;
+
+/** A feathering thumb: pulses to keep the needle in the middle of the gold, whatever the fish does (fine on an easy fish whose surges are weak). */
+const feather = (s: LineFightState) => s.tension < (s.goldLo + s.goldHi) / 2;
 
 describe('line fight basics', () => {
   it('starts at the hook distance with steady tension and nothing decided', () => {
@@ -340,7 +343,7 @@ describe('perfect catch', () => {
     let perfect = 0;
     for (let seed = 1; seed <= 20; seed++) {
       const rng = seededRng(seed);
-      const s = run(newLineFight(rng, 8), easy('smooth'), decent, rng);
+      const s = run(newLineFight(rng, 8), easy('smooth'), feather, rng);
       expect(s.result).toBe('caught');
       if (isPerfectLine(s)) perfect++;
     }
@@ -349,10 +352,11 @@ describe('perfect catch', () => {
 
   it('a long stretch in the red or in slack ruins it', () => {
     const rng = seededRng(40);
-    const s = run(newLineFight(rng, 8), easy('smooth'), decent, rng);
+    const s = run(newLineFight(rng, 8), easy('smooth'), feather, rng);
     expect(isPerfectLine(s)).toBe(true);
     expect(isPerfectLine({ ...s, redTotalMs: T.perfectRedGraceMs + 100 })).toBe(false);
-    expect(isPerfectLine({ ...s, slackTotalMs: T.perfectSlackGraceMs + 100 })).toBe(false);
+    expect(isPerfectLine({ ...s, goldMs: s.timedMs * (T.perfectGold - 0.05) })).toBe(false); // too little of the time in the gold (slack counts against it)
+    expect(isPerfectLine({ ...s, goldMs: s.timedMs * (T.perfectGold + 0.01) })).toBe(true);
     expect(isPerfectLine({ ...s, result: 'slipped' })).toBe(false);
   });
 
@@ -361,7 +365,7 @@ describe('perfect catch', () => {
       let p = 0;
       for (let seed = 1; seed <= 40; seed++) {
         const rng = seededRng(seed);
-        const s = run(newLineFight(rng, 8), { pattern: 'darting', difficulty: d }, decent, rng, RODS[2].barGear);
+        const s = run(newLineFight(rng, 8), { pattern: 'darting', difficulty: d }, feather, rng, RODS[2].barGear);
         if (isPerfectLine(s)) p++;
       }
       return p;
@@ -457,8 +461,69 @@ describe('fair telegraphs, passive play, tiring (tester fixes)', () => {
   it('red drains faster while the tension is in the steady band', () => {
     const rng = seededRng(56);
     const base = { ...newLineFight(rng, 10), redS: 0.5 };
-    const calm = tickLineFight({ ...base, tension: 0.2 }, 1000, false, easy(), gear, rng).redS;
-    const gold = tickLineFight({ ...base, tension: 0.5 }, 1000, true, easy(), gear, rng).redS;
+    const calm = tickLineFight({ ...base, tension: 0.2 }, 400, false, easy(), gear, rng).redS;
+    const gold = tickLineFight({ ...base, tension: 0.5 }, 400, true, easy(), gear, rng).redS;
     expect(gold).toBeLessThan(calm);
+  });
+});
+
+describe('control rules (tuning round: feathering, gold band, strict perfect, reel in the gold)', () => {
+  it('the gold band is wide for easy fish and narrow for hard ones and trophies', () => {
+    const w = (f: FishProfile) => { const [a, b] = goldBandOf(f); return b - a; };
+    expect(w({ pattern: 'smooth', difficulty: 0 })).toBeCloseTo(T.goldWidth[0], 5);
+    expect(w({ pattern: 'darting', difficulty: 1 })).toBeCloseTo(T.goldWidth[1], 5);
+    expect(w({ pattern: 'darting', difficulty: 0.8, slipAfterMs: 2500 })).toBeLessThanOrEqual(T.trophyGoldMax + 1e-9);
+    expect(w({ pattern: 'smooth', difficulty: 0.1 })).toBeGreaterThan(w({ pattern: 'smooth', difficulty: 0.9 }));
+  });
+
+  it('a long hold climbs out of the gold and into the red; a heavy fish sooner than an easy one', () => {
+    const timeToRed = (fish: FishProfile) => {
+      const rng = seededRng(5);
+      let s = newLineFight(rng, 1000, undefined, fish);
+      for (let ms = 0; ms < 20_000; ms += TICK) {
+        s = tickLineFight(s, TICK, true, fish, gear, rng);
+        if (inRed(s, gear)) return ms;
+        if (s.result !== 'fighting') break;
+      }
+      return Infinity;
+    };
+    const easyMs = timeToRed({ pattern: 'smooth', difficulty: 0.1 });
+    const hardMs = timeToRed({ pattern: 'darting', difficulty: 0.9 });
+    expect(hardMs).toBeLessThan(easyMs);
+    expect(hardMs).toBeLessThan(1500);
+  });
+
+  it('releasing lets the tension fall at a steady rate', () => {
+    const fish: FishProfile = { pattern: 'smooth', difficulty: 0.5 };
+    const rng = seededRng(6);
+    let s = { ...newLineFight(rng, 1000, undefined, fish), tension: 0.7 };
+    const t0 = s.tension;
+    s = tickLineFight(s, 200, false, fish, gear, rng);
+    const d1 = t0 - s.tension;
+    const t1 = s.tension;
+    s = tickLineFight(s, 200, false, fish, gear, rng);
+    expect(d1).toBeGreaterThan(0.05);
+    expect(t1 - s.tension).toBeCloseTo(d1, 1);
+  });
+
+  it('the reel works fully in the gold, slowly while slack, not at all in the red', () => {
+    const s = newLineFight(seededRng(7), 10, undefined, { pattern: 'smooth', difficulty: 0.5 });
+    const lim = lineGearOf(gear).snapLimit;
+    const mid = (s.goldLo + s.goldHi) / 2;
+    expect(reelFactor({ ...s, tension: mid }, lim)).toBe(1);
+    expect(reelFactor({ ...s, tension: 0.05 }, lim)).toBeCloseTo(T.slackReel, 5);
+    expect(reelFactor({ ...s, tension: lim }, lim)).toBe(0);
+    expect(reelFactor({ ...s, tension: s.goldHi + 0.05 }, lim)).toBeLessThan(1);
+    expect(inGold({ ...s, tension: mid })).toBe(true);
+  });
+
+  it('the perfect outlook dims with the gold share and greys when out of reach', () => {
+    const s = { ...newLineFight(seededRng(8), 10), timedMs: 10_000, distanceM: 1 };
+    expect(perfectOutlook({ ...s, goldMs: 10_000 })).toMatchObject({ alive: true, glow: 1 });
+    const mid = perfectOutlook({ ...s, goldMs: 8_400 });
+    expect(mid.alive).toBe(true);
+    expect(mid.glow).toBeLessThan(1);
+    expect(perfectOutlook({ ...s, goldMs: 5_000 }).alive).toBe(false);
+    expect(perfectOutlook({ ...s, goldMs: 10_000, redTotalMs: T.perfectRedGraceMs + 200 }).alive).toBe(false);
   });
 });

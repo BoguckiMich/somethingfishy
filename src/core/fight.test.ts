@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FishProfile } from './catchBar';
 import { STARTER_BAR_GEAR } from './data/barGear';
-import { LINE_FIGHT_TUNING as T } from './data/lineFight';
 import { QUIET_LAKE } from './data/locations';
 import { RODS } from './data/rods';
 import type { GameEvent } from './events';
@@ -44,7 +43,7 @@ function play(ctx: SessionContext, thumb: (s: FishingState) => boolean, until: (
 
 const decentLine = (s: FishingState): boolean => {
   if (s.kind !== 'fighting' || !s.line) return true;
-  return s.line.phase !== 'warn' && s.line.phase !== 'run' && s.line.tension < (T.goldBand[0] + T.goldBand[1]) / 2;
+  return s.line.phase !== 'warn' && s.line.phase !== 'run' && s.line.tension < (s.line.goldLo + s.line.goldHi) / 2;
 };
 
 describe('catch style seam (core/fight.ts)', () => {
@@ -88,7 +87,7 @@ describe('the session with the line style', () => {
   });
 
   it('a won fight emits the same fishCaught event as the classic bar, with the perfect flag', () => {
-    const lineRun = play(ctxWith('line', EASY), decentLine);
+    const lineRun = play(ctxWith('line', EASY), (st) => st.kind !== 'fighting' || !st.line || st.line.tension < (st.line.goldLo + st.line.goldHi) / 2);
     expect(lineRun.state.kind).toBe('caught');
     const caught = lineRun.events.find((e) => e.type === 'fishCaught');
     expect(caught).toMatchObject({ type: 'fishCaught', zone: 'shallow', pattern: 'smooth', speciesId: 'perch', lengthCm: 24, weightG: 210, perfect: true });

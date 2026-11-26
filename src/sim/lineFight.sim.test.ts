@@ -15,7 +15,6 @@ import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
 import { fightProfile, rollLength } from '../core/fish';
 import type { BarGear } from '../core/gear';
-import { LINE_FIGHT_TUNING } from '../core/data/lineFight';
 import { isPerfectLine, newLineFight, tickLineFight, type LineFightState } from '../core/lineFight';
 import { seededRng } from '../core/random';
 
@@ -26,12 +25,15 @@ const N = Number(process.env.SIM_FIGHTS ?? 200);
 const TICK = 16;
 interface Bot {
   delayMs: number;
+  /** Classic bar: noise on what she sees. */
   noise: number;
-  /** Chance that a reaction is a lapse (looking away, a slow thumb): it takes 0.5 s longer. */
+  /** Line: timing noise on every press and release (+- ms): the thumb is never exactly on the beat. */
+  jitterMs: number;
+  /** Line: chance that a reaction is a lapse (looking away): it takes 0.6 s longer. A small realistic share now: the fights are lost to control, not to lapses. */
   lapse: number;
 }
-const DECENT: Bot = { delayMs: 200, noise: 0.05, lapse: 0.22 };
-const SKILLED: Bot = { delayMs: 150, noise: 0, lapse: 0.06 };
+const DECENT: Bot = { delayMs: 200, noise: 0.05, jitterMs: 100, lapse: 0.03 };
+const SKILLED: Bot = { delayMs: 150, noise: 0, jitterMs: 40, lapse: 0.02 };
 
 export interface Played {
   caught: boolean;
@@ -61,29 +63,34 @@ export function playClassic(fish: FishProfile, bot: Bot, seed: number, gear: Bar
 }
 
 /**
- * The line fight, played by a decent player: sees the splash (the telegraph) and the tension after `delayMs`, holds while the tension
- * is below the middle of the gold band and the fish is not (about to be) surging, lets go on a surge or above the middle.
+ * The line fight, played with the thumb: pulses (hold, release, hold) to keep the needle in the gold. She sees the tension, how fast it moves and
+ * whether a surge or a cut is showing; she holds while the needle (where it will be when her thumb lands) is below the target in the gold, lets go above it
+ * or at a telegraph. Every press and release lands `delayMs` late with +-`jitterMs` of timing noise.
  */
-export function playLine(fish: FishProfile, bot: Bot, seed: number, gear: BarGear, startM: number, speciesId?: string): Played {
+export function playLine(fish: FishProfile, bot: Bot, seed: number, gear: BarGear, startM: number, speciesId?: string, trace?: string[]): Played {
   const rng = seededRng(seed);
-  const noiseRng = seededRng(seed + 7919);
   const reactRng = seededRng(seed + 104729);
-  const mid = (LINE_FIGHT_TUNING.goldBand[0] + LINE_FIGHT_TUNING.goldBand[1]) / 2;
-  let s: LineFightState = newLineFight(rng, startM, speciesId);
+  let s: LineFightState = newLineFight(rng, startM, speciesId, fish, gear);
   let holding = true;
-  // A reaction is per event: when what she wants differs from what the thumb does, the thumb follows after her reaction time (0.8x..1.5x).
   let switchAt = -1;
+  let prevT = s.tension;
+  let vel = 0; // tension change per ms, smoothed
   for (let ms = 0; ms < 120_000; ms += TICK) {
-    const seen = s.tension + (bot.noise ? (noiseRng() * 2 - 1) * bot.noise : 0);
-    const surging = s.phase === 'warn' || s.phase === 'run' || s.cutWarn > 0;
-    const want = !surging && seen < mid;
+    vel = vel * 0.8 + ((s.tension - prevT) / TICK) * 0.2;
+    prevT = s.tension;
+    const target = s.goldLo + (s.goldHi - s.goldLo) * 0.5;
+    const surging = s.phase === 'warn' || s.phase === 'hush' || s.phase === 'run' || s.cutWarn > 0;
+    // Where the needle will be when the thumb lands (it keeps moving the way it moves now).
+    const ahead = s.tension + vel * bot.delayMs;
+    const want = !surging && ahead < target;
     if (want === holding) switchAt = -1;
-    else if (switchAt < 0) switchAt = ms + bot.delayMs * (0.8 + reactRng() * 0.7) + (reactRng() < bot.lapse ? 600 : 0);
+    else if (switchAt < 0) switchAt = ms + bot.delayMs + (reactRng() * 2 - 1) * bot.jitterMs + (reactRng() < bot.lapse ? 600 : 0);
     if (switchAt >= 0 && ms >= switchAt) {
       holding = want;
       switchAt = -1;
     }
     s = tickLineFight(s, TICK, holding, fish, gear, rng);
+    if (trace && ms % 200 < TICK) trace.push(`${(ms / 1000).toFixed(1)}s T=${s.tension.toFixed(2)} ${holding ? 'HOLD' : '    '} ${s.phase.padEnd(4)} cut=${s.cutWarn > 0 ? 1 : 0} dist=${s.distanceM.toFixed(1)} slack=${s.slackS.toFixed(2)} red=${s.redS.toFixed(2)} gold=${(s.goldMs / Math.max(1, s.timedMs)).toFixed(2)}`);
     if (s.result === 'caught') return { caught: true, perfect: isPerfectLine(s), ms, how: 'caught', redMs: s.redTotalMs, slackMs: s.slackTotalMs };
     if (s.result !== 'fighting') return { caught: false, perfect: false, ms, how: s.result, redMs: s.redTotalMs, slackMs: s.slackTotalMs };
   }
@@ -93,7 +100,7 @@ export function playLine(fish: FishProfile, bot: Bot, seed: number, gear: BarGea
 /** A player who never lets go / never holds (the line fight must beat both on anything but the easiest fish). */
 export function playFixed(fish: FishProfile, hold: boolean, seed: number, gear: BarGear, startM: number): Played {
   const rng = seededRng(seed);
-  let s = newLineFight(rng, startM);
+  let s = newLineFight(rng, startM, undefined, fish, gear);
   for (let ms = 0; ms < 120_000; ms += TICK) {
     s = tickLineFight(s, TICK, hold, fish, gear, rng);
     if (s.result === 'caught') return { caught: true, perfect: false, ms, how: 'caught' };
@@ -188,3 +195,13 @@ describe.skipIf(!ON)('line fight sim (SIM=1)', () => {
 });
 
 void POOL_SPECIES;
+
+describe.skipIf(process.env.PROBE === undefined)('probe', () => {
+  it('trace', () => {
+    const id = process.env.PROBE!;
+    const { fish, startM } = profileOf(id, Number(process.env.SEED ?? 3));
+    const trace: string[] = [`d=${fish.difficulty.toFixed(2)} ${fish.pattern}`];
+    const r = playLine(fish, process.env.BOT === 'skilled' ? SKILLED : DECENT, Number(process.env.SEED ?? 3), process.env.ROD === 'bamboo' ? BAMBOO : FIBER, startM, id, trace);
+    console.log(trace.join(String.fromCharCode(10)) + ' ' + JSON.stringify(r));
+  });
+});
