@@ -1049,6 +1049,10 @@ tester agent before it is merged.
   bigger wind-up.
 - Busy (fetch, mid-walk): he finishes and comes over, bubble "One sec!". In the car or asleep: the stones do nothing.
 - 5 skips: Pajkel cheers, Bestia barks once, Alex glances over. Still no coins.
+- Casting no longer breaks up fetch (user, 2026-11-26): today any press (`companionPress`) sends everyone
+  back to the dock at once. Instead the round in progress finishes (she brings the stick back or keeps it,
+  a stick from the Museum can still drop), then they walk back; no new round starts while she fishes. A hook
+  or catch during the round: Pajkel cheers from where he stands. Bedtime and the car still interrupt at once.
 
 **Balance (review A2, all accepted)**
 - Economy: a bot sim first (is the "whole shop in ~85 min" real?), target the whole shop at no less than
