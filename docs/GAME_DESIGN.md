@@ -812,6 +812,14 @@ things (Quiet Lake as today; River bend the spinning rod and river gear, slice 2
   (then "She's full. Look at that belly.").
 - Saved: treats count in the inventory, the last feed date and today's count in PlayerState (optional fields).
 
+### Bestia's bed on the dock (Alex's idea, 2026-11-26; slice 31)
+- Once bought, the dog bed lies ON THE DOCK, exactly where Bestia lies by Pajkel's chair (not on the grass by the
+  car). Her dock rest becomes lying in her bed: lying or curled in it, breathing, the rising z at night.
+- Her naps (slice 27) happen there: no walk to the grass. After fetch, the pebble outing or feeding she comes back to
+  the dock and settles into the bed. Night and the car rules stay as they are.
+- A tap on her pets her (as now); a tap on the bed when she is not in it opens the Stick Museum (as now).
+- Works at every place where she rests on the dock or landing (the same companion spot data).
+
 ### Ideas (not scheduled)
 - **Our own catch mechanic:** decided, see "Catch mechanic v2" above (slice 28).
 - **Feed Bestia (testers, 2026-11-26):** players want to feed the dog. Open questions: what (treats from the
