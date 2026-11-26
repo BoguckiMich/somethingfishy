@@ -2,6 +2,7 @@ import { SHOP_BAITS } from './baits';
 import { CAMP_ITEMS } from './camp';
 import { NIGHT_KIT } from './nightKit';
 import { RODS } from './rods';
+import { TREATS } from './treats';
 import { LINES, REELS } from './tackle';
 
 /** What one place's shop sells, as item ids by section (slice 29). Owned gear stays owned and usable everywhere; this only gates buying. */
@@ -16,8 +17,8 @@ export interface ShopStock {
   gearEmpty?: string;
 }
 
-/** Worms and the basic bait packs (corn, maggots, strip), sold at every place. */
-export const BASIC_BAIT: readonly string[] = ['worms', ...SHOP_BAITS.map((b) => b.id)];
+/** Worms, the basic bait packs (corn, maggots, strip) and the dog treats (slice 30), sold at every place. */
+export const BASIC_BAIT: readonly string[] = ['worms', ...SHOP_BAITS.map((b) => b.id), TREATS.id];
 
 /** Quiet Lake sells exactly what the shop sold before slice 29. */
 export const QUIET_LAKE_STOCK: ShopStock = {

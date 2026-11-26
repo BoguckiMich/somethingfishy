@@ -414,8 +414,32 @@ export function windsockIconSprite(): Sprite {
   );
 }
 
+/** Dog treats (slice 30): two bone-shaped biscuits, a cream one and a toasted one. */
+export function treatsSprite(): Sprite {
+  return fromGrid(
+    `
+    ..............
+    ..............
+    .CC........CC.
+    CCCCCCCCCCCCCC
+    CCCCCCCCCCCCCC
+    .ss........ss.
+    ..............
+    ..............
+    ..bb......bb..
+    .BBBBBBBBBBBB.
+    .BBBBBBBBBBBB.
+    ..dd......dd..
+    ..............
+    ..............
+    `,
+    { C: PAL.cream, s: PAL.sand, B: PAL.straw, b: PAL.strawLight, d: PAL.strawDark },
+  );
+}
+
 const BUILDERS: Record<string, () => Sprite> = {
   worms: wormPackSprite,
+  treats: treatsSprite,
   bamboo: () => rodSprite(ROD_ART.bamboo),
   fiberglass: () => rodSprite(ROD_ART.fiberglass),
   carbon: () => rodSprite(ROD_ART.carbon),

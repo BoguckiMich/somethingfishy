@@ -182,6 +182,13 @@ export class CompanionView {
     this.hearts.push({ img, age: 0, life: waking ? 1200 : 1000 });
   }
 
+  /** A heart floats up over her head (a treat eaten, slice 30). */
+  heart(): void {
+    const d = this.state.dog;
+    const img = this.scene.add.image(Math.round(d.x), Math.round(d.y - 30), TEX.heart).setDepth(DEPTH + 4);
+    this.hearts.push({ img, age: 0, life: 1400 });
+  }
+
   /** Screen-space hit boxes for taps. */
   dogRect(): Phaser.Geom.Rectangle {
     const d = this.state.dog;
@@ -247,9 +254,9 @@ export class CompanionView {
     const curled = v.shape === 'curl';
     const frame: DogFrame = {
       shape: v.shape,
-      tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' || v.shape === 'bow' ? v.tail % 2 : 0,
+      tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' || v.shape === 'bow' || v.shape === 'eat' ? v.tail % 2 : 0,
       perked: v.shape === 'lie' || v.shape === 'sit' || v.shape === 'stand' ? v.perked : false,
-      step: v.shape === 'run' ? v.step : v.shape === 'curl' ? v.breath : 0,
+      step: v.shape === 'run' ? v.step : v.shape === 'curl' ? v.breath : v.shape === 'eat' ? v.munch : 0,
       carry: v.shape === 'run' && v.carry,
     };
     const d = s.dog;

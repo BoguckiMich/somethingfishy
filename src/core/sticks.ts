@@ -1,5 +1,6 @@
 import { sticksAt, stickById, type StickDef } from './data/sticks';
 import { isValidDate } from './daily/dates';
+import { cozyPending, spendCozy } from './feeding';
 import type { PlayerState } from './inventory';
 
 /** The Stick Museum rules (slice 26): when a finished fetch round brings a new named stick. Pure. */
@@ -49,8 +50,10 @@ export interface RoundResult {
  */
 export function finishFetchRound(p: PlayerState, placeId: string, today: string): RoundResult {
   const round = fetchRoundsOf(p) + 1;
-  const counted: PlayerState = { ...p, fetchRounds: round };
-  if (!isStickRound(round) || foundToday(p, today) >= STICK_TUNING.perDay || !isValidDate(today)) return { player: counted, found: null };
+  // The cozy bonus of a fed day (slice 30) makes this round a stick round too; it is used up by this round whatever comes of it.
+  const cozy = cozyPending(p);
+  const counted: PlayerState = { ...spendCozy(p), fetchRounds: round };
+  if (!(isStickRound(round) || cozy) || foundToday(p, today) >= STICK_TUNING.perDay || !isValidDate(today)) return { player: counted, found: null };
   const found = nextStick(p, placeId);
   if (!found) return { player: counted, found: null };
   return {

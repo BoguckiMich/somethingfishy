@@ -53,6 +53,7 @@ export const QUIET_LAKE: Location = {
     lantern: { x: 180, y: 388 },
     stones: { x: 93, y: 458 },
     camp: { tent: { x: 14, y: 494 }, pole: { x: 85, y: 447 }, fire: { x: 106, y: 497 }, bed: { x: 80, y: 555 }, sock: { x: 330, y: 496 } },
+    bowl: { x: 24, y: 553 },
     playArea: { x0: 100, x1: 322, y0: 500, y1: 554 },
     companions: QUIET_COMPANIONS,
   },
