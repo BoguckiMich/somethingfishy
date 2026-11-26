@@ -17,6 +17,11 @@ export interface Zone {
    * for casts landing here. Absent = inherit the location's pool. Every id must also be in the location's pool (`livesAt`).
    */
   fishPool?: Readonly<Record<string, number>>;
+  /**
+   * Size bias of this band (slice 25d): the length-roll exponent per species id, replacing the species' own (higher = smaller fish).
+   * The river's chub is small in the riffle and big in the bend pool.
+   */
+  sizeSkew?: Readonly<Record<string, number>>;
 }
 
 export interface Point {
@@ -34,6 +39,13 @@ export interface PlayArea {
 /** Which fish a place has: a weight multiplier per species id (absent = does not live here), and whether the trophies and the legendary may bite. */
 export interface FishPool {
   species: Readonly<Record<string, number>>;
+  /**
+   * True for a band's own list (slice 25d): every species in it may bite whatever its depth class, so a river's pool can
+   * hold the perch (a shallow species). The lake's pool is not exact: a fish bites only in its own depth class.
+   */
+  exact?: boolean;
+  /** The band's size bias (see `Zone.sizeSkew`). */
+  sizeSkew?: Readonly<Record<string, number>>;
   /** The rare trophy fish and the legendary of this place (rules in core/rare.ts and core/legendary.ts). */
   specials: boolean;
 }
@@ -122,11 +134,27 @@ export function zoneAt(location: Location, distanceM: number): Zone {
   return zone ?? location.zones[location.zones.length - 1];
 }
 
-/** The fish pool for a cast landing at `distanceM`: the zone's own species if it has any, else the location's; the trophies flag always comes from the location. */
-export function poolAt(location: Location, distanceM: number): FishPool {
-  const own = zoneAt(location, distanceM).fishPool;
-  return own ? { species: own, specials: location.fishPool.specials } : location.fishPool;
+/** The pool of one band: its own species if it has any (exact, see `FishPool.exact`), else the location's; the trophies flag always comes from the location. */
+function poolOfZone(location: Location, zone: Zone): FishPool {
+  return zone.fishPool
+    ? { species: zone.fishPool, exact: true, specials: location.fishPool.specials, ...(zone.sizeSkew ? { sizeSkew: zone.sizeSkew } : {}) }
+    : location.fishPool;
 }
+
+/** The fish pool for a cast landing at `distanceM`. */
+export const poolAt = (location: Location, distanceM: number): FishPool => poolOfZone(location, zoneAt(location, distanceM));
+
+/** May this species (with this depth class) bite in a band whose depth class is `zone` and whose pool is `pool`? */
+export const biteableIn = (pool: FishPool, speciesId: string, speciesZone: ZoneId, zone: ZoneId): boolean =>
+  pool.species[speciesId] !== undefined && (pool.exact === true || speciesZone === zone);
+
+/** Can this species bite anywhere a cast of `reachM` meters lands at the location (daily quests and the fish of the day only ask for what she can catch)? */
+export const canBiteWithin = (location: Location, species: { id: string; zone: ZoneId }, reachM: number): boolean =>
+  location.zones.some((z) => z.fromM < reachM && biteableIn(poolOfZone(location, z), species.id, species.zone, z.fishZone));
+
+/** The bands of the location where this species can bite, in order from the shore. */
+export const zonesOfSpecies = (location: Location, species: { id: string; zone: ZoneId }): Zone[] =>
+  location.zones.filter((z) => biteableIn(poolOfZone(location, z), species.id, species.zone, z.fishZone));
 
 /** The depth classes this much reach covers on the location, in zone order, no duplicates. */
 export function reachableFishZones(location: Location, reachM: number): ZoneId[] {

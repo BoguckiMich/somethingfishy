@@ -6,7 +6,7 @@ import { QUEST_TUNING as T } from '../data/quests';
 import { RODS } from '../data/rods';
 import { SHOP_BAITS, baitById } from '../data/baits';
 import { addBait, type PlayerState } from '../inventory';
-import { livesAt, reachableFishZones, type ZoneId } from '../location';
+import { canBiteWithin, reachableFishZones, type ZoneId } from '../location';
 import { randInt, seededRng, type Rng } from '../random';
 import { speciesCaught } from '../fishLog';
 import { article } from '../../i18n/en';
@@ -75,6 +75,8 @@ export function hashString(s: string): number {
 // ---- Gear and what is possible ---------------------------------------------------------------
 
 const rodOf = (p: PlayerState) => RODS.find((r) => r.id === p.rodId) ?? RODS[0];
+/** How far the equipped rod casts, in meters. */
+export const rodReach = (p: PlayerState): number => rodOf(p).maxCastM;
 /** The depth classes the equipped rod can reach at the place she is at (Quiet Lake unless she travelled, slice 25a). */
 export function reachableZones(p: PlayerState): ZoneId[] {
   return reachableFishZones(locationById(p.place), rodOf(p).maxCastM);
@@ -119,9 +121,10 @@ function pickWeighted<A>(rng: Rng, items: A[], weight: (a: A) => number): A {
 export function rollQuest(kind: QuestKind, p: PlayerState, rng: Rng): Quest {
   switch (kind) {
     case 'catchSpecies': {
-      const zones = reachableZones(p);
+      // Only a fish that can bite where her rod lands at this place (a river species at the river, a lake one at the lake).
       const here = locationById(p.place);
-      const pool: Species[] = POOL_SPECIES.filter((s) => zones.includes(s.zone) && livesAt(here, s.id));
+      const reach = rodOf(p).maxCastM;
+      const pool: Species[] = POOL_SPECIES.filter((s) => canBiteWithin(here, s, reach));
       const sp = pickWeighted(rng, pool, (s) => T.speciesWeight[s.rarity]);
       const range = T.catchSpecies[sp.rarity as 'common' | 'uncommon' | 'rare'];
       const target = pickInRange(rng, range);

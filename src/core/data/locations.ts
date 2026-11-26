@@ -1,8 +1,11 @@
 import type { CompanionSpots, Location } from '../location';
 import { POOL_SPECIES } from './fish';
 
+/** The species that live at the River bend only (slice 25d): they never bite at Quiet Lake. */
+const RIVER_ONLY: readonly string[] = ['trout', 'grayling', 'nase', 'chub', 'barbel', 'vimba'];
+
 /** Every fish that bites at the lake with the plain weight (the trophies and the legendary are rolled apart, see `specials`). */
-const LAKE_FISH: Record<string, number> = Object.fromEntries(POOL_SPECIES.map((s) => [s.id, 1]));
+const LAKE_FISH: Record<string, number> = Object.fromEntries(POOL_SPECIES.filter((s) => !RIVER_ONLY.includes(s.id)).map((s) => [s.id, 1]));
 
 /** The companions' ground at Quiet Lake: what the behaviour had as constants before M2 groundwork B (a test keeps them equal). */
 const QUIET_COMPANIONS: CompanionSpots = {
@@ -57,22 +60,23 @@ export const QUIET_LAKE: Location = {
 };
 
 /**
- * The River bend (slice 25a): a PLACEHOLDER. Its fish are shared lake species only (the river's own fish, the current,
- * the art, the checklist, the story and the moments come in slices 25b-25g); asp is at home here.
+ * The River bend (slice 25a, fish 25d). The river's own species live in the bands (RIVER_BEND.md sections 3 and 5): riffle = trout, grayling,
+ * nase and the small chub; seam = chub, the asp (common here), barbel (dusk and night), vimba; bend pool = barbel, the big chub, and perch
+ * and pike as slow-water visitors. The weights are multipliers on the rarity weight (common 60, uncommon 30, rare 10). The art, the
+ * current, the checklist, the story and the moments come in slices 25b-25g.
  */
 export const RIVER_BEND: Location = {
   id: 'river-bend',
   name: 'River bend',
   maxDistanceM: 40,
   zones: [
-    // Per-zone pools (M2 groundwork A) follow RIVER_BEND.md section 3/5 as far as the species exist. TODO(25d): riffle = nase, trout,
-    // grayling, small chub; seam = chub, asp, barbel, vimba; pool = barbel, big chub (+ the Ferryman). Until those exist: roach stands in
-    // for the nase, asp lives in the seam ("the money spot"), pike and bream hold in the slow pool.
-    { id: 'riffle', name: 'Riffle', fromM: 0, toM: 12, fishZone: 'shallow', fishPool: { roach: 2, perch: 1 } },
-    { id: 'seam', name: 'Seam', fromM: 12, toM: 26, fishZone: 'shallow', fishPool: { asp: 3, perch: 1, roach: 1 } },
-    { id: 'pool', name: 'Bend pool', fromM: 26, toM: 40, fishZone: 'deep', fishPool: { pike: 1, bream: 1 } },
+    // The chub's size follows the water: the length roll is skewed small in the riffle (exponent 3) and big in the pool (exponent 1).
+    { id: 'riffle', name: 'Riffle', fromM: 0, toM: 12, fishZone: 'shallow', fishPool: { nase: 1.5, trout: 1, grayling: 1, chub: 0.6 }, sizeSkew: { chub: 3 } },
+    { id: 'seam', name: 'Seam', fromM: 12, toM: 26, fishZone: 'shallow', fishPool: { chub: 1, asp: 5, barbel: 1, vimba: 1 } },
+    { id: 'pool', name: 'Bend pool', fromM: 26, toM: 40, fishZone: 'deep', fishPool: { barbel: 1.5, chub: 1.2, perch: 0.6, pike: 0.6 }, sizeSkew: { chub: 1 } },
   ],
-  fishPool: { species: { asp: 3, perch: 1, roach: 1.5, pike: 0.7, bream: 1 }, specials: false },
+  // Which species live here at all (the keys; the weights are the bands' own). The trophies and the legendary of the lake do not.
+  fishPool: { species: { nase: 1, trout: 1, grayling: 1, chub: 1, asp: 1, barbel: 1, vimba: 1, perch: 1, pike: 1 }, specials: false },
   background: 'river',
   // The river art (25b) kept the lake's near shore: landing, car, camp and the grass lawn stand where they did, so the companions walk the
   // same ground. What differs: no skipping stones (the left gravel bar is the river's own), so no pebble outing (`shore: null`). A test
