@@ -1,8 +1,8 @@
 import { POOL_SPECIES, type Species } from '../data/fish';
 import type { PlayerState } from '../inventory';
 import { locationById } from '../data/locations';
-import { livesAt } from '../location';
-import { hashString, reachableZones } from '../quests/quests';
+import { canBiteWithin, livesAt } from '../location';
+import { hashString, rodReach } from '../quests/quests';
 import { isValidDate } from './dates';
 
 /**
@@ -14,11 +14,12 @@ import { isValidDate } from './dates';
 export function fishOfTheDay(today: string, player: PlayerState): Species | undefined {
   if (!isValidDate(today)) return undefined;
   const h = hashString(`fotd:${today}`);
-  const first = POOL_SPECIES[h % POOL_SPECIES.length];
-  const zones = reachableZones(player);
-  // Only a species that lives at the place she is at (slice 25a); every species lives at Quiet Lake.
+  // The pick is made among the species of the place she is at (slice 25a/25d), in data order: Quiet Lake keeps its old list and so its old days.
   const here = locationById(player.place);
-  if (zones.includes(first.zone) && livesAt(here, first.id)) return first;
-  const reachable = POOL_SPECIES.filter((s) => zones.includes(s.zone) && livesAt(here, s.id));
+  const live = POOL_SPECIES.filter((s) => livesAt(here, s.id));
+  const reach = rodReach(player);
+  const first = live[h % live.length];
+  if (canBiteWithin(here, first, reach)) return first;
+  const reachable = live.filter((s) => canBiteWithin(here, s, reach));
   return reachable.length > 0 ? reachable[h % reachable.length] : undefined;
 }

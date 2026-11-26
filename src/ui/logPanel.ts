@@ -6,7 +6,7 @@ import { spriteToRgba, TRANSPARENT, type Sprite } from '../art/pixelGrid';
 import { PAL } from '../art/palette';
 import { isLegendary, isTrophy, isUnique, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
-import { bestStar, goldCount, lockedHint, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
+import { bestStar, goldCount, lockedHint, speciesCaught, wherePlaces, whereWhen, type FishLog } from '../core/fishLog';
 import { weatherSprite } from '../art/weatherArt';
 import { knowledgeRows, type KnowledgeRow } from '../core/fishKnowledge';
 import { shopIconSprite } from '../art/shopIconArt';
@@ -144,6 +144,7 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
     el('div', `font-size:${FS.body}px;color:${COLORS.cream}`, `Caught x${entry.count}`),
     el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text}`, s.fact),
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
+    el('div', `font-size:${FS.small}px;color:${COLORS.dim}`, wherePlaces(s)),
   );
   const rows = knowledgeRows(s, entry.count);
   if (rows.length) {

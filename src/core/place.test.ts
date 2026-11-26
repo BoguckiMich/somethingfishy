@@ -7,12 +7,16 @@ import { weatherEffects } from './daily/weather';
 import { POOL_SPECIES, SPECIES, speciesById } from './data/fish';
 import { LOCATIONS, QUIET_LAKE, RIVER_BEND, locationById } from './data/locations';
 import { candidates, pickSpecies, rollHookedFish } from './fish';
-import { livesAt, reachableFishZones, zoneAt } from './location';
+import { livesAt, poolAt, reachableFishZones, zoneAt } from './location';
 import { newPlayer } from './inventory';
 import { canTravel, locationOf, normalizePlace, placeOf, withPlace } from './place';
 import { rollQuest } from './quests/quests';
 import { mulberry32 } from '../art/raster';
 import { loadSave, newSave, writeSave, SAVE_KEY } from './save';
+
+const RIVER_IDS = ['trout', 'grayling', 'nase', 'chub', 'barbel', 'vimba'];
+/** The lake's pool without the zone-class check: what "no pool" meant before the river species existed. */
+const LAKE_ONLY = { species: Object.fromEntries(POOL_SPECIES.filter((s) => !RIVER_IDS.includes(s.id)).map((s) => [s.id, 1])), specials: true };
 
 describe('Quiet Lake as data reproduces what the scene used to hard-code', () => {
   it('keeps the zones, the reach and the names', () => {
@@ -38,7 +42,7 @@ describe('Quiet Lake as data reproduces what the scene used to hard-code', () =>
   });
 
   it('lets every pool species bite with the plain weight, and the trophies and the legendary stay possible', () => {
-    expect(Object.keys(QUIET_LAKE.fishPool.species).sort()).toEqual(POOL_SPECIES.map((x) => x.id).sort());
+    expect(Object.keys(QUIET_LAKE.fishPool.species).sort()).toEqual(POOL_SPECIES.filter((x) => !RIVER_IDS.includes(x.id)).map((x) => x.id).sort());
     expect(Object.values(QUIET_LAKE.fishPool.species).every((w) => w === 1)).toBe(true);
     expect(QUIET_LAKE.fishPool.specials).toBe(true);
   });
@@ -47,7 +51,7 @@ describe('Quiet Lake as data reproduces what the scene used to hard-code', () =>
     for (const zone of ['shallow', 'deep'] as const) {
       for (const time of ['dawn', 'day', 'dusk', 'night'] as const) {
         for (let seed = 1; seed < 40; seed++) {
-          const a = pickSpecies(zone, time, mulberry32(seed), undefined, undefined, undefined, undefined).id;
+          const a = pickSpecies(zone, time, mulberry32(seed), undefined, undefined, undefined, LAKE_ONLY).id;
           const b = pickSpecies(zone, time, mulberry32(seed), undefined, undefined, undefined, QUIET_LAKE.fishPool).id;
           expect(b).toBe(a);
         }
@@ -72,7 +76,7 @@ describe('River bend (placeholder)', () => {
     expect(zoneAt(RIVER_BEND, 30).fishZone).toBe('deep');
   });
 
-  it('only has species that exist and are shared with the lake, with no trophies or legendary', () => {
+  it('only has species that exist, with no trophies or legendary', () => {
     for (const id of Object.keys(RIVER_BEND.fishPool.species)) expect(POOL_SPECIES.map((s) => s.id)).toContain(id);
     expect(RIVER_BEND.fishPool.specials).toBe(false);
     expect(RIVER_BEND.momentsId).toBeNull();
@@ -92,9 +96,10 @@ describe('River bend (placeholder)', () => {
   });
 
   it('applies the place weights (asp is common here)', () => {
-    const shallow = candidates('shallow', 'day', undefined, RIVER_BEND.fishPool).map((s) => s.id);
-    expect(shallow).toEqual(expect.arrayContaining(['asp', 'perch', 'roach']));
-    expect(shallow).not.toContain('tench');
+    const seam = candidates('shallow', 'day', undefined, poolAt(RIVER_BEND, 18)).map((s) => s.id);
+    expect(seam).toEqual(expect.arrayContaining(['asp', 'chub', 'vimba']));
+    expect(seam).not.toContain('tench');
+    expect(seam).not.toContain('roach');
   });
 
   it('picks the fish of the day and quest species from the place she is at', () => {

@@ -127,6 +127,43 @@ export const SPECIES: Species[] = [
     lengthCm: [60, 180], nibbles: [0, 3], bodyFactor: 0.0074, basePrice: 100,
     fact: 'The wels catfish is the largest freshwater fish in Europe and can pass two metres in length.',
   },
+  // The River bend's own species (slice 25d, RIVER_BEND.md section 5). Which place and band they bite in lives in data/locations.ts;
+  // `zone` is only their main depth class (the barbel is "deep": it feeds on the bottom and is no pushover).
+  {
+    id: 'trout', name: 'Brown trout', zone: 'shallow', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'darting', difficulty: 0.4,
+    lengthCm: [20, 70], nibbles: [0, 2], bodyFactor: 0.012, basePrice: 30,
+    fact: 'Brown trout read the current like a menu: they sit just behind a stone and let the river deliver.',
+    likes: ['rain', 'overcast'],
+  },
+  {
+    id: 'grayling', name: 'Grayling', zone: 'shallow', times: ['day'], rarity: 'uncommon', pattern: 'floater', difficulty: 0.3,
+    lengthCm: [20, 50], nibbles: [1, 3], bodyFactor: 0.0095, basePrice: 26,
+    fact: 'Grayling smell faintly of thyme, which is where their Latin name comes from. The big sail on the back is for show.',
+    likes: ['sunny'],
+  },
+  {
+    id: 'nase', name: 'Nase', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'smooth', difficulty: 0.12,
+    lengthCm: [15, 45], nibbles: [0, 1], bodyFactor: 0.0116, basePrice: 6,
+    fact: 'The nase scrapes algae off river stones with a sharp-edged lip, and travels in big crowds.',
+    likes: ['sunny'],
+  },
+  {
+    id: 'chub', name: 'Chub', zone: 'shallow', times: ANY, rarity: 'common', pattern: 'smooth', difficulty: 0.2,
+    lengthCm: [15, 60], nibbles: [0, 2], bodyFactor: 0.016, basePrice: 9,
+    fact: 'Some anglers swear a chub once winked at them; the chub has no comment.',
+  },
+  {
+    id: 'barbel', name: 'Barbel', zone: 'deep', times: ['dusk', 'night'], rarity: 'uncommon', pattern: 'sinker', difficulty: 0.68,
+    lengthCm: [30, 90], nibbles: [2, 4], bodyFactor: 0.0116, basePrice: 42,
+    fact: 'Barbel feel along the river bed with four whiskers, and taste with them too.',
+    likes: ['rain'],
+  },
+  {
+    id: 'vimba', name: 'Vimba', zone: 'shallow', times: ['dawn', 'day'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.3,
+    lengthCm: [20, 45], nibbles: [1, 3], bodyFactor: 0.0128, basePrice: 20,
+    fact: 'Vimba swim upstream in summer to spawn, and for a few weeks their bellies glow orange.',
+    likes: ['overcast'],
+  },
   {
     // Trophies (slice 23d): not in the weighted pool; spawn rules and tunables in core/data/rare.ts. The fight is harder than
     // the base difficulty suggests (it also slips away after a few seconds outside the green zone). basePrice is the worth;

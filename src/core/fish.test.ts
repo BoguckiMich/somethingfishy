@@ -6,15 +6,16 @@ import type { ZoneId } from './location';
 import { RARE_TUNING } from './data/rare';
 import { seededRng } from './random';
 
+const RIVER_IDS = ['trout', 'grayling', 'nase', 'chub', 'barbel', 'vimba'];
 const ZONES: ZoneId[] = ['shallow', 'deep'];
 const TIMES: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 describe('roster data', () => {
-  it('has the 15 pool species plus the 3 trophies and the legendary, unique ids and sane ranges', () => {
-    expect(SPECIES).toHaveLength(19);
-    expect(POOL_SPECIES).toHaveLength(15);
-    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(19);
+  it('has the 21 pool species (15 lake, 6 river) plus the 3 trophies and the legendary, unique ids and sane ranges', () => {
+    expect(SPECIES).toHaveLength(25);
+    expect(POOL_SPECIES).toHaveLength(21);
+    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(25);
     expect(SPECIES.filter((s) => s.rarity === 'legendary').map((s) => s.id)).toEqual(['pale']);
     expect(SPECIES.filter((s) => s.rarity === 'trophy').map((s) => s.id)).toEqual(['goldenTench', 'mossback', 'silverGhost']);
     expect(POOL_SPECIES.some((s) => s.rarity === 'trophy' || s.rarity === 'legendary')).toBe(false);
@@ -45,9 +46,10 @@ describe('roster data', () => {
     expect(w('catfish', 150)).toBeLessThan(28000);
   });
 
-  it('prices rise with rarity and depth', () => {
-    const cheapestDeep = Math.min(...POOL_SPECIES.filter((s) => s.zone === 'deep').map((s) => s.basePrice));
-    const dearestShallow = Math.max(...POOL_SPECIES.filter((s) => s.zone === 'shallow').map((s) => s.basePrice));
+  it('prices rise with rarity and depth (the lake roster)', () => {
+    const lake = POOL_SPECIES.filter((s) => !RIVER_IDS.includes(s.id));
+    const cheapestDeep = Math.min(...lake.filter((s) => s.zone === 'deep').map((s) => s.basePrice));
+    const dearestShallow = Math.max(...lake.filter((s) => s.zone === 'shallow').map((s) => s.basePrice));
     expect(cheapestDeep).toBeGreaterThanOrEqual(dearestShallow - 5);
     expect(speciesById('catfish')!.basePrice).toBe(Math.max(...POOL_SPECIES.map((s) => s.basePrice)));
   });
