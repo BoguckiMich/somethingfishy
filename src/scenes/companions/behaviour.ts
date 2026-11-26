@@ -108,7 +108,7 @@ export interface Bubble {
 }
 
 export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl';
-export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend' | 'windup' | 'flick' | 'rejoice';
+export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend' | 'pick' | 'pickUp' | 'windup' | 'flick' | 'rejoice';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed' | 'shore';
 /**
  * One round of "no take, only throw" (slice 17): he throws, she fetches (`throw`), trots back (`bring`)
@@ -1069,7 +1069,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
   const dDone = follow(d, DOG_RUN_SPEED * 0.7, dtMs);
   d.hop = s.woofMs > 0 ? Math.abs(Math.sin(s.woofMs / 90)) * 2 : 0;
   d.shape = !dDone ? 'run' : s.woofMs > 0 ? 'stand' : 'sit';
-  if (dDone) d.face = 1;
+  if (dDone) d.face = -1; // sits turned left, toward him and the pebbles
   const go = (phase: ShorePhase) => {
     sh.phase = phase;
     sh.phaseMs = 0;
@@ -1088,12 +1088,11 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
       break;
     }
     case 'pick': {
-      // A bend to the stones on his right.
-      p.shape = 'bend';
-      p.face = 1;
+      // A short crouch to the stones at his left: hand down, then a stone up.
+      p.shape = sh.phaseMs < T.pickMs * 0.55 ? 'pick' : 'pickUp';
+      p.face = -1;
       if (sh.phaseMs >= T.pickMs) {
-        p.face = -1;
-        p.shape = sh.cur?.big ? 'bend' : 'windup';
+        p.shape = sh.cur?.big ? 'pickUp' : 'windup';
         go('windUp');
       }
       break;
@@ -1102,7 +1101,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
       const big = sh.cur?.big === true;
       const total = big ? T.windUpBigMs : T.windUpMs;
       p.face = -1;
-      p.shape = big && sh.phaseMs < T.crouchMs ? 'bend' : 'windup';
+      p.shape = big && sh.phaseMs < T.crouchMs ? 'pickUp' : 'windup';
       if (sh.phaseMs >= total) {
         p.shape = 'flick';
         go('flick');

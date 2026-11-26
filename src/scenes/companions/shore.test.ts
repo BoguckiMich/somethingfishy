@@ -64,7 +64,7 @@ describe('the pebble outing', () => {
       }),
     ).toBeGreaterThan(0);
     expect(seen).toEqual(['walk', 'pick', 'windUp', 'flick']);
-    expect([...shapes]).toEqual(expect.arrayContaining(['walk', 'bend', 'windup', 'flick']));
+    expect([...shapes]).toEqual(expect.arrayContaining(['walk', 'pick', 'windup', 'flick']));
     const rel = takePebbleRelease(s)!;
     expect(rel).toMatchObject({ skips: 3, side: 0, big: false });
     // He stands at the stones, facing the water on the left, and the pebble leaves his hand out in front of him.
@@ -129,7 +129,7 @@ describe('the pebble outing', () => {
         tickCompanions(s, 50, ctxOf('idle'), rng);
         if (s.shore.phase === 'windUp') {
           if (from < 0) from = ms;
-          if (s.paj.shape === 'bend') crouched.bend = true;
+          if ((s.paj.shape === 'pickUp' || s.paj.shape === 'pick')) crouched.bend = true;
         }
       }
       return { ms: s.shore.phaseMs, crouched: crouched.bend, total: SHORE_TUNING };

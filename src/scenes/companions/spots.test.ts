@@ -45,12 +45,12 @@ describe('Quiet Lake companion spots (M2 groundwork B)', () => {
     expect(c.fireKeepOff).toEqual({ halfW: 22, below: 46, standX: 130 });
     expect(c.zigzag).toEqual({ midX: 200, rightX: [240, 320], leftX: [90, 150], y: [508, 584], homeX: [100, 124], homeY: [548, 566] });
     expect(c.shore).toEqual({
-      stand: { x: 80, y: 479 },
-      dogSit: { x: 54, y: 485 },
+      stand: { x: 122, y: 479 },
+      dogSit: { x: 150, y: 484 },
       pajDockVia: { x: 140, y: 480 },
       dogDockVia: { x: 160, y: 488 },
       pajLane: { belowY: 488, y: 484, minX: 140 },
-      dogVia: { x: 120, y: 488 },
+      dogVia: { x: 150, y: 489 },
     });
   });
 

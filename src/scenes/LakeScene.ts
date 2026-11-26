@@ -286,7 +286,7 @@ function rollStoryDelay(): number {
 function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle; stones: Phaser.Geom.Rectangle | null; bed: Phaser.Geom.Rectangle } {
   return {
     // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed: its picture, a little bigger.
-    stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 9, sp.stones.y - 10, Math.min(STONES_SIZE.w + 18, 116 - (sp.stones.x - 9)), STONES_SIZE.h + 20) : null,
+    stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 12, sp.stones.y - 12, Math.min(STONES_SIZE.w + 24, 118 - (sp.stones.x - 12)), STONES_SIZE.h + 26) : null,
     bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 8, BED_SIZE.h + 9),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
     sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 60, 60, 62), // the dock's end (x 244) stays clear
