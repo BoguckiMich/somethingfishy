@@ -84,20 +84,29 @@ almost impossible, which fits "top achievement", but 1 % may be too harsh: a lon
 Second catch style (GAME_DESIGN "Catch mechanic v2"), tuned with its own bot sim next to the classic bar. Pure core, 200 fights per cell, same rolled sizes and casts as the economy sim (8 m shallow, 20 m deep).
 `SIM_FIGHTS=N` changes the 200. **Revised after the first tester round** (telegraphs at least 0.35 s on every surge and every sideways cut, passive slip, tiring near the dock, gauge bands = rule bands, faster red recovery in the gold).
 
-**Bots.** Classic: hold while the fish is above the zone centre. Line: sees the tension (+ noise) and whether a surge or a cut is showing (the telegraph or the pull), holds below the middle of the gold band when nothing shows, lets go on a
-surge/cut or above the middle. Reaction is per event (x0.8..1.5), plus a **lapse** (looking away: +0.6 s) with chance 22 % for *decent* (200 ms, noise 0.05) and 6 % for *skilled* (150 ms). Without lapses the fair 0.35 s+ telegraphs make
-every fish a 95-100 % catch, so the lapse is what lets the hard fish be lost.
+**Control tuning round (branch `tune/line-fight`).** The first rounds made the telegraphs fair, so a skilled player reacted in time to everything (skilled perfect on darting fish 77 %, hard fish too easy, the sim needed "reaction lapses"
+to lose anything). The skill now sits in CONTROL: while holding, the tension climbs linearly (`rise` + `risePull` x pull, x(1 + 0.6 x surge) in a surge); releasing falls at a steady `fall` rate toward what the fish's pull holds it at.
+**Twitchiness floor:** the climb is capped so that crossing the gold takes at least ~0.3 s on the hardest fish (about 0.18 s in a surge; checked by a test on every pattern), so a real thumb can feather; difficulty comes from the narrow gold
+(0.15 easy to 0.12 hard, trophies at most 0.15, rod +-0.014), from **surges holding the needle up even with the thumb off** (`surgeHold` 0.45 -> 0.9 by difficulty^2 x a per-pattern `holdMul`: a hard surge pushes the tension toward and into the red
+whatever you do, so the rod's flex and the line's snap limit decide), and from the strict perfect rule. Reeling is full speed in the gold, 0.2x while slack, fading to 0 at the snap limit; easy fish reel at 0.65x, long fights speed the reel up
+by up to 1.8x after 12-24 s. Perfect = at most 40 ms red and the needle in the gold for 90 % of the fight time after the first second, **70 % -> 62 % for the hardest fish** (difficulty 0.5-0.8). Rod flex `0.4 + 25 x (zoneSize - 0.3)` s (bamboo 0.6,
+fiberglass 1.4, carbon 2.4), trophies x1.15.
 
-**Catch rate, decent bot** (classic -> line; fiberglass / carbon unless noted): shallow species on bamboo 100 % -> 92-100 % (eel 92 %); asp bamboo 96 -> 80 %, fiberglass 100 -> 99 %; bream 93/98 -> 93/100; tench 98/100 -> 98/100;
-zander 99/100 -> 92/94; burbot 100 -> 94/96; carp 75/92 -> 89/100; pike 62/83 -> 83/98; catfish 73/94 -> 82/98; golden tench 42/68 -> 68/88; mossback 58/85 -> 52/85; silver ghost (bamboo / fiberglass) 21/43 -> 21/61;
-Pale One 54/81 -> 66/94. **Outside +-10 points:** asp on bamboo (-16), carp on fiberglass (+14), pike (+21 fiberglass, +15 carbon), **golden tench (+26 fiberglass, +20 carbon)**, silver ghost on fiberglass (+18), Pale One (+12 / +13).
-Everything else is within 10. Median won-fight length: shallow 5-12 s, deep 17-36 s (classic 9-28 s).
+**Bots.** Classic: hold while the fish is above the zone centre. Line: sees the tension and its speed, and whether a surge, a feint or a cut is showing; holds while the needle (where it will be when the thumb lands) is below the middle
+of the gold, lets go above it or at any telegraph. Every press and release lands `delayMs` late with uniform timing noise: *decent* 200 ms +-100 ms, *skilled* 150 ms +-50 ms. Reaction lapses are a realistic 3 % / 2 % (were 22 % / 6 %).
 
-**Perfect catch, skilled bot, top gear** (perfect = no red at all, at most 250 ms slack in total): classic darting 11 %, trophies 3 %, others 34 %; **line skilled: darting 77 %, trophies 42 %, others 69 %**; line decent: darting 40 %, trophies 2 %,
-others 39 %. This is **far above the 15-25 % aim**: with fair telegraphs a skilled player can always release in time, so a perfect catch is common on every fish that cannot go red by its own cuts. Not fixed (a deliberate trade for the
-fairer telegraphs); the next levers are a shorter perfect slack allowance, or counting a missed telegraph (releasing after the surge started) as a blemish.
+**Hand-play fixes (tester, ~200 ms decisions).** The unwarned spikes were the sideways cut's jerk (up to +1.6 at once on a taut line, with the surge phase still reading "calm"): it is now spread over 0.5 s (`kickS`), and nothing else may lift the needle
+faster than a third of the gold's width per 100 ms (`riseCapPerS`, a bit more in a surge; tested on every pattern). Gold: 0.24 (easy) to 0.12 (hard) by difficulty^0.7, so perch 0.21 vs a 0.8 fish 0.14. Never pressing slips in about 4-7 s: thumb-up time
+counts from the very start, at full rate in calm and hush, 0.6x in a telegraph and 0.2x in a run, and only 0.3x while the needle is up in the gold or above (`releasedSlipS` 4). Trophy slack limit 1.7 s.
 
-**Dumb players:** never holding lands nothing (the hook slips after 4 s of calm with the thumb up, at any depth; a 60 s safety net says "It got away"); holding forever lands nothing except the roach (98 %) and snaps the line elsewhere.
+**Catch rate, decent bot** (classic -> line, 300 fights per cell; fiberglass / carbon unless noted): bleak/perch (bamboo) 100 -> 96-97, eel 100 -> 90, asp bamboo 97 -> 98; bream 93/99 -> 100/100; carp 79/92 -> 80/94; pike 63/84 -> 76/87;
+catfish 74/93 -> 80/92; golden tench (fiberglass / carbon / top gear) 44/70/100 -> 47/64/97; mossback 61/86/99 -> 70/87/100; silver ghost (bamboo / fiberglass / top) 21/45/100 -> 51/62/93; Pale One 52/80 -> 62/75. **Within 10 points of classic
+in every cell except pike fiberglass (+13) and silver ghost on bamboo (+30) and fiberglass (+17):** the feint (slack slip or snap) is hard to tune on the low rods. Eel -10 is on the edge. Median won-fight length: shallow 4-5 s, deep 7-14 s.
 
-Tuning levers (`src/core/data/lineFight.ts`): rod flex (`flexBase`, `flexPerZone`) and `redRecovery` / `redRecoveryGold`; `patterns.*.warn` (telegraph, floor 0.35 s), `rise`, `cutKick`; `trophyFlex`; `reelBase` (a faster reel makes it much easier);
+**Perfect catch, skilled bot, top gear** (150 ms, +-50 ms): classic darting 11 %, trophies 3 %, others 35 %; **line skilled: darting 41 %, trophies 8 %** (golden tench 11, silver ghost 10, mossback 4), pike 17 %, bleak 57, perch 64, asp 26, **easy fish roach 33 %,
+rudd 14 %**; line decent: darting 30 %, trophies 7 %. Before the control rounds: darting 77 %, trophies 42 %. Darting is above the 15-25 % aim only because bleak and perch (easy darters) are high; pike and the trophies are in range.
+
+**Dumb players:** never holding and holding forever both land 0 % on every fish tested (roach included: it snaps after about 3-4 s of holding); the hook slips after 4 s of calm with the thumb up; a 60 s safety net says "It got away".
+
+Tuning levers (`src/core/data/lineFight.ts`): `patterns.*.rise` (the main difficulty lever, blended with difficulty^`riseCurve`), `goldWidth`, `perfectGold`, `reelEasy`; rod flex (`flexBase`, `flexPerZone`) and `redRecovery` / `redRecoveryGold`; `patterns.*.warn` (telegraph, floor 0.35 s), `rise`, `cutKick`; `trophyFlex`; `reelBase` (a faster reel makes it much easier);
 `releasedSlipS`, `slackS`; `tireM` for the last metres.
