@@ -155,6 +155,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
     <a href="#built">Built</a>
     <a href="#wrong">What's wrong</a>
     <a href="#consult">Consultants</a>
+    <a href="#pitches">New pitches</a>
     <a href="#next">Tomorrow</a>
     <a href="#roadmap">Roadmap</a>
     <a href="#ideas">Idea pool</a>
@@ -386,10 +387,48 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
     <p class="intro"><b>They would remove:</b> the top-right board button (everyone agrees); the separate Bag button, folded into “Shop · n/10” so Settings gets a real 44 px button; routine “goes in the bag” toasts, duplicate “Gold!” text and the streak wording on the bait box. <b>They rejected:</b> hidden sub-tabs in the shop (the night kit got missed that way before) and a buzz on every full-power cast.</p>
   </section>
 
+  <section id="pitches">
+    <h2>New feature pitches</h2>
+    <p class="intro">From <code>docs/review/11-new-features-story-pitch.md</code>: genuinely new features, pitched by a storyteller and a UI/UX designer and ranked with a casual mobile player (one-handed, in bed, muted, “hates homework”). Their code claims are not yet checked.</p>
+
+    <div class="group" style="border:2px solid var(--gold)">
+      <div class="meta" style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip c-wip">First thing tomorrow</span><span class="chip c-open">S–M</span><span class="chip c-done">Your favourite</span></div>
+      <h3>#1 · Waiting-for-a-bite shore fiddles + Bestia's Stick Museum</h3>
+      <p>The 3–8 seconds of waiting for a bite become something to play with, one thumb, no new buttons. A real bite always wins: a fiddle never costs a fish.</p>
+      <ul class="items">
+        <li><span class="slice tag">1</span><span><b>Pebble skipping.</b> Three stones on the near shore left of the dock. Flick up from them and a pebble skips across the water: 1–5 skips by flick speed, tiny rings, “4 skips!”. Never scares the fish.</span></li>
+        <li><span class="slice tag">2</span><span><b>Fetch on demand.</b> Tap Bestia on the grass while idle or waiting and a “no take, only throw” round starts at once, reusing today's animations.</span></li>
+        <li><span class="slice tag">3</span><span><b>Bestia's Stick Museum.</b> Every few fetch rounds (or at a new place) she finds one of 8–10 named sticks with a deadpan review: <i>The Crooked Fork</i> “10/10. Will not give back.”, <i>The Upstream Twig</i> “Floated upstream. Haunted? Still mine.” Viewed from a paw tab in the Log or from her camp bed.</span></li>
+      </ul>
+      <p class="intro">To settle before building: where the stones sit so a flick never casts; how often a new stick turns up; Log tab vs the camp bed; how fetch-on-demand fits the current petting tap.</p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>Pitch</th><th>What Alex gets</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td>2</td><td>Wardrobe and bobber box + “The Trail of the Lost Red Bobber”</td><td>Tap Alex to swap a rain hat, a night beanie, bobber skins, Bestia's bandana, the dino hoodie, all unlocked by relaxed milestones. A side story of 4 bottles from a clumsy angler “M.”, one per place, grown from the existing lost-bobber note; it ends with M.'s vintage red bobber.</td><td>M</td></tr>
+          <tr><td>3</td><td>Pajkel's glovebox Polaroids</td><td>Pajkel snaps a photo on 8–10 trip milestones (first catch, first 3 AM night, first trophy, the road to the river), with terrible-photographer captions. An album in the car, with an optional “Save photo”.</td><td>M</td></tr>
+          <tr><td>4</td><td>“Pajkel's Version”: tall tales on the trophy board</td><td>His comment under each trophy grows with the days since the catch: “Saw it with my own eyes!” → “Easily two metres. Ask Bestia.” → “Pulled the dock three inches.” The Pale One: “...Wait, when did we mount this?”</td><td>S</td></tr>
+          <tr><td>5</td><td>Thumb-arc aiming + rippling hotspots</td><td>Slide the thumb while charging to aim at rise-rings or lily edges for a faster bite. Holding still casts straight as today. The aimed-casting idea from GAME_DESIGN; fits River Bend's rocks and current.</td><td>M</td></tr>
+          <tr><td>6</td><td>Campfire kettle and cozy brews</td><td>Once per in-game day, pour a free cup with a gentle perk (mint tea, campfire cocoa, midnight espresso). One tap, optional, a small cup icon by the clock.</td><td>S–M</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="intro"><b>For later:</b> a new place, “Lock No. 4”, an overgrown canal with a bridge echo and the Lockmaster carp; small dock souvenirs at relaxed milestones; fireflies that swirl around her thumb and a turtle that visits for a session. <b>Cut by them:</b> a mastery grind (5 gold + medal per species), weather-and-time postcards (FOMO), a manual camera button on the catch screen.</p>
+  </section>
+
   <section id="next">
     <h2>Tomorrow: where to continue</h2>
-    <p class="intro">Each option is roughly one to three slices. Pick as many as you like; order them when we talk.</p>
+    <p class="intro">Tomorrow starts with the shore fiddles and Bestia's Stick Museum (your choice), then the shop-pacing grilling. The rest is open: pick as many as you like.</p>
     <div class="options" id="options">
+      <article class="opt picked-first" data-id="fiddles" style="border:2px solid var(--gold)">
+        <div class="meta"><span class="chip c-wip">First tomorrow</span><span class="chip c-open">S–M</span></div>
+        <h3>Shore fiddles + Stick Museum</h3>
+        <p>Pebble skipping, fetch on demand, and Bestia's museum of named sticks with deadpan reviews. Grill the details, then build.</p>
+        <ul><li>Pitch #1 in doc 11</li><li>Pure core rules + reuse of today's fetch animations</li></ul>
+        <button class="pick" type="button" aria-pressed="false">Pick</button>
+      </article>
       <article class="opt" data-id="shiver">
         <div class="meta"><span class="chip c-open">An hour</span><span class="chip c-bad">Urgent</span></div>
         <h3>Story hotfix</h3>
@@ -526,7 +565,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
   </section>
 
   <footer>
-    Sources: docs/review/00–09 (external review, 25 Nov 2026), docs/review/10 (consultants), docs/HANDOFF.md, docs/ROADMAP.md, docs/GAME_DESIGN.md §4–5, docs/RIVER_BEND.md §9, git history on main. Picks are stored only in this browser.
+    Sources: docs/review/00–09 (external review, 25 Nov 2026), docs/review/10 (consultants), docs/review/11 (new feature pitches), docs/HANDOFF.md, docs/ROADMAP.md, docs/GAME_DESIGN.md §4–5, docs/RIVER_BEND.md §9, git history on main. Picks are stored only in this browser.
   </footer>
 </div>
 

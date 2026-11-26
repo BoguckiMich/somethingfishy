@@ -1,7 +1,9 @@
 import { FONT, FS, LINE } from '../font';
+import { tr } from '../i18n/en';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { fishSilhouette } from '../art/fishVariants';
-import { spriteToRgba, type Sprite } from '../art/pixelGrid';
+import { spriteToRgba, TRANSPARENT, type Sprite } from '../art/pixelGrid';
+import { PAL } from '../art/palette';
 import { isLegendary, isTrophy, isUnique, POOL_SPECIES, SPECIES, type Species } from '../core/data/fish';
 import { formatCatchSize } from '../core/fish';
 import { bestStar, goldCount, lockedHint, speciesCaught, whereWhen, type FishLog } from '../core/fishLog';
@@ -14,6 +16,10 @@ import { starRow } from './starRow';
 import { starSprite } from '../art/starArt';
 import { spriteCanvas } from './spriteCanvas';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
+import { shopTab } from './bagShop';
+import { stickGroundSprite } from '../art/characters';
+import { sticksAt } from '../core/data/sticks';
+import { normalizeSticks } from '../core/sticks';
 
 /** A fish sprite on a canvas, scaled by whole pixels. */
 export function fishCanvas(sprite: Sprite, maxW: number, maxScale: number): HTMLCanvasElement {
@@ -151,14 +157,69 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
   return col;
 }
 
+/** One row of the Stick Museum: the stick's picture with its name and review, or a dim "???" for a stick not found yet. */
+function stickRow(def: { name: string; review: string; variant: 0 | 1 | 2 }, found: boolean, index: number): HTMLElement {
+  const row = el('div', `box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:6px 8px;min-height:52px;background:${found ? COLORS.woodLight : '#2a1a12'};color:${COLORS.text}`);
+  row.className = 'rb-box';
+  const art = el('div', 'flex:none;width:56px;height:30px;display:flex;align-items:center;justify-content:center');
+  // The picture without its grass shadow row (that one is for the lawn).
+  const stick = stickGroundSprite(def.variant);
+  const pic = spriteCanvas({ ...stick, pixels: Int32Array.from(stick.pixels, (c) => (c === PAL.grass0 ? TRANSPARENT : c)) }, 52);
+  // Each stick lies at its own little angle; a stick not found yet is only a dark shape.
+  pic.style.transform = `rotate(${(index % 3 - 1) * 9 + (index % 2) * 4}deg)`;
+  if (!found) pic.style.filter = 'brightness(0) opacity(0.45)';
+  art.append(pic);
+  const text = el('div', 'flex:1;min-width:0;display:flex;flex-direction:column;gap:1px');
+  if (found) {
+    text.append(el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.gold}`, def.name), el('div', `font:${FS.small}px/${LINE} ${FONT};color:${COLORS.cream}`, def.review));
+  } else {
+    text.append(el('div', `font:${FS.body}px/${LINE} ${FONT};color:${COLORS.dim}`, '???'));
+  }
+  row.append(art, text);
+  return row;
+}
+
+/** The Sticks tab: every stick of the place, found ones with their review, the rest dim; "n/10" on top. */
+function sticksView(body: HTMLElement, placeId: string, have: readonly string[]): void {
+  const list = sticksAt(placeId);
+  const n = list.filter((d) => have.includes(d.id)).length;
+  const col = el('div', 'display:flex;flex-direction:column;gap:6px');
+  list.forEach((d, i) => col.append(stickRow(d, have.includes(d.id), i)));
+  body.append(col);
+  if (n === 0) body.append(el('div', `margin-top:8px;text-align:center;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`, tr('{dog} brings one now and then, when you leave them to play on the grass.')));
+}
+
+/** What the Sticks tab needs: the sticks she has, and which place's museum it is. */
+export interface LogSticks {
+  sticks: () => readonly string[];
+  placeId: string;
+  startTab?: 'fish' | 'sticks';
+}
+
 /** The fish log: a 3x4 grid of species, and a detail card for the ones she has caught. */
-export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWith?: string): PanelHandle {
+export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWith?: string, museum?: LogSticks): PanelHandle {
   let selected: string | null = startWith ?? null;
+  let tab: 'fish' | 'sticks' = museum && museum.startTab === 'sticks' ? 'sticks' : 'fish';
   const panel: PanelHandle = openPanel(
     `${speciesCaught(getLog())}/${SPECIES.length} species`,
-    (body) => {
+    (body, pinned) => {
       const log = getLog();
-      const open = SPECIES.find((s) => s.id === selected);
+      const open = tab === 'fish' ? SPECIES.find((s) => s.id === selected) : undefined;
+      // The tabs (Fish | Sticks), shown on the two main pages and not on a fish card.
+      if (museum && !open) {
+        const have = normalizeSticks(museum.sticks());
+        const total = sticksAt(museum.placeId);
+        const tabs = el('div', 'display:flex;gap:4px;margin:2px 0 6px');
+        tabs.append(
+          shopTab('Fish', tab === 'fish', () => { tab = 'fish'; panel.refresh(true); }),
+          shopTab(`Sticks ${total.filter((d) => have.includes(d.id)).length}/${total.length}`, tab === 'sticks', () => { tab = 'sticks'; panel.refresh(true); }),
+        );
+        pinned.append(tabs);
+        if (tab === 'sticks') {
+          sticksView(body, museum.placeId, have);
+          return;
+        }
+      }
       if (open && !log[open.id]) {
         body.append(lockedCard(open, () => { selected = null; panel.refresh(true); }));
         return;

@@ -1,5 +1,6 @@
 import { normalizeCamp } from './camp';
 import { normalizePlace } from './place';
+import { normalizeSticks } from './sticks';
 import { normalizeTrophies } from './rare';
 import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
@@ -179,6 +180,12 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(normalizePlace(p.place) !== 'quiet-lake' ? { place: normalizePlace(p.place) } : {}),
     // The camp items (slice 23e): stored only when something is owned (older saves have no key).
     ...(normalizeCamp(p.camp).length > 0 ? { camp: normalizeCamp(p.camp) } : {}),
+    // The Stick Museum and the skip record (slice 26): each key only when there is something to keep (older saves have none).
+    ...(normalizeSticks(p.sticks).length > 0 ? { sticks: normalizeSticks(p.sticks) } : {}),
+    ...(isNum(p.fetchRounds) && p.fetchRounds >= 1 ? { fetchRounds: Math.floor(p.fetchRounds) } : {}),
+    ...(isValidDate(p.stickDay) && isNum(p.stickDayN) && p.stickDayN >= 1 ? { stickDay: p.stickDay, stickDayN: Math.min(99, Math.floor(p.stickDayN)) } : {}),
+    ...(isNum(p.skipsBest) && p.skipsBest >= 1 ? { skipsBest: Math.min(5, Math.floor(p.skipsBest)) } : {}),
+    ...(isValidDate(p.skipsLineDay) ? { skipsLineDay: p.skipsLineDay } : {}),
   };
 }
 

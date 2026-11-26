@@ -1021,6 +1021,44 @@ one waits for its milestone. Slice 24; the journal counts seven chapters ("Chapt
 | Q6 | carbon rod owned | `rodId` |
 | Q7 | 5 of 6 checklist bundles done | checklist state |
 
+### Week of 2026-11-26: decisions (grill with the user)
+
+Order of work: shore fiddles + Stick Museum → A2 balance + economy sim → A3 words → A3 fight/screen
+feedback + sign/tap fixes → camp life and sound → M2 groundwork. Each item gets a casual-mobile-gamer
+tester agent before it is merged.
+
+**Shore fiddles + Stick Museum (pitch #1, `docs/review/11-new-features-story-pitch.md`)**
+- Pebble skipping: a 3-stone cluster on the near shore left of the dock. A swipe that starts on the stones
+  throws a pebble, a plain tap throws a medium one; flick speed gives 1-5 skips (rings on the water,
+  "4 skips!"). Works while idle or waiting, never in a fight; a bite always wins; a press on the stones never
+  charges a cast and never scares fish.
+- Reward: only a best-skips record, and a Pajkel line the first time the record is beaten on a real day. No coins.
+- Fetch on demand: petting stays on Bestia; a tap on the stick lying on the grass starts a fetch round at once.
+- Stick Museum: the first fetch round brings a named stick, then one every 3rd round, at most 2 per real
+  day; 10 sticks at Quiet Lake (a few more kept for River bend). Deadpan one-line reviews. A "Sticks" tab in
+  the Log; with Bestia's bed owned, a bed tap opens it too. `PlayerState.sticks?: string[]`.
+
+**Balance (review A2, all accepted)**
+- Economy: a bot sim first (is the "whole shop in ~85 min" real?), target the whole shop at no less than
+  ~6 h of play over ~5 real days. Levers in order: a 2-minute cooldown between naps (never an energy bar),
+  deep-night prices ~15 % lower, then camp prices x1.5 if still fast. The sim also measures fresh save → all
+  six bundles (a tester did every quest in one day); M1's goal is ~4 real days.
+- Perfect catch: ~300 ms total grace outside the green zone; aim 15-25 % perfect for a skilled player on top gear.
+- Gear gates by bundle: carbon rod after "The Bottom of Things", fluoro line + pro reel after "Night Shift".
+- Corn 15-20 coins per 10 with the unused calm effect; maggots 0.6 → 0.45; dawn added to the Dawn Chorus
+  fish; asp exempt from the shallow difficulty cap; sunny weather really changes bites; fog visible all hour.
+
+**A3 + M2 (accepted)**
+- Remove the top-right notice-board button; the shore sign must then be reliable: it works while the bobber
+  is out (today `tapSign` silently ignores anything but idle), its tap box is generous, and a mouse click
+  never turns into a cast.
+- Rod flick on shore taps: a press on a shore object (car, sign, crate, chair, board, stones) does not start
+  the charge at once; the charge starts only if the press is held past a delay (~350 ms) or the finger leaves
+  the object, so a tap never moves the rod.
+- Render scale capped at 3x. River current: no forced auto reel-in, fights get a pattern instead of one-sided
+  drift, Ferry Pike band 18-26 m (design docs only this week).
+- Later: "DS4" stays, Bag into Shop, bedtime dim mode, the "— P." personal notes.
+
 
 ## 6. Workflow
 
@@ -1063,3 +1101,9 @@ one waits for its milestone. Slice 24; the journal counts seven chapters ("Chapt
 22. Polish pass (M1): 22a Pajkel's chair + sticks, 22b friendlier panels, 22c hints + shore sign (§3 → Polish pass; `docs/ui-review/UI_REVIEW.md`), 22d bigger sign + story journal, 22e fish knowledge (§3 → Slices 22d + 22e)
 23. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
 24. A3 words pass (docs/review/08 item 12): custom names everywhere as `{player}/{companion}/{dog}` placeholders (plus `{place}`, `{water}`) filled by `src/i18n/en.ts`, quest grammar (a/an, eel/ide plurals), no non-VT323 glyphs, location-aware and time-aware lines. Built on `copy/a3-words`, not merged. Open for later: moving the remaining scattered strings into `src/i18n/`, Polish plurals.
+26. Shore fiddles + Stick Museum (built on `slice/26-shore-fiddles`, from "Week of 2026-11-26: decisions"):
+    - Pebble skipping: three flat stones on the near shore left of the dock (Quiet Lake only, `Spots.stones`, x 93 y 460). A press on them (idle or waiting, never in a bite/fight/show-off/panel) never starts the cast charge, never reels in and never reaches the state machine; on release a tap throws a medium pebble (3 skips), a swipe by its flick speed (speed over the last 110 ms: 0.3 / 0.7 / 1.2 / 1.9 px per ms for 2-5 skips, slower 1) and drifts sideways with the swipe. Alex flicks her free hand, a 2 px pebble arcs out, a ring and a plop at every touch-down (n + 1: the last one is where it sinks), then the line "4 skips!". Reward: only `skipsBest` and one Pajkel line (`SKIP_RECORD_LINES`) the first time a record is beaten on a real date (`skipsLineDay`; not for a lone skip). No coins.
+    - Fetch on demand: a tap on a stick lying on the grass makes Pajkel take that stick as his next one and throw it at once (`fetchStickNow`). Only while they play on the grass, between two rounds (rest, giveUp, toStick); with no stick on the grass, or asleep, in the car, on the dock or mid-chase, nothing changes (the press goes on as usual). Petting stays on Bestia.
+    - Stick Museum: `core/sticks.ts`: the first finished fetch round brings a stick, then rounds 4, 7, 10, ... (every 3rd after the first), at most 2 new sticks per real day (`stickDay`/`stickDayN`; a capped stick round is not made up), the next unfound stick of the place in data order. 10 Quiet Lake sticks plus 3 for the River bend in `core/data/sticks.ts`, each with a deadpan review. Toast "Bestia found: The Crooked Fork". Log panel: a Fish | Sticks tab bar, found sticks with picture, name and review, the rest a dim "???", "Sticks n/10" on the tab; with Bestia's bed owned, a tap on the bed opens it (a hold still casts).
+    - Deviations / choices: "every 3rd round" is read as rounds 1, 4, 7 (not 3, 6, 9); the round counter is global, not per place; the stick is shown on the sprite variants unchanged (tilted, grass shadow row removed), no tint; the bed tap is a new `ShoreObject` so it follows the tap-opens / hold-casts rule of the other shore things.
+    - Dev flags: `?sticks=all` / `?sticks=N`, `?debug=sticks`, `?debug=pebbles&pebbleAt=ms`, `?debug=fetchround` (all sandboxed like every flag).

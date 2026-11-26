@@ -48,3 +48,8 @@ export function weatherLinesFor(id: WeatherLineId, minute: number): readonly str
   if (id === 'fog') return minute >= (WEATHER_TUNING.fog.untilMinute ?? 600) || tod === 'night' ? FOG_LIFTED_LINES : WEATHER_LINES.fog;
   return (tod === 'dusk' || tod === 'night' ? WEATHER_NIGHT_LINES[id] : undefined) ?? WEATHER_LINES[id];
 }
+/** Pajkel on a new best at skipping pebbles, said the first time a record is beaten on a real date (slice 26). One bubble line each (about 25 characters). */
+export const SKIP_RECORD_LINES: readonly string[] = ['New skip record. Humbling.', 'The water approves. Record!', 'I want a recount. Wow.', 'Pebble first, fish later.'];
+
+/** Pajkel when she taps a stick in the middle of a round: he will throw it next (slice 26). */
+export const NEXT_ONE_LINE = 'Next one!';

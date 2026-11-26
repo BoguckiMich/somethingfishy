@@ -20,6 +20,7 @@ import { PAL } from './palette';
 import { sprite } from './pixelGrid';
 import { starKey, starRowSprite } from './starArt';
 import { shopIconSprite } from './shopIconArt';
+import { stonesSprite } from './stonesArt';
 import {
   BOBBER,
   BOBBER_UNDER,
@@ -88,6 +89,7 @@ export const TEX = {
   reed: 'reed',
   post: 'post',
   crate: 'crate',
+  stones: 'stones',
   board: 'board',
   barFrame: 'barFrame',
   stripFrame: 'stripFrame',
@@ -197,6 +199,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.reed, () => Raster.fromSprite(REED));
   addRaster(scene, TEX.post, () => Raster.fromSprite(POST));
   addRaster(scene, TEX.crate, () => Raster.fromSprite(CRATE));
+  addRaster(scene, TEX.stones, () => Raster.fromSprite(stonesSprite()));
   addRaster(scene, TEX.board, () => Raster.fromSprite(NOTICE_BOARD));
   for (const v of CAR_VARIANTS) addRaster(scene, carKey(v), () => Raster.fromSprite(carSprite(v)));
   for (const lit of [false, true]) addRaster(scene, lanternKey(lit), () => Raster.fromSprite(lanternSprite(lit)));
