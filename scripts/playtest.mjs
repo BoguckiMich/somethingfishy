@@ -24,7 +24,7 @@ Coordinates are GAME coordinates: x 0-360, y 0-640 (top-left origin).
   step ms                     advance game time (50 ms ticks); nothing moves unless you step
   fight [maxMs]               auto-play the fight until it ends: the classic catch bar (hold when the fish is above the zone) or, when it is
                               a line fight (?catch=line or Settings), the line bot below (style-aware)
-  fight-line [maxMs] [--mode decent|hold|never] [--until warn|surge|steady|red|caught]
+  fight-line [maxMs] [--mode decent|hold|never] [--until warn|cut|surge|steady|red|caught]
                               play a Line fight (slice 28). decent (default): hold while the tension is below the middle of the gold band and
                               no surge is showing, let go on a surge or above the middle. hold: never let go (the line snaps). never: never hold
                               (the hook slips from slack). --until stops the bot and leaves the thumb as it is: when a surge is telegraphed (the splash), at the first surge pull, at a steady
@@ -353,7 +353,7 @@ const commands = {
       const s = window.__rybki.scene.state;
       if (s.kind !== 'fighting' || !s.line) return { kind: s.kind };
       const l = s.line;
-      return { kind: s.kind, phase: l.phase, tension: l.tension, holding: l.holding, strength: l.strength, phaseT: l.phaseT, phaseTotal: l.phaseTotal };
+      return { kind: s.kind, phase: l.phase, tension: l.tension, holding: l.holding, strength: l.strength, cutWarn: l.cutWarn, phaseT: l.phaseT, phaseTotal: l.phaseTotal };
     })()`);
     // The game starts a fight with the hooking press still down: one real press and release puts the thumb in sync.
     await touch(c, 'touchStart', r, 180, 300);
@@ -366,6 +366,7 @@ const commands = {
       if (p.kind !== 'fighting') break;
       const surging = p.phase === 'warn' || p.phase === 'run';
       const want = mode === 'hold' ? true : mode === 'never' ? false : !surging && p.tension < 0.5;
+      if (until === 'cut' && p.cutWarn > 0.1) { stopped = 'cut'; break; }
       if (until === 'warn' && p.phase === 'warn' && p.phaseT < p.phaseTotal * 0.5) { stopped = 'warn'; break; }
       if (until === 'surge' && p.phase === 'run' && p.phaseTotal - p.phaseT > 0.4) { stopped = 'surge'; break; }
       if (until === 'steady' && p.tension > 0.4 && p.tension < 0.6 && p.phase === 'calm' && p.holding) { stopped = 'steady'; break; }

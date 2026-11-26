@@ -38,7 +38,7 @@ export function lineGearOf(g: BarGear): LineGear {
 }
 
 export type SurgePhase = 'calm' | 'warn' | 'hush' | 'run';
-export type LineResult = 'fighting' | 'caught' | 'slipped' | 'snapped';
+export type LineResult = 'fighting' | 'caught' | 'slipped' | 'snapped' | 'escaped';
 
 export interface LineFightState {
   /** Where the fish was hooked, in metres from the dock. */
@@ -52,6 +52,11 @@ export interface LineFightState {
   lateralTarget: number;
   /** Seconds to the next sideways cut. */
   cutTimer: number;
+  /** A cut is telegraphed: seconds left before the jerk (0 = none), and where it is going. */
+  cutWarn: number;
+  cutTarget: number;
+  /** Seconds the thumb has been up in one go. */
+  releasedS: number;
   /** calm → warn (the telegraph) → [hush: a feint goes limp] → run (the pull) → calm. */
   phase: SurgePhase;
   /** Seconds left in the phase. */
@@ -95,6 +100,9 @@ export function newLineFight(rng: Rng, startM: number, speciesId?: string): Line
     lateral: 0,
     lateralTarget: 0,
     cutTimer: randRange(rng, 0.8, 1.6),
+    cutWarn: 0,
+    cutTarget: 0,
+    releasedS: 0,
     phase: 'calm',
     phaseT: T.firstSurgeS * randRange(rng, 0.8, 1.2),
     phaseTotal: T.firstSurgeS,
@@ -127,8 +135,11 @@ export const isPerfectLine = (s: LineFightState): boolean =>
 export function surgeLevel(s: LineFightState): number {
   if (s.phase !== 'run') return 0;
   const into = s.phaseTotal - s.phaseT;
-  return s.strength * clamp(Math.min(into / T.surgeRamp, s.phaseT / T.surgeRamp + 0.2), 0, 1);
+  return s.strength * tire(s.distanceM) * clamp(Math.min(into / T.surgeRamp, s.phaseT / T.surgeRamp + 0.2), 0, 1);
 }
+
+/** The fish tires near the dock: its surges weaken over the last metres. */
+const tire = (distanceM: number): number => (distanceM >= T.tireM ? 1 : T.tireFloor + (1 - T.tireFloor) * (distanceM / T.tireM));
 
 /** Share of the line reeled in, 0..1. */
 export const lineProgress = (s: LineFightState): number => clamp(1 - s.distanceM / s.startM, 0, 1);
@@ -234,13 +245,22 @@ export function tickLineFight(
     const surge = surgeLevel(s);
 
     // ---- Sideways: cuts, drift, and the run's own direction.
-    s.cutTimer -= h;
-    if (s.cutTimer <= 0) {
-      const reach = lerp(cfg.cutReach, d);
-      s.lateralTarget = clamp(s.lateral + (rng() < 0.5 ? -1 : 1) * randRange(rng, 0.4, 1) * reach * 1.4, -1, 1);
-      // A cut jerks the line: at once, and hard if it is taut (a loose line can not be jerked).
+    if (s.cutWarn > 0) {
+      s.cutWarn -= h;
+      if (s.cutWarn <= 0) {
+        s.cutWarn = 0;
+        s.lateralTarget = s.cutTarget;
+        // A cut jerks the line: at once, and hard if it is taut (a loose line can not be jerked).
       s.tension = Math.min(1, s.tension + (cfg.cutKick[0] + (cfg.cutKick[1] - cfg.cutKick[0]) * Math.pow(d, T.kickCurve)) * (s.tension < T.kickFrom ? 0 : holding ? 1 : T.kickReleased));
-      s.cutTimer = lerp(cfg.cutEvery, d) * randRange(rng, 0.7, 1.3);
+      }
+    } else {
+      s.cutTimer -= h;
+      if (s.cutTimer <= 0 && s.phase === 'calm') {
+        const reach = lerp(cfg.cutReach, d);
+        s.cutTarget = clamp(s.lateral + (rng() < 0.5 ? -1 : 1) * randRange(rng, 0.4, 1) * reach * 1.4, -1, 1);
+        s.cutWarn = T.cutWarnS;
+        s.cutTimer = lerp(cfg.cutEvery, d) * randRange(rng, 0.7, 1.3);
+      }
     }
     if (s.phase === 'run') s.lateralTarget = clamp(s.runDir * (0.5 + 0.5 * s.strength), -1, 1);
     const swim = cfg.cutSpeed * (s.phase === 'run' ? 1.5 : 1) * h;
@@ -263,7 +283,7 @@ export function tickLineFight(
     if (s.tension < T.slackFloor) {
       s.slackS += h;
       s.slackTotalMs += T.stepMs;
-    } else if (s.tension >= T.slackClear) {
+    } else if (holding && s.tension >= T.slackClear) {
       s.slackS = Math.max(0, s.slackS - T.slackRecovery * h);
     }
 
@@ -272,7 +292,7 @@ export function tickLineFight(
       s.redS += h;
       s.redTotalMs += T.stepMs;
     } else {
-      s.redS = Math.max(0, s.redS - T.redRecovery * h);
+      s.redS = Math.max(0, s.redS - (s.tension >= T.goldBand[0] ? T.redRecoveryGold : T.redRecovery) * h);
     }
 
     if (s.distanceM <= 0) {
@@ -284,8 +304,14 @@ export function tickLineFight(
       s.result = 'snapped';
       break;
     }
-    if (s.slackS > slackLimit || s.elapsedMs > T.maxFightMs) {
+    // The thumb-up time in the calm between surges (a surge lifts the tension, so only the quiet counts); any holding starts it over.
+    s.releasedS = holding ? 0 : s.phase === 'calm' || s.phase === 'hush' ? s.releasedS + h : s.releasedS;
+    if (s.slackS > slackLimit || s.releasedS > T.releasedSlipS) {
       s.result = 'slipped';
+      break;
+    }
+    if (s.elapsedMs > T.maxFightMs) {
+      s.result = 'escaped';
       break;
     }
   }

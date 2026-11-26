@@ -55,17 +55,26 @@ export const LINE_FIGHT_TUNING = {
   /** Slack time drains at this share of the rate it builds while the line is taut, so a player who lets go most of the time still loses it, but a short slack is forgiven. */
   slackRecovery: 0.5,
   /** ...and only once the tension is back above this (a jerk of a cut that lifts it just over the floor does not count). */
-  slackClear: 0.22,
+  slackClear: 0.15,
   /** Share of the rod's flex budget a trophy has (it snaps the line sooner). */
-  trophyFlex: 1.1,
+  trophyFlex: 0.75,
   /** Red time drains at this share of the rate it builds, so short mistakes are forgiven. */
   redRecovery: 0.03,
+  /** ...but faster while the tension is back in the steady band, so one slip does not haunt the whole fight. */
+  redRecoveryGold: 0.12,
+  /** A sideways cut is telegraphed too: a side splash and an arrow this long before the jerk. */
+  cutWarnS: 0.38,
+  /** Thumb up this long (counting only the calm between surges) and the hook slips: the surges lift the tension, so slack alone would never end a passive fight. */
+  releasedSlipS: 4,
+  /** The fish tires near the dock: surge strength is x(tireFloor + (1 - tireFloor) * distance / tireM) in the last tireM metres. */
+  tireM: 3,
+  tireFloor: 0.2,
   /** The line's snap limit (tension) is `snapBase + snapPerDrain * (1 - lineDrain)`: bamboo + plain line 0.76, braided 0.81, fluoro 0.86. */
   snapBase: 0.76,
   snapPerDrain: 0.35,
   /** The rod's flex budget in seconds in the red before the line snaps: `flexBase + flexPerZone * (zoneSize - 0.3)`: bamboo 0.95, fiberglass 1.35, carbon 1.75. */
-  flexBase: 0.95,
-  flexPerZone: 10,
+  flexBase: 0.7,
+  flexPerZone: 14,
   /** Reel speed, as a share of the starting distance per second: `reelBase * reelResponse * (1 - reelHeavy * difficulty) * pattern.reel`. */
   reelBase: 0.5,
   reelHeavy: 0.3,
@@ -83,10 +92,10 @@ export const LINE_FIGHT_TUNING = {
   calmStrength: 0.3,
   calmGap: 0.5,
   /** A perfect catch: at most this long in total in the red, and this long in total slack (ms). */
-  perfectRedGraceMs: 40,
-  perfectSlackGraceMs: 500,
+  perfectRedGraceMs: 0,
+  perfectSlackGraceMs: 250,
   /** Fights over this long end with the fish slipping (a safety net against a never-ending fight). */
-  maxFightMs: 120_000,
+  maxFightMs: 60_000,
   /** The first surge comes this soon. */
   firstSurgeS: 1.6,
   /** Difficulty is raised to this power before it blends the ranges. */
@@ -100,17 +109,17 @@ export const LINE_FIGHT_TUNING = {
   lateralDrift: 0.08,
   patterns: {
     // Long steady pulls: a surge you can ride, gentle at first.
-    smooth: { pull: [0.1, 0.4], every: [3.4, 1.4], strength: [0.35, 0.8], run: [2.0, 3.4], warn: [0.75, 0.08], cutEvery: [3.2, 2.2], cutReach: [0.3, 0.6], cutSpeed: 0.7, cutKick: [0, 0.8], rise: [1.5, 5.5], fall: [1.8, 2.6], reel: 1, strengthSpread: 0.1 },
+    smooth: { pull: [0.1, 0.4], every: [3.4, 1.4], strength: [0.35, 0.8], run: [2.0, 3.4], warn: [0.75, 0.38], cutEvery: [3.2, 2.2], cutReach: [0.3, 0.6], cutSpeed: 0.7, cutKick: [0, 1.3], rise: [1.5, 5.5], fall: [1.8, 2.6], reel: 1, strengthSpread: 0.1 },
     // Quick sideways cuts that jerk the line, and short sharp surges.
-    darting: { pull: [0.12, 0.36], every: [2.2, 0.9], strength: [0.4, 1], run: [0.7, 1.3], warn: [0.6, 0.1], cutEvery: [1.5, 0.7], cutReach: [0.5, 1], cutSpeed: 3.2, cutKick: [0.42, 1.2], rise: [2, 4], fall: [2.2, 2.8], reel: 1, strengthSpread: 0.15 },
+    darting: { pull: [0.12, 0.36], every: [2.2, 0.9], strength: [0.4, 1], run: [0.7, 1.3], warn: [0.6, 0.35], cutEvery: [1.5, 0.7], cutReach: [0.5, 1], cutSpeed: 3.2, cutKick: [0.3, 1.6], rise: [2, 4.6], fall: [2.2, 2.8], reel: 1, strengthSpread: 0.15 },
     // Heavy and deep: a high steady pull and slow tension, so reel in short patient pulls.
-    sinker: { pull: [0.26, 0.5], every: [3.8, 1.8], strength: [0.45, 0.9], run: [1.8, 3.2], warn: [0.85, 0.1], cutEvery: [4.5, 3.5], cutReach: [0.15, 0.3], cutSpeed: 0.5, cutKick: [0, 0.5], rise: [1.4, 2.55], fall: [1.4, 2], reel: 0.95, strengthSpread: 0.1 },
+    sinker: { pull: [0.26, 0.5], every: [3.8, 1.8], strength: [0.45, 0.9], run: [1.8, 3.2], warn: [0.85, 0.4], cutEvery: [4.5, 3.5], cutReach: [0.15, 0.3], cutSpeed: 0.5, cutKick: [0, 0.5], rise: [1.4, 2.55], fall: [1.4, 2], reel: 0.95, strengthSpread: 0.1 },
     // Surges out of nowhere, uneven in length and weight.
-    erratic: { pull: [0.1, 0.34], every: [1.7, 0.7], strength: [0.35, 0.85], run: [0.5, 1.5], warn: [0.5, 0.08], cutEvery: [1.2, 0.6], cutReach: [0.4, 0.9], cutSpeed: 2.2, cutKick: [0.03, 0.6], rise: [2, 4], fall: [2.2, 2.8], reel: 1, strengthSpread: 0.35 },
+    erratic: { pull: [0.1, 0.34], every: [1.7, 0.7], strength: [0.35, 0.85], run: [0.5, 1.5], warn: [0.5, 0.35], cutEvery: [1.2, 0.4], cutReach: [0.4, 0.9], cutSpeed: 2.2, cutKick: [0.03, 0.6], rise: [2, 4], fall: [2.2, 2.8], reel: 1, strengthSpread: 0.35 },
     // A rudd: mild, mostly at the surface.
     floater: { pull: [0.08, 0.28], every: [3.8, 2.4], strength: [0.3, 0.6], run: [1.0, 1.8], warn: [0.75, 0.5], cutEvery: [2.2, 1.4], cutReach: [0.4, 0.8], cutSpeed: 1.4, cutKick: [0.02, 0.06], rise: [1.6, 2.4], fall: [2, 2.4], reel: 1, strengthSpread: 0.1 },
     // The legend: a calm drift, then a sudden heavy dive.
-    abyssal: { pull: [0.21, 0.29], every: [5, 3.5], strength: [0.9, 1], run: [2.6, 3.4], warn: [0.6, 0.15], cutEvery: [4, 3], cutReach: [0.3, 0.5], cutSpeed: 0.8, cutKick: [0, 0.9], rise: [1.6, 6], fall: [1.6, 2.4], reel: 0.8, strengthSpread: 0 },
+    abyssal: { pull: [0.21, 0.29], every: [5, 3.5], strength: [0.9, 1], run: [2.6, 3.4], warn: [0.6, 0.45], cutEvery: [4, 3], cutReach: [0.3, 0.5], cutSpeed: 0.8, cutKick: [0, 1.3], rise: [1.6, 6], fall: [1.6, 2.4], reel: 0.8, strengthSpread: 0 },
   } satisfies Record<FishPattern, LinePattern>,
 };
 

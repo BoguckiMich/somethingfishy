@@ -27,7 +27,7 @@ Stop: `node scripts/playtest.mjs stop`, then kill the vite server
 ## Commands (game coordinates, origin top-left)
 
 `tap x y` · `hold x y ms` · `swipe x1 y1 x2 y2 ms` · `step ms` · `wait <kind> [maxMs]` (step until fishing kind, e.g. `bite`) ·
-`fight [maxMs]` (bot for the fight, style-aware: the catch bar or, when the fight is a Line fight, the line bot) · `fight-line [maxMs] [--mode decent|hold|never] [--until warn|surge|steady|red|caught]` (Line fights, below) · `state` · `text` · `click-text "<label>"` · `shot <png> [--scale 1]` ·
+`fight [maxMs]` (bot for the fight, style-aware: the catch bar or, when the fight is a Line fight, the line bot) · `fight-line [maxMs] [--mode decent|hold|never] [--until warn|cut|surge|steady|red|caught]` (Line fights, below) · `state` · `text` · `click-text "<label>"` · `shot <png> [--scale 1]` ·
 `eval "<js>"` · `url <url>` · `stop` · `help`. Action commands print the `state` JSON afterwards.
 
 `state` keys: `fishing` (idle, charging, casting, waiting, bite, fighting, caught, lost, retrieving), `clock`, `coins`,
@@ -55,6 +55,7 @@ Quick screenshots: `&debug=fight&species=perch&catch=line` starts in a fight at 
 P="node scripts/playtest.mjs --port 9347"      # (the flag can go anywhere)
 $P fight-line --until warn                     # a surge is being telegraphed (splash + "!"); the thumb is up
 $P shot warn.png --scale 3
+$P fight-line --until cut                      # a sideways cut is telegraphed (side splash + arrow)
 $P fight-line --until surge                    # the pull is on (chevrons show where it runs, the rod bends)
 $P fight-line --mode hold --until red          # never let go: stops with the line in the red (needle in the red, line reddens)
 $P fight-line --until steady                   # holding with the tension in the gold band

@@ -27,15 +27,17 @@ const TICK = 16;
 interface Bot {
   delayMs: number;
   noise: number;
+  /** Chance that a reaction is a lapse (looking away, a slow thumb): it takes 0.5 s longer. */
+  lapse: number;
 }
-const DECENT: Bot = { delayMs: 200, noise: 0.05 };
-const SKILLED: Bot = { delayMs: 150, noise: 0 };
+const DECENT: Bot = { delayMs: 200, noise: 0.05, lapse: 0.22 };
+const SKILLED: Bot = { delayMs: 150, noise: 0, lapse: 0.06 };
 
 export interface Played {
   caught: boolean;
   perfect: boolean;
   ms: number;
-  how: 'caught' | 'slipped' | 'snapped' | 'lost' | 'timeout';
+  how: 'caught' | 'slipped' | 'snapped' | 'escaped' | 'lost' | 'timeout';
   /** Line style: total ms in the red / slack (for tuning). */
   redMs?: number;
   slackMs?: number;
@@ -73,10 +75,10 @@ export function playLine(fish: FishProfile, bot: Bot, seed: number, gear: BarGea
   let switchAt = -1;
   for (let ms = 0; ms < 120_000; ms += TICK) {
     const seen = s.tension + (bot.noise ? (noiseRng() * 2 - 1) * bot.noise : 0);
-    const surging = s.phase === 'warn' || s.phase === 'run';
+    const surging = s.phase === 'warn' || s.phase === 'run' || s.cutWarn > 0;
     const want = !surging && seen < mid;
     if (want === holding) switchAt = -1;
-    else if (switchAt < 0) switchAt = ms + bot.delayMs * (0.8 + reactRng() * 0.7);
+    else if (switchAt < 0) switchAt = ms + bot.delayMs * (0.8 + reactRng() * 0.7) + (reactRng() < bot.lapse ? 600 : 0);
     if (switchAt >= 0 && ms >= switchAt) {
       holding = want;
       switchAt = -1;

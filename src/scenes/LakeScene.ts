@@ -51,7 +51,7 @@ import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { FISH_PATTERNS, type FishProfile } from '../core/catchBar';
-import { beginFight, CATCH_STYLES, type CatchStyle } from '../core/fight';
+import { beginFight, holdFight, CATCH_STYLES, type CatchStyle } from '../core/fight';
 import { LINE_FIGHT_TUNING } from '../core/data/lineFight';
 import { lineGearOf, surgeLevel, warnLevel } from '../core/lineFight';
 import { isLegendary, isTrophy, speciesById, SPECIES } from '../core/data/fish';
@@ -809,7 +809,7 @@ export class LakeScene extends Phaser.Scene {
       const fish: FishProfile = this.ctx.fishOverride ?? fightProfile(species, hooked.lengthCm);
       const distanceM = species.zone === 'deep' ? 25 : 10;
       if (dbg === 'fight') {
-        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, ...beginFight(this.catchStyleNow(), fish, this.ctx.barGear, this.ctx.rng, distanceM, hooked.speciesId) };
+        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, ...holdFight(beginFight(this.catchStyleNow(), fish, this.ctx.barGear, this.ctx.rng, distanceM, hooked.speciesId), false) };
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
@@ -3737,7 +3737,8 @@ export class LakeScene extends Phaser.Scene {
           const ten = s.line.tension;
           const warn = warnLevel(s.line);
           const pull = surgeLevel(s.line);
-          dx = 3 + Math.sin(t * 18) * (0.8 + 1.6 * ten);
+          const redNow = ten >= lineGearOf(this.ctx.barGear).snapLimit ? 1 : 0;
+          dx = 3 + Math.sin(t * 18) * (0.8 + 1.6 * ten) + Math.sin(t * 70) * 2.5 * redNow;
           dy = tow * (4 + 9 * ten + 5 * pull) + Math.sin(t * 29) * (0.8 + 1.4 * ten) + (warn > 0 ? Math.sin(t * 60) * 2.4 * warn : 0);
           bend = this.fightBend + Math.sin(t * 24) * (0.6 + 1.2 * ten);
           break;

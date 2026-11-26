@@ -18,7 +18,6 @@ const DEPTH = 15.6;
 /** The tension gauge: a half circle (slack at the left, red at the right), by the reel, clear of the line and of Alex's head. */
 export const LINE_DIAL = { cx: 124, cy: 318, r: 26 };
 const GOLD_DARK = 0xb98a2c;
-const AMBER = 0xe89a3c;
 const STEEL = 0x6f86a0;
 
 /** Where the fish is on screen: sideways by the lateral offset (wider farther out), up the water with the distance. */
@@ -126,6 +125,24 @@ export class LineFightView {
       g.fillStyle(t(PAL.redLight), 1).fillRect(x - 1, my - 1, 4, 10).fillRect(x - 1, my + 13, 4, 3);
       g.fillStyle(t(PAL.white), 0.7).fillRect(x - 1, my - 1, 1, 10);
     }
+    // A sideways cut is telegraphed: a small splash on the side it will dart to, and an arrow pointing there.
+    if (line.cutWarn > 0) {
+      const dir = line.cutTarget >= line.lateral ? 1 : -1;
+      const w = 1 - line.cutWarn / T.cutWarnS;
+      const sx = x + dir * Math.round(12 * k);
+      ring((3 + w * 5) * k, (1.2 + w * 2) * k, 0.9, dir * Math.round(12 * k), 0);
+      for (let i = 0; i < 4; i++) g.fillStyle(t(PAL.white), 0.9).fillRect(sx + (i - 2) * 2, y - 2 - Math.round(w * 4 + (i % 2) * 2), 1, 2);
+      const ax = Math.min(350, Math.max(10, x + dir * Math.round(24 * k)));
+      const on = Math.floor(ms / 90) % 2 === 0 ? 1 : 0.6;
+      for (let s = 0; s <= 4; s++) {
+        const px2 = ax - dir * (4 - s);
+        g.fillStyle(PAL.outline, on).fillRect(px2 - 1, y - 5 + s - 1, 4, 4).fillRect(px2 - 1, y + 5 - s - 1, 4, 4);
+      }
+      for (let s = 0; s <= 4; s++) {
+        const px2 = ax - dir * (4 - s);
+        g.fillStyle(t(PAL.white), on).fillRect(px2, y - 5 + s, 2, 2).fillRect(px2, y + 5 - s, 2, 2);
+      }
+    }
     // The run: a big churn, a wake streaming behind the fish, and flying drops.
     if (surge > 0) {
       const big = 0.5 + 0.5 * surge;
@@ -199,15 +216,17 @@ export class LineFightView {
       }
     };
     const lim = gear.snapLimit;
-    const [gl, gh] = T.goldBand;
+    const gl = T.goldBand[0];
     // Dim steel between the zones.
     arc(T.slackFloor, gl, r - 2, r + 1, t(STEEL));
-    arc(gh, lim, r - 2, r + 1, t(AMBER));
+    // In the red the whole red zone flashes white, so it cannot be missed.
+    if (line.tension >= lim && Math.floor(ms / 70) % 2 === 0) arc(lim, 1, r - 5, r + 4, t(PAL.white), 1, 0.85);
     // Slack: grey and dotted.
     arc(0, T.slackFloor, r - 2, r + 1, t(PAL.stoneLight), 2);
     // Steady: the thick gold band, with dark ends.
-    arc(gl, gh, r - 5, r + 4, t(GOLD_DARK));
-    arc(gl + 0.01, gh - 0.01, r - 4, r + 3, t(PAL.gold));
+    // Steady: the thick gold band runs up to exactly where the red starts (the snap limit).
+    arc(gl, lim, r - 5, r + 4, t(GOLD_DARK));
+    arc(gl + 0.01, lim - 0.01, r - 4, r + 3, t(PAL.gold));
     // Red: with teeth pointing out.
     arc(lim, 1, r - 3, r + 2, t(PAL.redDark));
     arc(lim, 1, r - 2, r + 1, t(PAL.red));
@@ -217,7 +236,7 @@ export class LineFightView {
       for (let rr = r + 3; rr <= r + 6 - (i % 2) * 2; rr++) g.fillStyle(t(PAL.redLight), 1).fillRect(Math.round(px + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr), 1, 1);
     }
     // Ticks on the zone borders.
-    for (const tt of [T.slackFloor, gl, gh, lim]) {
+    for (const tt of [T.slackFloor, gl, lim]) {
       const a = theta(tt);
       for (let rr = r - 7; rr <= r - 5; rr++) g.fillStyle(t(PAL.white), 0.85).fillRect(Math.round(px + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr), 1, 1);
     }
@@ -258,7 +277,7 @@ export class LineFightView {
     bar(cy + 37, slackShare, PAL.stoneLight, 'slip');
 
     // The perfect-run star above the gauge: gold while the run is still clean, grey and cracked once it is not.
-    const clean = line.redTotalMs <= T.perfectRedGraceMs && line.slackTotalMs <= T.perfectSlackGraceMs;
+    const clean = line.redTotalMs <= T.perfectRedGraceMs && line.slackTotalMs <= T.perfectSlackGraceMs && line.tension < lim;
     this.drawStar(g, px - 9, cy - r - 30, clean, t);
   }
 

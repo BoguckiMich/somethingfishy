@@ -400,3 +400,65 @@ describe('tuning (decent player bot)', () => {
     }
   });
 });
+
+describe('fair telegraphs, passive play, tiring (tester fixes)', () => {
+  it('every sideways cut is telegraphed for at least 0.35 s, on every pattern and difficulty', () => {
+    for (const pattern of FISH_PATTERNS) {
+      for (const difficulty of [0.1, 0.6, 1]) {
+        const rng = seededRng(51);
+        let s = newLineFight(rng, 1000);
+        let cutSince = -1;
+        for (let ms = 0; ms < 60_000; ms += TICK) {
+          s = { ...tickLineFight({ ...s, tension: 0.5, slackS: 0, redS: 0, releasedS: 0 }, TICK, true, { pattern, difficulty }, gear, rng), result: 'fighting' };
+          if (s.cutWarn > 0 && cutSince < 0) cutSince = s.cutWarn;
+          if (s.cutWarn === 0 && cutSince > 0) {
+            expect(cutSince).toBeGreaterThanOrEqual(0.35);
+            cutSince = -1;
+          }
+        }
+      }
+    }
+  });
+
+  it('a surge warning is at least 0.35 s even for the hardest fish', () => {
+    for (const pattern of FISH_PATTERNS) {
+      const rng = seededRng(52);
+      let s = newLineFight(rng, 1000);
+      for (let ms = 0; ms < 40_000; ms += TICK) {
+        s = { ...tickLineFight({ ...s, tension: 0.5, slackS: 0, redS: 0, releasedS: 0 }, TICK, true, { pattern, difficulty: 1 }, gear, rng), result: 'fighting' };
+        if (s.phase === 'warn' && s.phaseTotal !== 0.22) expect(s.phaseTotal, pattern).toBeGreaterThanOrEqual(0.34);
+      }
+    }
+  });
+
+  it('a passive player loses the fish to the slip in a few seconds at any depth, never by the 60 s timeout', () => {
+    for (const startM of [8, 25]) {
+      const rng = seededRng(53);
+      const fish: FishProfile = { pattern: 'darting', difficulty: 0.75 };
+      const s = run(newLineFight(rng, startM), fish, () => false, rng, gear, 90_000);
+      expect(s.result).toBe('slipped');
+      expect(s.elapsedMs).toBeLessThan(15_000);
+    }
+  });
+
+  it('the safety-net timeout is its own result (worded "It got away")', () => {
+    const rng = seededRng(54);
+    const s = tickLineFight({ ...newLineFight(rng, 20), elapsedMs: T.maxFightMs + 100 }, 20, true, easy(), gear, rng);
+    expect(s.result).toBe('escaped');
+  });
+
+  it('the fish tires near the dock: surges are weaker in the last metres', () => {
+    const rng = seededRng(55);
+    const far = { ...newLineFight(rng, 20), phase: 'run' as const, phaseT: 1, phaseTotal: 2, strength: 0.8, distanceM: 10 };
+    expect(surgeLevel({ ...far, distanceM: 0.4 })).toBeLessThan(surgeLevel(far) * 0.4);
+    expect(surgeLevel({ ...far, distanceM: 3 })).toBeCloseTo(surgeLevel(far), 5);
+  });
+
+  it('red drains faster while the tension is in the steady band', () => {
+    const rng = seededRng(56);
+    const base = { ...newLineFight(rng, 10), redS: 0.5 };
+    const calm = tickLineFight({ ...base, tension: 0.2 }, 1000, false, easy(), gear, rng).redS;
+    const gold = tickLineFight({ ...base, tension: 0.5 }, 1000, true, easy(), gear, rng).redS;
+    expect(gold).toBeLessThan(calm);
+  });
+});

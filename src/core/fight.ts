@@ -49,6 +49,7 @@ export function tickFight(f: FightState, dtMs: number, fish: FishProfile, gear: 
     const fight: FightState = { bar: { ...f.bar, elapsedMs: line.elapsedMs }, line };
     if (line.result === 'caught') return { fight, outcome: { kind: 'caught', perfect: isPerfectLine(line), fightMs: line.elapsedMs } };
     if (line.result === 'fighting') return { fight, outcome: { kind: 'fighting' } };
+    if (line.result === 'escaped') return { fight, outcome: { kind: 'lost', slipped: false, snapped: false } };
     // The hook slipping (slack too long) is a slip, and a trophy keeps its "slips away" loss whichever way the fight went wrong.
     return { fight, outcome: { kind: 'lost', slipped: line.result === 'slipped' || fish.slipAfterMs !== undefined, snapped: line.result === 'snapped' } };
   }
