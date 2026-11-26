@@ -12,7 +12,7 @@ import { describe, it } from 'vitest';
 import * as bedtimeMod from '../core/bedtime';
 import { inCarWindow, napWakeClock } from '../core/bedtime';
 import { CHARGE_HALF_CYCLE_MS, MIN_HOLD_MS } from '../core/casting';
-import { barResult, isPerfect, newCatchBar, tickCatchBar, type FishProfile } from '../core/catchBar';
+import { CATCH_BAR_TUNING, barResult, isPerfect, newCatchBar, tickCatchBar, type FishProfile } from '../core/catchBar';
 import { allDone, bundleDone, canFill, checklistOf, giveFish, payCoins } from '../core/checklist/checklist';
 import { advanceClock, NEW_GAME_CLOCK, timeOfDay, type GameClock, type TimeOfDay } from '../core/clock';
 import { buyCampItem, campOwned } from '../core/camp';
@@ -542,18 +542,22 @@ describe.skipIf(!ON)('economy sim (SIM=1)', () => {
     const trophies = ['goldenTench', 'silverGhost', 'mossback'];
     const others = ['roach', 'rudd', 'crucian', 'eel', 'ide', 'bream', 'tench', 'carp', 'zander', 'burbot', 'catfish'];
     const rows: string[] = [];
-    for (const bot of [SKILLED, DECENT]) {
-      const all = perfectRate([...darting, ...trophies, ...others], 200, bot);
-      const share = (ids: string[]) => {
-        const rs = all.filter((r) => ids.includes(r.id));
-        const won = rs.reduce((s, r) => s + r.won, 0);
-        const perfect = rs.reduce((s, r) => s + r.perfect, 0);
-        const total = rs.length * 200;
-        return `${((perfect / total) * 100).toFixed(0)} % of fights perfect (${((won / total) * 100).toFixed(0)} % won)`;
-      };
-      rows.push(`bot ${bot.delayMs} ms / noise ${bot.noise}: darting ${share(darting)}; trophies ${share(trophies)}; others ${share(others)}`);
-      rows.push('   ' + all.map((r) => `${r.id} ${((r.perfect / 200) * 100).toFixed(0)}%`).join(', '));
+    const grace = CATCH_BAR_TUNING.perfectGraceMs;
+    // The grace as built, and what a longer one would do (sensitivity, for the docs).
+    for (const g of [grace, 500, 800]) {
+      (CATCH_BAR_TUNING as { perfectGraceMs: number }).perfectGraceMs = g;
+      for (const bot of [SKILLED, DECENT]) {
+        const all = perfectRate([...darting, ...trophies, ...others], 200, bot);
+        const share = (ids: string[]) => {
+          const rs = all.filter((r) => ids.includes(r.id));
+          const perfect = rs.reduce((sum, r) => sum + r.perfect, 0);
+          return `${((perfect / (rs.length * 200)) * 100).toFixed(0)} %`;
+        };
+        rows.push(`grace ${g} ms, bot ${bot.delayMs} ms / noise ${bot.noise}: darting ${share(darting)}, trophies ${share(trophies)}, others ${share(others)}`);
+        if (g === grace) rows.push('   ' + all.map((r) => `${r.id} ${((r.perfect / 200) * 100).toFixed(0)}%`).join(', '));
+      }
     }
+    (CATCH_BAR_TUNING as { perfectGraceMs: number }).perfectGraceMs = grace;
     console.log(rows.join('\n'));
   });
 });

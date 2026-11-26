@@ -43,7 +43,7 @@ import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from 
 import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
-import { crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
+import { napCooldownLeftMs, crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
 import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/sleepFade';
 import { showMapPanel } from '../ui/mapPanel';
 import { canOpenMap, napAvailable } from '../core/carMap';
@@ -462,6 +462,8 @@ export class LakeScene extends Phaser.Scene {
   private fadeWoke = false;
   /** The nap's wake-up time, set when the nap starts. */
   private napTarget: NapOption | null = null;
+  /** `Date.now()` when the last nap woke them (balance A2: a 2-minute rest before the next nap); not saved. */
+  private lastNapAt: number | undefined;
   /** 00:00 passed and the sequence is waiting for a fight, the show-off or a panel to end. */
   private bedPending = false;
   /** 01:00 passed without the kit and the warning is waiting for a fight, a panel or a card to end. */
@@ -1015,6 +1017,7 @@ export class LakeScene extends Phaser.Scene {
       const kit = hasNightKit(this.player);
       const nap = c.bed?.kind === 'nap' && this.napTarget;
       this.clock = nap ? napWakeClock(this.clock, this.napTarget!.minute, kit) : morningClock(this.clock);
+      if (nap) this.lastNapAt = Date.now();
       this.napTarget = null;
       // Alex's 02:00 where they were not in the car yet (the screen is black): they are in it now.
       if (c.mode !== 'bed') startInCar(c);
@@ -1046,6 +1049,7 @@ export class LakeScene extends Phaser.Scene {
       },
       () => (this.panel = null),
       this.clock.minute,
+      () => napCooldownLeftMs(this.lastNapAt, Date.now()),
     );
   }
 
@@ -1068,7 +1072,7 @@ export class LakeScene extends Phaser.Scene {
     this.swallowUp = false;
     this.panel = showMapPanel(
       {
-        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state) }),
+        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state), cooldownLeftMs: napCooldownLeftMs(this.lastNapAt, Date.now()) }),
         onNap: () => this.openNapCard(),
         onChecklist: () => this.openChecklist(),
         checklist: { done: checklistDone(this.player), total: bundleTotal },
@@ -1569,7 +1573,7 @@ export class LakeScene extends Phaser.Scene {
       else if (this.catchTrophy === 'same') this.showToast(TROPHY_TEXT.backInLake);
       return;
     }
-    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect);
+    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect, this.clock.minute);
     if (r.result === 'added') {
       this.setPlayer(r.state);
       this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);

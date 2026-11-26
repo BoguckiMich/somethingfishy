@@ -9,21 +9,21 @@ const rich = () => ({ ...newPlayer(), coins: 10_000 });
 describe('camp items', () => {
   it('have the agreed prices and are all for sale from the start', () => {
     const price = Object.fromEntries(CAMP_ITEMS.map((c) => [c.id, c.price]));
-    expect(price).toEqual({ campfire: 800, deckchair: 600, dogbed: 1000, tent: 1500, lights: 1200, windsock: 400 });
+    expect(price).toEqual({ campfire: 1200, deckchair: 900, dogbed: 1500, tent: 2250, lights: 1800, windsock: 600 });
     for (const c of CAMP_ITEMS) expect(buyCampItem(rich(), c.id).ok).toBe(true);
   });
 
   it('buying takes the price and adds the item once', () => {
     const r = buyCampItem(rich(), 'tent');
     expect(r.ok).toBe(true);
-    expect(r.state.coins).toBe(8500);
+    expect(r.state.coins).toBe(7750);
     expect(campOwned(r.state)).toEqual(['tent']);
     expect(hasCamp(r.state, 'tent')).toBe(true);
     expect(hasCamp(r.state, 'campfire')).toBe(false);
   });
 
   it('refuses without coins and says how many are missing', () => {
-    const p = { ...newPlayer(), coins: 350 };
+    const p = { ...newPlayer(), coins: 550 };
     const r = buyCampItem(p, 'windsock');
     expect(r).toMatchObject({ ok: false, error: 'needCoins', missing: 50 });
     expect(r.state).toBe(p);

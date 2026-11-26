@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crossedBedtime, crossedCompanionBedtime, crossedWarning, inCarWindow, inWarnHour, loadClock, warningLines, inSleepWindow, lanternGlow, morningClock, napOptions, napPrimaryId, napWakeClock, nextOccurrence, wakeGreeting } from './bedtime';
+import { NAP_COOLDOWN_MS, formatCooldown, napCooldownLeftMs, crossedBedtime, crossedCompanionBedtime, crossedWarning, inCarWindow, inWarnHour, loadClock, warningLines, inSleepWindow, lanternGlow, morningClock, napOptions, napPrimaryId, napWakeClock, nextOccurrence, wakeGreeting } from './bedtime';
 
 describe('the sleep window', () => {
   it('runs from 02:00 up to, not including, 05:00', () => {
@@ -167,5 +167,24 @@ describe('napPrimaryId', () => {
     expect(napPrimaryId(19 * 60)).toBe('night');
     expect(napPrimaryId(22 * 60)).toBe('dawn');
     expect(napPrimaryId(3 * 60)).toBe('dawn');
+  });
+});
+
+describe('the rest between naps (balance A2)', () => {
+  it('is two real minutes, counted from the nap that woke them', () => {
+    expect(NAP_COOLDOWN_MS).toBe(120_000);
+    expect(napCooldownLeftMs(undefined, 5000)).toBe(0);
+    expect(napCooldownLeftMs(1000, 1000)).toBe(120_000);
+    expect(napCooldownLeftMs(1000, 61_000)).toBe(60_000);
+    expect(napCooldownLeftMs(1000, 121_000)).toBe(0);
+    expect(napCooldownLeftMs(1000, 999_999)).toBe(0);
+    // A clock set back never makes the rest longer than two minutes.
+    expect(napCooldownLeftMs(50_000, 0)).toBe(120_000);
+  });
+  it('is shown as a countdown that rounds up', () => {
+    expect(formatCooldown(120_000)).toBe('2:00');
+    expect(formatCooldown(101_500)).toBe('1:42');
+    expect(formatCooldown(200)).toBe('0:01');
+    expect(formatCooldown(0)).toBe('0:00');
   });
 });

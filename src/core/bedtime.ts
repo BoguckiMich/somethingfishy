@@ -98,6 +98,24 @@ export function napWakeClock(clock: GameClock, minuteOfDay: number, kit: boolean
   return !kit && inSleepWindow(c.minute) ? { day: c.day, minute: WAKE_MINUTE } : c;
 }
 
+/**
+ * A short rest between naps (balance A2): after one nap wakes the companions, the next one waits this long in real time.
+ * It is said kindly on the nap card with a countdown ("They are still waking up"), never as an energy bar. Not saved: it only
+ * stops back-to-back naps, so a reload may skip it.
+ */
+export const NAP_COOLDOWN_MS = 2 * 60 * 1000;
+
+/** Real ms left of the rest after the nap that woke at `lastNapAt` (a `Date.now()` stamp; undefined = never napped). */
+export function napCooldownLeftMs(lastNapAt: number | undefined, now: number): number {
+  return lastNapAt === undefined ? 0 : Math.min(NAP_COOLDOWN_MS, Math.max(0, lastNapAt + NAP_COOLDOWN_MS - now));
+}
+
+/** "1:42" for the nap card's countdown (rounds up, so it never shows 0:00 while still waiting). */
+export function formatCooldown(ms: number): string {
+  const s = Math.ceil(Math.max(0, ms) / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /** What the screen says when they wake up at this time of day. */
 export function wakeGreeting(minute: number): string {
   const t = timeOfDay(((minute % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY);

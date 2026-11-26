@@ -12,12 +12,12 @@ export interface CampItem {
 
 /** In shop order (the saved list is kept in this order too). */
 export const CAMP_ITEMS: readonly CampItem[] = [
-  { id: 'campfire', name: 'Campfire', price: 800, effect: 'Crackles by the car, glows at dusk and night' },
-  { id: 'deckchair', name: 'Deck chair for Pajkel', price: 600, effect: 'A striped chair for Pajkel on the dock' },
-  { id: 'dogbed', name: "Bestia's bed", price: 1000, effect: 'A bed for Bestia by the car' },
-  { id: 'tent', name: 'Tent', price: 1500, effect: 'A small tent by the car' },
-  { id: 'lights', name: 'String lights', price: 1200, effect: 'Coloured lights that glow at night' },
-  { id: 'windsock', name: 'Windsock', price: 400, effect: "Shows today's wind: limp, half or full" },
+  { id: 'campfire', name: 'Campfire', price: 1200, effect: 'Crackles by the car, glows at dusk and night' },
+  { id: 'deckchair', name: 'Deck chair for Pajkel', price: 900, effect: 'A striped chair for Pajkel on the dock' },
+  { id: 'dogbed', name: "Bestia's bed", price: 1500, effect: 'A bed for Bestia by the car' },
+  { id: 'tent', name: 'Tent', price: 2250, effect: 'A small tent by the car' },
+  { id: 'lights', name: 'String lights', price: 1800, effect: 'Coloured lights that glow at night' },
+  { id: 'windsock', name: 'Windsock', price: 600, effect: "Shows today's wind: limp, half or full" },
 ];
 
 export const CAMP_IDS: readonly CampId[] = CAMP_ITEMS.map((c) => c.id);

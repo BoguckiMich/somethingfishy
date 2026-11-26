@@ -4,7 +4,8 @@ import { BAITS, WORM_ID, baitById, type Bait } from './data/baits';
 import { RODS } from './data/rods';
 import { NIGHT_KIT } from './data/nightKit';
 import { LINES, REELS } from './data/tackle';
-import { RARITY_PRICE_MULT, SHOP } from './data/shop';
+import { DEEP_NIGHT_PRICE_MULT, RARITY_PRICE_MULT, SHOP } from './data/shop';
+import { inSleepWindow } from './bedtime';
 import { FOTD_TUNING } from './data/fotd';
 import type { GameEvent } from './events';
 import { sizeShare, type HookedFish } from './fish';
@@ -151,11 +152,11 @@ export function priceFor(species: Species, lengthCm: number): number {
   return Math.round(species.basePrice * RARITY_PRICE_MULT[species.rarity] * (SHOP.priceMin + SHOP.priceSpan * sizeShare(species, lengthCm)));
 }
 
-/** A caught fish as a bag entry; today's fish (slice 19) sells for double, fixed here at catch time. */
-export function toBagFish(hooked: HookedFish, fotdId?: string, perfect = false): BagFish {
+/** A caught fish as a bag entry; today's fish (slice 19) sells for double and a fish caught in deep night (`minute` 02:00-05:00) for 15 % less, both fixed here at catch time. */
+export function toBagFish(hooked: HookedFish, fotdId?: string, perfect = false, minute?: number): BagFish {
   const species = speciesById(hooked.speciesId)!;
-  const mult = fotdId && hooked.speciesId === fotdId ? FOTD_TUNING.priceMult : 1;
-  return { ...hooked, price: priceFor(species, hooked.lengthCm) * mult, ...(perfect ? { perfect: true as const } : {}) };
+  const mult = (fotdId && hooked.speciesId === fotdId ? FOTD_TUNING.priceMult : 1) * (minute !== undefined && inSleepWindow(minute) ? DEEP_NIGHT_PRICE_MULT : 1);
+  return { ...hooked, price: Math.round(priceFor(species, hooked.lengthCm) * mult), ...(perfect ? { perfect: true as const } : {}) };
 }
 
 export const bagValue = (bag: BagFish[]): number => bag.reduce((sum, f) => sum + f.price, 0);
@@ -184,8 +185,9 @@ export function addCatch(
   hooked: HookedFish,
   fotdId?: string,
   perfect = false,
+  minute?: number,
 ): { state: PlayerState; result: 'added' | 'bagFull'; fish: BagFish } {
-  const fish = toBagFish(hooked, fotdId, perfect);
+  const fish = toBagFish(hooked, fotdId, perfect, minute);
   if (state.bag.length >= SHOP.bagSlots) return { state, result: 'bagFull', fish };
   return { state: { ...state, bag: [...state.bag, fish] }, result: 'added', fish };
 }
