@@ -764,14 +764,43 @@ today's chapter when one is waiting (else the quests).
 - **Later** — more locations (river, pond, sea, ice fishing), fly fishing, weather & seasons,
   walkable Stardew-like world (landscape), music, personal touches (her own legendary fish), cloud sync.
 
+### Catch mechanic v2: "feel the line" (grilled with the user 2026-11-26; slice 28)
+
+Alex: the catch "looks almost exactly the same as Stardew Valley and the mechanics are the same". Before Google
+Play the fight becomes our own. Decisions (all of the main session's recommendations accepted, with one change: the
+old bar STAYS behind a toggle so testers can compare):
+- **Core:** the fight happens on the lake, not in a side panel. The fish is a splash/swirl at the end of a taut
+  line, cutting left/right and surging away. Hold anywhere = reel (the fish comes closer, the line tightens);
+  when it surges the rod bends hard and the line goes red, so let go and let it run; wait too long and the line
+  goes slack. A small curved tension gauge by the reel: slack (grey) · steady (gold band) · red. The fight ends
+  when the fish reaches the dock. One thumb, hold/release.
+- **Fail:** too long in the red snaps the line (fish gone, a bit of bait, never gear); slack for more than ~2 s
+  lets the hook slip. Both forgive short mistakes.
+- **Gear:** rod = flex (how long you may stay in the red), line = snap limit, reel = reel-in speed, bait as today.
+- **Fish personalities** from today's data: smooth = long steady pulls, darting = quick sideways cuts + short
+  surges, sinker = heavy and deep (patience), erratic = random surges; trophies get one signature move each.
+- **Perfect catch:** never in the red and never slack beyond a short grace; the gold band replaces the red core.
+- **Reeling:** hold anywhere (no crank gesture).
+- **Haptics:** short pulses on a surge, a buzz near the red (Android only; the screen shows everything without it).
+- **Toggle (user, 2026-11-26):** Settings "Catch style: Classic / Line", saved on the device, default Classic
+  until testers have compared; dev flag `?catch=line|classic`. Both styles feed the same catch result (size,
+  stars, perfect, trophies, quests).
+- **Order:** slice 28 builds it behind the toggle with tuning in data and a bot sim (aim: catch rates close to
+  classic for a decent player); then testers and Alex compare; then it becomes the default; the economy and
+  perfect-catch sims are re-run. River bend content (25c onwards) waits for it: the river current and the
+  spinning rod build on the line fight.
+- **New rod types later, one at a time:** spinning (lure, active retrieve before the bite; River bend gear,
+  slice 25g), then feeder (heavy fish, long patient fights), fly last if ever.
+
+### Shop per location (proposed 2026-11-26, user to confirm)
+The whole Quiet Lake shop takes ~4.2 h of play (ECONOMY_SIM.md, ~day 7 at 40 min a day). Proposal: not a
+rotating shop but stock per place. Worms and basic baits everywhere; each place sells its own gear and camp
+things (Quiet Lake as today; River bend the spinning rod and river gear, slice 25g). Buying out Quiet Lake in
+~4 h then fits the first chapter (it ends near the road fix), and River bend opens a fresh shop. Later idea: a
+"travelling merchant" with one rotating daily special (retention).
+
 ### Ideas (not scheduled)
-- **Our own catch mechanic (Alex, 2026-11-26; grill when there are tokens, before Google Play):** she says catching
-  "feels like Stardew Valley". For a public release the fight should be our own, not a Stardew look-alike (the
-  vertical bar + fish icon + green zone). Open questions: what replaces or reshapes the bar (e.g. line tension
-  you feel through rod bend + reel clicks, a horizontal "follow the fish" lane, timing pulls to the fish's
-  surges); new rod TYPES that change how the fight plays (float rod, feeder, spinning/lure with active
-  retrieve, fly), not only bigger numbers; reeling as its own verb (a reel you turn / hold-rhythm). Ties to
-  §4 v2a-v2d (spinning, feeder) and aimed casting. Must stay one-thumb and cozy.
+- **Our own catch mechanic:** decided, see "Catch mechanic v2" above (slice 28).
 - **Feed Bestia (testers, 2026-11-26):** players want to feed the dog. Open questions: what (treats from the
   shop? a small fish from the bag?), how often (once per real day, like the bait box?), what it gives (a happy
   animation + a bowl by the bed, maybe she fetches longer or finds sticks more often; no stats or hunger,
