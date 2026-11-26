@@ -1,8 +1,32 @@
-import type { Location } from '../location';
+import type { CompanionSpots, Location } from '../location';
 import { POOL_SPECIES } from './fish';
 
 /** Every fish that bites at the lake with the plain weight (the trophies and the legendary are rolled apart, see `specials`). */
 const LAKE_FISH: Record<string, number> = Object.fromEntries(POOL_SPECIES.map((s) => [s.id, 1]));
+
+/** The companions' ground at Quiet Lake: what the behaviour had as constants before M2 groundwork B (a test keeps them equal). */
+const QUIET_COMPANIONS: CompanionSpots = {
+  paj: { x: 150, y: 406 },
+  dog: { x: 178, y: 430 },
+  pajDown: [{ x: 148, y: 440 }, { x: 148, y: 484 }],
+  dogDown: [{ x: 178, y: 444 }, { x: 178, y: 486 }],
+  grassY: 470,
+  playPaj: { x: 112, y: 540 },
+  playDog: { x: 140, y: 544 },
+  carStand: { x: 34, y: 560 },
+  carDog: { x: 60, y: 564 },
+  fireKeepOff: { halfW: 22, below: 46, standX: 130 },
+  zigzag: { midX: 200, rightX: [240, 320], leftX: [90, 150], y: [508, 584], homeX: [100, 124], homeY: [548, 566] },
+  // The stones are at x 93-115, y 460-472: he stands at their right, clear of the trophy board and campfire, and Bestia sits by the dock corner (she faces left, toward him).
+  shore: {
+    stand: { x: 122, y: 479 },
+    dogSit: { x: 150, y: 484 },
+    pajDockVia: { x: 140, y: 480 },
+    dogDockVia: { x: 160, y: 488 },
+    pajLane: { belowY: 488, y: 484, minX: 140 },
+    dogVia: { x: 150, y: 489 },
+  },
+};
 
 export const QUIET_LAKE: Location = {
   id: 'quiet-lake',
@@ -25,6 +49,7 @@ export const QUIET_LAKE: Location = {
     stones: { x: 93, y: 458 },
     camp: { tent: { x: 14, y: 494 }, pole: { x: 85, y: 447 }, fire: { x: 106, y: 497 }, bed: { x: 80, y: 555 }, sock: { x: 330, y: 496 } },
     playArea: { x0: 100, x1: 322, y0: 500, y1: 554 },
+    companions: QUIET_COMPANIONS,
   },
   momentsId: 'lake',
   checklistId: 'quiet-lake',
@@ -49,8 +74,10 @@ export const RIVER_BEND: Location = {
   ],
   fishPool: { species: { asp: 3, perch: 1, roach: 1.5, pike: 0.7, bream: 1 }, specials: false },
   background: 'river',
-  // The same shore as the lake for now (the river art slice moves things); the fetch lawn must equal the companions' PLAY_AREA.
-  spots: { ...QUIET_LAKE.spots, stones: undefined },
+  // The river art (25b) kept the lake's near shore: landing, car, camp and the grass lawn stand where they did, so the companions walk the
+  // same ground. What differs: no skipping stones (the left gravel bar is the river's own), so no pebble outing (`shore: null`). A test
+  // checks every point is on land (not in the river, not in the hut), so a later layout change cannot drop them in the water.
+  spots: { ...QUIET_LAKE.spots, stones: undefined, companions: { ...QUIET_COMPANIONS, shore: null } },
   momentsId: null,
   checklistId: null,
   storyPlaceId: null,

@@ -286,7 +286,7 @@ function rollStoryDelay(): number {
 function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle; stones: Phaser.Geom.Rectangle | null; bed: Phaser.Geom.Rectangle } {
   return {
     // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed: its picture, a little bigger.
-    stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 9, sp.stones.y - 10, Math.min(STONES_SIZE.w + 18, 116 - (sp.stones.x - 9)), STONES_SIZE.h + 20) : null,
+    stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 12, sp.stones.y - 12, Math.min(STONES_SIZE.w + 24, 118 - (sp.stones.x - 12)), STONES_SIZE.h + 26) : null,
     bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 8, BED_SIZE.h + 9),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
     sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 60, 60, 62), // the dock's end (x 244) stays clear
@@ -1614,6 +1614,7 @@ export class LakeScene extends Phaser.Scene {
   private updateSound(deltaMs: number): void {
     sound.setMinute(this.clock.minute);
     sound.setCamp(this.weatherId(), hasCamp(this.player, 'campfire')); // slice 27: the rain, wind and campfire beds
+    sound.setRiver(this.loc.background === 'river'); // M2 groundwork B: the river current layer
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
@@ -2530,7 +2531,7 @@ export class LakeScene extends Phaser.Scene {
     // Her hands go over the fish so they grip it.
     this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
     this.worldImgs.push(this.showOffHands);
-    this.companions = new CompanionView(this);
+    this.companions = new CompanionView(this, this.spots);
     // The car's shadow and picture, the lantern and its glow, the fade.
     this.carFx = this.add.graphics().setDepth(Z.postFx - 0.2);
     this.carImg = this.add.image(this.carPos.x, this.carPos.y, carKey('closed')).setOrigin(0, 0).setDepth(Z.postFx);

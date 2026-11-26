@@ -5,6 +5,8 @@
  */
 import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE, ONE_SEC_LINE, SKIP_FIVE_LINES, SKIP_LOW_LINES, SKIP_MID_LINES } from '../../core/data/pajkelLines';
 import type { Rng } from '../../core/random';
+import { QUIET_LAKE } from '../../core/data/locations';
+import type { CompanionSpots, Spots } from '../../core/location';
 
 export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
 
@@ -13,14 +15,22 @@ export interface Point {
   y: number;
 }
 
+/**
+ * Everything place-bound (M2 groundwork B) lives in `core/data/locations.ts` and is read from `Companions.spots`. The names below are the
+ * QUIET LAKE values, kept as the defaults and for the tests and dev sheets; a test keeps them equal to the place data.
+ */
+const QL = QUIET_LAKE.spots;
 /** Where they sit on the dock (feet positions). */
-export const PAJ_SPOT: Point = { x: 150, y: 406 };
-export const DOG_SPOT: Point = { x: 178, y: 430 };
-/** Waypoints down the dock to the grass (kept clear of the bobber and the hint text). */
-const PAJ_PATH_DOWN: Point[] = [{ x: 148, y: 440 }, { x: 148, y: 484 }];
-const DOG_PATH_DOWN: Point[] = [{ x: 178, y: 444 }, { x: 178, y: 486 }];
-export const PLAY_PAJ: Point = { x: 112, y: 540 };
-const PLAY_DOG: Point = { x: 140, y: 544 };
+export const PAJ_SPOT: Point = QL.companions.paj;
+export const DOG_SPOT: Point = QL.companions.dog;
+export const PLAY_PAJ: Point = QL.companions.playPaj;
+
+/** The place's companion data (waypoints down the dock are kept clear of the bobber and the hint text). */
+const cs = (s: Companions): CompanionSpots => s.spots.companions;
+const pajDown = (s: Companions): Point[] => s.spots.companions.pajDown;
+const dogDown = (s: Companions): Point[] => s.spots.companions.dogDown;
+/** The dog bed's middle (art/campLayout.ts: the bed's size is 28 x 12) and the fire's feet. */
+const bedSpot = (sp: Spots): Point => ({ x: sp.camp.bed.x + 14, y: sp.camp.bed.y + 9 });
 
 export const IDLE_BEFORE_PLAY_MS = 25_000;
 /** The happy spin after the last fetch: the dog flips to face the other way this many times over this long. */
@@ -147,7 +157,7 @@ export const STICK_TUNING = {
 export const stickVariantAt = (p: Point): number => Math.abs(Math.round(p.x) * 7 + Math.round(p.y) * 13) % 3;
 
 /** Where the companions play: the grass between the car (left), the dock (top), the right bushes and the hint line (bottom). */
-export const PLAY_AREA = { x0: 100, x1: 322, y0: 500, y1: 554 };
+export const PLAY_AREA = QL.playArea;
 
 export const PLAY_TUNING = {
   /** A round ends with her bringing it back and dropping it at his feet this often. */
@@ -201,7 +211,7 @@ export const PLAY_TUNING = {
 };
 
 /** Where Bestia's feet are when she lies curled in her camp bed (art/campLayout.ts BED_POS 80,555 + the bed's size 28 x 12: the middle of the hollow). */
-export const DOG_BED_SPOT: Point = { x: 94, y: 564 };
+export const DOG_BED_SPOT: Point = bedSpot(QL);
 
 /** Bestia's nap in her camp bed (slice 27). */
 export const NAP_TUNING = {
@@ -236,8 +246,8 @@ export const isCurled = (s: Companions): boolean => s.mode === 'play' && s.play.
 // ---- Bedtime, naps and the car (slice 16) ---------------------------------------------------
 
 /** Where Pajkel stands to get in and out of the car (feet), and where Bestia waits beside him. */
-export const CAR_STAND: Point = { x: 34, y: 560 };
-export const CAR_DOG: Point = { x: 60, y: 564 };
+export const CAR_STAND: Point = QL.companions.carStand;
+export const CAR_DOG: Point = QL.companions.carDog;
 /** Phase lengths in ms and speeds in px/s of the bedtime choreography. */
 export const BED_TUNING = {
   sayMs: 2400,
@@ -285,6 +295,8 @@ export interface BedState {
 }
 
 export interface Companions {
+  /** The place's ground (M2 groundwork B): chair, paths, lawn, car, fire, bed, stones. Set at creation; `setCompanionSpots` changes it. */
+  spots: Spots;
   mode: Mode;
   /** The bedtime / nap sequence (mode 'bed'); null otherwise. */
   bed: BedState | null;
@@ -390,9 +402,9 @@ function newShore(): ShoreState {
 }
 
 export const SHORE_TUNING = {
-  /** His feet at the stones (the stones are at x 93-115, y 460-472: he stands at their right, clear of the trophy board and the campfire), and Bestia beside him by the dock corner. */
-  stand: { x: 122, y: 479 } as Point,
-  dogSit: { x: 150, y: 484 } as Point,
+  /** His feet at the stones and Bestia beside him: the Quiet Lake values (the place's own are `spots.companions.shore`). */
+  stand: QL.companions.shore!.stand,
+  dogSit: QL.companions.shore!.dogSit,
   walkSpeed: 62,
   /** The pick-up: a bend to the stones. */
   pickMs: 700,
@@ -487,30 +499,35 @@ export interface CompanionContext {
   fire?: boolean;
 }
 
-/** The campfire's feet (art/campLayout.ts FIRE_FEET) and the zone below it where his head would cover the flames, and where he is nudged to. */
-export const FIRE_SPOT: Point = { x: 106, y: 497 };
-export const FIRE_KEEP_OFF = { halfW: 22, below: 46, standX: 130 };
+/** The campfire's feet (art/campLayout.ts FIRE_FEET) and the zone below it where his head would cover the flames, and where he is nudged to (Quiet Lake). */
+export const FIRE_SPOT: Point = QL.camp.fire;
+export const FIRE_KEEP_OFF = QL.companions.fireKeepOff;
 
-/** Is `p` (feet) where Pajkel's head would hide the fire? */
-export const coversFire = (p: Point): boolean =>
-  Math.abs(p.x - FIRE_SPOT.x) < FIRE_KEEP_OFF.halfW && p.y > FIRE_SPOT.y - 4 && p.y < FIRE_SPOT.y + FIRE_KEEP_OFF.below;
+/** Is `p` (feet) where Pajkel's head would hide the fire (at this place; Quiet Lake by default)? */
+export const coversFire = (p: Point, spots: Spots = QL): boolean => {
+  const fire = spots.camp.fire;
+  const k = spots.companions.fireKeepOff;
+  return Math.abs(p.x - fire.x) < k.halfW && p.y > fire.y - 4 && p.y < fire.y + k.below;
+};
 
 /** Moves him sideways (at most `stepPx`) towards the clear spot right of the fire while he stands where he would cover it. */
-export function nudgeOffFire(p: Point, stepPx: number): void {
-  if (!coversFire(p)) return;
-  p.x = Math.min(FIRE_KEEP_OFF.standX, p.x + stepPx);
+export function nudgeOffFire(p: Point, stepPx: number, spots: Spots = QL): void {
+  if (!coversFire(p, spots)) return;
+  p.x = Math.min(spots.companions.fireKeepOff.standX, p.x + stepPx);
 }
 
 const rand = (rng: Rng, a: number, b: number) => a + rng() * (b - a);
 
-export function createCompanions(rng: Rng = Math.random): Companions {
+export function createCompanions(rng: Rng = Math.random, spots: Spots = QL): Companions {
+  const home = spots.companions;
   return {
+    spots,
     mode: 'dock',
     bed: null,
     idleMs: 0,
     elapsed: 0,
     dog: {
-      ...DOG_SPOT,
+      ...home.dog,
       face: 1,
       path: [],
       shape: 'lie',
@@ -526,7 +543,7 @@ export function createCompanions(rng: Rng = Math.random): Companions {
       restMs: 0,
       sleeping: false,
     },
-    paj: { ...PAJ_SPOT, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), sips: 0, sipPour: false, walkHoldMs: 0, walkAnchor: { x: PAJ_SPOT.x, y: PAJ_SPOT.y, ms: 0 }, walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
+    paj: { ...home.paj, face: 1, path: [], shape: 'sit', reactMs: 0, nextSipIn: rand(rng, 6000, 11000), sips: 0, sipPour: false, walkHoldMs: 0, walkAnchor: { x: home.paj.x, y: home.paj.y, ms: 0 }, walkDist: 0, clapMs: 0, clapTotalMs: CLAP_MS },
     stick: { x: 0, y: 0, state: 'hidden', variant: 0 },
     bubble: null,
     sticks: [],
@@ -539,6 +556,26 @@ export function createCompanions(rng: Rng = Math.random): Companions {
     rejoiceMs: 0,
     woofMs: 0,
   };
+}
+
+/**
+ * A place change: the family takes the new ground and starts over on its landing (chair, no sticks, no bedtime or outing in progress).
+ * The scene normally restarts on a place change and builds fresh companions; this is the same thing for a live one.
+ */
+export function setCompanionSpots(s: Companions, spots: Spots): void {
+  s.spots = spots;
+  s.mode = 'dock';
+  s.bed = null;
+  s.sticks = [];
+  s.stick.state = 'hidden';
+  s.play = newPlay();
+  s.shore = newShore();
+  s.pebbleWant = null;
+  s.release = null;
+  s.play.after = 'none';
+  const home = spots.companions;
+  Object.assign(s.paj, home.paj, { shape: 'sit', face: 1, path: [] });
+  Object.assign(s.dog, home.dog, { shape: 'lie', face: 1, path: [], reaction: 'none', hop: 0, wagMs: 0 });
 }
 
 // ---- Player-facing hooks ----------------------------------------------------------------
@@ -581,7 +618,7 @@ export const pebblesAllowed = (fishing: string): boolean => fishing === 'idle' |
  *  - asleep, in the car, walking to bed, or the fishing is mid-cast / fight: nothing ('no').
  */
 export function pebbleRequest(s: Companions, t: PebbleThrow, fishing: string): 'started' | 'queued' | 'no' {
-  if (!pebblesAllowed(fishing)) return 'no';
+  if (!pebblesAllowed(fishing) || !cs(s).shore) return 'no'; // no stones at this place: nothing to throw
   if (s.mode === 'bed') return 'no';
   s.idleMs = 0;
   if (s.mode === 'dock') {
@@ -737,8 +774,8 @@ export function petDog(s: Companions): boolean {
 /** Dev helper: jump straight into the play-on-the-grass state. */
 export function startPlayNow(s: Companions): void {
   s.mode = 'play';
-  Object.assign(s.paj, PLAY_PAJ, { shape: 'stand', path: [], face: 1 });
-  Object.assign(s.dog, PLAY_DOG, { shape: 'sit', path: [], face: 1, reaction: 'none' });
+  Object.assign(s.paj, cs(s).playPaj, { shape: 'stand', path: [], face: 1 });
+  Object.assign(s.dog, cs(s).playDog, { shape: 'sit', path: [], face: 1, reaction: 'none' });
   s.play = newPlay();
   s.sticks = [];
   s.stick.state = 'hidden';
@@ -765,14 +802,14 @@ function beginBed(s: Companions, kind: BedKind, phase: BedPhase): BedState {
 }
 
 /** Still on the planks (not yet on the grass)? */
-const onDock = (a: Point) => a.y < 470;
+const onDock = (s: Companions, a: Point) => a.y < cs(s).grassY;
 
 /**
  * 02:00: Pajkel says `line`, calls Bestia, she runs off, he chases and carries her to the car. It
  * starts from wherever they are (on the dock, walking back, or playing on the grass).
  */
 export function startBedtime(s: Companions, line: string): void {
-  const fromDock = (s.mode === 'dock' || s.mode === 'returning') && onDock(s.paj);
+  const fromDock = (s.mode === 'dock' || s.mode === 'returning') && onDock(s, s.paj);
   beginBed(s, 'night', 'say');
   s.paj.shape = fromDock ? 'sit' : 'stand';
   s.dog.shape = fromDock ? 'lie' : 'sit';
@@ -785,8 +822,8 @@ export function startNap(s: Companions): boolean {
   beginBed(s, 'nap', 'walk');
   s.paj.shape = 'walk';
   s.dog.shape = 'run';
-  s.paj.path = [...PAJ_PATH_DOWN, CAR_STAND].map((p) => ({ ...p }));
-  s.dog.path = [...DOG_PATH_DOWN, CAR_DOG].map((p) => ({ ...p }));
+  s.paj.path = [...pajDown(s), cs(s).carStand].map((p) => ({ ...p }));
+  s.dog.path = [...dogDown(s), cs(s).carDog].map((p) => ({ ...p }));
   return true;
 }
 
@@ -812,8 +849,8 @@ export function wakeUp(s: Companions): void {
   b.door = true;
   b.pajA = 0;
   b.dogA = 0;
-  Object.assign(s.paj, CAR_STAND, { shape: 'stand', face: 1, path: [] });
-  Object.assign(s.dog, CAR_DOG, { shape: 'sit', face: 1, path: [], reaction: 'none' });
+  Object.assign(s.paj, cs(s).carStand, { shape: 'stand', face: 1, path: [] });
+  Object.assign(s.dog, cs(s).carDog, { shape: 'sit', face: 1, path: [], reaction: 'none' });
 }
 
 /** Which picture of the car to draw. */
@@ -844,7 +881,7 @@ function setReaction(s: Companions, r: Companions['dog']['reaction']): void {
 /** Leaving the grass: every stick on it fades out over fadeOutMs instead of popping away; the one in her mouth is dropped. */
 function clearGrass(s: Companions): void {
   if (s.stick.state === 'carried') dropCarried(s);
-  else if (s.stick.state === 'ground') layStick(s, clampArea(s.stick), 'old', s.stick.variant);
+  else if (s.stick.state === 'ground') layStick(s, clampArea(s, s.stick), 'old', s.stick.variant);
   s.stick.state = 'hidden';
   for (const g of s.sticks) if (g.fadeMs === null) g.fadeMs = STICK_TUNING.fadeOutMs;
   s.play.after = 'none';
@@ -854,8 +891,8 @@ function clearGrass(s: Companions): void {
 function beginReturn(s: Companions): void {
   s.mode = 'returning';
   clearGrass(s);
-  s.paj.path = [{ x: PAJ_PATH_DOWN[1].x, y: PAJ_PATH_DOWN[1].y }, PAJ_PATH_DOWN[0], PAJ_SPOT];
-  s.dog.path = [DOG_PATH_DOWN[1], DOG_PATH_DOWN[0], DOG_SPOT];
+  s.paj.path = [{ x: pajDown(s)[1].x, y: pajDown(s)[1].y }, pajDown(s)[0], cs(s).paj];
+  s.dog.path = [dogDown(s)[1], dogDown(s)[0], cs(s).dog];
   s.dog.reaction = 'none';
   s.dog.hop = 0;
   s.dog.wagMs = 0;
@@ -865,16 +902,17 @@ function beginReturn(s: Companions): void {
 
 /** Goes to the stones with `t` as the throw to make (from the chair, or from the grass), Bestia trotting after him. */
 function beginShore(s: Companions, t: PebbleThrow | null): void {
+  const sp = cs(s).shore;
+  if (!sp) return; // a place without stones never gets here (pebbleRequest says no); never walk to nowhere
   const fromDock = s.mode === 'dock';
   s.mode = 'shore';
   clearGrass(s);
   s.shore = { ...newShore(), cur: t };
-  const T = SHORE_TUNING;
   const p = s.paj;
   const d = s.dog;
   // From the chair: down the planks, then along the front of the dock; from the grass: up to the same line first (clear of the campfire).
-  p.path = fromDock ? [PAJ_PATH_DOWN[0], { x: 140, y: 480 }, { ...T.stand }] : [...(p.y > 488 ? [{ x: Math.max(p.x, 140), y: 484 }] : []), { ...T.stand }];
-  d.path = fromDock ? [DOG_PATH_DOWN[0], { x: 160, y: 488 }, { ...T.dogSit }] : [{ ...T.dogSit }];
+  p.path = fromDock ? [pajDown(s)[0], { ...sp.pajDockVia }, { ...sp.stand }] : [...(p.y > sp.pajLane.belowY ? [{ x: Math.max(p.x, sp.pajLane.minX), y: sp.pajLane.y }] : []), { ...sp.stand }];
+  d.path = fromDock ? [dogDown(s)[0], { ...sp.dogDockVia }, { ...sp.dogSit }] : [{ ...sp.dogVia }, { ...sp.dogSit }];
   p.shape = 'walk';
   d.shape = 'run';
   d.reaction = 'none';
@@ -900,8 +938,8 @@ function beginLeave(s: Companions): void {
   s.paj.shape = 'walk';
   s.dog.shape = 'run';
   s.dog.reaction = 'none';
-  s.paj.path = [...PAJ_PATH_DOWN, PLAY_PAJ].map((p) => ({ ...p }));
-  s.dog.path = [...DOG_PATH_DOWN, PLAY_DOG].map((p) => ({ ...p }));
+  s.paj.path = [...pajDown(s), cs(s).playPaj].map((p) => ({ ...p }));
+  s.dog.path = [...dogDown(s), cs(s).playDog].map((p) => ({ ...p }));
 }
 
 // ---- Movement -----------------------------------------------------------------------------
@@ -943,14 +981,15 @@ function pursue(a: Actor, target: Point, speed: number, dtMs: number, stopAt: nu
 }
 
 /** A playful run on the grass: right, left, right, then in towards the car. */
-function zigzag(from: Point, rng: Rng): Point[] {
+function zigzag(s: Companions, from: Point, rng: Rng): Point[] {
   const pts: Point[] = [];
-  let right = from.x < 200;
+  const z = cs(s).zigzag;
+  let right = from.x < z.midX;
   for (let i = 0; i < 3; i++) {
-    pts.push({ x: right ? rand(rng, 240, 320) : rand(rng, 90, 150), y: rand(rng, 508, 584) });
+    pts.push({ x: right ? rand(rng, z.rightX[0], z.rightX[1]) : rand(rng, z.leftX[0], z.leftX[1]), y: rand(rng, z.y[0], z.y[1]) });
     right = !right;
   }
-  pts.push({ x: rand(rng, 100, 124), y: rand(rng, 548, 566) });
+  pts.push({ x: rand(rng, z.homeX[0], z.homeX[1]), y: rand(rng, z.homeY[0], z.homeY[1]) });
   return pts;
 }
 
@@ -995,8 +1034,8 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
     s.dog.shape = dDone ? 'sit' : 'run';
     if (pDone) {
       s.paj.face = 1;
-      s.paj.x = PAJ_SPOT.x;
-      s.paj.y = PAJ_SPOT.y;
+      s.paj.x = cs(s).paj.x;
+      s.paj.y = cs(s).paj.y;
     }
     if (dDone) s.dog.face = 1;
     if (pDone && dDone) {
@@ -1116,11 +1155,11 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
 function tickDock(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
   const d = s.dog;
   const p = s.paj;
-  d.x = DOG_SPOT.x;
-  d.y = DOG_SPOT.y;
+  d.x = cs(s).dog.x;
+  d.y = cs(s).dog.y;
   d.face = 1;
-  p.x = PAJ_SPOT.x;
-  p.y = PAJ_SPOT.y;
+  p.x = cs(s).paj.x;
+  p.y = cs(s).paj.y;
   p.face = 1;
   d.reactMs += dtMs;
   d.hop = 0;
@@ -1237,11 +1276,11 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
     case 'call':
       d.shape = 'stand';
       if (b.phaseMs >= T.callMs) {
-        const dockStart = onDock(d);
+        const dockStart = onDock(s, d);
         go('chase');
         d.reaction = 'none';
-        p.path = onDock(p) ? PAJ_PATH_DOWN.map((q) => ({ ...q })) : [];
-        d.path = [...(dockStart ? DOG_PATH_DOWN : []), ...zigzag(dockStart ? DOG_PATH_DOWN[1] : d, rng)].map((q) => ({ ...q }));
+        p.path = onDock(s, p) ? pajDown(s).map((q) => ({ ...q })) : [];
+        d.path = [...(dockStart ? dogDown(s) : []), ...zigzag(s, dockStart ? dogDown(s)[1] : d, rng)].map((q) => ({ ...q }));
       }
       break;
     case 'chase': {
@@ -1276,7 +1315,7 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
         d.hop = 0;
         b.carried = true;
         p.shape = 'carry';
-        p.path = [{ ...CAR_STAND }];
+        p.path = [{ ...cs(s).carStand }];
         go('carry');
       }
       break;
@@ -1308,11 +1347,11 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
       const t = Math.min(1, b.phaseMs / T.enterMs);
       b.pajA = 1 - t;
       b.dogA = 1 - t;
-      p.x = CAR_STAND.x - 6 * t;
-      p.y = CAR_STAND.y - 4 * t;
+      p.x = cs(s).carStand.x - 6 * t;
+      p.y = cs(s).carStand.y - 4 * t;
       if (!b.carried) {
-        d.x = CAR_DOG.x - 12 * t;
-        d.y = CAR_DOG.y - 4 * t;
+        d.x = cs(s).carDog.x - 12 * t;
+        d.y = cs(s).carDog.y - 4 * t;
       }
       if (t >= 1) {
         b.door = false;
@@ -1338,10 +1377,10 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
       const t = Math.min(1, b.phaseMs / T.exitOpenMs);
       b.pajA = t;
       b.dogA = t;
-      p.x = CAR_STAND.x - 6 * (1 - t);
-      p.y = CAR_STAND.y - 4 * (1 - t);
-      d.x = CAR_DOG.x - 12 * (1 - t);
-      d.y = CAR_DOG.y - 4 * (1 - t);
+      p.x = cs(s).carStand.x - 6 * (1 - t);
+      p.y = cs(s).carStand.y - 4 * (1 - t);
+      d.x = cs(s).carDog.x - 12 * (1 - t);
+      d.y = cs(s).carDog.y - 4 * (1 - t);
       if (t >= 1) {
         b.door = false;
         go('exitShut');
@@ -1353,8 +1392,8 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
         go('return');
         p.shape = 'walk';
         d.shape = 'run';
-        p.path = [...PAJ_PATH_DOWN].reverse().concat(PAJ_SPOT).map((q) => ({ ...q }));
-        d.path = [...DOG_PATH_DOWN].reverse().concat(DOG_SPOT).map((q) => ({ ...q }));
+        p.path = [...pajDown(s)].reverse().concat(cs(s).paj).map((q) => ({ ...q }));
+        d.path = [...dogDown(s)].reverse().concat(cs(s).dog).map((q) => ({ ...q }));
       }
       break;
     case 'return': {
@@ -1363,8 +1402,8 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
       p.shape = pDone ? 'stand' : 'walk';
       d.shape = dDone ? 'sit' : 'run';
       if (pDone && dDone) {
-        Object.assign(p, PAJ_SPOT, { face: 1 });
-        Object.assign(d, DOG_SPOT, { face: 1 });
+        Object.assign(p, cs(s).paj, { face: 1 });
+        Object.assign(d, cs(s).dog, { face: 1 });
         go('stretch');
         p.shape = 'stretch';
       }
@@ -1389,8 +1428,8 @@ function tickBed(s: Companions, dtMs: number, rng: Rng): void {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-const inArea = (p: Point) => p.x >= PLAY_AREA.x0 && p.x <= PLAY_AREA.x1 && p.y >= PLAY_AREA.y0 && p.y <= PLAY_AREA.y1;
-const clampArea = (p: Point): Point => ({ x: clamp(p.x, PLAY_AREA.x0, PLAY_AREA.x1), y: clamp(p.y, PLAY_AREA.y0, PLAY_AREA.y1) });
+const inArea = (s: Companions, p: Point) => p.x >= s.spots.playArea.x0 && p.x <= s.spots.playArea.x1 && p.y >= s.spots.playArea.y0 && p.y <= s.spots.playArea.y1;
+const clampArea = (s: Companions, p: Point): Point => ({ x: clamp(p.x, s.spots.playArea.x0, s.spots.playArea.x1), y: clamp(p.y, s.spots.playArea.y0, s.spots.playArea.y1) });
 
 /** A stick's opacity: it fades in when it appears and out when the cap pushes it off the grass. */
 export function groundStickAlpha(g: GroundStick): number {
@@ -1514,7 +1553,7 @@ function holdStick(s: Companions): void {
 /** She lets go of the stick she carries: it lies on the grass as an old one. */
 function dropCarried(s: Companions): void {
   if (s.stick.state !== 'carried') return;
-  layStick(s, clampArea({ x: s.dog.x + s.dog.face * 10, y: s.dog.y }), 'old', s.stick.variant);
+  layStick(s, clampArea(s, { x: s.dog.x + s.dog.face * 10, y: s.dog.y }), 'old', s.stick.variant);
   s.stick.state = 'hidden';
 }
 
@@ -1525,11 +1564,11 @@ function pickSpot(s: Companions, from: Point, range: [number, number], rng: Rng)
     const ang = rng() * Math.PI * 2;
     const r = rand(rng, range[0], range[1]);
     spot = { x: from.x + Math.cos(ang) * r, y: from.y + Math.sin(ang) * r * 0.55 };
-    if (inArea(spot) && s.sticks.every((g) => dist(g, spot) >= PLAY_TUNING.stickGap) && dist(s.dog, spot) >= PLAY_TUNING.dogGap) return spot;
+    if (inArea(s, spot) && s.sticks.every((g) => dist(g, spot) >= PLAY_TUNING.stickGap) && dist(s.dog, spot) >= PLAY_TUNING.dogGap) return spot;
   }
   // Nothing fitted (a cramped lawn): it lies where it would, and the oldest old stick fades to make room.
   fadeOldest(s);
-  return clampArea(spot);
+  return clampArea(s, spot);
 }
 
 /**
@@ -1543,7 +1582,7 @@ function pickTarget(s: Companions, rng: Rng): Point {
   let bestClear = -1;
   let farthest: Point = p;
   for (let i = 0; i < 40; i++) {
-    const t = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
+    const t = { x: rand(rng, s.spots.playArea.x0, s.spots.playArea.x1), y: rand(rng, s.spots.playArea.y0, s.spots.playArea.y1) };
     const dd = dist(t, p);
     if (dist(t, p) > dist(farthest, p)) farthest = t;
     if (dd < lo || dd > hi) continue;
@@ -1571,16 +1610,16 @@ function segDist(p: Point, a: Point, b: Point): number {
  * Where she runs next: a far point on the grass, away from him, on a line that does not run past
  * his nose (she is never caught). Several are tried and the best-scoring one is taken.
  */
-function chaseWaypoint(from: Point, chaser: Point, heading: Point, rng: Rng): Point {
+function chaseWaypoint(s: Companions, from: Point, chaser: Point, heading: Point, rng: Rng): Point {
   let best: Point = from;
   let bestScore = -Infinity;
   const T = PLAY_TUNING;
   // Near an edge (above all the car's side) she must head back into the lawn, not along the wall.
-  const ex = from.x < PLAY_AREA.x0 + T.edgeMarginX ? 1 : from.x > PLAY_AREA.x1 - T.edgeMarginX ? -1 : 0;
-  const ey = from.y < PLAY_AREA.y0 + T.edgeMarginY ? 1 : from.y > PLAY_AREA.y1 - T.edgeMarginY ? -1 : 0;
+  const ex = from.x < s.spots.playArea.x0 + T.edgeMarginX ? 1 : from.x > s.spots.playArea.x1 - T.edgeMarginX ? -1 : 0;
+  const ey = from.y < s.spots.playArea.y0 + T.edgeMarginY ? 1 : from.y > s.spots.playArea.y1 - T.edgeMarginY ? -1 : 0;
   const cornered = ex !== 0 || ey !== 0;
   for (let i = 0; i < 12; i++) {
-    const wp = { x: rand(rng, PLAY_AREA.x0, PLAY_AREA.x1), y: rand(rng, PLAY_AREA.y0, PLAY_AREA.y1) };
+    const wp = { x: rand(rng, s.spots.playArea.x0, s.spots.playArea.x1), y: rand(rng, s.spots.playArea.y0, s.spots.playArea.y1) };
     // No sharp reversals: she turns, she does not run back past him (but at an edge turning back is the point).
     const reverses = !cornered && (wp.x - from.x) * heading.x + (wp.y - from.y) * heading.y < 0;
     const inwards = (ex === 0 || (wp.x - from.x) * ex >= 40) && (ey === 0 || (wp.y - from.y) * ey >= 12);
@@ -1626,7 +1665,7 @@ const WALK_MIN_PX = 5;
 function tickPlay(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
   tickPlayPhase(s, dtMs, ctx, rng);
   const p = s.paj;
-  if (ctx.fire) nudgeOffFire(p, (60 * dtMs) / 1000);
+  if (ctx.fire) nudgeOffFire(p, (60 * dtMs) / 1000, s.spots);
   const a = p.walkAnchor;
   a.ms += dtMs;
   if (dist(a, p) >= WALK_MIN_PX) {
@@ -1743,12 +1782,12 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
         const sign = rng() < 0.5 ? 1 : -1;
         const make = (sg: number): Point => ({ x: d.x + (vx / len) * T.dodgeAway + px * sg * T.dodgeSide, y: d.y + ((vy / len) * T.dodgeAway + py * sg * T.dodgeSide) * 0.6 });
         // The side with more room: a hop into the edge would be clamped short and leave her cornered.
-        const room = (q: Point) => Math.min(q.x - PLAY_AREA.x0, PLAY_AREA.x1 - q.x, (q.y - PLAY_AREA.y0) * 2.5, (PLAY_AREA.y1 - q.y) * 2.5);
+        const room = (q: Point) => Math.min(q.x - s.spots.playArea.x0, s.spots.playArea.x1 - q.x, (q.y - s.spots.playArea.y0) * 2.5, (s.spots.playArea.y1 - q.y) * 2.5);
         let to = make(sign);
         const other = make(-sign);
-        if (!inArea(to) || (room(to) < 12 && room(other) > room(to))) to = other;
+        if (!inArea(s, to) || (room(to) < 12 && room(other) > room(to))) to = other;
         pl.hopFrom = { x: d.x, y: d.y };
-        pl.hopTo = clampArea(to);
+        pl.hopTo = clampArea(s, to);
         pl.chaseMs = rand(rng, T.chaseMs[0], T.chaseMs[1]);
         d.wagMs = 0;
         go(pl, 'dodge');
@@ -1765,7 +1804,7 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
         if (gd < T.minGap && gd > 0) {
           p.x = d.x + ((p.x - d.x) / gd) * T.minGap;
           p.y = d.y + ((p.y - d.y) / gd) * T.minGap;
-          Object.assign(p, clampArea(p));
+          Object.assign(p, clampArea(s, p));
         }
         p.shape = 'walk';
       } else p.shape = 'stand';
@@ -1785,7 +1824,7 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
         holdStick(s);
         if (t >= 1) {
           d.hop = 0;
-          d.path = [chaseWaypoint(d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
+          d.path = [chaseWaypoint(s, d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
           pl.nearMs = 0;
           pl.nearIn = rand(rng, T.nearMissEveryMs[0], T.nearMissEveryMs[1]);
           go(pl, 'keepAway');
@@ -1806,8 +1845,8 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
       // A waypoint he has walked up to would pin her against him: forget it and choose another.
       while (d.path.length > 0 && dist(d.path[0], p) < T.minGap + 8) d.path.shift();
       // The next turn is chosen before she gets to the corner, so she curves instead of stopping.
-      if (d.path.length === 0) d.path = [chaseWaypoint(d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
-      else if (d.path.length === 1 && dist(d, d.path[0]) < 45) d.path.push(chaseWaypoint(d.path[0], p, { x: d.path[0].x - d.x, y: d.path[0].y - d.y }, rng));
+      if (d.path.length === 0) d.path = [chaseWaypoint(s, d, p, { x: d.x - p.x, y: d.y - p.y }, rng)];
+      else if (d.path.length === 1 && dist(d, d.path[0]) < 45) d.path.push(chaseWaypoint(s, d.path[0], p, { x: d.path[0].x - d.x, y: d.path[0].y - d.y }, rng));
       const dFrom = { x: d.x, y: d.y };
       // While she hugs him and slides round, her waypoint is not followed until it points away from him:
       // otherwise the step towards it and the slide (the other way, round the side with room) undo each
@@ -1841,7 +1880,7 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
           return { x: p.x + ux * T.minGap, y: p.y + uy * T.minGap };
         };
         /** How far a spot is off the lawn. */
-        const off = (q: Point) => Math.hypot(q.x - clamp(q.x, PLAY_AREA.x0, PLAY_AREA.x1), q.y - clamp(q.y, PLAY_AREA.y0, PLAY_AREA.y1));
+        const off = (q: Point) => Math.hypot(q.x - clamp(q.x, s.spots.playArea.x0, s.spots.playArea.x1), q.y - clamp(q.y, s.spots.playArea.y0, s.spots.playArea.y1));
         // Which way round: the side with room to get past him (a quarter turn on), else the way her waypoint lies.
         const pass = (sg: number) => off(around(sg * 1.75));
         if (pl.slide === 0 || off(around(pl.slide * arc)) > 3) {
@@ -1851,7 +1890,7 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
           if (Math.min(pw, po) > 8) d.path = []; // boxed in against the edge: a new way out is chosen
         }
         const at = (sg: number): Point => around(sg * arc);
-        const away = clampArea(at(pl.slide));
+        const away = clampArea(s, at(pl.slide));
         d.x = away.x;
         d.y = away.y;
         const g3 = dist(p, d);
@@ -1859,13 +1898,13 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
           // She is cornered at the edge: he gives way a step.
           p.x = d.x + ((p.x - d.x) / g3) * T.minGap;
           p.y = d.y + ((p.y - d.y) / g3) * T.minGap;
-          Object.assign(p, clampArea(p));
+          Object.assign(p, clampArea(s, p));
         }
       } else pl.slide = 0;
       if (pl.phaseMs >= pl.chaseMs) {
         // She trots off a few steps, pleased with herself.
         const gap = dist(p, d) || 1;
-        d.path = [clampArea({ x: p.x + ((d.x - p.x) / gap) * T.giveUpDist, y: p.y + ((d.y - p.y) / gap) * T.giveUpDist })];
+        d.path = [clampArea(s, { x: p.x + ((d.x - p.x) / gap) * T.giveUpDist, y: p.y + ((d.y - p.y) / gap) * T.giveUpDist })];
         d.hop = 0;
         p.shape = 'stand';
         endRound(s, rng);
@@ -1964,10 +2003,10 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
         d.reaction = 'none';
         if (napDue(ctx, rng)) {
           go(pl, 'napGo');
-          d.path = [{ ...DOG_BED_SPOT }];
+          d.path = [{ ...bedSpot(s.spots) }];
         } else {
           go(pl, 'rest');
-          d.path = [{ x: p.x + 30, y: clamp(p.y + 4, PLAY_AREA.y0, PLAY_AREA.y1) }];
+          d.path = [{ x: p.x + 30, y: clamp(p.y + 4, s.spots.playArea.y0, s.spots.playArea.y1) }];
         }
       }
       break;
@@ -1983,8 +2022,8 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
     case 'napCircle': {
       // One turn on the spot, a little hop on each flip, then down she goes.
       p.shape = 'stand';
-      d.x = DOG_BED_SPOT.x;
-      d.y = DOG_BED_SPOT.y;
+      d.x = bedSpot(s.spots).x;
+      d.y = bedSpot(s.spots).y;
       d.shape = 'stand';
       const slot = NAP_TUNING.circleMs / 3;
       d.face = Math.floor(pl.phaseMs / slot) % 2 === 0 ? -1 : 1;
@@ -2020,7 +2059,7 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
       if (pl.phaseMs >= pl.wakeMs) {
         d.wagMs = 0;
         go(pl, 'rest');
-        d.path = [{ x: p.x + 30, y: clamp(p.y + 4, PLAY_AREA.y0, PLAY_AREA.y1) }];
+        d.path = [{ x: p.x + 30, y: clamp(p.y + 4, s.spots.playArea.y0, s.spots.playArea.y1) }];
       }
       break;
     }
@@ -2079,7 +2118,7 @@ export function pajWalkFrame(s: Companions): number {
 /** Dev helper (?debug=bedrest): play mode with Bestia already curled up asleep in her bed. */
 export function startNapNow(s: Companions): void {
   startPlayNow(s);
-  Object.assign(s.dog, DOG_BED_SPOT, { shape: 'curl', face: 1, path: [] });
+  Object.assign(s.dog, bedSpot(s.spots), { shape: 'curl', face: 1, path: [] });
   go(s.play, 'napCurl');
   s.play.napMs = NAP_TUNING.curlMs[1];
 }

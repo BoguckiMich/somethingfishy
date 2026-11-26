@@ -4,12 +4,12 @@ import { vary } from '../core/variation';
 import type { AudioGraph } from './AudioEngine';
 import { burst, tone } from './synth';
 
-export const AMBIENT_LAYERS = ['water', 'birds', 'frogs', 'crickets', 'drone', 'rain', 'wind', 'fire'] as const;
+export const AMBIENT_LAYERS = ['water', 'birds', 'frogs', 'crickets', 'drone', 'rain', 'wind', 'fire', 'current'] as const;
 export type AmbientLayer = (typeof AMBIENT_LAYERS)[number];
 export type LayerGains = Record<AmbientLayer, number>;
 
 /** Loudness of each layer at gain 1: the ambience sits well under the effects. */
-const LEVEL: LayerGains = { water: 0.28, birds: 0.5, frogs: 0.42, crickets: 0.05, drone: 0.5, rain: 0.4, wind: 0.36, fire: 0.42 };
+const LEVEL: LayerGains = { water: 0.28, birds: 0.5, frogs: 0.42, crickets: 0.05, drone: 0.5, rain: 0.4, wind: 0.36, fire: 0.42, current: 0.4 };
 /** Seconds the layer gains take to follow the time of day (a smooth crossfade). */
 const FADE_TC = 1.2;
 /** The drone swells in and out more slowly than the rest (seconds). */
@@ -28,7 +28,7 @@ const AUDIBLE = 0.03;
  */
 export class AmbientBed {
   private layers = {} as Record<AmbientLayer, GainNode>;
-  private targets: LayerGains = { water: 0, birds: 0, frogs: 0, crickets: 0, drone: 0, rain: 0, wind: 0, fire: 0 };
+  private targets: LayerGains = { water: 0, birds: 0, frogs: 0, crickets: 0, drone: 0, rain: 0, wind: 0, fire: 0, current: 0 };
   private frogFilter: BiquadFilterNode;
   private sources: (AudioScheduledSourceNode | undefined)[] = [];
   private timers: Partial<Record<CallKind, ReturnType<typeof setTimeout>>> = {};
@@ -58,6 +58,7 @@ export class AmbientBed {
     this.buildRain();
     this.buildWind();
     this.buildFire();
+    this.buildCurrent();
     this.schedule('birds');
     this.schedule('frogs');
     this.schedule('drops');
@@ -68,7 +69,7 @@ export class AmbientBed {
   setTargets(t: LayerGains): void {
     this.targets = { ...t };
     const now = this.g.ctx.currentTime;
-    for (const l of AMBIENT_LAYERS) this.layers[l].gain.setTargetAtTime(t[l] * LEVEL[l], now, l === 'drone' ? DRONE_FADE_TC : l === 'rain' || l === 'wind' ? WEATHER_FADE_TC : FADE_TC);
+    for (const l of AMBIENT_LAYERS) this.layers[l].gain.setTargetAtTime(t[l] * LEVEL[l], now, l === 'drone' ? DRONE_FADE_TC : l === 'rain' || l === 'wind' || l === 'current' ? WEATHER_FADE_TC : FADE_TC);
   }
 
   stop(): void {
@@ -292,6 +293,29 @@ export class AmbientBed {
     roarGain.gain.value = 0.3;
     this.wobble(0.31, 0.1, roarGain.gain);
     this.noiseLoop().connect(roar).connect(roarGain).connect(this.layers.fire);
+  }
+
+  /**
+   * The river current (M2 groundwork B), a different character from the rain's broadband hiss: a dark body of rushing water that swells very slowly,
+   * a mid "babble" band whose centre wanders and whose loudness burbles faster, and a thin high gurgle over the gravel riffle. No hiss above ~3 kHz.
+   * Not yet heard by its author: the levels and rates are an educated guess, to be tuned by listening.
+   */
+  private buildCurrent(): void {
+    const { ctx } = this.g;
+    const band = (type: BiquadFilterType, hz: number, q: number, level: number, driftHz: number, drift: number, swellHz: number, swell: number): void => {
+      const filter = ctx.createBiquadFilter();
+      filter.type = type;
+      filter.frequency.value = hz;
+      filter.Q.value = q;
+      if (drift > 0) this.wobble(driftHz, drift, filter.frequency);
+      const gain = ctx.createGain();
+      gain.gain.value = level;
+      this.wobble(swellHz, swell, gain.gain);
+      this.noiseLoop().connect(filter).connect(gain).connect(this.layers.current);
+    };
+    band('lowpass', 340, 0.7, 0.6, 0.05, 40, 0.07, 0.22); // the weight of the water, a slow swell
+    band('bandpass', 1050, 1.1, 0.3, 0.17, 260, 0.37, 0.12); // the babble
+    band('bandpass', 2300, 2.2, 0.1, 0.29, 500, 0.91, 0.06); // a thin gurgle over the stones
   }
 
   private schedule(kind: CallKind): void {
