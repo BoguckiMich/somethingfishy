@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WEATHER_IDS, WEATHER_LOOK, WEATHER_TUNING, type WeatherId } from '../data/weather';
-import { WEATHER_LINES, WEATHER_NIGHT_LINES, weatherLinesFor } from '../data/pajkelLines';
+import { FOG_LIFTED_LINES, WEATHER_LINES, WEATHER_NIGHT_LINES, weatherLinesFor } from '../data/pajkelLines';
 import { speciesById } from '../data/fish';
 import { QUIET_LAKE } from '../data/locations';
 import { candidates, fightProfile, pickSpecies, spawnWeight } from '../fish';
