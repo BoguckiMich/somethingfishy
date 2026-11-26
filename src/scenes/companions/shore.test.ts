@@ -260,12 +260,12 @@ describe('busy, asleep, fishing', () => {
   });
 
   it('during a fight (or the catch card, a cast in the air) no new throw starts', () => {
-    for (const k of ['fighting', 'caught', 'charging', 'casting', 'retrieving', 'lost']) {
+    for (const k of ['fighting', 'caught', 'charging', 'retrieving', 'lost']) {
       const { s } = fresh();
       expect(pebbleRequest(s, TAP, k)).toBe('no');
       expect(s.mode).toBe('dock');
     }
-    for (const k of ['idle', 'waiting', 'bite']) expect(pebbleRequest(fresh().s, TAP, k)).toBe('started');
+    for (const k of ['idle', 'waiting', 'casting', 'bite']) expect(pebbleRequest(fresh().s, TAP, k)).toBe('started');
   });
 
   it('at the stones, a throw queued before the fish was hooked and a fight that starts: nothing more is thrown', () => {
@@ -276,8 +276,10 @@ describe('busy, asleep, fishing', () => {
     runUntil(s, rng, () => s.shore.phase === 'watch');
     pebbleLanded(s, 3, rng);
     // The fight began meanwhile: the queued throw is not started.
-    expect(runUntil(s, rng, () => s.shore.phase === 'idle', 20_000, 'fighting')).toBeGreaterThan(0);
+    run(s, rng, 20_000, 'fighting');
     expect(s.release).toBeNull();
+    expect(s.mode).toBe('shore');
+    // Once the fight is over the queued throw is let go (a fresh tap is needed) or he goes on as usual.
   });
 
   it('bedtime at the stones ends the outing at once', () => {
@@ -288,6 +290,33 @@ describe('busy, asleep, fishing', () => {
     expect(s.mode).toBe('bed');
     expect(s.pebbleWant).toBeNull();
     expect(s.shore.cur).toBeNull();
+  });
+});
+
+describe('the fight', () => {
+  it('the hook press does not send him back from the stones', () => {
+    const { s, rng } = fresh();
+    pebbleRequest(s, TAP, 'waiting');
+    run(s, rng, 3000);
+    companionPress(s, 'bite');
+    companionPress(s, 'fighting');
+    expect(s.mode).toBe('shore');
+    expect(s.shore.leave).toBe(false);
+  });
+
+  it('his walk-back timer stands still during a fight and the catch card, then runs on', () => {
+    const { s, rng } = fresh();
+    pebbleRequest(s, TAP, 'idle');
+    throwUntilRelease(s, rng);
+    runUntil(s, rng, () => s.shore.phase === 'watch');
+    pebbleLanded(s, 3, rng);
+    runUntil(s, rng, () => s.shore.phase === 'idle');
+    companionEvent(s, 'hooked');
+    run(s, rng, 30_000, 'fighting');
+    expect(s.mode).toBe('shore');
+    run(s, rng, 30_000, 'caught');
+    expect(s.mode).toBe('shore');
+    expect(runUntil(s, rng, () => s.mode === 'returning', 20_000, 'idle')).toBeGreaterThan(0);
   });
 });
 

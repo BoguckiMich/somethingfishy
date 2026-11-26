@@ -15,7 +15,7 @@ export const SKIP_TUNING = {
   /** The flick speed is measured over the last this many ms before the release. */
   sampleMs: 110,
   /** Flick speed (px per ms) that reaches 2, 3, 4 and 5 skips; slower is 1. */
-  speedSteps: [0.3, 0.7, 1.2, 1.9] as readonly number[],
+  speedSteps: [0.3, 0.7, 1.2, 1.43] as readonly number[],
   /** The first touch-down, the gap to the second (both in m from the dock), and how the gaps shrink. */
   firstM: 5,
   gapM: 5,

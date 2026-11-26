@@ -113,7 +113,7 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipText, throwFor, type FlickSample } from '../core/skipping';
 import { pebbleRoute } from './pebbleRoute';
@@ -606,6 +606,8 @@ export class LakeScene extends Phaser.Scene {
   /** Dev flag ?debug=pebbles&pebbleAt=ms: the pebble's animation stops at that age (a screenshot of it mid-skip). */
   private pebbleFrozen = false;
   private lastWoofMs = 0;
+  /** The big skip numbers over the rings (slice 26b). */
+  private pebbleDigits: Phaser.GameObjects.Text[] = [];
   /** The stones' picture (Quiet Lake only). */
   private stonesImg: Phaser.GameObjects.Image | null = null;
   /** Fetch rounds already counted for the Stick Museum. */
@@ -869,7 +871,7 @@ export class LakeScene extends Phaser.Scene {
         this.freezeCaught = false;
         this.state = { ...this.state, shownMs: FIGHT_TUNING.showOffGuardMs };
       }
-      companionPress(this.companions.state);
+      companionPress(this.companions.state, this.state.kind);
       this.send({ type: 'press' });
     });
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
@@ -992,7 +994,7 @@ export class LakeScene extends Phaser.Scene {
     if (objectPressOutcome(od.heldMs, this.holdHit(od.obj, p.worldX, p.worldY)) === 'charge') {
       this.objDown = null;
       this.swallowUp = false;
-      companionPress(this.companions.state);
+      companionPress(this.companions.state, this.state.kind);
       this.send({ type: 'press' }); // the meter starts from zero here
     }
   }
@@ -2165,32 +2167,25 @@ export class LakeScene extends Phaser.Scene {
     }
   }
 
-  /** A 3x5 pixel digit (1-5) drawn at 2x, cream with a dark edge, centred on x. */
-  private drawDigit(g: Phaser.GameObjects.Graphics, n: number, x: number, y: number, alpha: number, tintFx: (c: number) => number): void {
-    const rows: Record<number, string[]> = {
-      1: ['010', '110', '010', '010', '111'],
-      2: ['111', '001', '111', '100', '111'],
-      3: ['111', '001', '111', '001', '111'],
-      4: ['101', '101', '111', '001', '001'],
-      5: ['111', '100', '111', '001', '111'],
-    };
-    const rs = rows[n];
-    if (!rs) return;
-    const x0 = x - 3;
-    for (const [dx, dy, col] of [[-1, 0, PAL.outline], [1, 0, PAL.outline], [0, -1, PAL.outline], [0, 1, PAL.outline], [0, 0, PAL.white]] as const) {
-      g.fillStyle(col === PAL.white ? tintFx(PAL.white) : col, alpha);
-      rs.forEach((row, ry) => [...row].forEach((c, rx) => { if (c === '1') g.fillRect(x0 + rx * 2 + dx * 1, y + ry * 2 + dy * 1, 2, 2); }));
-    }
-  }
-
   private drawPebble(g: Phaser.GameObjects.Graphics, tintFx: (c: number) => number): void {
+    // The count of each skip: a big number over its ring that rises a few px and fades (slice 26b follow-up).
+    const counted = this.pebbleRings.filter((r) => r.n > 0);
+    while (this.pebbleDigits.length < 5) {
+      this.pebbleDigits.push(
+        this.add.text(0, 0, '', { fontFamily: FONT, fontSize: `${FS.small}px`, color: '#fff6e0', stroke: '#241a2e', strokeThickness: 2, padding: textPad(2, 1) }).setOrigin(0.5, 1).setDepth(Z.angler + 0.7).setVisible(false),
+      );
+    }
+    this.pebbleDigits.forEach((t, i) => {
+      const r = counted[i];
+      t.setVisible(r !== undefined);
+      if (r) t.setText(String(r.n)).setPosition(Math.round(r.x), Math.round(r.y - 6 - Math.min(1, r.age / 600) * 8)).setAlpha(Math.min(1, (900 - r.age) / 300));
+    });
     for (const r of this.pebbleRings) {
       const t = r.age / 900;
       const k = r.big ? 1.5 : 1;
       pixelEllipse(g, r.x, r.y, (2 + t * 9) * k, (0.8 + t * 3.2) * k, tintFx(PAL.foam), (1 - t) * 0.9);
       if (t > 0.25) pixelEllipse(g, r.x, r.y, (2 + (t - 0.25) * 9) * k, (0.8 + (t - 0.25) * 3.2) * k, tintFx(PAL.foam), (1 - t) * 0.5);
       // The count of this skip pops up above its ring and drifts up.
-      if (r.n > 0) this.drawDigit(g, r.n, Math.round(r.x), Math.round(r.y - 8 - Math.min(1, r.age / 500) * 6), Math.min(1, (900 - r.age) / 300), tintFx);
     }
     const p = this.pebble;
     if (!p) return;
@@ -2236,7 +2231,7 @@ export class LakeScene extends Phaser.Scene {
     if (this.holdHit('crate', x, y)) return this.objectTouched('crate');
     if (this.holdHit('board', x, y)) return this.objectTouched('board');
     // The skipping stones: a press on them asks Pajkel to throw on release, never starts a cast and never scares a fish (idle or waiting only).
-    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.sleepFade && this.hits.stones?.contains(x, y)) {
+    if (pebblesAllowed(this.state.kind) && this.state.kind !== 'bite' && !this.sleepFade && this.hits.stones?.contains(x, y)) {
       this.stoneDown = { x, y, samples: [{ x, y, t: performance.now() }] };
       this.markHint('stones');
       return true;

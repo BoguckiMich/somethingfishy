@@ -553,8 +553,10 @@ const ROUND_END_MS = 600;
  * A fetch round in progress is played to its end first (she brings the stick back or keeps it), then they walk back; between rounds they go at once.
  * At the stones he finishes the throw in hand and then walks back; with nothing in hand he goes at once.
  */
-export function companionPress(s: Companions): void {
+export function companionPress(s: Companions, fishing = 'idle'): void {
   s.idleMs = 0;
+  // The hook press (and any press in the fight or on the catch card) does not send him back from the stones: he stays, cheers, and goes when it is over.
+  if (s.mode === 'shore' && (fishing === 'bite' || fishing === 'fighting' || fishing === 'caught')) return;
   s.pebbleWant = null;
   if (s.mode === 'leaving') beginReturn(s);
   else if (s.mode === 'play') {
@@ -568,8 +570,8 @@ export function companionPress(s: Companions): void {
   }
 }
 
-/** What the stones do for a tap while fishing is in `fishing`: only while she is idle, waiting or has a bite (never mid-cast, fight, show-off). */
-export const pebblesAllowed = (fishing: string): boolean => fishing === 'idle' || fishing === 'waiting' || fishing === 'bite';
+/** What the stones do for a tap while fishing is in `fishing`: only while she is idle, casting, waiting or has a bite (never in a fight or the show-off). */
+export const pebblesAllowed = (fishing: string): boolean => fishing === 'idle' || fishing === 'waiting' || fishing === 'casting' || fishing === 'bite';
 
 /**
  * A tap or swipe on the stones (slice 26b). Pajkel does the throwing:
@@ -1023,6 +1025,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
   const d = s.dog;
   const T = SHORE_TUNING;
   sh.phaseMs += dtMs;
+  const fighting = ctx.fishing === 'fighting' || ctx.fishing === 'caught';
   // Bestia trots over and sits beside him, looking at the water; a woof is a small hop.
   const dDone = follow(d, DOG_RUN_SPEED * 0.7, dtMs);
   d.hop = s.woofMs > 0 ? Math.abs(Math.sin(s.woofMs / 90)) * 2 : 0;
@@ -1087,7 +1090,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
     }
     case 'react': {
       p.shape = 'stand';
-      if (sh.phaseMs >= sh.reactTotalMs) {
+      if (sh.phaseMs >= sh.reactTotalMs && !fighting) {
         sh.cur = null;
         if (sh.leave) {
           beginReturn(s);
@@ -1104,7 +1107,7 @@ function tickShore(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng)
     case 'idle': {
       p.shape = 'stand';
       p.face = -1;
-      sh.idleMs += dtMs;
+      if (!fighting) sh.idleMs += dtMs; // the walk-back timer stands still during a fight and the catch card
       if (sh.idleMs >= T.idleBackMs) beginReturn(s);
       break;
     }

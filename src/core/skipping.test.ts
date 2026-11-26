@@ -7,7 +7,7 @@ const DAY2 = '2026-11-27';
 
 describe('flick speed to skips', () => {
   it('goes from 1 to 5 with the speed and never beyond', () => {
-    expect([0, 0.1, 0.3, 0.5, 0.7, 1, 1.2, 1.5, 1.9, 5, 99].map(skipsForSpeed)).toEqual([1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5]);
+    expect([0, 0.1, 0.3, 0.5, 0.7, 1, 1.2, 1.5, 1.9, 5, 99].map(skipsForSpeed)).toEqual([1, 1, 2, 2, 3, 3, 4, 5, 5, 5, 5]);
   });
 
   it('measures the speed over the last 110 ms only', () => {
