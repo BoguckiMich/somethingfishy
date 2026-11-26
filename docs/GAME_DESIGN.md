@@ -799,6 +799,18 @@ things (Quiet Lake as today; River bend the spinning rod and river gear, slice 2
 ~4 h then fits the first chapter (it ends near the road fix), and River bend opens a fresh shop. Later idea: a
 "travelling merchant" with one rotating daily special (retention).
 
+### Feeding Bestia (slice 30; testers asked, rules set by the main session 2026-11-26 while the user was away, user may veto)
+- A small blue food bowl stands on the grass by the car from the start (free). Dog treats are sold everywhere in
+  the shop, basics section: "Dog treats x5", 25 coins.
+- Tap the bowl with treats: one treat goes in, she trots over (from play, the dock or her bed; not from the car or
+  while asleep at night), eats (2-frame munch), wags, a heart pops. Without treats: a kind line "Out of treats.
+  The shop has some." Panels, fights and bedtime block it like other shore taps (the tap never moves the rod).
+- No hunger, no stats, she is never sad or hungry. The first feed of a real day gives a small cozy bonus: her next
+  finished fetch round counts as a stick round for the Stick Museum (still capped at 2 new sticks a day), and
+  Pajkel says a line ("Spoiled. Good."). Later feeds the same day: she eats happily, no bonus; at most 3 a day
+  (then "She's full. Look at that belly.").
+- Saved: treats count in the inventory, the last feed date and today's count in PlayerState (optional fields).
+
 ### Ideas (not scheduled)
 - **Our own catch mechanic:** decided, see "Catch mechanic v2" above (slice 28).
 - **Feed Bestia (testers, 2026-11-26):** players want to feed the dog. Open questions: what (treats from the
