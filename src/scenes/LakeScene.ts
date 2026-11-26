@@ -95,7 +95,7 @@ import {
   type BagFish,
   type PlayerState,
 } from '../core/inventory';
-import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
+import { FIGHT_TUNING, INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import type { SoundSettings } from '../core/soundSettings';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, normalizeProfile, saveProfile, type Profile } from '../core/profile';
 import { EN, setTextContext, tr, WATER_BY_BACKGROUND } from '../i18n/en';
@@ -586,6 +586,7 @@ export class LakeScene extends Phaser.Scene {
   private lateLine: string | null = null;
   /** New gear waits in the shop (a bundle just unlocked it); cleared when she opens the shop. */
   private shopDot = false;
+  private gearToastTimer: Phaser.Time.TimerEvent | undefined;
   private objDown: { obj: ShoreObject; heldMs: number } | null = null;
   /** A press that started on the skipping stones (slice 26): where, and the drag so far; null otherwise. */
   private stoneDown: { x: number; y: number; samples: FlickSample[] } | null = null;
@@ -852,6 +853,11 @@ export class LakeScene extends Phaser.Scene {
         this.swallowUp = true;
         this.blockedCast();
         return;
+      }
+      // Dev only: the ?debug=caught card is frozen (no ticks, so the guard never passes); a tap thaws it and dismisses it.
+      if (this.freezeCaught && this.state.kind === 'caught') {
+        this.freezeCaught = false;
+        this.state = { ...this.state, shownMs: FIGHT_TUNING.showOffGuardMs };
       }
       companionPress(this.companions.state);
       this.send({ type: 'press' });
@@ -1236,7 +1242,8 @@ export class LakeScene extends Phaser.Scene {
           // This bundle opened some gear in the shop (A3): a dot on the Shop button until she opens it, and a second toast.
           if (gearOpenedBy(bundle.id, this.player).length > 0) {
             this.shopDot = true;
-            this.time.delayedCall(2600, () => this.showToast(EN.newGearInShop));
+            this.gearToastTimer?.remove();
+            this.gearToastTimer = this.time.delayedCall(2600, () => this.showToast(EN.newGearInShop));
           }
           if (allFixed) {
             this.panel?.close();
@@ -1747,7 +1754,15 @@ export class LakeScene extends Phaser.Scene {
   private openPlayerPanel(kind: 'bag' | 'shop' | 'log' | 'bait' | 'settings', startWith?: string, tab?: 'fish' | 'sticks'): void {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
-    if (kind === 'shop') this.shopDot = false;
+    if (kind === 'shop') {
+      // Opening the shop answers the cue: the dot goes, and so does the toast if it is showing, queued or about to come.
+      this.shopDot = false;
+      this.gearToastTimer?.remove();
+      this.gearToastTimer = undefined;
+      const gearText = tr(EN.newGearInShop);
+      this.pendingToasts = this.pendingToasts.filter((t) => tr(t) !== gearText);
+      if (this.toast.text === gearText) this.toastAge = Infinity;
+    }
     const store = {
       get: () => this.player,
       set: (p: PlayerState) => {
@@ -2050,6 +2065,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** The crate card: offers the box; taking it grants the contents and saves. Only while idle. */
   private openBaitBox(): void {
+    if (this.state.kind === 'waiting' && !this.panel && this.crateVisible()) this.showToast(EN.reelInForBait); // a tap here never reels in
     if (this.state.kind !== 'idle' || this.panel || !this.crateVisible()) return;
     this.swallowUp = false;
     this.markHint('crate');
@@ -2256,7 +2272,7 @@ export class LakeScene extends Phaser.Scene {
       case 'car':
         return this.hits.car.contains(x, y);
       case 'crate':
-        return (k === 'idle' || k === 'charging') && this.crateVisible() && this.hits.crate.contains(x, y);
+        return (k === 'idle' || k === 'waiting' || k === 'charging') && this.crateVisible() && this.hits.crate.contains(x, y);
       case 'sign':
         return on && this.hits.sign.contains(x, y);
       case 'chair':
@@ -2879,7 +2895,8 @@ export class LakeScene extends Phaser.Scene {
     this.wormCue
       .setVisible(this.wormCueAge < 1200)
       .setAlpha(Math.min(1, (1200 - this.wormCueAge) / 400))
-      .setPosition(baitChipRect().centerX, baitChipRect().y - 16 - this.wormCueAge / 100);
+      // On the catch card it floats up by the HUD's right side, clear of the strip at the bottom and the bait chip.
+      .setPosition(this.state.kind === 'caught' ? W - 44 : baitChipRect().centerX, (this.state.kind === 'caught' ? 118 : baitChipRect().y - 16) - this.wormCueAge / 100);
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.warnAge += _deltaMs;
     this.warnText.setVisible(this.warnAge < WARN_MS).setAlpha(Math.min(1, (WARN_MS - this.warnAge) / 400));

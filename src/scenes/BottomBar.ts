@@ -102,9 +102,9 @@ export class BottomBar {
       label.setAlpha(a);
       if (id === 'shop' && v.shopDot) {
         // A gold dot on the button's top right corner, breathing a little.
-        const bx = r.right - 7;
-        const by = r.y + 1;
-        g.fillStyle(PAL.outline).fillRect(bx, by, 8, 8).fillStyle(PAL.gold).fillRect(bx + 1, by + 1, 6, 6).fillStyle(PAL.white, 0.8).fillRect(bx + 2, by + 2, 2, 2);
+        const bx = r.right - 9;
+        const by = r.y - 3;
+        g.fillStyle(PAL.outline).fillRect(bx, by, 12, 12).fillStyle(PAL.gold).fillRect(bx + 1, by + 1, 10, 10).fillStyle(PAL.white, 0.8).fillRect(bx + 2, by + 2, 3, 3);
       }
     });
   }
