@@ -19,6 +19,8 @@ import type { ChecklistState } from './checklist/checklist';
 import type { MilestoneFlags, StoryState } from './story/story';
 import { gearUnlocked } from './gearGates';
 import { QUIET_LAKE_STOCK, sold, type ShopStock } from './data/shopStock';
+import { TREATS } from './data/treats';
+import { addTreats } from './feeding';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -83,6 +85,11 @@ export interface PlayerState {
   /** Pebble skipping (slice 26): the best skips of one throw, and the real date Pajkel last said his record line. Read with skipsBestOf(). */
   skipsBest?: number;
   skipsLineDay?: string;
+  /** Feeding Bestia (slice 30): dog treats in the bag, the real date she last ate and how many treats that day, and the cozy bonus waiting (her next finished fetch round counts as a stick round). Read with treatsOf() / fedToday() / cozyPending() (core/feeding.ts). */
+  treats?: number;
+  fedDay?: string;
+  fedDayN?: number;
+  cozy?: true;
 }
 
 export function newPlayer(): PlayerState {
@@ -152,6 +159,13 @@ export function buyBait(state: PlayerState, id: string, stock: ShopStock = QUIET
   if (!sold(stock, id)) return fail(state, 'notSoldHere');
   if (state.coins < bait.pack.price) return fail(state, 'needCoins', bait.pack.price - state.coins);
   return { ok: true, state: addBait({ ...state, coins: state.coins - bait.pack.price }, id, bait.pack.size) };
+}
+
+/** Buys one pack of dog treats (slice 30), sold with the basics everywhere. */
+export function buyTreats(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
+  if (!sold(stock, TREATS.id)) return fail(state, 'notSoldHere');
+  if (state.coins < TREATS.price) return fail(state, 'needCoins', TREATS.price - state.coins);
+  return { ok: true, state: addTreats({ ...state, coins: state.coins - TREATS.price }, TREATS.packSize) };
 }
 
 /** Can the player cast at all? Needs some of the chosen bait, or worms as the fallback. */

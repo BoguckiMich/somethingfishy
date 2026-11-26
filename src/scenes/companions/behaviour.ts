@@ -7,6 +7,7 @@ import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE, ONE_SEC_LINE, SKIP_FIVE_L
 import type { Rng } from '../../core/random';
 import { QUIET_LAKE } from '../../core/data/locations';
 import type { CompanionSpots, Spots } from '../../core/location';
+import { BOWL_SIZE } from '../../art/bowlArt';
 
 export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
 
@@ -107,7 +108,7 @@ export interface Bubble {
   ageMs: number;
 }
 
-export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl';
+export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl' | 'eat';
 export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend' | 'pick' | 'pickUp' | 'windup' | 'flick' | 'rejoice';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed' | 'shore';
 /**
@@ -360,6 +361,12 @@ export interface Companions {
   rejoiceMs: number;
   /** Bestia's one "Woof!" (ms left). */
   woofMs: number;
+  /** Feeding Bestia (slice 30): a treat was put in the bowl and she is on her way (or eating); null = not feeding. */
+  feed: FeedState | null;
+  /** A treat is in the bowl but this is not a calm moment for her yet: she goes as soon as it is (the end of the round, the throw, the walk). */
+  feedWant: boolean;
+  /** Treats she has finished eating since the game started (the scene counts the rises: the heart, the day's count, the cozy bonus). */
+  fedCount: number;
 }
 
 /** One throw of a pebble, as the stones were tapped or swiped (see core/skipping.ts `throwFor`). */
@@ -555,6 +562,9 @@ export function createCompanions(rng: Rng = Math.random, spots: Spots = QL): Com
     release: null,
     rejoiceMs: 0,
     woofMs: 0,
+    feed: null,
+    feedWant: false,
+    fedCount: 0,
   };
 }
 
@@ -572,6 +582,8 @@ export function setCompanionSpots(s: Companions, spots: Spots): void {
   s.shore = newShore();
   s.pebbleWant = null;
   s.release = null;
+  s.feed = null;
+  s.feedWant = false;
   s.play.after = 'none';
   const home = spots.companions;
   Object.assign(s.paj, home.paj, { shape: 'sit', face: 1, path: [] });
@@ -592,6 +604,11 @@ const ROUND_END_MS = 600;
  */
 export function companionPress(s: Companions, fishing = 'idle'): void {
   s.idleMs = 0;
+  // Mid-meal (slice 30) she finishes first, then the family goes back as this press asks.
+  if (s.feed) {
+    s.feed.press = fishing;
+    return;
+  }
   // The hook press (and any press in the fight or on the catch card) does not send him back from the stones: he stays, cheers, and goes when it is over.
   if (s.mode === 'shore' && (fishing === 'bite' || fishing === 'fighting' || fishing === 'caught')) return;
   s.pebbleWant = null;
@@ -619,7 +636,7 @@ export const pebblesAllowed = (fishing: string): boolean => fishing === 'idle' |
  */
 export function pebbleRequest(s: Companions, t: PebbleThrow, fishing: string): 'started' | 'queued' | 'no' {
   if (!pebblesAllowed(fishing) || !cs(s).shore) return 'no'; // no stones at this place: nothing to throw
-  if (s.mode === 'bed') return 'no';
+  if (s.mode === 'bed' || s.feed) return 'no';
   s.idleMs = 0;
   if (s.mode === 'dock') {
     beginShore(s, t);
@@ -779,6 +796,7 @@ export function startPlayNow(s: Companions): void {
   s.play = newPlay();
   s.sticks = [];
   s.stick.state = 'hidden';
+  s.feed = null;
 }
 
 function beginBed(s: Companions, kind: BedKind, phase: BedPhase): BedState {
@@ -796,6 +814,8 @@ function beginBed(s: Companions, kind: BedKind, phase: BedPhase): BedState {
   s.release = null;
   s.rejoiceMs = 0;
   s.woofMs = 0;
+  s.feed = null;
+  s.feedWant = false;
   s.shore = newShore();
   s.bed = { kind, phase, phaseMs: 0, carried: false, pajA: 1, dogA: 1, door: false, light: false };
   return s.bed;
@@ -1008,7 +1028,7 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
 
   if (s.mode === 'dock') {
     tickDock(s, dtMs, ctx, rng);
-    if (s.idleMs >= IDLE_BEFORE_PLAY_MS && waiting) beginLeave(s);
+    if (s.idleMs >= IDLE_BEFORE_PLAY_MS && waiting && !s.feed && !s.feedWant) beginLeave(s);
   } else if (s.mode === 'leaving') {
     const pDone = follow(s.paj, PAJ_WALK_SPEED, dtMs);
     const dDone = follow(s.dog, DOG_RUN_SPEED * 0.55, dtMs);
@@ -1022,9 +1042,9 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
       if (s.pebbleWant) beginShore(s, s.pebbleWant);
     }
   } else if (s.mode === 'play') {
-    tickPlay(s, dtMs, ctx, rng);
+    if (!s.feed) tickPlay(s, dtMs, ctx, rng); // mid-meal he waits where he stands (slice 30)
   } else if (s.mode === 'shore') {
-    tickShore(s, dtMs, ctx, rng);
+    if (!s.feed) tickShore(s, dtMs, ctx, rng);
   } else if (s.mode === 'bed') {
     tickBed(s, dtMs, rng);
   } else {
@@ -1048,6 +1068,8 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
       if (s.pebbleWant) beginShore(s, s.pebbleWant);
     }
   }
+  if (s.feed) tickFeed(s, dtMs);
+  else if (s.feedWant && feedStartable(s, ctx)) startFeed(s);
   if (s.woofMs > 0) s.woofMs = Math.max(0, s.woofMs - dtMs);
   if (s.rejoiceMs > 0) {
     s.rejoiceMs = Math.max(0, s.rejoiceMs - dtMs);
@@ -1932,6 +1954,11 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
         if (pl.finalRound) {
           dropCarried(s);
           go(pl, 'spin');
+        } else if (s.feedWant) {
+          // A treat is waiting in her bowl (slice 30): this game ends here, she goes to eat.
+          dropCarried(s);
+          settleSpares(s);
+          go(pl, 'rest');
         } else {
           const spare = s.sticks.find((g) => g.kind === 'spare');
           pl.stickSide = spare && spare.x < p.x ? -1 : 1;
@@ -2082,6 +2109,198 @@ function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: 
   }
 }
 
+// ---- Feeding Bestia (slice 30) ----------------------------------------------------------------
+
+/** The meal: she trots to the bowl, eats (a 2-frame munch), wags with a heart, and trots back. */
+export const FEED_ANIM = {
+  trotSpeed: 84,
+  eatMs: 2000,
+  /** One munch frame (the head dips and rises) lasts this long. */
+  munchMs: 240,
+  wagMs: 1300,
+  /** Her feet when she eats: this far right of the bowl's middle (she faces left, the head over the bowl) and on its bottom row. */
+  standDx: 17,
+  /** The lane along the bottom of the lawn she crosses to reach the bowl, clear of the camp bed. */
+  laneX: 126,
+  laneY: 584,
+};
+
+export type FeedPhase = 'go' | 'eat' | 'wag' | 'back';
+
+export interface FeedState {
+  phase: FeedPhase;
+  phaseMs: number;
+  /** Where she came from, so she goes back there. */
+  from: 'dock' | 'play' | 'shore';
+  /** Her own position, facing and way (the dock and the lawn both reset hers every tick, so the meal keeps its own). */
+  x: number;
+  y: number;
+  face: 1 | -1;
+  path: Point[];
+  /** A cast came mid-meal: the family goes back as this press asks once she is done (the fishing state at that press). */
+  press: string | null;
+}
+
+/** Where her feet stand to eat from the bowl of this place. */
+export const bowlStand = (sp: Spots): Point => ({ x: sp.bowl.x + BOWL_SIZE.w / 2 + FEED_ANIM.standDx, y: sp.bowl.y + BOWL_SIZE.h - 1 });
+
+/** A treat is in the bowl, waiting or being eaten (a second tap is not needed). */
+export const feedBusy = (s: Companions): boolean => s.feed !== null || s.feedWant;
+
+/** The bowl shows its kibble from the moment the treat goes in until she has eaten it. */
+export const bowlHasFood = (s: Companions): boolean => s.feedWant || (s.feed !== null && (s.feed.phase === 'go' || s.feed.phase === 'eat'));
+
+/** The play phases where she is free (no stick in her mouth, no round going): she can be called to the bowl. */
+const FEED_PLAY_PHASES: readonly PlayPhase[] = ['rest', 'spin', 'drop', 'napGo', 'napCircle', 'napCurl', 'napWake'];
+
+/** Is this a calm moment for her to go: at the dock, free on the lawn (between rounds, napping) or sitting by the stones. */
+function feedStartable(s: Companions, ctx: Pick<CompanionContext, 'night'>): boolean {
+  if (s.mode === 'dock') return !(ctx.night && s.dog.sleeping);
+  if (s.mode === 'play') return FEED_PLAY_PHASES.includes(s.play.phase);
+  if (s.mode === 'shore') return (s.shore.phase === 'idle' || s.shore.phase === 'react') && s.dog.path.length === 0;
+  return false;
+}
+
+/**
+ * A treat goes in the bowl (the scene has checked the rules). She goes to it at once when it is a calm moment ('started'), else as soon as
+ * it is ('queued': she finishes the round or the throw first, or the walk). Never from the car or while she is asleep at night, nor in
+ * bedtime ('no': nothing changes).
+ */
+export function feedRequest(s: Companions, ctx: Pick<CompanionContext, 'night'>): 'started' | 'queued' | 'no' {
+  if (s.mode === 'bed') return 'no';
+  if (ctx.night && (s.dog.sleeping || isCurled(s))) return 'no';
+  if (feedBusy(s)) return 'queued';
+  s.idleMs = 0;
+  s.feedWant = true;
+  if (feedStartable(s, ctx)) {
+    startFeed(s);
+    return 'started';
+  }
+  return 'queued';
+}
+
+/** The way from where she is to the bowl (and the same way back, reversed by `feedBack`). */
+function feedRoute(s: Companions, from: Point, fromDock: boolean): Point[] {
+  const stand = bowlStand(s.spots);
+  const lane = { x: FEED_ANIM.laneX, y: FEED_ANIM.laneY };
+  return [...(fromDock ? dogDown(s).map((p) => ({ ...p })) : []), ...(from.x > lane.x ? [lane] : []), stand];
+}
+
+/** The way back from the bowl to where she was. */
+function feedBack(s: Companions, f: FeedState): Point[] {
+  const lane = { x: FEED_ANIM.laneX, y: FEED_ANIM.laneY };
+  if (f.from === 'dock') return [lane, ...[...dogDown(s)].reverse().map((p) => ({ ...p })), { ...cs(s).dog }];
+  if (f.from === 'shore') return [lane, { ...(cs(s).shore?.dogVia ?? lane) }, { ...(cs(s).shore?.dogSit ?? cs(s).dog) }];
+  return [lane, clampArea(s, { x: s.paj.x + 30, y: s.paj.y + 4 })];
+}
+
+function startFeed(s: Companions): void {
+  const d = s.dog;
+  const from = s.mode === 'dock' ? 'dock' : s.mode === 'shore' ? 'shore' : 'play';
+  s.feedWant = false;
+  s.idleMs = 0;
+  if (s.stick.state === 'carried') dropCarried(s);
+  d.reaction = 'none';
+  d.hop = 0;
+  d.wagMs = 0;
+  d.sleeping = false;
+  d.restMs = 0;
+  d.path = [];
+  s.feed = { phase: 'go', phaseMs: 0, from, x: d.x, y: d.y, face: d.face, path: feedRoute(s, d, from === 'dock' && d.y < cs(s).grassY + 40), press: null };
+  d.shape = 'run';
+}
+
+/** The meal, one tick: the dog is driven from the meal's own position (whatever the mode did to her this tick is put right). */
+function tickFeed(s: Companions, dtMs: number): void {
+  const f = s.feed;
+  if (!f) return;
+  const d = s.dog;
+  f.phaseMs += dtMs;
+  d.x = f.x;
+  d.y = f.y;
+  d.face = f.face;
+  d.path = f.path;
+  d.hop = 0;
+  const stand = bowlStand(s.spots);
+  const next = (phase: FeedPhase) => {
+    f.phase = phase;
+    f.phaseMs = 0;
+  };
+  switch (f.phase) {
+    case 'go': {
+      const done = follow(d, FEED_ANIM.trotSpeed, dtMs);
+      d.shape = done ? 'stand' : 'run';
+      if (done) {
+        d.x = stand.x;
+        d.y = stand.y;
+        d.face = -1; // the bowl is on her left
+        d.shape = 'eat';
+        next('eat');
+      }
+      break;
+    }
+    case 'eat': {
+      d.shape = 'eat';
+      d.face = -1;
+      d.wagMs = 1 + f.phaseMs;
+      if (f.phaseMs >= FEED_ANIM.eatMs) {
+        s.fedCount++;
+        next('wag');
+      }
+      break;
+    }
+    case 'wag': {
+      // Done: she stands up, looks pleased and wags (the scene floats the heart as the count rises).
+      d.shape = 'stand';
+      d.face = -1;
+      d.wagMs = 1 + f.phaseMs;
+      d.hop = Math.abs(Math.sin(f.phaseMs / 110)) * 2;
+      if (f.phaseMs >= FEED_ANIM.wagMs) {
+        d.wagMs = 0;
+        d.hop = 0;
+        d.path = feedBack(s, f);
+        next('back');
+      }
+      break;
+    }
+    case 'back': {
+      const done = follow(d, FEED_ANIM.trotSpeed, dtMs);
+      d.shape = done ? 'sit' : 'run';
+      if (done) finishFeed(s);
+      break;
+    }
+  }
+  if (s.feed) {
+    f.x = d.x;
+    f.y = d.y;
+    f.face = d.face;
+    f.path = d.path;
+  }
+}
+
+/** She is back where she was: the mode takes over again. */
+function finishFeed(s: Companions): void {
+  const f = s.feed;
+  if (!f) return;
+  const d = s.dog;
+  s.feed = null;
+  d.wagMs = 0;
+  d.hop = 0;
+  d.path = [];
+  d.shape = 'sit';
+  if (f.from === 'dock') {
+    d.face = 1;
+    d.reaction = 'sit';
+    d.reactMs = 0;
+  } else if (f.from === 'shore') d.face = -1;
+  else if (isNapping(s)) {
+    // She has left her bed: the lawn game starts over with a rest.
+    s.play.phase = 'rest';
+    s.play.phaseMs = 0;
+  }
+  if (f.press !== null) companionPress(s, f.press);
+}
+
 // ---- Views for the renderer --------------------------------------------------------------
 
 export interface DogView {
@@ -2093,6 +2312,8 @@ export interface DogView {
   carry: boolean;
   /** Curled in her bed: 0 = down, 1 = chest up 1 px. */
   breath: 0 | 1;
+  /** Eating from the bowl (slice 30): the munch frame, 0 or 1. */
+  munch: 0 | 1;
 }
 
 export function dogView(s: Companions): DogView {
@@ -2107,6 +2328,7 @@ export function dogView(s: Companions): DogView {
     step: Math.floor(s.elapsed / 90) % 4,
     carry: s.stick.state === 'carried',
     breath: napBreath(s.elapsed),
+    munch: s.feed?.phase === 'eat' ? ((Math.floor(s.feed.phaseMs / FEED_ANIM.munchMs) % 2) as 0 | 1) : 0,
   };
 }
 

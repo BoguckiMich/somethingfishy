@@ -20,6 +20,7 @@ import { PAL } from './palette';
 import { sprite } from './pixelGrid';
 import { starKey, starRowSprite } from './starArt';
 import { shopIconSprite } from './shopIconArt';
+import { bowlSprite } from './bowlArt';
 import { stonesSprite } from './stonesArt';
 import {
   BOBBER,
@@ -83,6 +84,8 @@ export const TEX = {
   campTent: 'camp:tent',
   campPole: 'camp:pole',
   campBed: 'camp:bed',
+  bowl: 'bowl',
+  bowlFull: 'bowl:full',
   steam: 'steam',
   lilyA: 'lilyA',
   lilyB: 'lilyB',
@@ -271,6 +274,8 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.campTent, () => Raster.fromSprite(tentSprite()));
   addRaster(scene, TEX.campPole, () => Raster.fromSprite(lightPoleSprite()));
   addRaster(scene, TEX.campBed, () => Raster.fromSprite(dogBedSprite()));
+  addRaster(scene, TEX.bowl, () => Raster.fromSprite(bowlSprite(false)));
+  addRaster(scene, TEX.bowlFull, () => Raster.fromSprite(bowlSprite(true)));
   for (let l = 0; l < WINDSOCK_LEVELS; l++) for (const f of [0, 1] as const) addRaster(scene, windsockKey(l, f), () => Raster.fromSprite(windsockSprite(l, f)));
   addRaster(scene, TEX.steam, () => Raster.fromSprite(sprite('.w\nww\nw.', { w: PAL.white })));
   addRaster(scene, TEX.stickCarry, () => Raster.fromSprite(stickCarrySprite()));

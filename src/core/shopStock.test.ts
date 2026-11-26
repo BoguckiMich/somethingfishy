@@ -6,7 +6,7 @@ import { buyBait, buyLine, buyNightKit, buyReel, buyRod, buyWorms, newPlayer } f
 
 /** Everything the Buy tab offered at Quiet Lake before slice 29 (worms, baits, rods, lines, reels, night kit, camp), pinned by hand. */
 const BEFORE_SLICE_29 = [
-  'worms', 'corn', 'maggots', 'strip',
+  'worms', 'corn', 'maggots', 'strip', 'treats', // the dog treats joined the basics in slice 30
   'fiberglass', 'carbon', 'braided', 'fluoro', 'smooth', 'pro', 'lantern',
   'campfire', 'deckchair', 'dogbed', 'tent', 'lights', 'windsock',
 ];
@@ -17,7 +17,7 @@ const river = RIVER_BEND.shop;
 const rich = () => ({ ...newPlayer(), coins: 100_000, rodId: 'fiberglass' });
 
 describe('shop stock per place', () => {
-  it('Quiet Lake sells exactly what it sold before', () => {
+  it('Quiet Lake sells exactly what it sold before (plus the dog treats)', () => {
     const items = [...lake.bait, ...lake.gear, ...lake.camp];
     expect([...items].sort()).toEqual([...BEFORE_SLICE_29].sort());
   });

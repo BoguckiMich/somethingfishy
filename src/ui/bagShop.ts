@@ -7,6 +7,8 @@ import { SHOP_BAITS } from '../core/data/baits';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
 import { sold } from '../core/data/shopStock';
+import { TREATS } from '../core/data/treats';
+import { treatsOf } from '../core/feeding';
 import { QUIET_LAKE } from '../core/data/locations';
 import type { Location } from '../core/location';
 import { bagTier } from '../core/data/stars';
@@ -27,6 +29,7 @@ import {
   nightKitForSale,
   buyReel,
   buyRod,
+  buyTreats,
   buyWorms,
   equippedLine,
   equippedReel,
@@ -370,6 +373,23 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
             coins: p.coins,
             buy: () => {
               apply(buyBait(store.get(), bait.id, stock), bait.id);
+              panel.refresh();
+            },
+          }),
+        );
+      }
+
+      // Dog treats for Bestia's bowl (slice 30): a basic, sold at every place.
+      if (sold(stock, TREATS.id)) {
+        body.append(
+          itemCard({
+            id: TREATS.id,
+            name: treatsOf(p) > 0 ? `${TREATS.name} x${TREATS.packSize} (have ${treatsOf(p)})` : `${TREATS.name} x${TREATS.packSize}`,
+            price: TREATS.price,
+            effect: tr("For {dog}'s bowl by the car. She will be so pleased."),
+            coins: p.coins,
+            buy: () => {
+              apply(buyTreats(store.get(), stock), TREATS.id);
               panel.refresh();
             },
           }),

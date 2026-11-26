@@ -1,7 +1,7 @@
 import { MIN_HOLD_MS } from './casting';
 
 /** Shore things where a short tap opens something but a hold still casts (the thumb often lands on them). */
-export type ShoreObject = 'sign' | 'car' | 'crate' | 'chair' | 'board' | 'bed';
+export type ShoreObject = 'sign' | 'car' | 'crate' | 'chair' | 'board' | 'bed' | 'bowl';
 
 /**
  * What a release means after a press (pure). A hold of at least MIN_HOLD_MS casts wherever the finger ends. A shorter

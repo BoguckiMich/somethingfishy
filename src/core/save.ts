@@ -1,6 +1,7 @@
 import { normalizeCamp } from './camp';
 import { normalizePlace } from './place';
 import { normalizeSticks } from './sticks';
+import { normalizeFeeding } from './feeding';
 import { normalizeTrophies } from './rare';
 import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
@@ -188,6 +189,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(isValidDate(p.stickDay) && isNum(p.stickDayN) && p.stickDayN >= 1 ? { stickDay: p.stickDay, stickDayN: Math.min(99, Math.floor(p.stickDayN)) } : {}),
     ...(isNum(p.skipsBest) && p.skipsBest >= 1 ? { skipsBest: Math.min(5, Math.floor(p.skipsBest)) } : {}),
     ...(isValidDate(p.skipsLineDay) ? { skipsLineDay: p.skipsLineDay } : {}),
+    // Feeding Bestia (slice 30): the treats, today's feed count and the cozy bonus; each key only when there is something to keep.
+    ...normalizeFeeding(p),
   };
 }
 
