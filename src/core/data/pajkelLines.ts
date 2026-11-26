@@ -30,3 +30,6 @@ export const WEATHER_LINES: Record<'sunny' | 'overcast' | 'rain' | 'windy' | 'fo
 
 /** Pajkel on a new best at skipping pebbles, said the first time a record is beaten on a real date (slice 26). One bubble line each (about 25 characters). */
 export const SKIP_RECORD_LINES: readonly string[] = ['New skip record. Humbling.', 'The lake approves. Record!', 'I want a recount. Wow.', 'Pebble first, fish later.'];
+
+/** Pajkel when she taps a stick in the middle of a round: he will throw it next (slice 26). */
+export const NEXT_ONE_LINE = 'Next one!';

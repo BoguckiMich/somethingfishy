@@ -84,6 +84,36 @@ describe('fetch on demand', () => {
     expect(g.kind).toBe('old');
   });
 
+  it('mid-chase a tap is queued with a "Next one!" and he throws that stick as soon as the round is over', () => {
+    const { s, rng } = playing(4);
+    expect(runUntil(s, rng, () => s.play.phase === 'tease' || s.play.phase === 'keepAway' || s.play.phase === 'bring', 300_000)).toBe(true);
+    const g = stick(280, 540);
+    s.sticks.push(g);
+    expect(fetchStickNow(s, g)).toBe(true);
+    expect(s.bubble?.text).toBe('Next one!');
+    expect(s.play.queued).toBe(g);
+    expect(g.kind).toBe('old');
+    expect(runUntil(s, rng, () => s.play.phase === 'throw', 60_000)).toBe(true);
+    expect(s.play.queued).toBeNull();
+    expect(s.sticks.includes(g)).toBe(false); // he picked up the queued one
+  });
+
+  it('while he holds or throws a stick the tap is refused and queues nothing', () => {
+    const { s, rng } = playing(6);
+    expect(runUntil(s, rng, () => s.play.phase === 'bend' || s.play.phase === 'throw', 300_000)).toBe(true);
+    const g = stick(280, 540);
+    s.sticks.push(g);
+    expect(fetchStickNow(s, g)).toBe(false);
+    expect(s.play.queued).toBeNull();
+  });
+
+  it('any=true finds a fading stick too (so its tap can still be swallowed)', () => {
+    const { s } = playing();
+    s.sticks.push({ ...stick(200, 520), fadeMs: 900 });
+    expect(stickAt(s, 200, 520)).toBeNull();
+    expect(stickAt(s, 200, 520, true)).not.toBeNull();
+  });
+
   it('when the last round before the spin is on, the tapped stick keeps the game going', () => {
     const { s, rng } = playing(5);
     expect(runUntil(s, rng, () => s.play.phase === 'giveUp' && s.play.finalRound, 600_000)).toBe(true);

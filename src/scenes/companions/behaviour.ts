@@ -3,7 +3,7 @@
  * `tickCompanions(dt)`, game events and player presses, then draws whatever it reports.
  * Positions are screen coordinates; sprites are anchored at their feet (bottom centre).
  */
-import { GIVE_BACK_LINE, GIVE_UP_LINES } from '../../core/data/pajkelLines';
+import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE } from '../../core/data/pajkelLines';
 import type { Rng } from '../../core/random';
 
 export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
@@ -329,6 +329,8 @@ export interface PlayState {
   hopTo: Point;
   /** Which side of the spare stick he stands on (-1 left, 1 right), so his reach lands on it. */
   stickSide: 1 | -1;
+  /** A stick she tapped mid-round (slice 26): he throws it as soon as the round is over. */
+  queued: GroundStick | null;
   /** The chase: which way round him she slides while he blocks her way (0 = not blocked). */
   slide: 1 | -1 | 0;
 }
@@ -350,6 +352,7 @@ function newPlay(): PlayState {
     hopFrom: { x: 0, y: 0 },
     hopTo: { x: 0, y: 0 },
     stickSide: 1,
+    queued: null,
     slide: 0,
   };
 }
@@ -1019,11 +1022,11 @@ function layStick(s: Companions, at: Point, kind: GroundStick['kind'], variant: 
 }
 
 /** The stick lying under this point (a generous finger-sized box), not fading out; the nearest wins. */
-export function stickAt(s: Companions, x: number, y: number): GroundStick | null {
+export function stickAt(s: Companions, x: number, y: number, any = false): GroundStick | null {
   let best: GroundStick | null = null;
   let bestD = Infinity;
   for (const g of s.sticks) {
-    if (g.fadeMs !== null || groundStickAlpha(g) < 0.5) continue;
+    if (!any && (g.fadeMs !== null || groundStickAlpha(g) < 0.5)) continue;
     if (Math.abs(x - g.x) > 17 || y < g.y - 14 || y > g.y + 11) continue;
     const d = Math.hypot(x - g.x, (y - g.y) * 1.5);
     if (d < bestD) {
@@ -1034,22 +1037,18 @@ export function stickAt(s: Companions, x: number, y: number): GroundStick | null
   return best;
 }
 
-/** Phases between two rounds, where a tap on a stick may start the next one at once (not in the middle of a throw, a chase or the happy spin). */
+/** Phases between two rounds, where a tap on a stick starts the next one at once. */
 const FETCH_ON_TAP_PHASES: readonly PlayPhase[] = ['rest', 'giveUp', 'toStick'];
+/** Phases where Pajkel holds or throws a stick: a stick tap is swallowed and does nothing. */
+const FETCH_BUSY_PHASES: readonly PlayPhase[] = ['throw', 'bend'];
 
-/**
- * A tap on a stick lying on the grass (slice 26): Pajkel takes THAT stick as his next one and throws it as soon as he is there, so a round starts at
- * once. Only while they play on the grass and between two rounds; asleep, in the car, on the dock or mid-chase nothing changes. Returns whether it started.
- */
-export function fetchStickNow(s: Companions, g: GroundStick): boolean {
-  if (s.mode !== 'play' || !s.sticks.includes(g) || g.fadeMs !== null) return false;
-  const pl = s.play;
-  if (!FETCH_ON_TAP_PHASES.includes(pl.phase)) return false;
-  // The tapped stick is the spare he goes for; any other spare lies down as an old one.
+/** Makes `g` the spare he goes for next (any other spare lies down as an old one); in the rest the next round starts from it. */
+function promoteStick(s: Companions, g: GroundStick): void {
   for (const o of s.sticks) if (o !== g && o.kind === 'spare') o.kind = 'old';
   g.kind = 'spare';
   const old = oldSticks(s);
   for (let i = 0; i < old.length - STICK_TUNING.maxOld; i++) old[i].fadeMs = STICK_TUNING.fadeOutMs;
+  const pl = s.play;
   pl.finalRound = false;
   pl.stickSide = g.x < s.paj.x ? -1 : 1;
   if (pl.phase === 'rest') {
@@ -1057,7 +1056,33 @@ export function fetchStickNow(s: Companions, g: GroundStick): boolean {
     s.stick.state = 'hidden';
     go(pl, 'toStick');
   }
+}
+
+/**
+ * A tap on a stick lying on the grass (slice 26): Pajkel takes THAT stick as his next one and throws it as soon as he is there. While they play on
+ * the grass: between two rounds it starts at once; in the middle of a round (the chase, the drop, the spin) it is queued and he says "Next one!";
+ * while he holds or throws a stick, or when nothing is on the grass, it does nothing. Returns whether it was taken (started or queued).
+ */
+export function fetchStickNow(s: Companions, g: GroundStick): boolean {
+  if (s.mode !== 'play' || !s.sticks.includes(g) || g.fadeMs !== null) return false;
+  const pl = s.play;
+  if (FETCH_BUSY_PHASES.includes(pl.phase)) return false;
+  if (FETCH_ON_TAP_PHASES.includes(pl.phase)) {
+    promoteStick(s, g);
+    return true;
+  }
+  if (pl.queued !== g) pajSay(s, NEXT_ONE_LINE);
+  pl.queued = g;
   return true;
+}
+
+/** Takes a queued stick when a gap between rounds comes (the stick may be gone by then). */
+function takeQueued(s: Companions): void {
+  const pl = s.play;
+  const g = pl.queued;
+  if (!g || !FETCH_ON_TAP_PHASES.includes(pl.phase)) return;
+  pl.queued = null;
+  if (s.sticks.includes(g) && g.fadeMs === null) promoteStick(s, g);
 }
 
 /** The oldest old stick still lying there starts to fade (nothing fitted, so the lawn makes room). */
@@ -1212,6 +1237,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
 }
 
 function tickPlayPhase(s: Companions, dtMs: number, rng: Rng): void {
+  takeQueued(s);
   const pl = s.play;
   const p = s.paj;
   const d = s.dog;

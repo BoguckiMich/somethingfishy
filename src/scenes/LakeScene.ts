@@ -580,7 +580,7 @@ export class LakeScene extends Phaser.Scene {
   /** The pebble in the air (slice 26): how long it has flown, how many skips it makes, and where it starts and which way it drifts. */
   private pebble: PebbleFlight | null = null;
   /** The rings the pebble left on the water, and the arm flick (ms since the throw). */
-  private pebbleRings: { x: number; y: number; age: number; big: boolean }[] = [];
+  private pebbleRings: { x: number; y: number; age: number; big: boolean; n: number }[] = [];
   private flickAge = Infinity;
   /** Dev flag ?debug=pebbles&pebbleAt=ms: the pebble's animation stops at that age (a screenshot of it mid-skip). */
   private pebbleFrozen = false;
@@ -2027,7 +2027,7 @@ export class LakeScene extends Phaser.Scene {
       if (p.age >= end && p.hit <= i) {
         p.hit = i + 1;
         const sink = i === segs.length - 1;
-        this.pebbleRings.push({ x: segs[i].to.x, y: segs[i].to.y, age: p.age - end, big: sink });
+        this.pebbleRings.push({ x: segs[i].to.x, y: segs[i].to.y, age: p.age - end, big: sink, n: sink ? 0 : i + 1 });
         sound.play('plop');
         if (sink) this.finishPebble(p.skips);
       }
@@ -2043,12 +2043,32 @@ export class LakeScene extends Phaser.Scene {
     if (r.speak && this.pajCanSpeak()) this.companions.say(pickLine(SKIP_RECORD_LINES));
   }
 
+  /** A 3x5 pixel digit (1-5) drawn at 2x, cream with a dark edge, centred on x. */
+  private drawDigit(g: Phaser.GameObjects.Graphics, n: number, x: number, y: number, alpha: number, tintFx: (c: number) => number): void {
+    const rows: Record<number, string[]> = {
+      1: ['010', '110', '010', '010', '111'],
+      2: ['111', '001', '111', '100', '111'],
+      3: ['111', '001', '111', '001', '111'],
+      4: ['101', '101', '111', '001', '001'],
+      5: ['111', '100', '111', '001', '111'],
+    };
+    const rs = rows[n];
+    if (!rs) return;
+    const x0 = x - 3;
+    for (const [dx, dy, col] of [[-1, 0, PAL.outline], [1, 0, PAL.outline], [0, -1, PAL.outline], [0, 1, PAL.outline], [0, 0, PAL.white]] as const) {
+      g.fillStyle(col === PAL.white ? tintFx(PAL.white) : col, alpha);
+      rs.forEach((row, ry) => [...row].forEach((c, rx) => { if (c === '1') g.fillRect(x0 + rx * 2 + dx * 1, y + ry * 2 + dy * 1, 2, 2); }));
+    }
+  }
+
   private drawPebble(g: Phaser.GameObjects.Graphics, tintFx: (c: number) => number): void {
     for (const r of this.pebbleRings) {
       const t = r.age / 900;
       const k = r.big ? 1.5 : 1;
       pixelEllipse(g, r.x, r.y, (2 + t * 9) * k, (0.8 + t * 3.2) * k, tintFx(PAL.foam), (1 - t) * 0.9);
       if (t > 0.25) pixelEllipse(g, r.x, r.y, (2 + (t - 0.25) * 9) * k, (0.8 + (t - 0.25) * 3.2) * k, tintFx(PAL.foam), (1 - t) * 0.5);
+      // The count of this skip pops up above its ring and drifts up.
+      if (r.n > 0) this.drawDigit(g, r.n, Math.round(r.x), Math.round(r.y - 8 - Math.min(1, r.age / 500) * 6), Math.min(1, (900 - r.age) / 300), tintFx);
     }
     // The arm: a tiny flick of her free hand (the rod hand keeps the rod).
     if (this.flickAge < 260) {
@@ -2107,6 +2127,7 @@ export class LakeScene extends Phaser.Scene {
     // The skipping stones: a press on them throws on release, never starts a cast and never scares a fish (idle or waiting only).
     if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.sleepFade && this.hits.stones?.contains(x, y)) {
       this.stoneDown = { x, y, samples: [{ x, y, t: performance.now() }] };
+      this.markHint('stones');
       return true;
     }
     // A moment on the lake: a tap on it never starts a cast. The bottle opens a card, so only while idle.
@@ -2116,6 +2137,15 @@ export class LakeScene extends Phaser.Scene {
     // The notice-board sign: a tap never casts while idle or waiting; it acts only while idle. It wins over petting
     // Bestia (or tagging Pajkel) inside its box, so it is checked before them.
     if (this.holdHit('sign', x, y)) return this.objectTouched('sign');
+    // A stick lying on the grass (slice 26) wins over petting Bestia where she sits on it: a tap starts (or queues) a fetch, and a tap
+    // that cannot is swallowed (no cast, no hint, the family stays on the grass). Over Bestia herself it may still pet.
+    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && this.companions.state.mode === 'play') {
+      const near = stickAt(this.companions.state, x, y, true);
+      if (near) {
+        if (fetchStickNow(this.companions.state, near)) return true;
+        if (!this.companions.dogRect().contains(x, y)) return true;
+      }
+    }
     const dog = this.companions.dogRect();
     if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
       this.markHint('dog');
@@ -2129,11 +2159,6 @@ export class LakeScene extends Phaser.Scene {
     if (pajVisible(this.companions.state) && this.companions.state.mode !== 'bed' && paj.contains(x, y)) {
       this.showTag(1, this.profile.companion, paj.centerX, paj.y - 2);
       return true;
-    }
-    // A stick lying on the grass (slice 26): a tap sends Pajkel for it at once. Only between two rounds; else the press goes on as usual.
-    if (this.state.kind === 'idle' || this.state.kind === 'waiting') {
-      const g = stickAt(this.companions.state, x, y);
-      if (g && fetchStickNow(this.companions.state, g)) return true;
     }
     // His empty chair (with the thermos) while he is away or asleep in the car: a tap never casts.
     if (this.holdHit('chair', x, y)) return this.objectTouched('chair');
@@ -2845,8 +2870,9 @@ export class LakeScene extends Phaser.Scene {
       sign: { x: this.spots.sign.x - SIGN_SIZE.w / 2 + SIGN_GLINT.x, y: this.spots.sign.y - SIGN_SIZE.h + SIGN_GLINT.y },
       dog: { x: dog.x + 6, y: dog.y - DOG_SIZE.h - 2 },
       crate: null, // the crate has its own, constant twinkle (drawCrate)
+      stones: this.spots.stones ? { x: this.spots.stones.x + STONES_SIZE.w - 6, y: this.spots.stones.y + 2 } : null,
     };
-    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed' });
+    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed', stones: this.spots.stones !== undefined });
     if (live.includes('car')) this.drawCarCue(g);
     for (const id of live) {
       const k = glintPhase(this.elapsed, GLINTS.indexOf(id));
