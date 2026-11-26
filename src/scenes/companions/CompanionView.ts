@@ -6,10 +6,10 @@ import { PAL } from '../../art/palette';
 import { TEX, pajSitKey, pajWalkKey, stickGroundKey } from '../../art/textures';
 import { FONT, FS, textPad } from '../../font';
 import { WOOF_TEXT } from '../../core/data/pajkelLines';
+import type { Spots } from '../../core/location';
 import { tr } from '../../i18n/en';
 import { drawFrame } from '../frameDraw';
 import {
-  PAJ_SPOT,
   bubbleAlpha,
   chairEmpty,
   createCompanions,
@@ -78,12 +78,13 @@ export class CompanionView {
 
   constructor(
     private scene: Phaser.Scene,
+    spots: Spots,
     rng: () => number = Math.random,
   ) {
-    this.state = createCompanions(rng);
+    this.state = createCompanions(rng, spots);
     this.paj = scene.add.image(0, 0, pajSitKey('sit', 0)).setDepth(DEPTH);
     this.dog = scene.add.image(0, 0, dogKey({ shape: 'lie', tail: 0, perked: false, step: 0 })).setDepth(DEPTH);
-    this.chair = scene.add.image(PAJ_SPOT.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x, PAJ_SPOT.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y, TEX.emptyChair).setOrigin(0, 0).setDepth(DEPTH - 1).setVisible(false);
+    this.chair = scene.add.image(this.state.spots.companions.paj.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x, this.state.spots.companions.paj.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y, TEX.emptyChair).setOrigin(0, 0).setDepth(DEPTH - 1).setVisible(false);
     this.stick = scene.add.image(0, 0, TEX.stickSpin[0]).setDepth(DEPTH + 1).setVisible(false);
     this.puff = scene.add.image(0, 0, TEX.stickPuff[0]).setDepth(DEPTH - 0.4).setVisible(false);
     for (let i = 0; i < 3; i++) this.steam.push({ img: scene.add.image(0, 0, TEX.steam).setOrigin(0.5, 1).setDepth(DEPTH + 2).setVisible(false), age: Infinity, x: 0, y: 0 });
@@ -192,8 +193,8 @@ export class CompanionView {
 
   /** His empty chair with the thermos, at least 44 x 44 (a finger) around the drawn chair. */
   chairRect(): Phaser.Geom.Rectangle {
-    const cx = PAJ_SPOT.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x + EMPTY_CHAIR.w / 2;
-    const cy = PAJ_SPOT.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y + EMPTY_CHAIR.h / 2;
+    const cx = this.state.spots.companions.paj.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x + EMPTY_CHAIR.w / 2;
+    const cy = this.state.spots.companions.paj.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y + EMPTY_CHAIR.h / 2;
     const w = Math.max(EMPTY_CHAIR.w + 8, 44);
     const h = Math.max(EMPTY_CHAIR.h + 8, 44);
     return new Phaser.Geom.Rectangle(cx - w / 2, cy - h / 2, w, h);

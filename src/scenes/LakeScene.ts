@@ -1614,6 +1614,7 @@ export class LakeScene extends Phaser.Scene {
   private updateSound(deltaMs: number): void {
     sound.setMinute(this.clock.minute);
     sound.setCamp(this.weatherId(), hasCamp(this.player, 'campfire')); // slice 27: the rain, wind and campfire beds
+    sound.setRiver(this.loc.background === 'river'); // M2 groundwork B: the river current layer
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
@@ -2530,7 +2531,7 @@ export class LakeScene extends Phaser.Scene {
     // Her hands go over the fish so they grip it.
     this.showOffHands = this.add.image(ALEX_POS.x, ALEX_POS.y, ALEX_HANDS_KEY).setOrigin(0, 0).setDepth(Z.angler + 0.6).setVisible(false);
     this.worldImgs.push(this.showOffHands);
-    this.companions = new CompanionView(this);
+    this.companions = new CompanionView(this, this.spots);
     // The car's shadow and picture, the lantern and its glow, the fade.
     this.carFx = this.add.graphics().setDepth(Z.postFx - 0.2);
     this.carImg = this.add.image(this.carPos.x, this.carPos.y, carKey('closed')).setOrigin(0, 0).setDepth(Z.postFx);
