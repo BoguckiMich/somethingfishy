@@ -97,7 +97,7 @@ export interface Bubble {
   ageMs: number;
 }
 
-export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
+export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl';
 export type PajShape = 'sit' | 'sipLift' | 'sipDrink' | 'pourReach' | 'pour' | 'cheer' | 'look' | 'stand' | 'walk' | 'throw' | 'carry' | 'stretch' | 'bend';
 export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed';
 /**
@@ -105,8 +105,10 @@ export type Mode = 'dock' | 'leaving' | 'play' | 'returning' | 'bed';
  * and stops out of reach, he steps in (`tease`), she dodges (`dodge`) and runs off with it (`keepAway`),
  * he gives up (`giveUp`), walks to a spare stick (`toStick`), picks it up (`bend`) and throws again.
  * Rarely she gives it back instead (`drop`). After a few rounds: the happy `spin`, then `rest`.
+ * With her bed owned (slice 27) the spin may be followed by a nap instead: she trots to the bed (`napGo`), circles once (`napCircle`),
+ * lies curled in it (`napCurl`) for a good while and gets up (`napWake`, at once and wagging when she is petted), then `rest`.
  */
-type PlayPhase = 'throw' | 'bring' | 'tease' | 'dodge' | 'keepAway' | 'giveUp' | 'toStick' | 'bend' | 'drop' | 'spin' | 'rest';
+type PlayPhase = 'throw' | 'bring' | 'tease' | 'dodge' | 'keepAway' | 'giveUp' | 'toStick' | 'bend' | 'drop' | 'spin' | 'rest' | 'napGo' | 'napCircle' | 'napCurl' | 'napWake';
 
 interface Actor extends Point {
   /** 1 = facing right, -1 = left. */
@@ -197,6 +199,39 @@ export const PLAY_TUNING = {
   /** A throw lands this far from him (min, max). */
   throwDist: [80, 200] as [number, number],
 };
+
+/** Where Bestia's feet are when she lies curled in her camp bed (art/campLayout.ts BED_POS 80,555 + the bed's size 28 x 12: the middle of the hollow). */
+export const DOG_BED_SPOT: Point = { x: 94, y: 564 };
+
+/** Bestia's nap in her camp bed (slice 27). */
+export const NAP_TUNING = {
+  /** The chance a finished play session ends with a nap by day (at night it is always). */
+  chanceDay: 0.5,
+  circleMs: 1400,
+  /** How long she stays curled (random in this range). */
+  curlMs: [20_000, 34_000] as [number, number],
+  /** Getting up: on her own, or woken by a pet (she wags for longer). */
+  wakeMs: 900,
+  wakePetMs: 1500,
+  trotSpeed: 66,
+  /** One breath (rise and fall) takes this long. */
+  breathMs: 2200,
+};
+
+/** Does this play session end with a nap in the bed? Never without the bed; always at night; else by chance. */
+export function napDue(ctx: Pick<CompanionContext, 'bed' | 'night'>, rng: Rng): boolean {
+  if (!ctx.bed) return false;
+  return ctx.night || rng() < NAP_TUNING.chanceDay;
+}
+
+/** The two frames of the curled dog: 0 = down, 1 = the chest 1 px up. */
+export const napBreath = (elapsedMs: number): 0 | 1 => (Math.floor(elapsedMs / (NAP_TUNING.breathMs / 2)) % 2 === 0 ? 0 : 1);
+
+const NAP_PHASES: readonly PlayPhase[] = ['napGo', 'napCircle', 'napCurl', 'napWake'];
+/** Is she on her way to the bed, in it or getting up? */
+export const isNapping = (s: Companions): boolean => s.mode === 'play' && NAP_PHASES.includes(s.play.phase);
+/** Lying curled in the bed, asleep. */
+export const isCurled = (s: Companions): boolean => s.mode === 'play' && s.play.phase === 'napCurl';
 
 // ---- Bedtime, naps and the car (slice 16) ---------------------------------------------------
 
@@ -333,6 +368,9 @@ export interface PlayState {
   queued: GroundStick | null;
   /** The chase: which way round him she slides while he blocks her way (0 = not blocked). */
   slide: 1 | -1 | 0;
+  /** How long this nap lasts curled, and how long the getting up takes (slice 27). */
+  napMs: number;
+  wakeMs: number;
 }
 
 function newPlay(): PlayState {
@@ -354,6 +392,8 @@ function newPlay(): PlayState {
     stickSide: 1,
     queued: null,
     slide: 0,
+    napMs: 0,
+    wakeMs: NAP_TUNING.wakeMs,
   };
 }
 
@@ -361,6 +401,24 @@ export interface CompanionContext {
   /** FishingState['kind'] */
   fishing: string;
   night: boolean;
+  /** Bestia's camp bed is owned (slice 27): she may nap in it after a play session. */
+  bed?: boolean;
+  /** The campfire is owned: Pajkel keeps off its spot so his head never covers the flames. */
+  fire?: boolean;
+}
+
+/** The campfire's feet (art/campLayout.ts FIRE_FEET) and the zone below it where his head would cover the flames, and where he is nudged to. */
+export const FIRE_SPOT: Point = { x: 106, y: 497 };
+export const FIRE_KEEP_OFF = { halfW: 22, below: 46, standX: 130 };
+
+/** Is `p` (feet) where Pajkel's head would hide the fire? */
+export const coversFire = (p: Point): boolean =>
+  Math.abs(p.x - FIRE_SPOT.x) < FIRE_KEEP_OFF.halfW && p.y > FIRE_SPOT.y - 4 && p.y < FIRE_SPOT.y + FIRE_KEEP_OFF.below;
+
+/** Moves him sideways (at most `stepPx`) towards the clear spot right of the fire while he stands where he would cover it. */
+export function nudgeOffFire(p: Point, stepPx: number): void {
+  if (!coversFire(p)) return;
+  p.x = Math.min(FIRE_KEEP_OFF.standX, p.x + stepPx);
 }
 
 const rand = (rng: Rng, a: number, b: number) => a + rng() * (b - a);
@@ -476,6 +534,13 @@ export function pickLine(lines: readonly string[], rng: Rng = Math.random): stri
 
 /** Pet the dog. Returns true when it happened (the scene shows the heart). */
 export function petDog(s: Companions): boolean {
+  // A pet wakes her from her nap in the bed: she lifts her head and wags, then gets up.
+  if (isNapping(s) && s.play.phase !== 'napWake') {
+    go(s.play, 'napWake');
+    s.play.wakeMs = NAP_TUNING.wakePetMs;
+    s.dog.path = [];
+    s.dog.shape = 'lie';
+  }
   s.dog.petMs = 1600;
   s.dog.wagMs = 1;
   s.dog.sleeping = false;
@@ -688,7 +753,7 @@ export function tickCompanions(s: Companions, dtMs: number, ctx: CompanionContex
       s.sticks = [];
     }
   } else if (s.mode === 'play') {
-    tickPlay(s, dtMs, rng);
+    tickPlay(s, dtMs, ctx, rng);
   } else if (s.mode === 'bed') {
     tickBed(s, dtMs, rng);
   } else {
@@ -1038,7 +1103,7 @@ export function stickAt(s: Companions, x: number, y: number, any = false): Groun
 }
 
 /** Phases between two rounds, where a tap on a stick starts the next one at once. */
-const FETCH_ON_TAP_PHASES: readonly PlayPhase[] = ['rest', 'giveUp', 'toStick'];
+const FETCH_ON_TAP_PHASES: readonly PlayPhase[] = ['rest', 'giveUp', 'toStick', ...NAP_PHASES];
 /** Phases where Pajkel holds or throws a stick: a stick tap is swallowed and does nothing. */
 const FETCH_BUSY_PHASES: readonly PlayPhase[] = ['throw', 'bend'];
 
@@ -1051,8 +1116,10 @@ function promoteStick(s: Companions, g: GroundStick): void {
   const pl = s.play;
   pl.finalRound = false;
   pl.stickSide = g.x < s.paj.x ? -1 : 1;
-  if (pl.phase === 'rest') {
+  if (pl.phase === 'rest' || NAP_PHASES.includes(pl.phase)) {
     pl.fetches = 0;
+    s.dog.hop = 0;
+    s.dog.path = [];
     s.stick.state = 'hidden';
     go(pl, 'toStick');
   }
@@ -1221,9 +1288,10 @@ const WALK_HOLD_MS = 150;
 const WALK_WINDOW_MS = 300;
 const WALK_MIN_PX = 5;
 
-function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
-  tickPlayPhase(s, dtMs, rng);
+function tickPlay(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
+  tickPlayPhase(s, dtMs, ctx, rng);
   const p = s.paj;
+  if (ctx.fire) nudgeOffFire(p, (60 * dtMs) / 1000);
   const a = p.walkAnchor;
   a.ms += dtMs;
   if (dist(a, p) >= WALK_MIN_PX) {
@@ -1236,7 +1304,7 @@ function tickPlay(s: Companions, dtMs: number, rng: Rng): void {
   if (p.shape === 'walk' && p.walkHoldMs === 0) p.shape = 'stand';
 }
 
-function tickPlayPhase(s: Companions, dtMs: number, rng: Rng): void {
+function tickPlayPhase(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
   takeQueued(s);
   const pl = s.play;
   const p = s.paj;
@@ -1546,6 +1614,63 @@ function tickPlayPhase(s: Companions, dtMs: number, rng: Rng): void {
         d.hop = 0;
         d.wagMs = 0;
         d.reaction = 'none';
+        if (napDue(ctx, rng)) {
+          go(pl, 'napGo');
+          d.path = [{ ...DOG_BED_SPOT }];
+        } else {
+          go(pl, 'rest');
+          d.path = [{ x: p.x + 30, y: clamp(p.y + 4, PLAY_AREA.y0, PLAY_AREA.y1) }];
+        }
+      }
+      break;
+    }
+    case 'napGo': {
+      // She trots to her bed while he waits.
+      p.shape = 'stand';
+      const done = follow(d, NAP_TUNING.trotSpeed, dtMs);
+      d.shape = done ? 'stand' : 'run';
+      if (done) go(pl, 'napCircle');
+      break;
+    }
+    case 'napCircle': {
+      // One turn on the spot, a little hop on each flip, then down she goes.
+      p.shape = 'stand';
+      d.x = DOG_BED_SPOT.x;
+      d.y = DOG_BED_SPOT.y;
+      d.shape = 'stand';
+      const slot = NAP_TUNING.circleMs / 3;
+      d.face = Math.floor(pl.phaseMs / slot) % 2 === 0 ? -1 : 1;
+      d.hop = Math.abs(Math.sin((Math.PI * (pl.phaseMs % slot)) / slot)) * 2;
+      if (pl.phaseMs >= NAP_TUNING.circleMs) {
+        d.hop = 0;
+        d.face = 1;
+        d.shape = 'curl';
+        pl.napMs = rand(rng, NAP_TUNING.curlMs[0], NAP_TUNING.curlMs[1]);
+        go(pl, 'napCurl');
+      }
+      break;
+    }
+    case 'napCurl': {
+      p.shape = 'stand';
+      d.shape = 'curl';
+      d.face = 1;
+      d.hop = 0;
+      d.wagMs = 0;
+      if (pl.phaseMs >= pl.napMs) {
+        pl.wakeMs = NAP_TUNING.wakeMs;
+        go(pl, 'napWake');
+        d.shape = 'sit';
+      }
+      break;
+    }
+    case 'napWake': {
+      // Head up (wagging if she was petted), then she gets up and wanders back to the lawn.
+      p.shape = 'stand';
+      d.hop = 0;
+      d.shape = pl.phaseMs < pl.wakeMs * 0.6 ? 'lie' : 'sit';
+      if (d.petMs > 0) d.wagMs = 1 + pl.phaseMs;
+      if (pl.phaseMs >= pl.wakeMs) {
+        d.wagMs = 0;
         go(pl, 'rest');
         d.path = [{ x: p.x + 30, y: clamp(p.y + 4, PLAY_AREA.y0, PLAY_AREA.y1) }];
       }
@@ -1579,6 +1704,8 @@ export interface DogView {
   step: number;
   /** Carrying the stick in its mouth. */
   carry: boolean;
+  /** Curled in her bed: 0 = down, 1 = chest up 1 px. */
+  breath: 0 | 1;
 }
 
 export function dogView(s: Companions): DogView {
@@ -1592,10 +1719,19 @@ export function dogView(s: Companions): DogView {
     perked: d.reaction === 'perk' || d.reaction === 'stand' || d.reaction === 'spin' || d.reaction === 'hop' || d.petMs > 0,
     step: Math.floor(s.elapsed / 90) % 4,
     carry: s.stick.state === 'carried',
+    breath: napBreath(s.elapsed),
   };
 }
 
 /** 0..3 walk frame for Pajkel. */
 export function pajWalkFrame(s: Companions): number {
   return Math.floor(s.paj.walkDist / PAJ_STRIDE_PX) % 4;
+}
+
+/** Dev helper (?debug=bedrest): play mode with Bestia already curled up asleep in her bed. */
+export function startNapNow(s: Companions): void {
+  startPlayNow(s);
+  Object.assign(s.dog, DOG_BED_SPOT, { shape: 'curl', face: 1, path: [] });
+  go(s.play, 'napCurl');
+  s.play.napMs = NAP_TUNING.curlMs[1];
 }

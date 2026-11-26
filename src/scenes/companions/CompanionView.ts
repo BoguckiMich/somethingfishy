@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DOG_SIZE, EMPTY_CHAIR, PAJ_CUP, PAJ_HEAD_TOP, PAJ_ORIGIN_Y, PAJ_SIZE, PAJ_WALK_SIZE, dogKey, type DogFrame, type PajPose, type PajWalkPose, type StickVariant } from '../../art/characters';
 import { W } from '../../art/layout';
+import { lerpColor } from '../../art/dayCycle';
 import { PAL } from '../../art/palette';
 import { TEX, pajSitKey, pajWalkKey, stickGroundKey } from '../../art/textures';
 import { FONT, FS, textPad } from '../../font';
@@ -20,6 +21,7 @@ import {
   pajVisible,
   pajSay,
   pajWalkFrame,
+  isNapping,
   petDog,
   tickCompanions,
   type CompanionContext,
@@ -64,7 +66,7 @@ export class CompanionView {
   /** Sticks lying on the grass (old ones and the spare), one image each, reused. */
   private ground: Phaser.GameObjects.Image[] = [];
   private zs: Phaser.GameObjects.Image[] = [];
-  private hearts: { img: Phaser.GameObjects.Image; age: number }[] = [];
+  private hearts: { img: Phaser.GameObjects.Image; age: number; life: number }[] = [];
   private bubbleGfx: Phaser.GameObjects.Graphics;
   private bubbleText: Phaser.GameObjects.Text;
 
@@ -158,10 +160,12 @@ export class CompanionView {
 
   /** Pets the dog and floats a heart. */
   pet(): void {
+    const waking = isNapping(this.state);
     petDog(this.state);
     const d = this.state.dog;
-    const img = this.scene.add.image(Math.round(d.x), Math.round(d.y - 28), TEX.heart).setDepth(DEPTH + 4);
-    this.hearts.push({ img, age: 0 });
+    // Waking her from her nap: a longer heart, clearly above her.
+    const img = this.scene.add.image(Math.round(d.x), Math.round(d.y - (waking ? 36 : 28)), TEX.heart).setDepth(DEPTH + 4);
+    this.hearts.push({ img, age: 0, life: waking ? 1200 : 1000 });
   }
 
   /** Screen-space hit boxes for taps. */
@@ -221,11 +225,12 @@ export class CompanionView {
 
     // The dog.
     const v = dogView(s);
+    const curled = v.shape === 'curl';
     const frame: DogFrame = {
       shape: v.shape,
       tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' || v.shape === 'bow' ? v.tail % 2 : 0,
       perked: v.shape === 'lie' || v.shape === 'sit' || v.shape === 'stand' ? v.perked : false,
-      step: v.shape === 'run' ? v.step : 0,
+      step: v.shape === 'run' ? v.step : v.shape === 'curl' ? v.breath : 0,
       carry: v.shape === 'run' && v.carry,
     };
     const d = s.dog;
@@ -237,18 +242,23 @@ export class CompanionView {
       .setOrigin(0.5, 23 / DOG_SIZE.h)
       .setFlipX(d.face < 0)
       .setPosition(Math.round(d.x) + wiggle, Math.round(d.y - d.hop))
-      .setTint(tint)
+      .setTint(curled ? lerpColor(tint, 0xffffff, 0.3) : tint)
       .setDepth(this.dogBehind ? DEPTH - 0.1 : DEPTH + 0.1) // behind him while she is further up the screen
       .setVisible(dogVisible(s))
       .setAlpha(s.bed?.dogA ?? 1);
 
     // Sleeping "z"s.
-    const asleep = v.shape === 'sleep' && s.mode !== 'bed';
+    const asleep = (v.shape === 'sleep' || curled) && s.mode !== 'bed';
     this.zs.forEach((z, i) => {
       z.setVisible(asleep);
       if (!asleep) return;
-      const t = ((elapsed / 1600 + i * 0.5) % 1);
-      z.setPosition(Math.round(d.x + 8 + i * 6 + t * 5), Math.round(d.y - 22 - t * 14)).setAlpha(1 - t);
+      // In her bed the z's come now and then (a slow cycle) from just above her head.
+      const t = curled ? ((elapsed / 3600 + i * 0.22) % 1) * 1.6 : (elapsed / 1600 + i * 0.5) % 1;
+      if (t >= 1) {
+        z.setVisible(false);
+        return;
+      }
+      z.setPosition(Math.round(d.x + (curled ? 6 : 8) + i * 6 + t * 5), Math.round(d.y - (curled ? 14 : 22) - t * 14)).setAlpha(1 - t);
     });
 
     // Stick: in the air it turns (four baked angles); carried it is a bigger, angled stick gripped at the
@@ -286,11 +296,11 @@ export class CompanionView {
     // Hearts float up and fade.
     for (const h of this.hearts) {
       h.age += dtMs;
-      h.img.setY(h.img.y - dtMs * 0.03).setAlpha(Math.max(0, 1 - h.age / 1000));
+      h.img.setY(h.img.y - dtMs * 0.03).setAlpha(Math.max(0, 1 - h.age / h.life));
     }
     this.hearts = this.hearts.filter((h) => {
-      if (h.age > 1000) h.img.destroy();
-      return h.age <= 1000;
+      if (h.age > h.life) h.img.destroy();
+      return h.age <= h.life;
     });
   }
 }

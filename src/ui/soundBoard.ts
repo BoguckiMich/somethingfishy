@@ -1,6 +1,7 @@
 import { FONT, FS, LINE } from '../font';
 import { AMBIENT_LAYERS, SFX_NAMES, sound, type AmbientLayer } from '../audio/sound';
 import { formatClock } from '../core/clock';
+import { WEATHER_IDS, type WeatherId } from '../core/data/weather';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 const sectionTitle = (text: string) =>
@@ -13,6 +14,7 @@ const sectionTitle = (text: string) =>
 export function openSoundBoard(startMinute: number, onClose: () => void): PanelHandle {
   const solo = new Set<AmbientLayer>();
   let minute = Math.round(startMinute) % 1440;
+  let weather: WeatherId | null = null;
 
   const panel: PanelHandle = openPanel(
     'Sound board (dev)',
@@ -50,6 +52,18 @@ export function openSoundBoard(startMinute: number, onClose: () => void): PanelH
       body.append(layers);
       body.append(el('div', `font-size:${FS.small}px;color:${COLORS.cream};padding-top:4px`, solo.size > 0 ? 'Solo: only the ticked layers play.' : 'No solo: the time slider decides the mix.'));
 
+      body.append(sectionTitle('Weather (rain / wind layers)'));
+      const wx = el('div', 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px');
+      for (const w of [null, ...WEATHER_IDS] as (WeatherId | null)[]) {
+        wx.append(woodButton(`${weather === w ? '[x]' : '[ ]'} ${w ?? 'game'}`, () => {
+          weather = w;
+          sound.setDebugWeather(w);
+          panel.refresh();
+        }, { small: true }));
+      }
+      body.append(wx);
+      body.append(el('div', `font-size:${FS.small}px;color:${COLORS.cream};padding-top:4px`, 'The campfire crackle follows the time slider (it plays on the board even before you own the fire).'));
+
       body.append(sectionTitle('Time of day'));
       const label = el('div', `font:${FS.heading}px/${LINE} ${FONT};color:${COLORS.text};text-align:center`, formatClock(minute));
       const slider = el('input', 'display:block;width:100%;box-sizing:border-box;margin:6px 0 0');
@@ -68,6 +82,7 @@ export function openSoundBoard(startMinute: number, onClose: () => void): PanelH
     () => {
       sound.setSolo(null);
       sound.setDebugMinute(null);
+      sound.setDebugWeather(null);
       onClose();
     },
   );

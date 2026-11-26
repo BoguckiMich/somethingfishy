@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CAR_SIZE } from './carArt';
-import { CAMPFIRE_FRAMES, WINDSOCK_LEVELS, WINDSOCK_SIZE, campfireSprite, dogBedSprite, lightPoleSprite, tentSprite, windsockSprite, TENT_SIZE, CAMPFIRE_SIZE, BED_SIZE, POLE_SIZE } from './campArt';
+import { CAMPFIRE_FRAMES, WINDSOCK_LEVELS, WINDSOCK_SIZE, campfireSprite, dogBedSprite, lightPoleSprite, tentSprite, windsockSprite, TENT_SIZE, CAMPFIRE_SIZE, BED_SIZE, BED_FRONT_FROM, POLE_SIZE, TENT_DOOR, tentDoorHalf } from './campArt';
+import { PAL } from './palette';
 import { SOCK_FEET, SOCK_ORIGIN_X, campBoxes, type Box } from './campLayout';
-import { emptyChairSprite, pajkelSittingSprite } from './characters';
+import { allDogFrames, dogSprite, emptyChairSprite, pajkelSittingSprite } from './characters';
 import { SIGN_SIZE } from './signArt';
 import { TROPHY_BOARD_SIZE } from './trophyBoardArt';
 import { TRANSPARENT, type Sprite } from './pixelGrid';
@@ -26,6 +27,38 @@ describe('camp sprites', () => {
       const feet = s.pixels.slice((s.height - 1) * s.width).filter((c) => c !== TRANSPARENT).length;
       expect(feet).toBeGreaterThan(0);
     }
+  });
+
+  it('draw the bed as a raised rim round a darker hollow, big enough for the curled dog (slice 27)', () => {
+    const bed = dogBedSprite();
+    const at = (x: number, y: number) => bed.pixels[y * bed.width + x];
+    // The middle of the hollow is not the rim colour, and the rim's top edge is lit while its front wall is dark.
+    expect(at(13, 6)).not.toBe(at(13, 2));
+    expect(at(13, 2)).toBe(PAL.denimLight);
+    expect(at(13, 10)).toBe(PAL.denimDark);
+    // The curled dog (about 18 px wide) fits inside the bed's 28 px with rim to spare.
+    const dog = dogSprite({ shape: 'curl', tail: 0, perked: false, step: 0 });
+    const xs = dog.pixels.map((c, i) => (c !== TRANSPARENT ? i % dog.width : -1)).filter((x) => x >= 0);
+    expect(Math.max(...xs) - Math.min(...xs) + 1).toBeLessThanOrEqual(BED_SIZE.w - 6);
+    expect(BED_FRONT_FROM).toBeGreaterThan(0);
+    expect(BED_FRONT_FROM).toBeLessThan(BED_SIZE.h);
+  });
+
+  it('draw the sleeping dog in two breath frames, the chest 1 px higher in the second', () => {
+    const a = dogSprite({ shape: 'curl', tail: 0, perked: false, step: 0 });
+    const b = dogSprite({ shape: 'curl', tail: 0, perked: false, step: 1 });
+    expect(same(a, b)).toBe(false);
+    const top = (s: Sprite) => s.pixels.findIndex((c) => c !== TRANSPARENT) / s.width;
+    expect(Math.floor(top(b))).toBe(Math.floor(top(a)) - 1);
+    expect(allDogFrames().filter((f) => f.shape === 'curl')).toHaveLength(2);
+  });
+
+  it('keeps the tent door where the glow draws it', () => {
+    const tent = tentSprite();
+    const mid = (y: number) => tent.pixels[y * tent.width + TENT_DOOR.cx];
+    expect(mid(TENT_DOOR.top + 5)).toBe(PAL.woodDeep);
+    expect(tentDoorHalf(TENT_DOOR.bottom)).toBe(TENT_DOOR.half);
+    expect(tentDoorHalf(TENT_DOOR.top)).toBe(0);
   });
 
   it('flicker over three different campfire frames', () => {
