@@ -102,7 +102,8 @@ describe('camp layout', () => {
 
   for (const [name, b] of Object.entries(camp)) {
     it(`keeps the ${name} clear of the other shore things`, () => {
-      for (const [other, ob] of others) expect(overlap(b, ob), `${name} overlaps ${other}`).toBe(false);
+      // Bestia's bed lies ON the dock (slice 31): the dock is its place, everything else stays clear of it.
+      for (const [other, ob] of others) if (!(name === 'bed' && other === 'dock')) expect(overlap(b, ob), `${name} overlaps ${other}`).toBe(false);
     });
     it(`keeps the ${name} on the screen's width (the tent may lean in from the left edge)`, () => {
       expect(b.x + b.w).toBeGreaterThan(0);
@@ -110,6 +111,18 @@ describe('camp layout', () => {
       expect(b.x + b.w <= 360 || name === 'sock').toBe(true);
     });
   }
+
+  it("puts Bestia's bed on the dock deck, under her lying spot, clear of the crate and the chair", () => {
+    const bed = camp.bed;
+    expect(bed.x).toBeGreaterThanOrEqual(dock.x + 4);
+    expect(bed.x + bed.w).toBeLessThanOrEqual(dock.x + dock.w - 4);
+    expect(bed.y).toBeGreaterThanOrEqual(dock.y);
+    expect(bed.y + bed.h).toBeLessThanOrEqual(dock.y + dock.h);
+    expect(DOG_SPOT.x).toBe(bed.x + bed.w / 2); // centred under her
+    expect(DOG_SPOT.y).toBe(bed.y + 9);
+    expect(overlap(bed, crate)).toBe(false);
+    expect(bed.x).toBeGreaterThanOrEqual(PAJ_SPOT.x + 14); // right of his chair
+  });
 
   it('keeps the camp items clear of each other', () => {
     const names = Object.keys(camp) as (keyof typeof camp)[];
@@ -144,6 +157,7 @@ describe('camp and the walks of the companions', () => {
     it(`${name} does not cross a camp item`, () => {
       for (const f of along(pts)) {
         for (const [item, b] of Object.entries(camp)) {
+          if (item === 'bed') continue; // her walk starts from the bed on the dock (slice 31)
           const inside = f.x > b.x - 4 && f.x < b.x + b.w + 4 && f.y > b.y && f.y < b.y + b.h + 4;
           expect(inside, `${name} at ${Math.round(f.x)},${Math.round(f.y)} is in the ${item}`).toBe(false);
         }

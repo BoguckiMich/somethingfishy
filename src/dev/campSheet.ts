@@ -1,5 +1,4 @@
 import { BED_FRONT_FROM, BED_SIZE, CAMPFIRE_FRAMES, CAMPFIRE_SIZE, POLE_SIZE, TENT_SIZE, WINDSOCK_LEVELS, WINDSOCK_SIZE, campfireSprite, dogBedSprite, lightPoleSprite, tentSprite, windsockSprite } from '../art/campArt';
-import { DOG_BED_SPOT } from '../scenes/companions/behaviour';
 import { Pix, dogSprite } from '../art/characters';
 import { TRANSPARENT } from '../art/pixelGrid';
 import { emptyChairSprite, pajkelSittingSprite } from '../art/characters';
@@ -73,13 +72,13 @@ row([
 // Bestia asleep in her bed (slice 27), both breath frames, as the scene stacks them: the bed, her, then the bed's front rim over her.
 {
   const cells: HTMLElement[] = [];
-  for (const [label, minute, bg] of [['day', 12 * 60, PAL.grass1], ['night', 23 * 60, 0x2c4a3a]] as const) {
+  for (const [label, minute, bg] of [['day', 12 * 60, PAL.woodLight], ['night', 23 * 60, 0x2c4a3a]] as const) {
     const tint = dayLook(minute).worldTint;
     for (const breath of [0, 1]) {
       const p = new Pix(32, 26);
       const bed = dogBedSprite();
       p.blit(bed, 2, 14);
-      p.blit(dogSprite({ shape: 'curl', tail: 0, perked: false, step: breath }), 0, DOG_BED_SPOT.y - 23 - 541);
+      p.blit(dogSprite({ shape: 'curl', tail: 0, perked: false, step: breath }), 0, 0); // her feet at the bed's hollow (bed y 14 + 9)
       for (let y = BED_FRONT_FROM; y < BED_SIZE.h; y++) for (let x = 0; x < BED_SIZE.w; x++) {
         const c = bed.pixels[y * bed.width + x];
         if (c !== TRANSPARENT) p.set(2 + x, 14 + y, c);
