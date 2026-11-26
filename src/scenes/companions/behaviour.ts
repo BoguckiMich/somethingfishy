@@ -2122,7 +2122,7 @@ export const FEED_ANIM = {
   standDx: 17,
   /** The lane along the bottom of the lawn she crosses to reach the bowl, clear of the camp bed. */
   laneX: 126,
-  laneY: 584,
+  laneY: 576,
 };
 
 export type FeedPhase = 'go' | 'eat' | 'wag' | 'back';

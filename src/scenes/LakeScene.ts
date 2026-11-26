@@ -297,7 +297,7 @@ function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Re
     stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 12, sp.stones.y - 12, Math.min(STONES_SIZE.w + 24, 118 - (sp.stones.x - 12)), STONES_SIZE.h + 26) : null,
     bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 8, BED_SIZE.h + 9),
     // The food bowl (slice 30): its picture and a generous thumb of room all round (clear of the car's box above and the bottom bar below).
-    bowl: new Phaser.Geom.Rectangle(sp.bowl.x - 16, sp.bowl.y - 14, BOWL_SIZE.w + 32, BOWL_SIZE.h + 28),
+    bowl: new Phaser.Geom.Rectangle(sp.bowl.x - 16, sp.bowl.y - 2, BOWL_SIZE.w + 32, BOWL_SIZE.h + 22),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
     sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 60, 60, 62), // the dock's end (x 244) stays clear
     crate: new Phaser.Geom.Rectangle(sp.crate.x - 22, sp.crate.y - 34, 44, 44),
