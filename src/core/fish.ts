@@ -28,7 +28,7 @@ export const FISH_TUNING = {
   bigLengthSkew: 1.5,
   /** Difficulty added at the very top of a species' size range. */
   sizeDifficulty: 0.1,
-  /** Shallow fish never get harder than this, whatever their size. */
+  /** Shallow fish never get harder than this, whatever their size. The rare ones (the asp, difficulty 0.5) and the trophies are exempt. */
   shallowCap: 0.4,
 };
 
@@ -114,7 +114,7 @@ export function fightProfile(species: Species, lengthCm: number, difficultyAdd =
   const raw = species.difficulty + FISH_TUNING.sizeDifficulty * sizeShare(species, lengthCm);
   // A trophy (slice 23d) is hard even in the shallows, and slips away when it stays out of the green zone too long.
   const trophy = species.rarity === 'trophy';
-  const cap = species.zone === 'shallow' && !trophy ? FISH_TUNING.shallowCap : 1;
+  const cap = species.zone === 'shallow' && !trophy && species.rarity !== 'rare' ? FISH_TUNING.shallowCap : 1;
   // A windy day (slice 23b) makes every fight a little harder, past the shallow cap but never above 1.
   const profile: FishProfile = { pattern: species.pattern, difficulty: Math.min(1, Math.min(cap, raw) + difficultyAdd) };
   return trophy ? { ...profile, slipAfterMs: RARE_TUNING.slipAfterMs } : profile;

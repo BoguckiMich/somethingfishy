@@ -421,9 +421,12 @@ describe('chapterWaits: the night blink waits for Pajkel in the car', () => {
 
 describe('catching up once the road is fixed', () => {
   const two = (): ReturnType<typeof newStory> => markSeen(markSeen(newStory(), 'Q1', '2026-12-01'), 'Q2', '2026-12-01');
-  it('ignores the daily cap, but not the order or the milestones', () => {
+  it('raises the daily cap to 3, but not the order or the milestones', () => {
     expect(todaysChapter(two(), '2026-12-01', LAKE, ALL)).toBeNull();
     expect(todaysChapter(two(), '2026-12-01', LAKE, ALL, true)?.id).toBe('Q3');
+    const three = markSeen(two(), 'Q3', '2026-12-01');
+    expect(todaysChapter(three, '2026-12-01', LAKE, ALL, true)).toBeNull();
+    expect(slotFree(three, '2026-12-02', true)).toBe(true);
     expect(todaysChapter(two(), '2026-12-01', LAKE, only('Q4', 'Q5'), true)).toBeNull();
     expect(slotFree(two(), '2026-12-01', true)).toBe(true);
     expect(slotFree(two(), 'tomorrow', true)).toBe(false);

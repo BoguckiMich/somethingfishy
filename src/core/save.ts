@@ -174,6 +174,8 @@ function normalizePlayer(v: unknown): PlayerState {
     ...(normalizeSeen(p.seen).length > 0 ? { seen: normalizeSeen(p.seen) } : {}),
     // The date of Pajkel's weather line (slice 23b): a valid date or no key.
     ...(normalizeWeatherSeen(p.weatherSeen) ? { weatherSeen: normalizeWeatherSeen(p.weatherSeen) } : {}),
+    // The last nap (balance A2): a finite stamp or no key.
+    ...(typeof p.napAt === 'number' && Number.isFinite(p.napAt) && p.napAt > 0 ? { napAt: Math.floor(p.napAt) } : {}),
     // The trophy board (slice 23d): stored only when a rare fish was caught (older saves have no key).
     ...(Object.keys(normalizeTrophies(p.trophies)).length > 0 ? { trophies: normalizeTrophies(p.trophies) } : {}),
     // Where she is (slice 25a): stored only away from Quiet Lake (older saves have no key).

@@ -42,17 +42,17 @@ const ANY: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 /** The v1 roster (GAME_DESIGN section 3). Tunable data; the legendary arrives in slice 12. */
 export const SPECIES: Species[] = [
   {
-    id: 'roach', name: 'Roach', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'smooth', difficulty: 0.1,
+    id: 'roach', name: 'Roach', zone: 'shallow', times: ['dawn', 'day'], rarity: 'common', pattern: 'smooth', difficulty: 0.1,
     lengthCm: [12, 30], nibbles: [0, 1], bodyFactor: 0.0111, basePrice: 6,
     fact: 'Roach live in big schools and cope with murky water better than most fish.',
   },
   {
-    id: 'rudd', name: 'Rudd', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'floater', difficulty: 0.15,
+    id: 'rudd', name: 'Rudd', zone: 'shallow', times: ['dawn', 'day'], rarity: 'common', pattern: 'floater', difficulty: 0.15,
     lengthCm: [12, 30], nibbles: [0, 3], bodyFactor: 0.0125, basePrice: 7,
     fact: 'The rudd has an upturned mouth, which suits feeding at the water surface.',
   },
   {
-    id: 'bleak', name: 'Bleak', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'darting', difficulty: 0.2,
+    id: 'bleak', name: 'Bleak', zone: 'shallow', times: ['dawn', 'day'], rarity: 'common', pattern: 'darting', difficulty: 0.2,
     lengthCm: [8, 18], nibbles: [0, 1], bodyFactor: 0.0074, basePrice: 4,
     fact: 'Bleak swim in shoals near the surface and snap up insects that fall on the water.',
   },

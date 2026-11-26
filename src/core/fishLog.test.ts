@@ -54,7 +54,7 @@ describe('speciesCaught', () => {
 describe('whereWhen', () => {
   const of = (id: string) => whereWhen(SPECIES.find((s) => s.id === id)!);
   it('names the zone and the times of day', () => {
-    expect(of('roach')).toBe('Shallow water · day');
+    expect(of('roach')).toBe('Shallow water · dawn, day');
     expect(of('zander')).toBe('Deep water · dusk, night');
     expect(of('tench')).toBe('Deep water · dawn, dusk');
   });
@@ -67,7 +67,7 @@ describe('whereWhen', () => {
 describe('lockedHint', () => {
   const of = (id: string) => lockedHint(SPECIES.find((s) => s.id === id)!);
   it('gives icons and words for the depth and the times', () => {
-    expect(of('roach')).toMatchObject({ depth: 'shallow', times: ['sun'], text: 'Shallow water · by day' });
+    expect(of('roach')).toMatchObject({ depth: 'shallow', times: ['half', 'sun'], text: 'Shallow water · at dawn and day' });
     expect(of('zander')).toMatchObject({ depth: 'deep', times: ['half', 'moon'], text: 'Deep water · at dusk and night' });
     expect(of('tench')).toMatchObject({ depth: 'deep', times: ['half'], text: 'Deep water · at dawn and dusk' });
   });

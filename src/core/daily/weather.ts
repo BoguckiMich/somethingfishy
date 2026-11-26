@@ -47,7 +47,7 @@ export function weatherForHour(date: string, hour: number): WeatherId | undefine
 /** What a weather does to the bites right now, flattened for the core rules (fog already knows the clock). */
 export interface WeatherEffects {
   id: WeatherId;
-  zoneWeight: Partial<Record<ZoneId, number>>;
+  zoneWaitFactor: Partial<Record<ZoneId, number>>;
   likedWeight: number;
   likedAnyTime: boolean;
   rarityWeight: Partial<Record<Rarity, number>>;
@@ -55,16 +55,15 @@ export interface WeatherEffects {
   difficultyAdd: number;
 }
 
-/** The effects of `id` at `minute` of the in-game day; the fog rule switches off at 10:00. */
-export function weatherEffects(id: WeatherId, minute: number): WeatherEffects {
+/** The effects of `id` while it is on. The clock no longer matters (the fog used to switch off at 10:00 while it was still on screen); `minute` is kept for callers that pass it. */
+export function weatherEffects(id: WeatherId, _minute?: number): WeatherEffects {
   const t = WEATHER_TUNING[id];
-  const active = t.untilMinute === undefined || minute < t.untilMinute;
   return {
     id,
-    zoneWeight: t.zoneWeight ?? {},
+    zoneWaitFactor: t.zoneWaitFactor ?? {},
     likedWeight: t.likedWeight ?? 1,
     likedAnyTime: t.likedAnyTime ?? false,
-    rarityWeight: active ? (t.rarityWeight ?? {}) : {},
+    rarityWeight: t.rarityWeight ?? {},
     waitFactor: t.waitFactor ?? 1,
     difficultyAdd: t.difficultyAdd ?? 0,
   };
@@ -76,8 +75,7 @@ export const likesWeather = (species: Species, id: WeatherId): boolean => specie
 /** The weight multiplier the weather puts on one species (1 = no change). */
 export function weatherWeightMult(species: Species, fx?: WeatherEffects): number {
   if (!fx) return 1;
-  let m = fx.zoneWeight[species.zone] ?? 1;
-  m *= fx.rarityWeight[species.rarity] ?? 1;
+  let m = fx.rarityWeight[species.rarity] ?? 1;
   if (likesWeather(species, fx.id)) m *= fx.likedWeight;
   return m;
 }
@@ -85,12 +83,11 @@ export function weatherWeightMult(species: Species, fx?: WeatherEffects): number
 /** True when the weather lets the species bite whatever the time of day. */
 export const weatherAllowsAnyTime = (species: Species, fx?: WeatherEffects): boolean => !!fx && fx.likedAnyTime && likesWeather(species, fx.id);
 
-/** 1 while the fog is full, fading to 0 at 10:00 (the look only; the bite rule is a hard cut at 10:00). */
+/** 1 while the fog is full (until 08:30), thinning to a mist (`fogFloor`) by 10:00 and staying there: it never disappears while the weather is fog. */
 export function fogStrength(minute: number): number {
-  const end = WEATHER_TUNING.fog.untilMinute ?? 600;
-  const from = WEATHER_LOOK.fogThinFromMinute;
-  if (minute >= end) return 0;
-  return minute <= from ? 1 : (end - minute) / (end - from);
+  const { fogThinFromMinute: from, fogThinToMinute: end, fogFloor: floor } = WEATHER_LOOK;
+  if (minute >= end) return floor;
+  return minute <= from ? 1 : floor + (1 - floor) * ((end - minute) / (end - from));
 }
 
 // ---- Pajkel's line, once per weather change ----

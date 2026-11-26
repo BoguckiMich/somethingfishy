@@ -125,13 +125,13 @@ export function seenToday(s: StoryState, today: string): number {
 
 /** True when another chapter may be told on this date: fewer than `STORY_TUNING.perDay` were seen today. */
 export function slotFree(s: StoryState, today: string, catchUp = false): boolean {
-  return isValidDate(today) && (catchUp || seenToday(s, today) < STORY_TUNING.perDay);
+  return isValidDate(today) && seenToday(s, today) < (catchUp ? STORY_TUNING.catchUpPerDay : STORY_TUNING.perDay);
 }
 
 /**
  * Today's chapter at this place: the next unseen one (strict order, never skipping), when its milestone is met
- * (`milestones`, by chapter id; see storyMilestones) and the day's cap is not reached; else null. `catchUp` ignores
- * the day's cap (the road is fixed, so the rest of the story should not trail behind); order and milestones still apply.
+ * (`milestones`, by chapter id; see storyMilestones) and the day's cap is not reached; else null. `catchUp` raises
+ * the day's cap to `STORY_TUNING.catchUpPerDay` (the road is fixed, so the rest of the story should not trail behind); order and milestones still apply.
  */
 export function todaysChapter(s: StoryState, today: string, place: string, milestones: Readonly<Record<string, boolean>>, catchUp = false): ChapterDef | null {
   if (!slotFree(s, today, catchUp)) return null;
