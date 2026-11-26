@@ -1614,6 +1614,7 @@ export class LakeScene extends Phaser.Scene {
   private updateSound(deltaMs: number): void {
     sound.setMinute(this.clock.minute);
     sound.setCamp(this.weatherId(), hasCamp(this.player, 'campfire')); // slice 27: the rain, wind and campfire beds
+    sound.setRiver(this.loc.background === 'river'); // M2 groundwork B: the river current layer
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
