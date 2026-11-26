@@ -27,6 +27,8 @@ export interface Species {
   bodyFactor: number;
   /** Coins when sold (used from slice 7). */
   basePrice: number;
+  /** The plural of the name when it is not the same as the singular (most fish are: "2 roach"); lower case in quest text. */
+  plural?: string;
   /** One short, real fact (shown in the fish log later). */
   fact: string;
   /** Shown on the log tile while the species is unknown, instead of where and when. */
@@ -42,17 +44,17 @@ const ANY: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 /** The v1 roster (GAME_DESIGN section 3). Tunable data; the legendary arrives in slice 12. */
 export const SPECIES: Species[] = [
   {
-    id: 'roach', name: 'Roach', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'smooth', difficulty: 0.1,
+    id: 'roach', name: 'Roach', zone: 'shallow', times: ['dawn', 'day'], rarity: 'common', pattern: 'smooth', difficulty: 0.1,
     lengthCm: [12, 30], nibbles: [0, 1], bodyFactor: 0.0111, basePrice: 6,
     fact: 'Roach live in big schools and cope with murky water better than most fish.',
   },
   {
-    id: 'rudd', name: 'Rudd', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'floater', difficulty: 0.15,
+    id: 'rudd', name: 'Rudd', zone: 'shallow', times: ['dawn', 'day'], rarity: 'common', pattern: 'floater', difficulty: 0.15,
     lengthCm: [12, 30], nibbles: [0, 3], bodyFactor: 0.0125, basePrice: 7,
     fact: 'The rudd has an upturned mouth, which suits feeding at the water surface.',
   },
   {
-    id: 'bleak', name: 'Bleak', zone: 'shallow', times: ['day'], rarity: 'common', pattern: 'darting', difficulty: 0.2,
+    id: 'bleak', name: 'Bleak', zone: 'shallow', times: ['dawn', 'day'], rarity: 'common', pattern: 'darting', difficulty: 0.2,
     lengthCm: [8, 18], nibbles: [0, 1], bodyFactor: 0.0074, basePrice: 4,
     fact: 'Bleak swim in shoals near the surface and snap up insects that fall on the water.',
   },
@@ -68,12 +70,12 @@ export const SPECIES: Species[] = [
     fact: 'Crucian carp can survive in ponds with almost no oxygen, even under winter ice.',
   },
   {
-    id: 'eel', name: 'Eel', zone: 'shallow', times: ['night'], rarity: 'uncommon', pattern: 'erratic', difficulty: 0.3,
+    id: 'eel', name: 'Eel', plural: 'Eels', zone: 'shallow', times: ['night'], rarity: 'uncommon', pattern: 'erratic', difficulty: 0.3,
     lengthCm: [40, 100], nibbles: [0, 3], bodyFactor: 0.0023, basePrice: 22,
     fact: 'European eels are born in the Sargasso Sea and travel thousands of kilometres to reach our waters.',
   },
   {
-    id: 'ide', name: 'Ide', zone: 'shallow', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.35,
+    id: 'ide', name: 'Ide', plural: 'Ides', zone: 'shallow', times: ['dawn', 'dusk'], rarity: 'uncommon', pattern: 'smooth', difficulty: 0.35,
     lengthCm: [20, 55], nibbles: [1, 3], bodyFactor: 0.012, basePrice: 18,
     fact: 'The ide is a silvery cousin of the roach that swims in schools and runs up rivers in spring.',
     likes: ['overcast'],

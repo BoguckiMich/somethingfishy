@@ -72,9 +72,9 @@ export const TROPHY_TEXT = {
   pajkelFirst: {
     goldenTench: 'A golden tench! It is real!',
     mossback: 'Old Mossback! I never believed it.',
-    silverGhost: 'A silver ghost! Unreal, Alex.',
+    silverGhost: 'A silver ghost! Unreal, {player}.',
   } as Record<string, string>,
   /** Said when a later catch of the same trophy is not bigger than the one on the board. */
-  backInLake: 'Back into the lake it goes',
+  backInLake: 'Back into {water} it goes',
   board: { title: 'Trophy board', empty: 'Nothing mounted yet.' },
 };

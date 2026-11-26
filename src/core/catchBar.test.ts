@@ -328,7 +328,8 @@ describe('the real roster, fought by the bots', () => {
     const results = shallowSpecies.map((sp) => ({ sp, ...stats(sp) }));
     for (const r of results) {
       expect(r.goodShare, `${r.sp.id} good`).toBeGreaterThanOrEqual(0.98);
-      expect(r.sloppyShare, `${r.sp.id} sloppy`).toBeGreaterThanOrEqual(0.85);
+      // The asp is exempt from the shallow cap since balance A2 (its real 0.5-0.6 difficulty): a sloppy player wins ~80 %, still forgiving.
+      expect(r.sloppyShare, `${r.sp.id} sloppy`).toBeGreaterThanOrEqual(r.sp.id === 'asp' ? 0.75 : 0.85);
     }
   });
 

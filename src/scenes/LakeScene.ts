@@ -43,7 +43,7 @@ import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from 
 import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
-import { crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
+import { napCooldownLeftMs, crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
 import { fadeView, newSleepFade, tickSleepFade, type SleepFade } from '../core/sleepFade';
 import { showMapPanel } from '../ui/mapPanel';
 import { canOpenMap, napAvailable } from '../core/carMap';
@@ -97,7 +97,8 @@ import {
 } from '../core/inventory';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import type { SoundSettings } from '../core/soundSettings';
-import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
+import { clearProfile, DEFAULT_PROFILE, loadProfile, normalizeProfile, saveProfile, type Profile } from '../core/profile';
+import { EN, setTextContext, tr, WATER_BY_BACKGROUND } from '../i18n/en';
 import { showBagFullCard } from '../ui/bagFullCard';
 import { openBagPanel, openShopPanel } from '../ui/bagShop';
 import { openLogPanel } from '../ui/logPanel';
@@ -112,7 +113,7 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, stickAt, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
-import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
+import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipPlan, skipText, throwFor, type FlickSample } from '../core/skipping';
 import { finishFetchRound, firstSticks } from '../core/sticks';
 import { STONES_SIZE } from '../art/stonesArt';
@@ -124,8 +125,7 @@ import { isGoldOrBetter, lengthForStar, tierFor as catchTierFor, type Tier } fro
 import { starKey } from '../art/starArt';
 import { CompanionView } from './companions/CompanionView';
 import { HAPTICS, setHapticsEnabled, vibrate } from './haptics';
-import { GEAR_GATES } from '../core/data/gearGates';
-import { gateFor, gearUnlocked } from '../core/gearGates';
+import { gearOpenedBy } from '../core/gearGates';
 import { objectPressOutcome, type ShoreObject } from '../core/tapHold';
 import { enqueueToast, nextToast } from '../core/toastQueue';
 
@@ -477,6 +477,12 @@ export class LakeScene extends Phaser.Scene {
   private fadeWoke = false;
   /** The nap's wake-up time, set when the nap starts. */
   private napTarget: NapOption | null = null;
+  /** `Date.now()` when the last nap woke them (balance A2: a 2-minute rest before the next nap); not saved. */
+  private lastNapAt: number | undefined;
+  /** Game ms left of the rest after the last nap (counts down in update, so the nap card can tick; started from the saved stamp). */
+  private napRestMs = 0;
+  private napCardHandle: PanelHandle | null = null;
+  private napCardSecond = -1;
   /** 00:00 passed and the sequence is waiting for a fight, the show-off or a panel to end. */
   private bedPending = false;
   /** 01:00 passed without the kit and the warning is waiting for a fight, a panel or a card to end. */
@@ -790,6 +796,7 @@ export class LakeScene extends Phaser.Scene {
     if (handoff?.toast) this.showToast(handoff.toast);
 
     this.setupProfile(params, handoff?.profile);
+    this.syncText();
     this.setupDebugPanels(dbg);
     // Let the companions settle in (at night the dog is already dozing when the game opens).
     for (let t = 0; t < 2000; t += 50) {
@@ -897,6 +904,7 @@ export class LakeScene extends Phaser.Scene {
   /** Makes a place the current one: its data drives the zones, fish, spots and pictures. */
   private applyPlace(loc: Location): void {
     this.loc = loc;
+    this.syncText();
     this.hits = hitRects(loc.spots);
     this.ctx = { ...this.ctx, location: loc };
     this.bg = loc.background === 'river' ? { farShore: TEX.riverFarBank, reflection: TEX.riverReflection, water: TEX.riverWater, nearShore: TEX.riverNearBank } : { farShore: TEX.farShore, reflection: TEX.reflection, water: TEX.water, nearShore: TEX.nearShore };
@@ -920,6 +928,9 @@ export class LakeScene extends Phaser.Scene {
     this.clock = loaded.save.clock;
     // A save loaded between 02:00 and 05:00 without the night kit wakes at 05:00 (no sequence).
     this.clock = loadClock(this.clock, hasNightKit(this.player));
+    // The rest after the last nap survives a reload; a clock set back never makes it longer than two minutes.
+    this.lastNapAt = this.player.napAt;
+    this.napRestMs = napCooldownLeftMs(this.lastNapAt, Date.now());
     this.persist();
     const onHide = () => {
       if (document.visibilityState === 'hidden') this.persist();
@@ -985,6 +996,7 @@ export class LakeScene extends Phaser.Scene {
       this.lateLine = null;
       if (this.companions.state.mode !== 'bed') this.companions.say(line);
     }
+    this.updateNapRest(deltaMs);
     if (this.sinceClockSave >= CLOCK_SAVE_MS) this.persist();
     // A map opened over a waiting line holds the line: no nibble or bite is missed behind the panel.
     const lineHeld = this.panel !== null && this.state.kind === 'waiting';
@@ -1113,6 +1125,7 @@ export class LakeScene extends Phaser.Scene {
       const kit = hasNightKit(this.player);
       const nap = c.bed?.kind === 'nap' && this.napTarget;
       this.clock = nap ? napWakeClock(this.clock, this.napTarget!.minute, kit) : morningClock(this.clock);
+      if (nap) this.startNapRest();
       this.napTarget = null;
       // Alex's 02:00 where they were not in the car yet (the screen is black): they are in it now.
       if (c.mode !== 'bed') startInCar(c);
@@ -1131,6 +1144,24 @@ export class LakeScene extends Phaser.Scene {
     if (r.done) this.sleepFade = null;
   }
 
+  /** A nap woke them: the 2-minute rest starts now and the stamp is saved (so a reload keeps it). */
+  private startNapRest(): void {
+    this.lastNapAt = Date.now();
+    this.napRestMs = napCooldownLeftMs(this.lastNapAt, this.lastNapAt);
+    this.setPlayer({ ...this.player, napAt: this.lastNapAt });
+  }
+
+  /** Counts the rest down; an open nap card redraws each second (and the buttons come on at 0). */
+  private updateNapRest(deltaMs: number): void {
+    if (this.napRestMs <= 0) return;
+    this.napRestMs = Math.max(0, this.napRestMs - deltaMs);
+    const sec = Math.ceil(this.napRestMs / 1000);
+    if (sec !== this.napCardSecond) {
+      this.napCardSecond = sec;
+      if (this.napCardHandle && this.panel === this.napCardHandle) this.napCardHandle.refresh();
+    }
+  }
+
   /** The nap card: only from the dock, with Alex idle. */
   private openNapCard(): void {
     const c = this.companions.state;
@@ -1141,10 +1172,18 @@ export class LakeScene extends Phaser.Scene {
       (o) => {
         this.napTarget = o;
         startNap(this.companions.state);
+        // The walk to the car takes a while before the screen fades: say so (balance A2).
+        this.showToast('Off to nap...');
       },
-      () => (this.panel = null),
+      () => {
+        this.panel = null;
+        this.napCardHandle = null;
+      },
       this.clock.minute,
+      () => this.napRestMs,
     );
+    this.napCardHandle = this.panel;
+    this.napCardSecond = -1;
   }
 
   /** The trophy board's card (slice 23d): only while idle. */
@@ -1166,7 +1205,7 @@ export class LakeScene extends Phaser.Scene {
     this.swallowUp = false;
     this.panel = showMapPanel(
       {
-        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state) }),
+        nap: () => napAvailable({ fishing: this.state.kind, mode: this.companions.state.mode, asleepInCar: isInCar(this.companions.state), cooldownLeftMs: this.napRestMs }),
         onNap: () => this.openNapCard(),
         onChecklist: () => this.openChecklist(),
         checklist: { done: checklistDone(this.player), total: bundleTotal },
@@ -1195,10 +1234,9 @@ export class LakeScene extends Phaser.Scene {
           const text = r.reward ? checklistRewardText(r.reward) : '';
           this.showToast(text ? `${bundle.name} done! ${text}` : `${bundle.name} done!`);
           // This bundle opened some gear in the shop (A3): a dot on the Shop button until she opens it, and a second toast.
-          const now = checklistDone(this.player);
-          if (Object.keys(GEAR_GATES).some((id) => gateFor(id) === now && gearUnlocked(id, this.player))) {
+          if (gearOpenedBy(bundle.id, this.player).length > 0) {
             this.shopDot = true;
-            this.time.delayedCall(2600, () => this.showToast('New gear in the shop!'));
+            this.time.delayedCall(2600, () => this.showToast(EN.newGearInShop));
           }
           if (allFixed) {
             this.panel?.close();
@@ -1408,7 +1446,7 @@ export class LakeScene extends Phaser.Scene {
     const wid = this.weatherId();
     if (wid && this.elapsed > 3500 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && weatherLineDue(this.player.weatherSeen, this.weatherKey)) {
       this.setPlayer({ ...this.player, weatherSeen: this.weatherKey });
-      this.companions.say(pickLine(WEATHER_LINES[wid]));
+      this.companions.say(pickLine(weatherLinesFor(wid, this.clock.minute)));
       this.storyLineMs = Math.max(this.storyLineMs, 4000);
     }
     // Pajkel hints at Old Mossback now and then while idle (slice 23d), more often on a foggy day; not once it is caught.
@@ -1678,7 +1716,7 @@ export class LakeScene extends Phaser.Scene {
       else if (this.catchTrophy === 'same') this.showToast(TROPHY_TEXT.backInLake);
       return;
     }
-    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect);
+    const r = addCatch(this.player, hooked, this.fotdId(), this.catchPerfect, this.clock.minute);
     if (r.result === 'added') {
       this.setPlayer(r.state);
       this.showToast(`${speciesById(hooked.speciesId)?.name ?? 'Fish'} goes in the bag`);
@@ -1696,7 +1734,7 @@ export class LakeScene extends Phaser.Scene {
       () => {
         this.setPlayer(releasePending(this.player));
         this.panel = null;
-        this.showToast('Released it back into the lake');
+        this.showToast(EN.releasedBack);
       },
       () => {
         this.setPlayer(swapForCheapest(this.player, fish).state);
@@ -2286,7 +2324,7 @@ export class LakeScene extends Phaser.Scene {
       chapterWaiting: chapter !== null && this.storyRun === null,
       calm: this.storyCalm(),
     });
-    if (action !== 'quests' && waiting) this.showToast('Reel in first to read the story');
+    if (action !== 'quests' && waiting) this.showToast(EN.reelInFirstStory);
     else if (action === 'bottle') this.openStoryBottle();
     else if (action === 'chapter' && chapter) this.beginChapter(chapter);
     else this.openQuests();
@@ -2302,8 +2340,14 @@ export class LakeScene extends Phaser.Scene {
     if (params.get('reset') === 'profile') clearProfile(store);
     const stored = loadProfile(store);
     if (stored) this.profile = stored;
+    // Dev-only: ?names=Mia,Tom,Rex sets the three names for this (sandboxed) session and skips the name card.
+    const devNames = params.get('names');
+    if (devNames) {
+      const [player, companion, dog] = devNames.split(',');
+      this.profile = normalizeProfile({ player, companion, dog });
+    }
     // Dev-only: ?skipnames (or any ?debug=) skips the first-launch card.
-    const skip = params.has('skipnames') || params.has('debug') || params.has('story');
+    const skip = params.has('names') || params.has('skipnames') || params.has('debug') || params.has('story');
     if (!stored && !skip) {
       this.nameCardOpen = true;
       showNameOverlay(DEFAULT_PROFILE, true, (p) => {
@@ -2315,12 +2359,18 @@ export class LakeScene extends Phaser.Scene {
 
   private applyProfile(p: Profile, welcome = false): void {
     this.profile = p;
+    this.syncText();
     if (!this.sandbox) saveProfile(this.safeStorage(), p);
     if (welcome) {
       this.showTag(0, p.player, ALEX_POS.x + 16, ALEX_POS.y - 4);
       this.showTag(1, p.companion, 150, 358);
       this.showTag(2, p.dog, 178, 402);
     }
+  }
+
+  /** Tells the text helper who the three characters are and where she is, so `tr` fills {player}, {place} and so on. */
+  private syncText(): void {
+    setTextContext({ ...this.profile, place: this.loc.name, water: WATER_BY_BACKGROUND[this.loc.background] });
   }
 
   private safeStorage(): Storage | undefined {
@@ -2337,7 +2387,7 @@ export class LakeScene extends Phaser.Scene {
       this.pendingToasts = enqueueToast(this.pendingToasts, text);
       return;
     }
-    this.toast.setText(text);
+    this.toast.setText(tr(text)); // placeholders ({player} {dog} {water}...) are filled when shown
     this.toastAge = 0;
   }
 
@@ -2734,7 +2784,7 @@ export class LakeScene extends Phaser.Scene {
       this.caughtText.setText(speciesById(s.hooked.speciesId)?.name ?? 'Caught!');
       this.caughtSub.setText(formatCatchSize(s.hooked.lengthCm, s.hooked.weightG));
       const o = this.catchOutcome;
-      const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '';
+      const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? EN.newRecord : '';
       this.caughtBadge.setText(isGoldOrBetter(this.catchStar) ? (badge ? `${badge} Gold!` : 'Gold!') : badge);
       this.caughtNote.setText(
         this.catchTrophy === 'first' ? TROPHY_TEXT.firstLine : o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
@@ -2748,7 +2798,7 @@ export class LakeScene extends Phaser.Scene {
       const tag = this.catchFits ? CATCH_FITS_GAP : 0;
       const fitsY = CATCH_SUB_Y + 28;
       const bottom = noteBottom + tag;
-      const bubbleText = this.companions.state.bubble?.text ?? '';
+      const bubbleText = tr(this.companions.state.bubble?.text ?? '');
       const limit = Math.min(CATCH_TEXT_LIMIT, CATCH_BUBBLE_TOP - (bubbleText.length > 24 ? 31 : 0));
       const lift = this.caughtNote.text || this.catchFits ? Math.min(0, limit - bottom) : 0;
       this.caughtText.setY(CATCH_TITLE_Y + lift);
@@ -3384,17 +3434,18 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     if (fogVis > 0) {
-      // Full until 08:30, gone by 10:00, and off at night (the daylight factor) and in the Pale One's window.
-      const strength = fogStrength(this.clock.minute) * daylight(this.clock.minute) * calmLeft * fogVis;
+      // Full until 08:30, thinning to a mist by 10:00 that stays all the fog hour; a faint mist by night (balance A2); hidden in the Pale One's window.
+      const strength = fogStrength(this.clock.minute) * Math.max(0.4, daylight(this.clock.minute)) * calmLeft * fogVis;
       if (strength < 0.01) return;
       const top = FAR_SHORE_Y - 52;
       const bands = 24;
       const bandH = Math.ceil((SHORE_Y - top) / bands);
-      const color = multiply(0xe4ebee, look.worldTint);
+      const color = multiply(0xf4f7f8, look.worldTint);
       for (let i = 0; i < bands; i++) {
         const u = i / (bands - 1);
-        // Thickest low over the far shore, thinner toward the near water.
-        const a = 0.7 * strength * Math.min(1, u * 2.5) * (1 - 0.65 * u);
+        // Thickest over the far bank (it fades in over the first bands so there is no hard top edge), thinner toward the near water,
+        // but still a clear milk over the whole lake (balance A2: the old one was too faint to see against the grey-blue water).
+        const a = 1.0 * strength * Math.min(1, 0.35 + u * 6) * (1 - 0.45 * u);
         fg.fillStyle(color, a).fillRect(0, top + i * bandH, W, bandH);
       }
       // A few slow wisps on top.
@@ -3402,7 +3453,7 @@ export class LakeScene extends Phaser.Scene {
         const w = 90 + hash01(i * 4.1) * 80;
         const x = ((hash01(i * 1.3) * (W + w) + t * (3 + (i % 3) * 2)) % (W + w)) - w;
         const y = FAR_SHORE_Y + 8 + hash01(i * 8.9) * (SHORE_Y - FAR_SHORE_Y - 90);
-        fg.fillStyle(color, 0.16 * strength).fillRect(Math.round(x), Math.round(y), Math.round(w), 7);
+        fg.fillStyle(color, 0.28 * strength).fillRect(Math.round(x), Math.round(y), Math.round(w), 7);
       }
     }
   }

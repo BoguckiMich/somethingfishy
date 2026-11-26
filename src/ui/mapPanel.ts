@@ -3,6 +3,7 @@ import { spriteToRgba, type Sprite } from '../art/pixelGrid';
 import type { NapStatus } from '../core/carMap';
 import { MAP_PLACES, MAP_SIZE } from '../core/data/locations';
 import { FS, LINE } from '../font';
+import { tr } from '../i18n/en';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 /** A sprite as a canvas the map canvas can draw from. */
@@ -141,7 +142,7 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
           woodButton('Drive there', () => {
             panel.close();
             opts.onTravel(place.id);
-          }, t.available ? {} : { disabledReason: t.reason }),
+          }, t.available ? {} : { disabledReason: tr(t.reason) }),
         );
       }
       nap.append(
@@ -152,7 +153,7 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
         woodButton('Nap in the car...', () => {
           panel.close();
           onNap();
-        }, napNow.available ? { variant: 'wood' } : { variant: 'wood', disabledReason: napNow.reason }),
+        }, napNow.available ? { variant: 'wood' } : { variant: 'wood', disabledReason: tr(napNow.reason) }),
       );
       body.append(
         nap,

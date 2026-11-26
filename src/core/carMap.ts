@@ -1,3 +1,4 @@
+import { formatCooldown } from './bedtime';
 /**
  * The car is always tappable (fix/board-and-car). Pure rules: the scene reads its own state into these plain values.
  * Opening the road map is only a DOM panel over the scene, so it never interrupts fetch or the bedtime choreography.
@@ -30,6 +31,8 @@ export interface NapFacts {
   mode: string;
   /** True when the bed phase is 'asleep' (they are inside the car). */
   asleepInCar: boolean;
+  /** Real ms left of the short rest after the last nap (balance A2); missing or 0 = none. */
+  cooldownLeftMs?: number;
 }
 
 export interface NapStatus {
@@ -41,7 +44,8 @@ export interface NapStatus {
 /** A nap is possible only with Alex idle and both companions idle on the dock (the same rule as the nap card). */
 export function napAvailable(f: NapFacts): NapStatus {
   if (f.mode === 'bed') return { available: false, reason: f.asleepInCar ? "They're already asleep" : "They're heading to the car" };
-  if (f.mode !== 'dock') return { available: false, reason: 'Pajkel is busy playing' };
+  if (f.mode !== 'dock') return { available: false, reason: '{companion} is busy playing' };
   if (f.fishing !== 'idle') return { available: false, reason: 'Reel in first' };
+  if ((f.cooldownLeftMs ?? 0) > 0) return { available: false, reason: `Still waking up (${formatCooldown(f.cooldownLeftMs!)})` };
   return { available: true, reason: '' };
 }

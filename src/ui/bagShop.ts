@@ -10,9 +10,10 @@ import { bagTier } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { CAMP_ITEMS } from '../core/data/camp';
+import { tr } from '../i18n/en';
 import { buyCampItem, hasCamp } from '../core/camp';
 import type { Line, Reel, Rod } from '../core/gear';
-import { bundlesDone, gateFor, gearUnlocked } from '../core/gearGates';
+import { gateText, gearUnlocked } from '../core/gearGates';
 import {
   bagValue,
   baitCount,
@@ -138,7 +139,7 @@ interface CardOptions {
   /** A locked card: dimmed icon and a disabled button saying what is missing (e.g. "Needs the Fiberglass Rod"). */
   locked?: string;
   /** A checklist gate (slice 23a): greyed card, a lock and what is missing, no button and no price button. */
-  gate?: { need: number; have: number };
+  gate?: string;
 }
 
 /** A shop card: icon slot on the left, name + price + effect beside it, the Buy button underneath. */
@@ -148,10 +149,10 @@ function itemCard(o: CardOptions): HTMLElement {
   const card = el('div', `display:flex;flex-direction:column;gap:6px;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight}`);
   const top = el('div', 'display:flex;gap:8px;align-items:flex-start');
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
-  info.append(el('div', `color:${COLORS.text}`, o.name));
+  info.append(el('div', `color:${COLORS.text}`, tr(o.name)));
   if (o.price !== undefined) info.append(coinAmount(o.price));
   if (o.note) info.append(el('div', `color:${COLORS.gold}`, o.note));
-  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream};margin-top:2px`, o.effect));
+  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream};margin-top:2px`, tr(o.effect)));
   top.append(iconSlot(o.id, 48, missing > 0 || o.locked !== undefined), info);
   card.append(top);
   if (o.locked !== undefined) {
@@ -168,17 +169,17 @@ function itemCard(o: CardOptions): HTMLElement {
 }
 
 /** A card for an item behind the checklist: dim icon, price in dim, a lock line, no Buy button. */
-function gateCard(o: CardOptions, gate: { need: number; have: number }): HTMLElement {
+function gateCard(o: CardOptions, gate: string): HTMLElement {
   const card = el('div', `display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight};opacity:0.8`);
   card.dataset.locked = o.id;
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
-  info.append(el('div', `color:${COLORS.dim}`, o.name));
+  info.append(el('div', `color:${COLORS.dim}`, tr(o.name)));
   if (o.price !== undefined) info.append(coinAmount(o.price, COLORS.dim));
-  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.dim};margin-top:2px`, o.effect));
+  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.dim};margin-top:2px`, tr(o.effect)));
   const lock = el('div', `display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream}`);
   lock.append(
     spriteCanvas(lockSprite(), 16),
-    el('span', '', `Unlocks after ${gate.need} checklist ${gate.need === 1 ? 'bundle' : 'bundles'} (${Math.min(gate.have, gate.need)}/${gate.need})`),
+    el('span', '', gate),
   );
   info.append(lock);
   card.append(iconSlot(o.id, 48, true), info);
@@ -210,7 +211,7 @@ function tackleCard(
   next: Line | Reel | undefined,
   coins: number,
   buy: () => void,
-  gate?: { need: number; have: number },
+  gate?: string,
 ): HTMLElement | undefined {
   if (next) return itemCard({ id: next.id, name: next.name, price: next.price, effect: next.effect, coins, buy, gate });
   if (owned) return itemCard({ id: owned.id, name: owned.name, note: 'Best owned', effect: owned.effect, coins });
@@ -383,7 +384,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
 
       body.append(sectionTitle('Upgrades'));
       const rod = nextRod(p);
-      const gateOf = (id: string) => (gearUnlocked(id, p) ? undefined : { need: gateFor(id), have: bundlesDone(p) });
+      const gateOf = (id: string) => (gearUnlocked(id, p) ? undefined : gateText(id, p));
       body.append(
         rod
           ? itemCard({

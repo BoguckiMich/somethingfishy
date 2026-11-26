@@ -135,18 +135,18 @@ describe('bite wait (maggots)', () => {
     return state.untilMs;
   };
 
-  it('the factor is 0.6 in shallow water only', () => {
-    expect(firstWaitFactor('maggots', 'shallow')).toBe(0.6);
+  it('the factor is 0.45 in shallow water only', () => {
+    expect(firstWaitFactor('maggots', 'shallow')).toBe(0.45);
     expect(firstWaitFactor('maggots', 'deep')).toBe(1);
     expect(firstWaitFactor('corn', 'shallow')).toBe(1);
     expect(firstWaitFactor(undefined, 'shallow')).toBe(1);
     expect(firstWaitFactor(WORM_ID, 'shallow')).toBe(1);
   });
 
-  it('a shallow cast with maggots waits 0.6 times as long as the same cast with worms', () => {
+  it('a shallow cast with maggots waits 0.45 times as long as the same cast with worms', () => {
     const worms = waitAfterCast(ctx(WORM_ID));
     const maggots = waitAfterCast(ctx('maggots'));
-    expect(maggots).toBeCloseTo(worms * 0.6, 5);
+    expect(maggots).toBeCloseTo(worms * 0.45, 5);
   });
 
   it('a deep cast is not shortened', () => {

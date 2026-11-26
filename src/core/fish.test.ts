@@ -188,8 +188,12 @@ describe('fightProfile', () => {
     expect(fightProfile(eel, eel.lengthCm[1]).difficulty).toBe(0.4);
     for (const s of SPECIES) {
       const d = fightProfile(s, s.lengthCm[1]).difficulty;
-      expect(d).toBeLessThanOrEqual(s.zone === 'shallow' && s.rarity !== 'trophy' ? 0.4 : 1);
+      expect(d).toBeLessThanOrEqual(s.zone === 'shallow' && s.rarity !== 'trophy' && s.rarity !== 'rare' ? 0.4 : 1);
     }
+    // The asp (rare, shallow) is exempt: its 0.5 base difficulty is real (balance A2).
+    const asp = speciesById('asp')!;
+    expect(fightProfile(asp, asp.lengthCm[0]).difficulty).toBeCloseTo(0.5);
+    expect(fightProfile(asp, asp.lengthCm[1]).difficulty).toBeCloseTo(0.6);
   });
 
   it('a trophy is hard even in the shallows (>= 0.8) and carries the slip-away time; no other species does', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { WEATHER_IDS, WEATHER_TUNING, type WeatherId } from '../data/weather';
-import { WEATHER_LINES } from '../data/pajkelLines';
+import { WEATHER_IDS, WEATHER_LOOK, WEATHER_TUNING, type WeatherId } from '../data/weather';
+import { FOG_LIFTED_LINES, WEATHER_LINES, WEATHER_NIGHT_LINES, weatherLinesFor } from '../data/pajkelLines';
 import { speciesById } from '../data/fish';
 import { QUIET_LAKE } from '../data/locations';
 import { candidates, fightProfile, pickSpecies, spawnWeight } from '../fish';
@@ -88,9 +88,10 @@ describe('weather effects on weights', () => {
     expect(spawnWeight(sp('roach'), undefined, undefined, undefined)).toBe(spawnWeight(sp('roach')));
     expect(weatherWeightMult(sp('carp'), undefined)).toBe(1);
   });
-  it('sunny: shallow x1.4, deep x0.75', () => {
-    expect(w('roach', 'sunny')).toBeCloseTo(spawnWeight(sp('roach')) * 1.4);
-    expect(w('bream', 'sunny')).toBeCloseTo(spawnWeight(sp('bream')) * 0.75);
+  it('sunny changes no weight (a per-zone weight cancels inside a zone); it works through the wait instead', () => {
+    expect(w('roach', 'sunny')).toBe(spawnWeight(sp('roach')));
+    expect(w('bream', 'sunny')).toBe(spawnWeight(sp('bream')));
+    expect(weatherEffects('sunny', noon).zoneWaitFactor).toEqual({ shallow: 0.8, deep: 1.25 });
   });
   it('overcast: no weight change, but tench and zander bite at any time', () => {
     const fx = weatherEffects('overcast', noon);
@@ -112,11 +113,8 @@ describe('weather effects on weights', () => {
     for (const id of ['perch', 'pike', 'zander']) expect(w(id, 'windy')).toBeCloseTo(spawnWeight(sp(id)) * 1.5);
     expect(w('roach', 'windy')).toBe(spawnWeight(sp('roach')));
   });
-  it('fog: rare species x2 before 10:00 only', () => {
-    expect(w('catfish', 'fog', 7 * 60)).toBeCloseTo(spawnWeight(sp('catfish')) * 2);
-    expect(w('catfish', 'fog', 9 * 60 + 59)).toBeCloseTo(spawnWeight(sp('catfish')) * 2);
-    expect(w('catfish', 'fog', 10 * 60)).toBe(spawnWeight(sp('catfish')));
-    expect(w('catfish', 'fog', 15 * 60)).toBe(spawnWeight(sp('catfish')));
+  it('fog: rare species x2 all the hour the fog is on', () => {
+    for (const m of [7 * 60, 9 * 60 + 59, 10 * 60, 15 * 60, 23 * 60]) expect(w('catfish', 'fog', m)).toBeCloseTo(spawnWeight(sp('catfish')) * 2);
     expect(w('roach', 'fog', 7 * 60)).toBe(spawnWeight(sp('roach')));
   });
   it('stacks with the fish of the day', () => {
@@ -142,17 +140,18 @@ describe('weather effects on weights', () => {
   });
 });
 
-describe('fog cut-off and strength', () => {
-  it('the effect ends at exactly 10:00', () => {
+describe('fog look and effect last the whole hour', () => {
+  it('the rare-fish weight does not depend on the clock', () => {
     expect(Object.keys(weatherEffects('fog', 599).rarityWeight)).toEqual(['rare']);
-    expect(Object.keys(weatherEffects('fog', 600).rarityWeight)).toEqual([]);
+    expect(Object.keys(weatherEffects('fog', 600).rarityWeight)).toEqual(['rare']);
   });
-  it('looks full, thins and is gone by 10:00', () => {
+  it('looks full, thins to a mist by 10:00 and never disappears', () => {
     expect(fogStrength(7 * 60)).toBe(1);
-    expect(fogStrength(9 * 60)).toBeGreaterThan(0);
+    expect(fogStrength(9 * 60)).toBeGreaterThan(WEATHER_LOOK.fogFloor);
     expect(fogStrength(9 * 60)).toBeLessThan(1);
-    expect(fogStrength(10 * 60)).toBe(0);
-    expect(fogStrength(14 * 60)).toBe(0);
+    expect(fogStrength(10 * 60)).toBe(WEATHER_LOOK.fogFloor);
+    expect(fogStrength(14 * 60)).toBe(WEATHER_LOOK.fogFloor);
+    expect(WEATHER_LOOK.fogFloor).toBeGreaterThan(0.3);
   });
 });
 
@@ -174,7 +173,13 @@ describe('wait time and difficulty', () => {
     const base = wait();
     expect(base).toBeCloseTo((BITE_TUNING.firstWaitMs[0] + BITE_TUNING.firstWaitMs[1]) / 2);
     expect(wait('rain')).toBeCloseTo(base * 0.75);
-    for (const id of ['sunny', 'overcast', 'windy', 'fog'] as const) expect(wait(id)).toBeCloseTo(base);
+    for (const id of ['overcast', 'windy', 'fog'] as const) expect(wait(id)).toBeCloseTo(base);
+  });
+  it('sunny: the first wait is x0.8 in shallow water and x1.25 in deep water (it used to change nothing)', () => {
+    const base = wait();
+    expect(wait('sunny')).toBeCloseTo(base * 0.8);
+    const deep = step({ kind: 'casting', power: 1, distanceM: 25, zone: 'deep' }, { type: 'landed' }, { ...baseCtx('sunny'), speciesOverride: 'carp' });
+    expect(deep.state.kind === 'waiting' ? deep.state.untilMs : -1).toBeCloseTo(base * 1.25);
   });
   it('windy adds 0.05 to the fight, capped at 1', () => {
     const perch = sp('perch');
@@ -228,5 +233,16 @@ describe('Pajkel weather line, once per weather change', () => {
       expect(WEATHER_LINES[id].length).toBeLessThanOrEqual(3);
       for (const l of WEATHER_LINES[id]) expect(l.length).toBeLessThanOrEqual(26);
     }
+    for (const l of [...FOG_LIFTED_LINES, ...Object.values(WEATHER_NIGHT_LINES).flat()]) expect(l.length).toBeLessThanOrEqual(26);
+  });
+  it('says what the weather is at the hour it is said (no "nice day" at night, fog lines hold the whole fog hour)', () => {
+    expect(weatherLinesFor('sunny', 12 * 60)).toBe(WEATHER_LINES.sunny);
+    expect(weatherLinesFor('sunny', 23 * 60)).toBe(WEATHER_NIGHT_LINES.sunny);
+    expect(weatherLinesFor('overcast', 19 * 60)).toBe(WEATHER_NIGHT_LINES.overcast);
+    expect(weatherLinesFor('rain', 23 * 60)).toBe(WEATHER_LINES.rain);
+    expect(weatherLinesFor('fog', 7 * 60)).toBe(WEATHER_LINES.fog);
+    expect(weatherLinesFor('fog', 14 * 60)).toBe(WEATHER_LINES.fog);
+    expect(weatherLinesFor('fog', 2 * 60)).toBe(WEATHER_LINES.fog);
+    for (const l of WEATHER_LINES.sunny) expect(l).not.toMatch(/lake|bobber/);
   });
 });

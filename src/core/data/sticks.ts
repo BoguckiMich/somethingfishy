@@ -1,5 +1,5 @@
 /**
- * The Stick Museum (slice 26): every stick Bestia can bring, with a deadpan one-line review. Pure data, in the order they are found.
+ * The Stick Museum (slice 26): every stick the dog can bring, with a deadpan one-line review. Pure data, in the order they are found.
  * `variant` picks one of the three ground-stick pictures (0..2). A stick marked for the River bend is defined but never awarded at
  * Quiet Lake.
  */
