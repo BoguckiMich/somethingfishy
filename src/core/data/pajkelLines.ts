@@ -27,3 +27,6 @@ export const WEATHER_LINES: Record<'sunny' | 'overcast' | 'rain' | 'windy' | 'fo
   windy: ['Windy! Hold on tight.', 'Breezy. Pike will bite.', 'The bobber will drift.'],
   fog: ['Fog on the lake. Spooky.', 'Misty morning. Odd fish?', "Can't see the far shore."],
 };
+
+/** Pajkel on a new best at skipping pebbles, said the first time a record is beaten on a real date (slice 26). One bubble line each (about 25 characters). */
+export const SKIP_RECORD_LINES: readonly string[] = ['New skip record. Humbling.', 'The lake approves. Record!', 'I want a recount. Wow.', 'Pebble first, fish later.'];

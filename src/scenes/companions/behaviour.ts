@@ -300,6 +300,8 @@ export interface Companions {
   sticks: GroundStick[];
   /** Chance that a round ends with her giving the stick back (a dev flag raises it). */
   giveBackChance: number;
+  /** Fetch rounds finished since the game started (slice 26: the scene counts the rises for the Stick Museum). */
+  roundsDone: number;
   play: PlayState;
 }
 
@@ -388,6 +390,7 @@ export function createCompanions(rng: Rng = Math.random): Companions {
     bubble: null,
     sticks: [],
     giveBackChance: PLAY_TUNING.giveBackChance,
+    roundsDone: 0,
     play: newPlay(),
   };
 }
@@ -1015,6 +1018,48 @@ function layStick(s: Companions, at: Point, kind: GroundStick['kind'], variant: 
   return g;
 }
 
+/** The stick lying under this point (a generous finger-sized box), not fading out; the nearest wins. */
+export function stickAt(s: Companions, x: number, y: number): GroundStick | null {
+  let best: GroundStick | null = null;
+  let bestD = Infinity;
+  for (const g of s.sticks) {
+    if (g.fadeMs !== null || groundStickAlpha(g) < 0.5) continue;
+    if (Math.abs(x - g.x) > 17 || y < g.y - 14 || y > g.y + 11) continue;
+    const d = Math.hypot(x - g.x, (y - g.y) * 1.5);
+    if (d < bestD) {
+      best = g;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** Phases between two rounds, where a tap on a stick may start the next one at once (not in the middle of a throw, a chase or the happy spin). */
+const FETCH_ON_TAP_PHASES: readonly PlayPhase[] = ['rest', 'giveUp', 'toStick'];
+
+/**
+ * A tap on a stick lying on the grass (slice 26): Pajkel takes THAT stick as his next one and throws it as soon as he is there, so a round starts at
+ * once. Only while they play on the grass and between two rounds; asleep, in the car, on the dock or mid-chase nothing changes. Returns whether it started.
+ */
+export function fetchStickNow(s: Companions, g: GroundStick): boolean {
+  if (s.mode !== 'play' || !s.sticks.includes(g) || g.fadeMs !== null) return false;
+  const pl = s.play;
+  if (!FETCH_ON_TAP_PHASES.includes(pl.phase)) return false;
+  // The tapped stick is the spare he goes for; any other spare lies down as an old one.
+  for (const o of s.sticks) if (o !== g && o.kind === 'spare') o.kind = 'old';
+  g.kind = 'spare';
+  const old = oldSticks(s);
+  for (let i = 0; i < old.length - STICK_TUNING.maxOld; i++) old[i].fadeMs = STICK_TUNING.fadeOutMs;
+  pl.finalRound = false;
+  pl.stickSide = g.x < s.paj.x ? -1 : 1;
+  if (pl.phase === 'rest') {
+    pl.fetches = 0;
+    s.stick.state = 'hidden';
+    go(pl, 'toStick');
+  }
+  return true;
+}
+
 /** The oldest old stick still lying there starts to fade (nothing fitted, so the lawn makes room). */
 function fadeOldest(s: Companions): void {
   const oldest = oldSticks(s)[0];
@@ -1138,6 +1183,7 @@ function enterThrow(pl: PlayState): void {
 function endRound(s: Companions, rng: Rng): void {
   const pl = s.play;
   pl.fetches++;
+  s.roundsDone++;
   pl.finalRound = pl.fetches >= 2 + Math.floor(rng() * 2);
 }
 
