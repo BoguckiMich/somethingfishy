@@ -1053,7 +1053,7 @@ function dogRunTail(p: Pix, bob: number): void {
 }
 
 export const DOG_SIZE = { w: 32, h: 24 };
-export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow';
+export type DogShape = 'lie' | 'sleep' | 'sit' | 'stand' | 'run' | 'bow' | 'curl';
 export interface DogFrame {
   shape: DogShape;
   /** Tail wag frame 0..2 (lie), 0..1 (sit/stand). */
@@ -1126,6 +1126,25 @@ export function dogSprite(frame: DogFrame): Sprite {
     head(24, 7);
     if (f.tail === 1) plume(p, 5, 9, 3, 6);
     else plume(p, 5, 9, 3, 8);
+  } else if (f.shape === 'curl') {
+    // Asleep curled up in her bed (slice 27): a small round ginger bundle (about 18 x 8 px, so she fits the 28 x 12 bed with its rim
+    // around her), the head resting on her paws at the front, the tail wrapped round. `step` is the breath: frame 1 lifts the back
+    // 1 px (the underside stays where it is).
+    const b = f.step % 2;
+    const cy = 20 - b * 0.5;
+    const ry = 3.3 + b * 0.5;
+    const top = Math.round(cy - ry);
+    p.ell(14.5, cy, 7.4, ry, (x, y) => (y >= 23 ? PAL.gingerDark : fur(x, y)));
+    p.rect(12, top, 2, 4, PAL.harness); // the harness strap over her back
+    p.set(12, top, PAL.harnessDark);
+    p.line(8, top + 1, 11, top, PAL.gingerLight); // a light ridge of fur along the spine
+    plume(p, 6, 21, 12, 23, 1); // the tail wraps round her bottom and along her front
+    p.ell(21.5, 20.5, 3.4, 2.8, fur); // the head, resting low
+    p.rect(23, 21, 3, 2, PAL.gingerLight); // snout
+    p.set(25, 21, PAL.outline); // nose
+    p.rect(21, 20, 2, 1, PAL.outline); // closed eye
+    p.rect(18, 18, 3, 3, PAL.gingerDark); // the folded ear
+    p.rect(19, 23, 5, 1, PAL.gingerLight); // paws under her chin
   } else if (f.shape === 'bow') {
     // Play-bow: front legs stretched out low, chest near the grass, rump and tail up, head down and forward.
     p.ell(9, 12, 5.5, 4.5, fur);
@@ -1205,6 +1224,7 @@ export function allDogFrames(): DogFrame[] {
     }
   }
   for (const tail of [0, 1]) out.push({ shape: 'bow', tail, perked: false, step: 0 });
+  for (const step of [0, 1]) out.push({ shape: 'curl', tail: 0, perked: false, step });
   for (let step = 0; step < 4; step++) out.push({ shape: 'run', tail: 0, perked: false, step });
   for (let step = 0; step < 4; step++) out.push({ shape: 'run', tail: 0, perked: false, step, carry: true });
   return out;

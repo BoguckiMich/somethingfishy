@@ -1,4 +1,5 @@
-import { ambientMix } from '../core/ambientMix';
+import { ambientMix, NO_WEATHER_MIX, weatherMix } from '../core/ambientMix';
+import type { WeatherId } from '../core/data/weather';
 import { eerieMix, type EerieLevel } from '../core/eerie';
 import { dipCrickets } from '../core/moments/moments';
 import { advanceReel, REEL_PRIMED } from '../core/reelClicks';
@@ -29,6 +30,9 @@ class Sound {
   private reelAcc = REEL_PRIMED;
   private eerie: EerieLevel = 0;
   private uncanny = false;
+  private weather: WeatherId | undefined;
+  private ownsFire = false;
+  private debugWeather: WeatherId | null = null;
 
   /**
    * Call once at startup: loads the settings and hooks the first-tap unlock and the page
@@ -116,12 +120,34 @@ class Sound {
     this.applyMix();
   }
 
+  /** Today's weather (rain and wind beds, quieter birds) and whether the campfire is owned (its crackle at dusk and night). Cheap to call every frame. */
+  setCamp(weather: WeatherId | undefined, ownsFire: boolean): void {
+    if (weather === this.weather && ownsFire === this.ownsFire) return;
+    this.weather = weather;
+    this.ownsFire = ownsFire;
+    this.applyMix();
+  }
+
+  /** Dev: pins the weather of the sound board (null follows the game's weather again). */
+  setDebugWeather(weather: WeatherId | null): void {
+    this.debugWeather = weather;
+    this.applyMix();
+  }
+
+  /** The gains the ambient bed should have right now (also what the sound board's tests read). */
+  private mix(): LayerGains {
+    const minute = this.debugMinute ?? this.minute;
+    const clock = dipCrickets(eerieMix(ambientMix(minute), this.eerie), this.uncanny);
+    // The Pale One's fight silences the weather and the camp too.
+    const wx = this.eerie === 2 ? { ...NO_WEATHER_MIX, birdDuck: 1 } : weatherMix(this.debugWeather ?? this.weather, minute, this.ownsFire || this.debugMinute !== null);
+    const gains = { ...clock, birds: clock.birds * wx.birdDuck, rain: wx.rain, wind: wx.wind, fire: wx.fire } as LayerGains;
+    if (this.solo) for (const l of AMBIENT_LAYERS) gains[l] = this.solo.has(l) ? 1 : 0;
+    return gains;
+  }
+
   private applyMix(): void {
     if (!this.bed) return;
-    const mix = dipCrickets(eerieMix(ambientMix(this.debugMinute ?? this.minute), this.eerie), this.uncanny);
-    const gains = {} as LayerGains;
-    for (const l of AMBIENT_LAYERS) gains[l] = this.solo ? (this.solo.has(l) ? 1 : 0) : mix[l];
-    this.bed.setTargets(gains);
+    this.bed.setTargets(this.mix());
   }
 }
 

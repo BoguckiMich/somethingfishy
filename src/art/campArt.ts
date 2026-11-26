@@ -61,10 +61,17 @@ export const TENT_SIZE = { w: 40, h: 44 };
 /** The top of the ridge pole, where the string lights are tied (sprite pixels). */
 export const TENT_ANCHOR = { x: 20, y: 1 };
 
+/** The door: its top row, bottom row (sprite pixels) and the half width at the bottom; the tent's middle column is x 20. */
+/** The row where the cloth's triangle starts. */
+export const TENT_APEX = 11;
+export const TENT_DOOR = { top: 20, bottom: 41, half: 7, cx: 20 };
+/** The half width of the dark door at sprite row y (a triangle widening to the hem). */
+export const tentDoorHalf = (y: number): number => Math.round(((y - TENT_DOOR.top) * TENT_DOOR.half) / (TENT_DOOR.bottom - TENT_DOOR.top));
+
 /** A small cream ridge tent seen from the front, the right side in shade, red trim, a dark door with the flap pulled aside. */
 export function tentSprite(): Sprite {
   const p = new Pix(TENT_SIZE.w, TENT_SIZE.h);
-  const apex = 11;
+  const apex = TENT_APEX;
   const base = 42;
   const half = (y: number) => ((y - apex) * 19) / (base - apex);
   for (let y = apex; y <= base; y++) {
@@ -80,9 +87,9 @@ export function tentSprite(): Sprite {
   }
   for (let x = 1; x <= 39; x++) p.set(x, base, x < 20 ? PAL.red : PAL.redDark); // hem
   // The door: a dark triangle, a lighter flap on its left.
-  const doorTop = apex + 9;
-  for (let y = doorTop; y < base; y++) {
-    const dw = Math.round(((y - doorTop) * 7) / (base - 1 - doorTop));
+  const doorTop = TENT_DOOR.top;
+  for (let y = doorTop; y <= TENT_DOOR.bottom; y++) {
+    const dw = tentDoorHalf(y);
     for (let x = 20 - dw; x <= 20 + dw; x++) p.set(x, y, x < 20 - dw + 2 && dw > 2 ? PAL.woodLight : PAL.woodDeep);
   }
   p.set(20, doorTop - 1, PAL.red);
@@ -117,22 +124,29 @@ export function lightPoleSprite(): Sprite {
 
 // ---- Bestia's bed ---------------------------------------------------------------------------
 
-export const BED_SIZE = { w: 24, h: 11 };
+export const BED_SIZE = { w: 28, h: 12 };
+/** The rows from here down are the bed's front rim: drawn again over Bestia while she lies in it, so she sits IN the bed (slice 27). */
+export const BED_FRONT_FROM = 7;
 
-/** A round blue dog bed seen from a little above: a puffy rim, a cream cushion with a tiny bone. */
+/**
+ * A round blue dog bed seen from a little above (slice 27): a raised, puffy rim (a bolster) lit along its top edge and in shade along
+ * its front wall, around a visible hollow that is darker inside (the back wall in shadow, a warm cushion on the floor). Big enough for
+ * Bestia to lie curled up in the middle.
+ */
 export function dogBedSprite(): Sprite {
   const p = new Pix(BED_SIZE.w, BED_SIZE.h);
-  p.ell(11.5, 6, 11.5, 4.8, PAL.denimDark);
-  p.ell(11.5, 5.4, 11.1, 4.3, PAL.denimLight);
-  p.ell(11.5, 6, 8.8, 3.1, PAL.whiteShade); // the dip: shaded at the back
-  p.ell(11.5, 6.6, 8.4, 2.4, PAL.cream);
-  for (const x of [4, 8, 12, 16, 19]) p.set(x, 2 + Math.round(Math.abs(x - 11.5) / 5), PAL.blueFlower); // a few stitches on the rim
-  // The bone.
-  p.rect(9, 5, 5, 1, PAL.white);
-  p.set(8, 4, PAL.white);
-  p.set(8, 6, PAL.white);
-  p.set(14, 4, PAL.white);
-  p.set(14, 6, PAL.white);
+  const cx = 13.5;
+  // The outer wall of the bolster (dark; it shows as a band along the front) and the rounded top of the bolster over it.
+  p.ell(cx, 6.2, 13, 4.9, PAL.denimDark);
+  p.ell(cx, 5.2, 13, 4.4, (_x, y) => (y <= 2 ? PAL.denimLight : PAL.denim)); // lit along the back
+  p.ell(cx, 4.9, 11.6, 3.4, (_x, y) => (y <= 2 ? PAL.denimLight : PAL.denim)); // a second, softer band so the rim reads round
+  // The hollow: the back wall of the bolster inside is in shadow, then the cushion on the floor.
+  p.ell(cx, 5.6, 9.6, 3.0, PAL.denimDark);
+  p.ell(cx, 6.5, 8.8, 2.4, (_x, y) => (y <= 5 ? PAL.sandDark : PAL.sand));
+  p.ell(cx, 7, 6.4, 1.1, PAL.sandLight); // where she lies, the cushion is pressed lighter
+  // Stitches along the rim top, and a pinch of light on the highlight.
+  for (const x of [4, 8, 19, 23]) p.set(x, Math.round(2.4 + Math.abs(x - cx) / 6), PAL.blueFlower);
+  for (const x of [10, 11, 12, 13, 14, 15, 16]) p.set(x, 1, PAL.blueFlower);
   p.outline();
   return p.done();
 }

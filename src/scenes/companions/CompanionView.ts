@@ -223,7 +223,7 @@ export class CompanionView {
       shape: v.shape,
       tail: v.shape === 'lie' ? v.tail : v.shape === 'sit' || v.shape === 'stand' || v.shape === 'bow' ? v.tail % 2 : 0,
       perked: v.shape === 'lie' || v.shape === 'sit' || v.shape === 'stand' ? v.perked : false,
-      step: v.shape === 'run' ? v.step : 0,
+      step: v.shape === 'run' ? v.step : v.shape === 'curl' ? v.breath : 0,
       carry: v.shape === 'run' && v.carry,
     };
     const d = s.dog;

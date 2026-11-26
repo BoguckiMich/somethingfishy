@@ -56,9 +56,10 @@ import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../cor
 import { addTrophy, boardIds, fullBoard } from '../core/rare';
 import { showTrophyCard } from '../ui/trophyCard';
 import { campfireKey, ensureTrophyBoardTexture, windsockKey } from '../art/textures';
-import { BED_SIZE, CAMPFIRE_FLAME, CAMPFIRE_FRAMES, CAMPFIRE_SIZE, POLE_ANCHOR, POLE_SIZE, TENT_ANCHOR, TENT_SIZE } from '../art/campArt';
+import { TENT_APEX, TENT_DOOR, tentDoorHalf, BED_FRONT_FROM, BED_SIZE, CAMPFIRE_FLAME, CAMPFIRE_FRAMES, CAMPFIRE_SIZE, POLE_ANCHOR, POLE_SIZE, TENT_ANCHOR, TENT_SIZE } from '../art/campArt';
 import { SOCK_ORIGIN_X } from '../art/campLayout';
-import { allCamp, hasCamp, windsockLevel } from '../core/camp';
+import { catchJingle } from '../core/catchSound';
+import { allCamp, campfireLook, hasCamp, tentGlow, windsockLevel } from '../core/camp';
 import { PALE_ONE } from '../core/data/legendary';
 import { eerieLevel, eerieLook } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
@@ -111,7 +112,7 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, stickAt, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, stickAt, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
 import { noteSkips, skipPlan, skipText, throwFor, type FlickSample } from '../core/skipping';
 import { finishFetchRound, firstSticks } from '../core/sticks';
@@ -285,7 +286,7 @@ function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Re
   return {
     // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed: its picture, a little bigger.
     stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 9, sp.stones.y - 10, Math.min(STONES_SIZE.w + 18, 116 - (sp.stones.x - 9)), STONES_SIZE.h + 20) : null,
-    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, 32, 21),
+    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 8, BED_SIZE.h + 9),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
     sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 54, 56, 56),
     crate: new Phaser.Geom.Rectangle(sp.crate.x - 22, sp.crate.y - 34, 44, 44),
@@ -465,10 +466,15 @@ export class LakeScene extends Phaser.Scene {
   /** The lights' second pole, standing where the tent's ridge pole would be while the tent is not owned. */
   private campPole2!: Phaser.GameObjects.Image;
   private campBed!: Phaser.GameObjects.Image;
+  /** The bed's front rim again, drawn over Bestia when she lies in it (slice 27). */
+  private campBedFront!: Phaser.GameObjects.Image;
   private campSock!: Phaser.GameObjects.Image;
   private campFx!: Phaser.GameObjects.Graphics;
   private campSparks: { x: number; y: number; age: number; life: number; vx: number }[] = [];
   private sparkClock = 0;
+  /** Smoke puffs over the campfire and the clock for the next one (slice 27). */
+  private campSmoke: { x: number; y: number; age: number; life: number; seed: number }[] = [];
+  private smokeClock = 0;
   private carZs: { img: Phaser.GameObjects.Image; age: number }[] = [];
   private sinceAutoZ = 0;
   private fadeGfx!: Phaser.GameObjects.Graphics;
@@ -691,7 +697,7 @@ export class LakeScene extends Phaser.Scene {
       this.setPlayer({ ...this.player, trophies: board, log });
     }
     // Dev-only (slice 23e): ?camp=all owns every camp item.
-    if (params.get('camp') === 'all') this.setPlayer({ ...this.player, camp: allCamp() });
+    if (params.get('camp') === 'all' || params.get('debug') === 'bedrest') this.setPlayer({ ...this.player, camp: allCamp() });
     // Dev-only (slice 26): ?sticks=all (or =N) fills the Stick Museum with the first N sticks of this place.
     if (params.has('sticks')) {
       const n = params.get('sticks') === 'all' ? Infinity : Math.max(0, Math.floor(Number(params.get('sticks')) || 0));
@@ -803,6 +809,8 @@ export class LakeScene extends Phaser.Scene {
       startPlayNow(this.companions.state);
       for (let t = 0; t < 1500; t += 50) tickCompanions(this.companions.state, 50, { fishing: 'idle', night: false });
     }
+    // Dev-only (slice 27): ?debug=bedrest owns the camp and has Bestia asleep curled up in her bed.
+    if (params.get('debug') === 'bedrest') startNapNow(this.companions.state);
     this.roundsSeen = this.companions.state.roundsDone;
     // Dev-only (slice 26): ?debug=fetchround finishes one fetch round at once (the museum toast for the first stick).
     if (params.get('debug') === 'fetchround') this.companions.state.roundsDone += 1;
@@ -1013,7 +1021,7 @@ export class LakeScene extends Phaser.Scene {
     }
     this.companions.update(
       deltaMs,
-      { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night' },
+      { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night', bed: hasCamp(this.player, 'dogbed') },
       this.elapsed,
       this.look2().worldTint,
       steamShows(timeOfDay(this.clock.minute)),
@@ -1555,6 +1563,7 @@ export class LakeScene extends Phaser.Scene {
   /** Ambient follows the game clock; the reel clicks while the catch bar is held; the dog barks at fetch. */
   private updateSound(deltaMs: number): void {
     sound.setMinute(this.clock.minute);
+    sound.setCamp(this.weatherId(), hasCamp(this.player, 'campfire')); // slice 27: the rain, wind and campfire beds
     sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
@@ -1861,7 +1870,7 @@ export class LakeScene extends Phaser.Scene {
       case 'fishCaught':
         vibrate(HAPTICS.caught);
         this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true, e.perfect === true);
-        sound.play(this.catchOutcome.kind === 'normal' && !isGoldOrBetter(this.catchStar) && !this.catchPerfect && !slipsAway(e.speciesId) ? 'catch' : 'fanfare');
+        sound.play(catchJingle({ outcome: this.catchOutcome.kind, star: this.catchStar, perfect: this.catchPerfect, trophy: this.catchTrophy !== 'none', slips: slipsAway(e.speciesId) }));
         break;
       case 'fishLost':
         this.showToast(e.slipped ? 'It slipped the hook!' : 'It got away…');
@@ -2471,7 +2480,8 @@ export class LakeScene extends Phaser.Scene {
     this.campPole2 = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x - POLE_ANCHOR.x, this.spots.camp.tent.y - TENT_SIZE.h + TENT_ANCHOR.y - POLE_ANCHOR.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y - TENT_SIZE.h + POLE_SIZE.h)).setVisible(false);
     this.campBed = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.bed.y + BED_SIZE.h)).setVisible(false);
     this.campSock = this.add.image(this.spots.camp.sock.x, this.spots.camp.sock.y, windsockKey(0, 0)).setOrigin(SOCK_ORIGIN_X, 1).setFlipX(true).setDepth(campDepth(this.spots.camp.sock.y)).setVisible(false);
-    this.worldImgs.push(this.campTent, this.campPole, this.campPole2, this.campBed, this.campSock);
+    this.campBedFront = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(Z.angler + 0.3).setCrop(0, BED_FRONT_FROM, BED_SIZE.w, BED_SIZE.h - BED_FRONT_FROM).setVisible(false);
+    this.worldImgs.push(this.campTent, this.campPole, this.campPole2, this.campBed, this.campBedFront, this.campSock);
     this.campFire = this.add.image(this.spots.camp.fire.x, this.spots.camp.fire.y, campfireKey(0)).setOrigin(0.5, 1).setDepth(campDepth(this.spots.camp.fire.y)).setVisible(false);
     this.campFx = this.add.graphics().setDepth(Z.angler - 0.15);
 
@@ -3020,6 +3030,7 @@ export class LakeScene extends Phaser.Scene {
     this.companions.setDeckChair(hasCamp(p, 'deckchair'));
     this.campTent.setVisible(hasCamp(p, 'tent'));
     this.campBed.setVisible(hasCamp(p, 'dogbed'));
+    this.campBedFront.setVisible(hasCamp(p, 'dogbed') && this.companions.state.dog.shape === 'curl');
     const lights = hasCamp(p, 'lights');
     this.campPole.setVisible(lights);
     this.campPole2.setVisible(lights && !hasCamp(p, 'tent'));
@@ -3036,29 +3047,35 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (hasCamp(p, 'campfire')) {
-      const frame = Math.floor(this.elapsed / 130 + Math.sin(this.elapsed / 900) * 1.5);
+      // Slice 27: rain damps it (a low flame, a duller picture, half the light, lots of smoke); a dry dusk or night flickers livelier.
+      const fx = campfireLook(this.weatherVis('rain'), glow);
+      let frame = Math.floor(this.elapsed / 130 + Math.sin(this.elapsed / 900) * 1.5);
+      if (fx.lowFlame > 0 && ((Math.floor(this.elapsed / 130) * 2654435761) >>> 0) % 100 < fx.lowFlame * 100) frame = CAMPFIRE_FRAMES - 1; // frame 2 is the low flame
       this.campFire.setVisible(true).setTexture(campfireKey(((frame % CAMPFIRE_FRAMES) + CAMPFIRE_FRAMES) % CAMPFIRE_FRAMES));
       // The logs go dark with the evening like everything else; the fire itself does not (the tint fades to white as the glow rises).
-      this.campFire.setTint(lerpColor(look.worldTint, 0xffffff, Math.max(glow, 0.35)));
+      this.campFire.setTint(lerpColor(lerpColor(look.worldTint, 0xffffff, Math.max(glow, 0.35)), 0x8c929c, fx.damp));
       const cx = this.spots.camp.fire.x - CAMPFIRE_SIZE.w / 2 + CAMPFIRE_FLAME.x;
       const cy = this.spots.camp.fire.y - CAMPFIRE_SIZE.h + CAMPFIRE_FLAME.y;
+      this.drawSmoke(g, deltaMs, cx, cy, fx.smokeEveryMs, look);
       if (glow > 0.02) {
-        const flicker = 1 + 0.07 * Math.sin(this.elapsed / 110) + 0.04 * Math.sin(this.elapsed / 47);
+        // The flicker: two quick waves plus a slow swell, and now and then a brighter lick of flame.
+        const lick = Math.max(0, Math.sin(this.elapsed / 770) * Math.sin(this.elapsed / 310)) ** 3;
+        const flicker = 1 + fx.flicker * (0.7 * Math.sin(this.elapsed / 110) + 0.4 * Math.sin(this.elapsed / 47) + 1.2 * lick);
         const rings = 6;
         for (let i = 0; i < rings; i++) {
           const rx = (54 * flicker * (rings - i)) / rings;
           const ry = rx * 0.7;
-          g.fillStyle(GLOW_COLOR, 0.085 * glow);
+          g.fillStyle(GLOW_COLOR, 0.085 * glow * fx.glow);
           for (let y = -Math.floor(ry); y < ry; y += 2) {
             const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((y + 1) / ry) ** 2)));
             if (half > 0) g.fillRect(cx - half, cy + 2 + y, half * 2, 2);
           }
         }
-        g.fillStyle(PAL.gold, 0.2 * glow).fillRect(cx - 4, cy - 3, 9, 8);
+        g.fillStyle(PAL.gold, 0.2 * glow * fx.glow).fillRect(cx - 4, cy - 3, 9, 8);
       }
-      // A spark now and then rises from the flames and fades (more at dusk and night).
+      // A spark now and then rises from the flames and fades (more at dusk and night, hardly any in the rain).
       this.sparkClock += deltaMs;
-      if (this.sparkClock > (glow > 0.02 ? 420 : 1600)) {
+      if (this.sparkClock > fx.sparkEveryMs) {
         this.sparkClock = 0;
         if (this.campSparks.length < 5) this.campSparks.push({ x: cx + (Math.random() - 0.5) * 6, y: cy - 4, age: 0, life: 900 + Math.random() * 600, vx: (Math.random() - 0.5) * 8 });
       }
@@ -3070,7 +3087,10 @@ export class LakeScene extends Phaser.Scene {
     } else {
       this.campFire.setVisible(false);
       this.campSparks = [];
+      this.campSmoke = [];
     }
+
+    this.drawTentGlow(g, tentGlow(hasCamp(p, 'tent'), glow, this.weatherVis('rain')));
 
     if (lights) {
       // The wire from the tent's ridge pole to the pole: a shallow sag, a bulb every ~9 px.
@@ -3103,6 +3123,55 @@ export class LakeScene extends Phaser.Scene {
           g.fillStyle(multiply(col, look.worldTint), 1).fillRect(x, y, 2, 3);
         }
       }
+    }
+  }
+
+  /** Puffs of grey smoke that rise from the campfire, drift a little and fade (slice 27). `every` ms apart. */
+  private drawSmoke(g: Phaser.GameObjects.Graphics, deltaMs: number, cx: number, cy: number, every: number, look: DayLook): void {
+    this.smokeClock += deltaMs;
+    if (this.smokeClock > every) {
+      this.smokeClock = 0;
+      if (this.campSmoke.length < 12) this.campSmoke.push({ x: cx + (Math.random() - 0.5) * 4, y: cy - 6, age: 0, life: 2200 + Math.random() * 900, seed: Math.random() * 6 });
+    }
+    this.campSmoke = this.campSmoke.filter((s) => (s.age += deltaMs) < s.life);
+    const col = lerpColor(0xc4c8d0, look.worldTint, 0.35);
+    for (const s of this.campSmoke) {
+      const t = s.age / s.life;
+      const size = 3 + Math.floor(t * 4);
+      const x = Math.round(s.x + Math.sin(t * 4 + s.seed) * 2.5 + t * 7);
+      const y = Math.round(s.y - 40 * t);
+      g.fillStyle(col, 0.5 * (1 - t) * Math.min(1, t * 8)).fillRect(x - Math.floor(size / 2), y - Math.floor(size / 2), size, size);
+    }
+  }
+
+  /** A soft, even warm glow from inside the tent (slice 27): the cloth is lit, the doorway glows and a faint halo spills on the grass. */
+  private drawTentGlow(g: Phaser.GameObjects.Graphics, tg: number): void {
+    if (tg <= 0.02) return;
+    const wx = this.spots.camp.tent.x - TENT_SIZE.w / 2;
+    const wy = this.spots.camp.tent.y - TENT_SIZE.h;
+    const breath = 0.94 + 0.06 * Math.sin(this.elapsed / 1300);
+    // The halo on the grass first (under the cloth's glow): wide, very faint rings round the doorway.
+    const hx = wx + TENT_DOOR.cx;
+    const hy = wy + TENT_DOOR.bottom - 3;
+    for (let i = 0; i < 4; i++) {
+      const rx = (30 * (4 - i)) / 4;
+      const ry = rx * 0.4;
+      g.fillStyle(GLOW_COLOR, 0.05 * tg * breath);
+      for (let y = -Math.floor(ry); y < ry; y += 2) {
+        const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((y + 1) / ry) ** 2)));
+        if (half > 0) g.fillRect(hx - half, hy + y, half * 2, 2);
+      }
+    }
+    // The cloth, lit from within: every row of the tent's triangle gets a wash of warm light (stronger lower down, near the lamp).
+    for (let y = TENT_APEX + 2; y < TENT_DOOR.bottom; y++) {
+      const hw = Math.round(((y - TENT_APEX) * 19) / (TENT_DOOR.bottom + 1 - TENT_APEX)) - 1;
+      if (hw > 0) g.fillStyle(0xffc060, (0.06 + 0.14 * ((y - TENT_APEX) / 31)) * tg * breath).fillRect(wx + TENT_DOOR.cx - hw, wy + y, hw * 2 + 1, 1);
+    }
+    // The doorway: the dark triangle becomes a warm amber one, brightest in the middle.
+    for (let y = TENT_DOOR.top; y <= TENT_DOOR.bottom; y++) {
+      const dw = tentDoorHalf(y);
+      g.fillStyle(0xffb347, 0.62 * tg * breath).fillRect(wx + TENT_DOOR.cx - dw, wy + y, dw * 2 + 1, 1);
+      if (dw >= 2) g.fillStyle(0xffe6a0, 0.4 * tg * breath).fillRect(wx + TENT_DOOR.cx - Math.floor(dw / 2), wy + y, dw + 1, 1);
     }
   }
 

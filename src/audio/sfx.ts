@@ -22,6 +22,8 @@ export const SFX_NAMES = [
   'bubbles',
   'thunk',
   'sleepyBoof',
+  'trophy',
+  'medal',
 ] as const;
 export type SfxName = (typeof SFX_NAMES)[number];
 
@@ -105,6 +107,28 @@ const PLAYERS: Record<SfxName, Player> = {
     ];
     for (const [at, hz, dur] of tune) bell(g, out, t, at, hz, dur, 0.28, v);
     bell(g, out, t, 0.82, C6, 0.7, 0.16, v);
+  },
+  // The trophy stinger (a rare fish on the board): slow and warm, a low rising call (G4 C5 E5 G5) answered by a full, held C major chord
+  // with a soft shimmer of high pings on top. Longer and lower than the fanfare, so a trophy never sounds like a new species.
+  trophy: (g, out, t, v) => {
+    const call: [number, number][] = [[0, note(-2)], [0.2, note(3)], [0.4, note(7)], [0.6, note(10)]];
+    for (const [at, hz] of call) bell(g, out, t, at, hz, 0.3, 0.26, v);
+    for (const hz of [C5, E5, G5, C6]) bell(g, out, t, 0.95, hz, 1.3, 0.17, v);
+    bell(g, out, t, 0.95, note(-9), 1.4, 0.2, v); // a C4 underneath for warmth
+    [note(34), note(38), note(41), note(46)].forEach((hz, i) => tone(g, out, t, { f0: hz * v.pitch, at: 1.05 + i * 0.12, dur: 0.4, attack: 0.004, peak: 0.05 * v.volume }));
+  },
+  // The medal stinger (a perfect gold catch): a quick bright "ding-ding-DING!" a fifth higher than the catch jingle, struck like a
+  // metal medal (inharmonic partials), ringing out.
+  medal: (g, out, t, v) => {
+    const strike = (at: number, hz: number, peak: number, ring: number) => {
+      tone(g, out, t, { f0: hz * v.pitch, at, dur: ring, attack: 0.002, peak: peak * v.volume });
+      tone(g, out, t, { f0: hz * 2.76 * v.pitch, at, dur: ring * 0.45, attack: 0.002, peak: peak * 0.4 * v.volume });
+      tone(g, out, t, { f0: hz * 5.4 * v.pitch, at, dur: ring * 0.2, attack: 0.002, peak: peak * 0.15 * v.volume });
+    };
+    strike(0, C6, 0.2, 0.3);
+    strike(0.11, E6, 0.2, 0.3);
+    strike(0.22, note(22), 0.24, 1.1);
+    burst(g, out, t, { filter: 'highpass', f0: 6000, q: 0.7, at: 0.22, dur: 0.06, attack: 0.002, peak: 0.05 * v.volume });
   },
   // Two bright, ringing partials with a quick strike.
   coin: (g, out, t, v) => {
