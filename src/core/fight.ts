@@ -31,7 +31,7 @@ export type FightOutcome =
 /** Starts a fight. `distanceM` is where the fish was hooked; `speciesId` picks a trophy's signature move (line style). */
 export function beginFight(style: CatchStyle, fish: FishProfile, gear: BarGear, rng: Rng, distanceM: number, speciesId?: string): FightState {
   if (style === 'line') {
-    const line = newLineFight(rng, distanceM, speciesId);
+    const line = newLineFight(rng, distanceM, speciesId, fish, gear);
     return { bar: { ...newCatchBar(fish, gear, seededRng(1)), holding: true }, line };
   }
   return { bar: { ...newCatchBar(fish, gear, rng), holding: true } }; // the hooking press is still down

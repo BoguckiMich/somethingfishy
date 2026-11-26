@@ -53,7 +53,7 @@ import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, timeOfDay, type Ga
 import { FISH_PATTERNS, type FishProfile } from '../core/catchBar';
 import { beginFight, holdFight, CATCH_STYLES, type CatchStyle } from '../core/fight';
 import { LINE_FIGHT_TUNING } from '../core/data/lineFight';
-import { lineGearOf, surgeLevel, warnLevel } from '../core/lineFight';
+import { inGold, lineGearOf, surgeLevel, warnLevel } from '../core/lineFight';
 import { isLegendary, isTrophy, speciesById, SPECIES } from '../core/data/fish';
 import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../core/data/rare';
 import { addTrophy, boardIds, fullBoard } from '../core/rare';
@@ -515,7 +515,7 @@ export class LakeScene extends Phaser.Scene {
   /** Line fights seen this session: the first few show the hint line. */
   private lineFights = 0;
   /** Last frame's line-fight phase, to pulse the phone when a surge starts. */
-  private lineHaptic = { phase: '', buzzAge: 0 };
+  private lineHaptic = { phase: '', buzzAge: 0, tickAge: 0, gold: false };
   /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
   private showOffFish!: Phaser.GameObjects.Image;
   private showOffHands!: Phaser.GameObjects.Image;
@@ -1806,7 +1806,7 @@ export class LakeScene extends Phaser.Scene {
     const onClose = () => (this.panel = null);
     this.panel =
       kind === 'bag' ? openBagPanel(store, onClose, () => { this.panel?.close(); this.openPlayerPanel('shop'); })
-      : kind === 'shop' ? openShopPanel(store, onClose)
+      : kind === 'shop' ? openShopPanel(store, onClose, undefined, this.loc)
       : kind === 'bait' ? openBaitPicker(store, onClose)
       : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
       : openLogPanel(() => this.player.log, onClose, startWith, { sticks: () => this.player.sticks ?? [], placeId: this.loc.id, startTab: tab });
@@ -2819,7 +2819,7 @@ export class LakeScene extends Phaser.Scene {
       if (s.kind === 'fighting' && s.line) {
         // A line fight: the line sags when slack, is straight when steady, and trembles and reddens near the snap.
         const lim = lineGearOf(this.ctx.barGear).snapLimit;
-        const sag = Math.max(0, 1 - s.line.tension / LINE_FIGHT_TUNING.goldBand[0]);
+        const sag = Math.max(0, 1 - s.line.tension / s.line.goldLo);
         const strain = Phaser.Math.Clamp((s.line.tension - (lim - 0.12)) / 0.12, 0, 1);
         this.drawLine(g, look, tip, bobber.x, bobber.y, strain > 0 ? Math.sin(this.elapsed / 28) * 1.6 * strain : 0, 26 * sag * sag, lerpColor(0xffffff, PAL.redLight, strain));
       } else {
@@ -2953,7 +2953,7 @@ export class LakeScene extends Phaser.Scene {
       .setVisible(this.wormCueAge < 1200)
       .setAlpha(Math.min(1, (1200 - this.wormCueAge) / 400))
       // On the catch card it floats up by the HUD's right side, clear of the strip at the bottom and the bait chip.
-      .setPosition(this.state.kind === 'caught' ? W - 44 : baitChipRect().centerX, (this.state.kind === 'caught' ? 118 : baitChipRect().y - 16) - this.wormCueAge / 100);
+      .setPosition(this.state.kind === 'caught' ? W - 44 : baitChipRect().centerX, (this.state.kind === 'caught' ? 84 : baitChipRect().y - 16) - this.wormCueAge / 100);
     this.toast.setVisible(this.toastAge < TOAST_MS).setAlpha(Math.min(1, (TOAST_MS - this.toastAge) / 300));
     this.warnAge += _deltaMs;
     this.warnText.setVisible(this.warnAge < WARN_MS).setAlpha(Math.min(1, (WARN_MS - this.warnAge) / 400));
@@ -2979,7 +2979,11 @@ export class LakeScene extends Phaser.Scene {
   private lineFightFeedback(s: Extract<FishingState, { kind: 'fighting' }>, deltaMs: number): void {
     const line = s.line;
     if (!line) return;
-    if (this.lineHaptic.phase === '') this.lineFights++; // a new line fight
+    if (this.lineHaptic.phase === '') {
+      this.lineFights++; // a new line fight
+      this.lineHaptic.gold = inGold(line);
+      this.lineHaptic.tickAge = 0;
+    }
     const prev = this.lineHaptic.phase === '' ? 'calm' : this.lineHaptic.phase;
     this.lineHaptic.phase = line.phase;
     if (line.phase === 'warn' && prev !== 'warn') {
@@ -2987,6 +2991,16 @@ export class LakeScene extends Phaser.Scene {
       sound.play('nibble');
     } else if (line.phase === 'run' && prev !== 'run') {
       vibrate(HAPTICS.lineSurge);
+    }
+    // A tiny tick when the needle enters or leaves the gold: it helps feathering without looking (rate-limited).
+    this.lineHaptic.tickAge += deltaMs;
+    const gold = inGold(line);
+    if (gold !== this.lineHaptic.gold) {
+      this.lineHaptic.gold = gold;
+      if (this.lineHaptic.tickAge >= LINE_FIGHT_TUNING.tickGapMs) {
+        this.lineHaptic.tickAge = 0;
+        vibrate(LINE_FIGHT_TUNING.tickMs);
+      }
     }
     this.lineHaptic.buzzAge += deltaMs;
     const lim = lineGearOf(this.ctx.barGear).snapLimit;

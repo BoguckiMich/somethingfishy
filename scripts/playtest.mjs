@@ -353,7 +353,7 @@ const commands = {
       const s = window.__rybki.scene.state;
       if (s.kind !== 'fighting' || !s.line) return { kind: s.kind };
       const l = s.line;
-      return { kind: s.kind, phase: l.phase, tension: l.tension, holding: l.holding, strength: l.strength, cutWarn: l.cutWarn, phaseT: l.phaseT, phaseTotal: l.phaseTotal };
+      return { kind: s.kind, phase: l.phase, tension: l.tension, holding: l.holding, goldLo: l.goldLo, goldHi: l.goldHi, strength: l.strength, cutWarn: l.cutWarn, phaseT: l.phaseT, phaseTotal: l.phaseTotal };
     })()`);
     // The game starts a fight with the hooking press still down: one real press and release puts the thumb in sync.
     await touch(c, 'touchStart', r, 180, 300);
@@ -361,15 +361,19 @@ const commands = {
     let down = false;
     let t = 0;
     let stopped = null;
+    let prevT = null;
     for (; t < maxMs; t += 50) {
       const p = await probe();
       if (p.kind !== 'fighting') break;
+      const vel = prevT === null ? 0 : (p.tension - prevT) / 50; // tension per ms: the needle's speed, which a player sees
+      prevT = p.tension;
+      const mid = (p.goldLo + p.goldHi) / 2;
       const surging = p.phase === 'warn' || p.phase === 'run';
-      const want = mode === 'hold' ? true : mode === 'never' ? false : !surging && p.tension < 0.5;
+      const want = mode === 'hold' ? true : mode === 'never' ? false : !surging && p.tension + vel * 120 < mid; // pulses: hold below the middle of the gold (looking ahead a little), release above
       if (until === 'cut' && p.cutWarn > 0.1) { stopped = 'cut'; break; }
       if (until === 'warn' && p.phase === 'warn' && p.phaseT < p.phaseTotal * 0.5) { stopped = 'warn'; break; }
       if (until === 'surge' && p.phase === 'run' && p.phaseTotal - p.phaseT > 0.4) { stopped = 'surge'; break; }
-      if (until === 'steady' && p.tension > 0.4 && p.tension < 0.6 && p.phase === 'calm' && p.holding) { stopped = 'steady'; break; }
+      if (until === 'steady' && p.tension >= p.goldLo && p.tension < p.goldHi && p.phase === 'calm' && p.holding) { stopped = 'steady'; break; }
       if (until === 'red' && p.tension > 0.8) { stopped = 'red'; break; }
       if (want !== down) {
         await touch(c, want ? 'touchStart' : 'touchEnd', r, 180, 300);

@@ -1,5 +1,6 @@
 import type { CompanionSpots, Location } from '../location';
 import { POOL_SPECIES } from './fish';
+import { QUIET_LAKE_STOCK, RIVER_BEND_STOCK } from './shopStock';
 
 /** The species that live at the River bend only (slice 25d): they never bite at Quiet Lake. */
 const RIVER_ONLY: readonly string[] = ['trout', 'grayling', 'nase', 'chub', 'barbel', 'vimba'];
@@ -57,6 +58,7 @@ export const QUIET_LAKE: Location = {
   momentsId: 'lake',
   checklistId: 'quiet-lake',
   storyPlaceId: 'quiet-lake',
+  shop: QUIET_LAKE_STOCK,
 };
 
 /**
@@ -85,6 +87,7 @@ export const RIVER_BEND: Location = {
   momentsId: null,
   checklistId: null,
   storyPlaceId: null,
+  shop: RIVER_BEND_STOCK,
 };
 
 export const LOCATIONS: readonly Location[] = [QUIET_LAKE, RIVER_BEND];

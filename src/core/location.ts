@@ -1,3 +1,5 @@
+import type { ShopStock } from './data/shopStock';
+
 /** The depth class of a zone that species and rare-fish rules are written against: a lake's shallow/deep, a river's riffle/seam count as shallow, its pool as deep. */
 export type ZoneId = 'shallow' | 'deep';
 
@@ -126,6 +128,8 @@ export interface Location {
   checklistId: string | null;
   /** The place id the story chapters are told at; null = no chapters here. */
   storyPlaceId: string | null;
+  /** What the shop sells here (slice 29). */
+  shop: ShopStock;
 }
 
 /** Returns the zone a bobber at `distanceM` lands in. Distances past the end clamp to the last zone. */

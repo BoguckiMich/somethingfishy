@@ -1,5 +1,6 @@
 import { CAMP_IDS, campItemById, type CampId } from './data/camp';
 import type { WeatherId } from './data/weather';
+import { QUIET_LAKE_STOCK, sold, type ShopStock } from './data/shopStock';
 import type { Outcome, PlayerState } from './inventory';
 
 /** The camp items she owns, in shop order (older saves have none). */
@@ -14,9 +15,10 @@ export function normalizeCamp(v: unknown): CampId[] {
 }
 
 /** Buys a camp item for coins: once each, and only a known id. Touches nothing but the coins and the owned list. */
-export function buyCampItem(state: PlayerState, id: string): Outcome {
+export function buyCampItem(state: PlayerState, id: string, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
   const item = campItemById(id);
   if (!item) return { state, ok: false, error: 'notSold' };
+  if (!sold(stock, id)) return { state, ok: false, error: 'notSoldHere' };
   if (hasCamp(state, id)) return { state, ok: false, error: 'owned' };
   if (state.coins < item.price) return { state, ok: false, error: 'needCoins', missing: item.price - state.coins };
   return { ok: true, state: { ...state, coins: state.coins - item.price, camp: normalizeCamp([...campOwned(state), id]) } };
