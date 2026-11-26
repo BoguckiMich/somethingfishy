@@ -15,6 +15,19 @@ export function vibrate(pattern: number | number[]): void {
   }
 }
 
+/**
+ * The Settings "Test vibration" button: buzzes even when the switch is off and says what the browser answered,
+ * so a phone that never vibrates can tell "not supported" from "blocked" (Brave, Firefox 129+ and iOS have none or block it).
+ */
+export function testVibration(): 'missing' | 'refused' | 'sent' {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return 'missing';
+  try {
+    return navigator.vibrate([200, 100, 200]) ? 'sent' : 'refused';
+  } catch {
+    return 'refused';
+  }
+}
+
 export const HAPTICS = {
   nibble: 12,
   bite: [70, 40, 70],
