@@ -49,5 +49,13 @@ export function weatherLinesFor(id: WeatherLineId, minute: number): readonly str
 /** Pajkel on a new best at skipping pebbles, said the first time a record is beaten on a real date (slice 26). One bubble line each (about 25 characters). */
 export const SKIP_RECORD_LINES: readonly string[] = ['New skip record. Humbling.', 'The water approves. Record!', 'I want a recount. Wow.', 'Pebble first, fish later.'];
 
+/** Pajkel skips the pebbles (slice 26b): "One sec!" when the stones are tapped while he is busy; after a 5-skip throw; a small word after a lesser one (only now and then). */
+export const ONE_SEC_LINE = 'One sec!';
+export const SKIP_FIVE_LINES: readonly string[] = ['Five! Did you see that?', 'Five! Somebody write it down.', 'FIVE. I felt that one.'];
+export const SKIP_MID_LINES: readonly string[] = ['Nice one.', 'That one had manners.', 'Good stone.'];
+/** Bestia's one bark after a five-skip pebble. */
+export const WOOF_TEXT = 'Woof!';
+export const SKIP_LOW_LINES: readonly string[] = ['Plip.', 'It sank with dignity.', 'The stone tried.'];
+
 /** Pajkel when she taps a stick in the middle of a round: he will throw it next (slice 26). */
 export const NEXT_ONE_LINE = 'Next one!';

@@ -5,7 +5,6 @@ import {
   PLAY_AREA,
   PLAY_TUNING,
   STICK_TUNING,
-  companionEvent,
   companionPress,
   createCompanions,
   dogView,
@@ -211,14 +210,15 @@ describe('rounds, the spin and the dock', () => {
     expect(s.paj.shape === 'bend' || s.paj.shape === 'throw').toBe(true);
   });
 
-  it('a press, a bite or the bedtime clears every stick from the grass', () => {
-    for (const how of ['press', 'bite', 'bed'] as const) {
+  it('a press (once the round is over) or the bedtime clears every stick from the grass', () => {
+    for (const how of ['press', 'bed'] as const) {
       const { s, rng } = play(4);
       runUntil(s, rng, () => oldSticks(s).length >= 1 && s.play.phase === 'bring');
       expect(s.sticks.length).toBeGreaterThan(0);
-      if (how === 'press') companionPress(s);
-      else if (how === 'bite') companionEvent(s, 'bite');
-      else startBedtime(s, 'night night');
+      if (how === 'press') {
+        companionPress(s);
+        expect(runUntil(s, rng, () => s.mode === 'returning', 40_000)).toBeGreaterThan(0);
+      } else startBedtime(s, 'night night');
       if (how === 'bed') expect(s.sticks).toHaveLength(0); // the screen fades anyway, so bedtime clears at once
       else {
         // Going back to the dock, they fade out over fadeOutMs instead of popping away.
@@ -233,15 +233,14 @@ describe('rounds, the spin and the dock', () => {
     }
   });
 
-  it('a press or a bite in any phase sends them back to the dock, and the sticks stay gone', () => {
+  it('a press in any phase brings them back to the dock (after the round, or at once between rounds), and the sticks stay gone', () => {
     const phases = ['throw', 'bring', 'tease', 'dodge', 'keepAway', 'giveUp', 'toStick', 'bend', 'spin', 'rest'];
     for (const phase of phases) {
       const { s, rng } = play(6);
       expect(runUntil(s, rng, () => s.play.phase === phase, 300_000)).toBeGreaterThanOrEqual(0);
-      companionEvent(s, 'bite');
-      expect(s.mode).toBe('returning');
-      run(s, rng, 20_000);
-      expect(s.mode).toBe('dock');
+      companionPress(s);
+      expect(runUntil(s, rng, () => s.mode === 'dock', 60_000)).toBeGreaterThan(0);
+      run(s, rng, STICK_TUNING.fadeOutMs + 100);
       expect(s.sticks).toHaveLength(0);
       expect(s.dog.hop).toBe(0);
       expect(dogView(s).carry).toBe(false);

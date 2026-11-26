@@ -201,23 +201,30 @@ describe('idle play on the grass', () => {
     expect(wagged).toBe(true);
   });
 
-  it('heads back to the dock on a press and sits down', () => {
+  it('a press mid-round lets the round finish, then they head back to the dock and sit down', () => {
     const s = createCompanions(rng);
     startPlayNow(s);
     run(s, 2000);
+    expect(s.play.phase).not.toBe('rest');
     companionPress(s);
-    expect(s.mode).toBe('returning');
-    run(s, 15000, { fishing: 'charging', night: false });
+    expect(s.mode).toBe('play'); // the round in progress is not broken up
+    run(s, 40000, { fishing: 'charging', night: false });
     expect(s.mode).toBe('dock');
     expect(s.paj.shape).toBe('sit');
     expect(s.dog.x).toBeCloseTo(DOG_SPOT.x);
   });
 
-  it('heads back on a bite too', () => {
+  it('a bite does not send them back (the cast already did); a hook is cheered from where he stands', () => {
     const s = createCompanions(rng);
     startPlayNow(s);
     companionEvent(s, 'bite');
-    expect(s.mode).toBe('returning');
+    expect(s.mode).toBe('play');
+    run(s, 1000); // the throw is done, he stands watching her run
+    expect(s.paj.shape).toBe('stand');
+    companionEvent(s, 'hooked');
+    tickCompanions(s, 50, idle, rng);
+    expect(s.paj.shape).toBe('rejoice');
+    expect(s.mode).toBe('play');
   });
 });
 

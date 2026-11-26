@@ -27,9 +27,16 @@ describe('flick speed to skips', () => {
 
 describe('a tap and a swipe', () => {
   const at = (x: number, y: number, t: number): FlickSample => ({ x, y, t });
-  it('a plain tap throws a medium pebble straight out', () => {
-    expect(throwFor({ x: 100, y: 460 }, { x: 102, y: 461 }, [])).toEqual({ skips: SKIP_TUNING.tapSkips, side: 0 });
-    expect(SKIP_TUNING.tapSkips).toBe(3);
+  it('a plain tap throws an ordinary pebble (2 or 3 skips) straight out, never a big wind-up', () => {
+    expect(throwFor({ x: 100, y: 460 }, { x: 102, y: 461 }, [], () => 0)).toEqual({ skips: 2, side: 0, big: false });
+    expect(throwFor({ x: 100, y: 460 }, { x: 102, y: 461 }, [], () => 0.99)).toEqual({ skips: 3, side: 0, big: false });
+  });
+
+  it('a fast swipe goes for it (a big wind-up), a slow drag does not', () => {
+    const fast = [at(100, 460, 0), at(100, 330, 60)];
+    expect(throwFor({ x: 100, y: 460 }, { x: 100, y: 330 }, fast).big).toBe(true);
+    const slow = [at(100, 460, 0), at(100, 420, 800)];
+    expect(throwFor({ x: 100, y: 460 }, { x: 100, y: 420 }, slow).big).toBe(false);
   });
 
   it('a quick swipe up is a long skipper, a slow drag a short one', () => {

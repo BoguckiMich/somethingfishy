@@ -744,11 +744,11 @@ export function pajkelSittingSprite(pose: PajPose, breath: 0 | 1, deck = false):
 
 // Standing / walking side view, facing right (flip for left).
 export const PAJ_WALK_SIZE = { w: 32, h: 52 };
-export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1' | 'bend';
+export type PajWalkPose = 'stand' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'throw' | 'carry0' | 'carry1' | 'carry2' | 'carry3' | 'stretch0' | 'stretch1' | 'bend' | 'flick0' | 'flick1';
 /** Number of frames in the walk cycle (walk0..walkN-1; carry0..carryN-1 is the same cycle with Bestia in his arms). */
 export const PAJ_WALK_FRAMES = 4;
 /** Every standing / walking pose, in the order the textures are baked. */
-export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1', 'bend'];
+export const PAJ_WALK_POSES: readonly PajWalkPose[] = ['stand', 'walk0', 'walk1', 'walk2', 'walk3', 'throw', 'carry0', 'carry1', 'carry2', 'carry3', 'stretch0', 'stretch1', 'bend', 'flick0', 'flick1'];
 
 /**
  * Bestia held in Pajkel's arms (slice 16), painted into his walking sprite: her body lies across the
@@ -985,6 +985,14 @@ export function pajkelWalkSprite(pose: PajWalkPose): Sprite {
   else if (pose === 'bend') {
     // Picking a stick up: the near arm reaches down and forward to the grass, hand open.
     pajArm(p, 17, 22, 23, 43, true);
+  } else if (pose === 'flick0') {
+    // Skipping a pebble (slice 26b), wind-up: the near arm back and low, a flat stone pinched in the fingers.
+    pajArm(p, 17, 22, 8, 33, true);
+    p.rect(5, 36, 3, 2, PAL.stoneLight);
+    p.set(5, 36, PAL.white);
+  } else if (pose === 'flick1') {
+    // The flick: the arm swung forward at hip height, the hand open (the stone has gone).
+    pajArm(p, 17, 22, 28, 27, true);
   } else if (pose !== 'throw') {
     pajArm(p, 16, 22 + bob, 16 + swing, 31 + bob, true);
   }
