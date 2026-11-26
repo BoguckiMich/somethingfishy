@@ -3119,8 +3119,8 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     if (fogVis > 0) {
-      // Full until 08:30, gone by 10:00, and off at night (the daylight factor) and in the Pale One's window.
-      const strength = fogStrength(this.clock.minute) * daylight(this.clock.minute) * calmLeft * fogVis;
+      // Full until 08:30, thinning to a mist by 10:00 that stays all the fog hour; a faint mist by night (balance A2); hidden in the Pale One's window.
+      const strength = fogStrength(this.clock.minute) * Math.max(0.4, daylight(this.clock.minute)) * calmLeft * fogVis;
       if (strength < 0.01) return;
       const top = FAR_SHORE_Y - 52;
       const bands = 24;

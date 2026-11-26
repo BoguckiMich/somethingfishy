@@ -98,6 +98,12 @@ export function firstWaitFactor(baitId: string | undefined, zone: ZoneId): numbe
   return w && w.zone === zone ? w.factor : 1;
 }
 
+/** The rod's catch-bar values with the bait on the hook on top (balance A2: corn calms the fish, `Bait.calm`); worms or none change nothing. */
+export function fightGear(gear: BarGear, baitId: string | undefined): BarGear {
+  const calm = baitById(baitId)?.calm ?? 0;
+  return calm > gear.baitCalm ? { ...gear, baitCalm: calm } : gear;
+}
+
 export const INITIAL_STATE: FishingState = { kind: 'idle' };
 
 const same = (state: FishingState): StepResult => ({ state, events: [] });
@@ -145,7 +151,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         distanceM: state.distanceM,
         zone: state.zone,
         hooked,
-        untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs) * firstWaitFactor(bait, state.zone) * (fx?.waitFactor ?? 1),
+        untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs) * firstWaitFactor(bait, state.zone) * (fx?.waitFactor ?? 1) * (fx?.zoneWaitFactor[state.zone] ?? 1),
         nibblesLeft: randInt(ctx.rng, ...speciesById(hooked.speciesId)!.nibbles),
         hadNibble: false,
       });
@@ -181,7 +187,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
     case 'bite': {
       if (input.type === 'press') {
         const fish = ctx.fishOverride ?? fightProfile(speciesById(state.hooked.speciesId)!, state.hooked.lengthCm, ctx.weatherFx?.()?.difficultyAdd);
-        const bar = { ...newCatchBar(fish, ctx.barGear, ctx.rng), holding: true }; // the hooking press is still down
+        const bar = { ...newCatchBar(fish, fightGear(ctx.barGear, ctx.baitId?.()), ctx.rng), holding: true }; // the hooking press is still down
         return {
           state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, fish, bar },
           events: [{ type: 'hooked', zone: state.zone }],
@@ -201,7 +207,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         return same({ ...state, bar: { ...state.bar, holding: input.type === 'press' } });
       }
       if (input.type !== 'tick') return same(state);
-      const bar = tickCatchBar(state.bar, input.dtMs, state.bar.holding, state.fish, ctx.barGear, ctx.rng);
+      const bar = tickCatchBar(state.bar, input.dtMs, state.bar.holding, state.fish, fightGear(ctx.barGear, ctx.baitId?.()), ctx.rng);
       const result = barResult(bar);
       const { zone, fish, distanceM, hooked } = state;
       if (result === 'caught') {

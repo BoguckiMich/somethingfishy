@@ -71,9 +71,28 @@ describe('perfect catch tracking in the fight state', () => {
     expect(tickCatchBar(inside, TICK, false, fish, gear, seededRng(1)).leftZone).toBe(false);
   });
 
-  it('one step outside the zone ends the perfect run for good, even if the fish comes straight back', () => {
+  it('a short time outside is forgiven: up to 300 ms in total, over the whole fight', () => {
     const s0 = newCatchBar(fish, gear, seededRng(2));
-    const outside: CatchBarState = { ...s0, fish: s0.zone + gear.zoneSize / 2 + CATCH_BAR_TUNING.fishTolerance + 0.01, fishTarget: s0.zone, fishTimer: 99, fishVel: 0 };
+    const outside: CatchBarState = { ...s0, fish: s0.zone + gear.zoneSize / 2 + CATCH_BAR_TUNING.fishTolerance + 0.01, fishTarget: s0.fish, fishTimer: 99, fishVel: 0 };
+    expect(CATCH_BAR_TUNING.perfectGraceMs).toBe(300);
+    let s = tickCatchBar(outside, TICK, false, fish, gear, seededRng(1));
+    expect(s.leftZone).toBe(false);
+    expect(s.outsideTotalMs).toBeGreaterThan(0);
+    // 250 ms outside, a stretch inside, then 100 ms more outside: the TOTAL (not the longest run) decides.
+    s = { ...outside, outsideTotalMs: 250 };
+    s = tickCatchBar(s, 48, false, fish, gear, seededRng(1));
+    expect(s.leftZone).toBe(false);
+    s = { ...s, fish: s.zone, fishTarget: s.zone, outsideTotalMs: 250 };
+    s = tickCatchBar(s, 48, false, fish, gear, seededRng(1));
+    expect(s.outsideTotalMs).toBe(250);
+    s = { ...s, fish: s.zone + gear.zoneSize / 2 + CATCH_BAR_TUNING.fishTolerance + 0.01, fishTarget: s.fish, fishTimer: 99, fishVel: 0, accMs: 0 };
+    s = tickCatchBar(s, 96, false, fish, gear, seededRng(1));
+    expect(s.leftZone).toBe(true);
+  });
+
+  it('more than the grace outside ends the perfect run for good, even if the fish comes straight back', () => {
+    const s0 = newCatchBar(fish, gear, seededRng(2));
+    const outside: CatchBarState = { ...s0, fish: s0.zone + gear.zoneSize / 2 + CATCH_BAR_TUNING.fishTolerance + 0.01, fishTarget: s0.zone, fishTimer: 99, fishVel: 0, outsideTotalMs: CATCH_BAR_TUNING.perfectGraceMs };
     let s = tickCatchBar(outside, TICK, false, fish, gear, seededRng(1));
     expect(s.leftZone).toBe(true);
     s = { ...s, fish: s.zone, fishTarget: s.zone, fishVel: 0, progress: 0.999 };

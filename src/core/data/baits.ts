@@ -8,7 +8,7 @@ import type { Rarity } from './fish';
  * Prices (shop packs of 10), checked against slice 15a income: a common fish sells for ~4-12 and a
  * deep one for 20-100, a worm costs 1 coin, and one bait is used per caught fish (half the time on
  * a lost fight). So a bait must cost clearly less than the fish it is meant to attract:
- *   corn     3 coins each, for crucian (~8) and bream / tench / carp (20-70)
+ *   corn     1.8 coins each (balance A2: was 3, a trap next to the 20-coin maggots), for crucian (~8) and bream / tench / carp (20-70); also calms the fight
  *   maggots  2 coins each, speeds up shallow fishing where fish sell for ~4-14
  *   strip    4 coins each, for pike / zander / asp / burbot / eel / catfish (22-170)
  * Glow bait is not sold (daily box and quests only).
@@ -26,6 +26,8 @@ export interface Bait {
   speciesBoost?: { ids: readonly string[]; factor: number };
   /** ...or for every species of this rarity. */
   rarityBoost?: { rarity: Rarity; factor: number };
+  /** 0..1: calms the fish in the fight (shrinks its speed and reach, stretches its pauses; `BarGear.baitCalm`, `CATCH_BAR_TUNING.calmEffect`). */
+  calm?: number;
   /** The wait before the first bite x`factor` in this zone. */
   waitFactor?: { zone: 'shallow' | 'deep'; factor: number };
 }
@@ -35,14 +37,15 @@ export const WORM_ID = 'worm';
 
 export const BAITS: Bait[] = [
   {
-    id: 'corn', name: 'Corn', effect: 'Carp, tench, bream and crucian bite 3x as often', short: 'Carp, tench, bream, crucian x3',
-    pack: { size: 10, price: 30 },
+    id: 'corn', name: 'Corn', effect: 'Carp, tench, bream and crucian bite 3x as often, and fight a little calmer', short: 'Carp, tench, bream, crucian x3, calmer',
+    pack: { size: 10, price: 18 },
     speciesBoost: { ids: ['carp', 'tench', 'bream', 'crucian'], factor: 3 },
+    calm: 0.5,
   },
   {
     id: 'maggots', name: 'Maggots', effect: 'Bites come sooner in shallow water', short: 'Faster bites in shallow water',
     pack: { size: 10, price: 20 },
-    waitFactor: { zone: 'shallow', factor: 0.6 },
+    waitFactor: { zone: 'shallow', factor: 0.45 },
   },
   {
     id: 'strip', name: 'Fish strip', effect: 'Pike, zander, asp, burbot, eel and catfish bite 3x as often', short: 'Predator fish x3',

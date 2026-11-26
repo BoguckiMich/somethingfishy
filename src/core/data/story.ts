@@ -122,6 +122,8 @@ export const JOURNAL_TOTAL = 7;
 export const STORY_TUNING = {
   /** Chapters that may be seen on one real date (they follow progress, not the calendar). */
   perDay: 2,
+  /** The same cap once the road is fixed (catch-up): a little looser, never unlimited (balance A2: a tester saw the whole story on day one). */
+  catchUpPerDay: 3,
   /** The in-game minute from which a visit counts as a night visit (21:00; Q4's milestone). */
   nightFromMinute: 21 * 60,
   /** Q7 comes when this many checklist bundles are done. */
