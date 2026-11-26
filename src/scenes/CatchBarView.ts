@@ -18,7 +18,7 @@ const STRIP_WINDOW = { x: STRIP_FRAME.x + STRIP_BORDER, y: STRIP_FRAME.y + STRIP
 
 const DEPTH = 30;
 /** The perfect-run star (the same shape as the size stars). */
-const STAR_ROWS = ['....o....', '...ofo...', '..ofhfo..', 'ooofhfooo', 'offfffffo', '.offfffo.', '.offoffo.', '.ofo.ofo.', '..o...o..'];
+export const STAR_ROWS = ['....o....', '...ofo...', '..ofhfo..', 'ooofhfooo', 'offfffffo', '.offfffo.', '.offoffo.', '.ofo.ofo.', '..o...o..'];
 /** A 9 x 9 fish above the progress strip (what you are after) and a net below it (what fills up), centred on the strip. */
 const ICON_GAP = 2;
 

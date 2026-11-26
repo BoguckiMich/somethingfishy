@@ -50,7 +50,10 @@ import { canOpenMap, napAvailable } from '../core/carMap';
 import { showNapCard } from '../ui/napCard';
 import { castDistance, chargePower } from '../core/casting';
 import { advanceClock, daylight, formatClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
-import { FISH_PATTERNS, newCatchBar, type FishProfile } from '../core/catchBar';
+import { FISH_PATTERNS, type FishProfile } from '../core/catchBar';
+import { beginFight, CATCH_STYLES, type CatchStyle } from '../core/fight';
+import { LINE_FIGHT_TUNING } from '../core/data/lineFight';
+import { lineGearOf, surgeLevel, warnLevel } from '../core/lineFight';
 import { isLegendary, isTrophy, speciesById, SPECIES } from '../core/data/fish';
 import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../core/data/rare';
 import { addTrophy, boardIds, fullBoard } from '../core/rare';
@@ -113,6 +116,7 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
+import { fishScreenPos, LineFightView } from './LineFightView';
 import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipText, throwFor, type FlickSample } from '../core/skipping';
@@ -203,6 +207,8 @@ const CATCH_TEXT_LIMIT = 324;
 const CATCH_BUBBLE_TOP = 298;
 /** Room the "Fits the checklist!" tag takes under the size line (slice 22b). */
 const CATCH_FITS_GAP = 26;
+/** The first few line fights of a session show the "Hold to reel" hint. */
+const LINE_HINT_FIGHTS = 3;
 const ALEX_POS = { x: 192, y: DOCK.y + 28 - ALEX_FEET_Y };
 const ROD_HAND = { x: ALEX_POS.x + ALEX_HAND.x, y: ALEX_POS.y + ALEX_HAND.y };
 /**
@@ -346,6 +352,7 @@ export class LakeScene extends Phaser.Scene {
     baitId: () => chosenBait(this.player),
     fotdId: () => this.fotdId(),
     weatherFx: () => this.weatherNow(),
+    catchStyle: () => this.catchStyleNow(),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
   private panel: PanelHandle | null = null;
@@ -502,6 +509,13 @@ export class LakeScene extends Phaser.Scene {
   private crateFx!: Phaser.GameObjects.Graphics;
   private bobberImg!: Phaser.GameObjects.Image;
   private catchBar!: CatchBarView;
+  private lineView!: LineFightView;
+  /** Dev flag ?catch=line|classic: the style of every fight this session, over the Settings choice (sandboxed). */
+  private catchStyleOverride: CatchStyle | null = null;
+  /** Line fights seen this session: the first few show the hint line. */
+  private lineFights = 0;
+  /** Last frame's line-fight phase, to pulse the phone when a surge starts. */
+  private lineHaptic = { phase: '', buzzAge: 0 };
   /** The fish she holds up in the show-off (a separate sprite so slice 6 can swap species). */
   private showOffFish!: Phaser.GameObjects.Image;
   private showOffHands!: Phaser.GameObjects.Image;
@@ -669,6 +683,8 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?toast=<ms> says a long toast that many ms after load (default 1000) (during ?debug=fight it must wait for the fight to end).
     if (params.has('toast')) this.debugToastInMs = Number(params.get('toast')) || 1000;
     if (dbg === 'look=left' || dbg === 'look=right') this.lookOverride = dbg.slice(5) as LookDir;
+    // Dev-only: ?catch=line|classic picks the fight style for the whole session, over the Settings choice (sandboxed, never saved).
+    this.catchStyleOverride = CATCH_STYLES.find((s) => s === params.get('catch')) ?? null;
     // Dev-only: ?fish=<pattern>&diff=<0..1> forces the fish; ?debug=fight / ?debug=caught jump into those states.
     if (params.has('fish') || params.has('diff')) {
       const pattern = FISH_PATTERNS.find((p) => p === params.get('fish')) ?? 'smooth';
@@ -793,7 +809,7 @@ export class LakeScene extends Phaser.Scene {
       const fish: FishProfile = this.ctx.fishOverride ?? fightProfile(species, hooked.lengthCm);
       const distanceM = species.zone === 'deep' ? 25 : 10;
       if (dbg === 'fight') {
-        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, bar: newCatchBar(fish, this.ctx.barGear, this.ctx.rng) };
+        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, ...beginFight(this.catchStyleNow(), fish, this.ctx.barGear, this.ctx.rng, distanceM, hooked.speciesId) };
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
@@ -1806,6 +1822,7 @@ export class LakeScene extends Phaser.Scene {
       saveNames: (p: Profile) => this.applyProfile(p),
       canSave: () => !this.saveFailed && this.safeStorage() !== undefined,
       soundSettings: () => sound.current,
+      catchStyleFlag: () => this.catchStyleOverride,
       setSoundSettings: (s: SoundSettings) => {
         sound.set(s);
         setHapticsEnabled(s.haptics);
@@ -1944,8 +1961,8 @@ export class LakeScene extends Phaser.Scene {
         sound.play(catchJingle({ outcome: this.catchOutcome.kind, star: this.catchStar, perfect: this.catchPerfect, trophy: this.catchTrophy !== 'none', slips: slipsAway(e.speciesId) }));
         break;
       case 'fishLost':
-        this.showToast(e.slipped ? 'It slipped the hook!' : 'It got away…');
-        vibrate(HAPTICS.escaped);
+        this.showToast(e.snapped ? 'The line snapped!' : e.slipped ? 'It slipped the hook!' : 'It got away…');
+        vibrate(e.snapped ? HAPTICS.snapped : HAPTICS.escaped);
         sound.play('slack');
         break;
       case 'cast':
@@ -2031,6 +2048,11 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /** What today's weather does to the bites right now (the fog rule knows the clock). */
+  /** The fight style a hooked fish gets: the dev flag, else the Settings choice. Read when the fight starts (core/fishingSession). */
+  private catchStyleNow(): CatchStyle {
+    return this.catchStyleOverride ?? sound.current.catchStyle;
+  }
+
   private weatherNow(): WeatherEffects | undefined {
     const id = this.weatherId();
     return id ? weatherEffects(id, this.clock.minute) : undefined;
@@ -2565,6 +2587,7 @@ export class LakeScene extends Phaser.Scene {
     this.bobberImg = this.add.image(0, 0, TEX.bobber).setDepth(Z.bobber).setVisible(false);
     this.fireflies = this.add.graphics().setDepth(Z.fireflies);
     this.catchBar = new CatchBarView(this);
+    this.lineView = new LineFightView(this);
     this.moments = new MomentsView(
       this,
       {
@@ -2781,14 +2804,27 @@ export class LakeScene extends Phaser.Scene {
     const bobber = this.bobberPosition();
     const tight = s.kind === 'bite' || s.kind === 'fighting';
     if (s.kind === 'fighting') {
-      this.fightBend += ((s.bar.holding ? 18 : 8) - this.fightBend) * Math.min(1, _deltaMs / 110);
+      // The rod bends with the line: a classic fight by the thumb, a line fight by the tension (and the pull of a surge).
+      const bendTo = s.line ? 5 + 19 * s.line.tension + 5 * surgeLevel(s.line) : s.bar.holding ? 18 : 8;
+      this.fightBend += (bendTo - this.fightBend) * Math.min(1, _deltaMs / 110);
+      this.lineFightFeedback(s, _deltaMs);
+    } else {
+      this.lineHaptic.phase = '';
     }
     const tip = this.rodTip();
     // The rod, line and bobber are put away while she shows off the catch.
     if (s.kind !== 'caught') this.drawRod(g, look, tip);
     if (bobber) {
       const slack = s.kind === 'lost' ? 22 * Math.min(1, this.stateAge / 220) : 0;
-      this.drawLine(g, look, tip, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : s.kind === 'lost' ? 4 : 2, slack);
+      if (s.kind === 'fighting' && s.line) {
+        // A line fight: the line sags when slack, is straight when steady, and trembles and reddens near the snap.
+        const lim = lineGearOf(this.ctx.barGear).snapLimit;
+        const sag = Math.max(0, 1 - s.line.tension / LINE_FIGHT_TUNING.goldBand[0]);
+        const strain = Phaser.Math.Clamp((s.line.tension - (lim - 0.12)) / 0.12, 0, 1);
+        this.drawLine(g, look, tip, bobber.x, bobber.y, strain > 0 ? Math.sin(this.elapsed / 28) * 1.6 * strain : 0, 26 * sag * sag, lerpColor(0xffffff, PAL.redLight, strain));
+      } else {
+        this.drawLine(g, look, tip, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : s.kind === 'lost' ? 4 : 2, slack);
+      }
       if (s.kind === 'waiting') pixelEllipse(g, Math.round(bobber.x), Math.round(bobber.y) + 1, 4, 1, tintFx(PAL.foam), 0.45);
       this.placeBobber(bobber.x, bobber.y, tight, look);
     } else {
@@ -2802,8 +2838,17 @@ export class LakeScene extends Phaser.Scene {
     }
 
     if (s.kind === 'charging') this.drawPowerMeter(g, chargePower(s.heldMs));
-    if (s.kind === 'fighting') this.catchBar.update(s.bar, this.ctx.barGear, lerpColor(0xffffff, look.worldTint, 0.35), s.hooked.speciesId, s.fish.slipAfterMs);
-    else this.catchBar.hide();
+    const barTint = lerpColor(0xffffff, look.worldTint, 0.35);
+    if (s.kind === 'fighting' && s.line) {
+      this.catchBar.hide();
+      this.lineView.update(s.line, this.ctx.barGear, barTint, this.elapsed, s.fish.slipAfterMs);
+    } else if (s.kind === 'fighting') {
+      this.lineView.hide();
+      this.catchBar.update(s.bar, this.ctx.barGear, barTint, s.hooked.speciesId, s.fish.slipAfterMs);
+    } else {
+      this.catchBar.hide();
+      this.lineView.hide();
+    }
     const pop = Math.min(1, 0.45 + this.stateAge / 160);
     const popScale = pop + 0.18 * Math.exp(-this.stateAge / 140) * Math.sin(this.stateAge / 40);
     this.caughtText.setVisible(s.kind === 'caught').setScale(popScale);
@@ -2919,12 +2964,36 @@ export class LakeScene extends Phaser.Scene {
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
-      : s.kind === 'fighting' ? 'Hold to raise the bar'
+      : s.kind === 'fighting' ? (s.line ? (this.lineFights <= LINE_HINT_FIGHTS ? 'Hold to reel · let go when it pulls' : '') : 'Hold to raise the bar')
       : s.kind === 'caught' ? (slipsAway(s.hooked.speciesId) ? 'Tap to let it go' : 'Tap to continue')
       : '';
     if (this.hint.text !== hintText) this.hint.setText(hintText);
     this.hint.setColor(s.kind === 'bite' ? ALERT : TEXT);
     this.drawPanels();
+  }
+
+  /**
+   * The line fight's phone and ear cues (slice 28): a short pulse when a surge is telegraphed, a heavier one when it hits, and a buzz while
+   * the line is near the red or in it. The screen shows everything without them (haptics are Android only).
+   */
+  private lineFightFeedback(s: Extract<FishingState, { kind: 'fighting' }>, deltaMs: number): void {
+    const line = s.line;
+    if (!line) return;
+    if (this.lineHaptic.phase === '') this.lineFights++; // a new line fight
+    const prev = this.lineHaptic.phase === '' ? 'calm' : this.lineHaptic.phase;
+    this.lineHaptic.phase = line.phase;
+    if (line.phase === 'warn' && prev !== 'warn') {
+      vibrate(HAPTICS.lineWarn);
+      sound.play('nibble');
+    } else if (line.phase === 'run' && prev !== 'run') {
+      vibrate(HAPTICS.lineSurge);
+    }
+    this.lineHaptic.buzzAge += deltaMs;
+    const lim = lineGearOf(this.ctx.barGear).snapLimit;
+    if (line.tension >= lim - 0.08 && this.lineHaptic.buzzAge > (line.tension >= lim ? 110 : 220)) {
+      this.lineHaptic.buzzAge = 0;
+      vibrate(line.tension >= lim ? HAPTICS.lineRed : HAPTICS.lineStrain);
+    }
   }
 
   /**
@@ -3606,6 +3675,8 @@ export class LakeScene extends Phaser.Scene {
       return { x: BOBBER_X + shake, y: distanceToY(s.distanceM) + 3 };
     }
     if (s.kind === 'fighting') {
+      // A line fight: the bobber rides under the splash at the end of the line.
+      if (s.line) return fishScreenPos(s.line, this.elapsed);
       // The bobber jerks with the fish: it follows the fish height on the bar and its speed.
       const { fish, fishVel } = s.bar;
       const kick = Phaser.Math.Clamp(fishVel * 9, -10, 10);
@@ -3661,6 +3732,16 @@ export class LakeScene extends Phaser.Scene {
         bend = 9;
         break;
       case 'fighting': {
+        if (s.line) {
+          // The tip dips and trembles with the tension, and jerks when a surge is telegraphed and when it hits.
+          const ten = s.line.tension;
+          const warn = warnLevel(s.line);
+          const pull = surgeLevel(s.line);
+          dx = 3 + Math.sin(t * 18) * (0.8 + 1.6 * ten);
+          dy = tow * (4 + 9 * ten + 5 * pull) + Math.sin(t * 29) * (0.8 + 1.4 * ten) + (warn > 0 ? Math.sin(t * 60) * 2.4 * warn : 0);
+          bend = this.fightBend + Math.sin(t * 24) * (0.6 + 1.2 * ten);
+          break;
+        }
         const hold = s.bar.holding;
         dx = 3 + Math.sin(t * 18) * (hold ? 1.5 : 1);
         dy = tow * (hold ? 11 : 6) + Math.sin(t * 29) * (hold ? 2 : 1.2);
@@ -3738,8 +3819,8 @@ export class LakeScene extends Phaser.Scene {
   }
 
   /** `sag` bows the line sideways, `droop` lets it hang down (a slack line). */
-  private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number, droop = 0): void {
-    const color = multiply(PAL.white, lerpColor(0xffffff, look.worldTint, 0.6));
+  private drawLine(g: Phaser.GameObjects.Graphics, look: DayLook, tip: { x: number; y: number }, bx: number, by: number, sag: number, droop = 0, tone = 0xffffff): void {
+    const color = multiply(multiply(PAL.white, tone), lerpColor(0xffffff, look.worldTint, 0.6));
     const cx = (tip.x + bx) / 2 + sag;
     const cy = (tip.y + by) / 2 + droop;
     const len = Math.hypot(bx - tip.x, by - tip.y);

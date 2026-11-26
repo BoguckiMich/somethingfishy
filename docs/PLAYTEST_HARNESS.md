@@ -27,12 +27,12 @@ Stop: `node scripts/playtest.mjs stop`, then kill the vite server
 ## Commands (game coordinates, origin top-left)
 
 `tap x y` · `hold x y ms` · `swipe x1 y1 x2 y2 ms` · `step ms` · `wait <kind> [maxMs]` (step until fishing kind, e.g. `bite`) ·
-`fight [maxMs]` (bot for the catch bar) · `state` · `text` · `click-text "<label>"` · `shot <png> [--scale 1]` ·
+`fight [maxMs]` (bot for the fight, style-aware: the catch bar or, when the fight is a Line fight, the line bot) · `fight-line [maxMs] [--mode decent|hold|never] [--until warn|surge|steady|red|caught]` (Line fights, below) · `state` · `text` · `click-text "<label>"` · `shot <png> [--scale 1]` ·
 `eval "<js>"` · `url <url>` · `stop` · `help`. Action commands print the `state` JSON afterwards.
 
 `state` keys: `fishing` (idle, charging, casting, waiting, bite, fighting, caught, lost, retrieving), `clock`, `coins`,
 `worms`, `bag`, `bagFish`, `panel` (title of the open DOM panel or null), `toast`, `companions`, plus `heldMs`,
-`distanceM`, `untilBiteMs`, `hookWindowLeftMs`, `bar {zone, fish, progress, holding}` and `fish` when relevant.
+`distanceM`, `untilBiteMs`, `hookWindowLeftMs`, `bar {zone, fish, progress, holding}` (classic fights) or `line {distanceM, startM, tension, phase, strength, lateral, holding, redS, slackS}` (Line fights) and `fish` when relevant.
 
 ## A catch
 
@@ -45,6 +45,26 @@ $P fight                   # or: hold 180 300 300 / step 200 by hand, hold while
 $P tap 180 300             # dismiss the catch card; the fish goes in the bag
 $P shot out.png --scale 1
 ```
+
+## Line fights (slice 28)
+
+The "feel the line" fight is a second catch style: add `&catch=line` to the url (or Settings -> Fishing -> "Catch style: Line"; `&catch=classic` forces the bar). The style is read when the fish is hooked.
+Quick screenshots: `&debug=fight&species=perch&catch=line` starts in a fight at once (`&fish=darting&diff=0.6` forces the pattern and difficulty, `&rod=fiberglass` the rod).
+
+```sh
+P="node scripts/playtest.mjs --port 9347"      # (the flag can go anywhere)
+$P fight-line --until warn                     # a surge is being telegraphed (splash + "!"); the thumb is up
+$P shot warn.png --scale 3
+$P fight-line --until surge                    # the pull is on (chevrons show where it runs, the rod bends)
+$P fight-line --mode hold --until red          # never let go: stops with the line in the red (needle in the red, line reddens)
+$P fight-line --until steady                   # holding with the tension in the gold band
+$P fight-line --mode never                     # never hold: the hook slips from slack ("It slipped the hook!")
+$P fight-line --mode hold                      # never let go: "The line snapped!"
+$P fight-line                                  # the decent player: hold below the middle of the gold band, let go on a surge; lands the fish
+```
+
+`fight` picks the bot by the fight's style, so the old catch recipe works for both. `fight-line` presses and releases once at the start so the thumb is in sync, then steps 50 ms at a time reading only what a
+player sees (tension, whether a surge is showing). With `--until` it stops without lifting the thumb, so a following `shot` shows that moment. Sandbox: the Settings choice is not kept across reloads in the dev sandbox; the flag always wins.
 
 ## Where things are (game px)
 
@@ -68,6 +88,6 @@ $P shot out.png --scale 1
 - Edge's emulation (3x, touch) is re-applied by every command connection; if a shot ever looks unscaled, run `url` again.
 - `click-text` matches the smallest visible DOM element whose text equals (then contains) the label; Phaser-drawn UI (bottom bar, catch bar) is not DOM, use `tap`.
 - `toast` is read from the scene text and can lag a moment behind what is on screen.
-- `fight` is a simple bot (hold while the fish is above the zone centre); tough fish may still escape.
+- `fight` is a simple bot (hold while the fish is above the zone centre; for Line fights the decent line bot); tough fish may still escape.
 - Audio is muted; wall-clock timers in the game (story delay, date refresh) only advance by stepping, not by waiting.
 - One game per Edge; use `--port` for a second one.

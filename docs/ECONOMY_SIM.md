@@ -78,3 +78,44 @@ or a real-time wait of a day between the first and the last bundle.
 With the "decent" bot (200 ms, noise) at 300 ms: darting 10 %, trophies 3 %. Per species at 300 ms (skilled): bleak 31, perch 28, asp 9, pike 2, golden tench 1, silver ghost 1,
 mossback 14. The aim of 15-25 % holds for the easy darters (bleak, perch) and the average; pike (0.75) and the two darting trophies are still
 almost impossible, which fits "top achievement", but 1 % may be too harsh: a longer grace for trophies only (e.g. 600 ms) would be the next step.
+
+## Line fight (slice 28, "feel the line"; `src/sim/lineFight.sim.test.ts`, `SIM=1 npx vitest run src/sim/lineFight`)
+
+The second catch style (GAME_DESIGN "Catch mechanic v2") is tuned with its own bot sim, next to the classic bar played by the same kind of bot. Pure core only, 200 fights per cell,
+the same rolled sizes (`rollLength`) and the same casts as the economy sim (8 m in the shallows, 20 m in the deep). `SIM_FIGHTS=N` changes the 200.
+
+**Bots.** Classic: hold while the fish is above the zone centre (as in `catchBar.test.ts` and the economy sim). Line: it sees the tension (plus noise) and whether a surge is showing
+(the telegraph splash or the pull), holds while the tension is below the middle of the gold band and no surge is showing, lets go on a surge or above the middle. Its reaction is **per
+event**: when what it wants differs from what the thumb does, the thumb follows after the reaction time x0.8..1.5. *Decent* = 200 ms + 0.05 noise (the economy sim's `DECENT`), *skilled* = 150 ms, no noise.
+Gear: bamboo / fiberglass for shallow species, fiberglass / carbon for deep ones, top gear (carbon + fluoro + pro) for the trophies.
+
+**Catch rate, decent bot** (classic -> line; rods: the line fight only feels the rod through its flex budget, the reel through speed, the line through its snap limit):
+
+| species | rod | classic | line | | species | rod | classic | line |
+|---|---|---|---|---|---|---|---|---|
+| roach, rudd, bleak, perch, crucian, eel, ide | bamboo | 100 % | 98-100 % | | tench | fiberglass / carbon | 98 / 100 % | 100 / 100 % |
+| asp | bamboo / fiberglass | 96 / 100 % | 87 / 99 % | | carp | fiberglass / carbon | 75 / 92 % | 74 / 94 % |
+| bream | fiberglass / carbon | 93 / 98 % | 99 / 100 % | | pike | fiberglass / carbon | 62 / 83 % | 67 / 92 % |
+| zander, burbot | fiberglass / carbon | 99-100 % | 98-100 % | | catfish | fiberglass / carbon | 73 / 94 % | 66 / 87 % |
+| golden tench | fiberglass / carbon / top | 42 / 68 / 100 % | 56 / 88 / 100 % | | mossback | fiberglass / carbon / top | 58 / 85 / 99 % | 59 / 87 / 100 % |
+| silver ghost | bamboo / fiberglass / top | 21 / 43 / 100 % | 16 / 48 / 100 % | | the Pale One | fiberglass / carbon | 54 / 81 % | 50 / 87 % |
+
+Every cell is within 10 points except **golden tench** (+14 fiberglass, +20 carbon; the line fight lets the decent bot land it more often) and asp on bamboo (-9, inside). Median fight length of a won fight
+(decent bot): shallow 4.6-11 s (classic 4.6-14), deep 13-37 s (classic 9-28): the line fight is a little longer on the hard deep fish because every surge is let go and some of the line is paid back.
+Snaps are the only way the decent bot loses (slack never happens to it), so "who loses" is driven by the red budget: bamboo 0.95 s, fiberglass 1.35 s, carbon 1.75 s (trophies x0.85 of that; see `LINE_FIGHT_TUNING`).
+
+**Perfect catch, skilled bot, top gear, 200 fights per species** (perfect = never more than 40 ms in total in the red and 500 ms in total slack):
+
+| | darting (bleak, perch, asp, pike) | trophies | others |
+|---|---|---|---|
+| classic (300 ms grace, skilled) | 11 % | 3 % | 34 % |
+| **line, skilled (150 ms)** | **19 %** | 11 % | 70 % |
+| line, decent (200 ms, noise) | 20 % | 2 % | 62 % |
+
+Per species (line, skilled): bleak 35, perch 28, asp 12, pike 4, golden tench 4, silver ghost 1, mossback 27; roach, rudd, crucian, eel, ide 100. The aim "15-25 % for darting fish" holds (19 %); the
+weak spot is the easy fish: nothing in the line fight can put a skilled player in the red on a roach, so a perfect catch there is a given (classic roach 74 %, rudd 93 %).
+
+**Dumb players** (60 fights): never holding lands nothing (the hook slips after the slack time); holding forever lands nothing except the easiest fish (roach 98 %, perch 8 %) and snaps the line on everything else.
+
+Tuning levers if testers say it is too hard or easy (all in `src/core/data/lineFight.ts`): `redRecovery` and the rod's flex (`flexBase`, `flexPerZone`) for how forgiving a mistake is; `patterns.*.warn` (the telegraph length) and `rise` for how
+fast the line goes red; `cutKick` for the darting fish's yanks; `reelBase` for the fight length (a faster reel also makes it much easier: 0.5 -> 0.6 lifted pike on fiberglass from 62 % to 90 %).
