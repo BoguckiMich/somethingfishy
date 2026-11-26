@@ -18,6 +18,7 @@ import { newNotes, type NotesState } from './moments/moments';
 import type { ChecklistState } from './checklist/checklist';
 import type { MilestoneFlags, StoryState } from './story/story';
 import { gearUnlocked } from './gearGates';
+import { QUIET_LAKE_STOCK, sold, type ShopStock } from './data/shopStock';
 
 /**
  * The player's belongings: coins, worms, the bag and the equipped rod. A plain serialisable
@@ -145,9 +146,10 @@ export function chooseBait(p: PlayerState, id: string): { state: PlayerState; ok
 }
 
 /** Buys one shop pack of a bait. */
-export function buyBait(state: PlayerState, id: string): Outcome {
+export function buyBait(state: PlayerState, id: string, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
   const bait: Bait | undefined = baitById(id);
   if (!bait?.pack) return fail(state, 'notSold');
+  if (!sold(stock, id)) return fail(state, 'notSoldHere');
   if (state.coins < bait.pack.price) return fail(state, 'needCoins', bait.pack.price - state.coins);
   return { ok: true, state: addBait({ ...state, coins: state.coins - bait.pack.price }, id, bait.pack.size) };
 }
@@ -180,7 +182,7 @@ export function cheapestIndex(bag: BagFish[]): number {
   return best;
 }
 
-export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag' | 'notSold' | 'needRod' | 'owned' | 'locked';
+export type ShopError = 'needCoins' | 'bestRod' | 'bestLine' | 'bestReel' | 'badIndex' | 'emptyBag' | 'notSold' | 'needRod' | 'owned' | 'locked' | 'notSoldHere';
 export type Outcome =
   | { state: PlayerState; ok: true }
   | { state: PlayerState; ok: false; error: ShopError; /** Coins still missing, for 'needCoins'. */ missing?: number };
@@ -235,7 +237,8 @@ export function sellAll(state: PlayerState): Outcome {
   return { ok: true, state: withSale({ ...state, coins: state.coins + bagValue(state.bag), bag: [] }, bagValue(state.bag)) };
 }
 
-export function buyWorms(state: PlayerState): Outcome {
+export function buyWorms(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
+  if (!sold(stock, 'worms')) return fail(state, 'notSoldHere');
   if (state.coins < SHOP.wormPackPrice) return fail(state, 'needCoins', SHOP.wormPackPrice - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - SHOP.wormPackPrice, worms: state.worms + SHOP.wormPackSize } };
 }
@@ -247,9 +250,10 @@ export function nextRod(state: PlayerState): Rod | undefined {
 }
 
 /** Buys the next rod and equips it at once. */
-export function buyRod(state: PlayerState): Outcome {
+export function buyRod(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
   const rod = nextRod(state);
   if (!rod) return fail(state, 'bestRod');
+  if (!sold(stock, rod.id)) return fail(state, 'notSoldHere');
   if (!gearUnlocked(rod.id, state)) return fail(state, 'locked');
   if (state.coins < rod.price) return fail(state, 'needCoins', rod.price - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - rod.price, rodId: rod.id } };
@@ -269,17 +273,19 @@ export function nextReel(state: PlayerState): Reel | undefined {
   return REELS[REELS.findIndex((r) => r.id === state.reelId) + 1];
 }
 
-export function buyLine(state: PlayerState): Outcome {
+export function buyLine(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
   const line = nextLine(state);
   if (!line) return fail(state, 'bestLine');
+  if (!sold(stock, line.id)) return fail(state, 'notSoldHere');
   if (!gearUnlocked(line.id, state)) return fail(state, 'locked');
   if (state.coins < line.price) return fail(state, 'needCoins', line.price - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - line.price, lineId: line.id } };
 }
 
-export function buyReel(state: PlayerState): Outcome {
+export function buyReel(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
   const reel = nextReel(state);
   if (!reel) return fail(state, 'bestReel');
+  if (!sold(stock, reel.id)) return fail(state, 'notSoldHere');
   if (!gearUnlocked(reel.id, state)) return fail(state, 'locked');
   if (state.coins < reel.price) return fail(state, 'needCoins', reel.price - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - reel.price, reelId: reel.id } };
@@ -296,7 +302,8 @@ export function nightKitForSale(p: PlayerState): boolean {
 }
 
 /** Buys "Lantern & blanket": once only, and only when the rod requirement is met. */
-export function buyNightKit(state: PlayerState): Outcome {
+export function buyNightKit(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
+  if (!sold(stock, NIGHT_KIT.id)) return fail(state, 'notSoldHere');
   if (hasNightKit(state)) return fail(state, 'owned');
   if (!nightKitForSale(state)) return fail(state, 'needRod');
   if (state.coins < NIGHT_KIT.price) return fail(state, 'needCoins', NIGHT_KIT.price - state.coins);
