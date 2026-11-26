@@ -5,7 +5,7 @@ import { BUBBLE_BIG, BUBBLE_BIG_HIGHLIGHT, BUBBLE_SMALL, ringPoints } from '../a
 import { PAL } from '../art/palette';
 import { momentKey } from '../art/textures';
 import { MOMENTS, MOMENT_TUNING, type MomentKind } from '../core/data/moments';
-import { isUncanny } from '../core/moments/moments';
+import { easeMomentDim, isUncanny, tickMomentAge } from '../core/moments/moments';
 import { randInt, randRange, type Rng } from '../core/random';
 import { FONT, FS } from '../font';
 
@@ -89,8 +89,6 @@ interface Active {
   /** Bubbles: spawn clock and the next bubbling sound. */
   spawnIn: number;
   nextSound: number;
-  /** Quick fade because a fight started (ms left, -1 = not fading). */
-  fadeLeft: number;
 }
 
 export class MomentsView {
@@ -103,6 +101,9 @@ export class MomentsView {
   private floatAge = Infinity;
   private floatAt = { x: 0, y: 0 };
   private active: Active | null = null;
+  private paused = false;
+  /** 1 = full, MOMENT_TUNING.pausedAlpha = fully dimmed; eased so it does not pop. */
+  private dim = 1;
   private bubbles: Bubble[] = [];
   private rings: Ring[] = [];
   /** A star sparkle after a tap (burst at x, y). */
@@ -157,7 +158,6 @@ export class MomentsView {
       stage: 0,
       spawnIn: 0,
       nextSound: 0,
-      fadeLeft: -1,
     };
     switch (kind) {
       case 'duck':
@@ -214,9 +214,12 @@ export class MomentsView {
     this.skyFx.clear();
   }
 
-  /** A fight (or anything that needs the lake to itself) started: fade out quickly. */
-  fadeOut(): void {
-    if (this.active && this.active.fadeLeft < 0) this.active.fadeLeft = MOMENT_TUNING.fadeOutMs;
+  /**
+   * A hook, fight or show-off is on: the moment waits (its animation and lifetime freeze, it dims a
+   * little) and picks up again with the lifetime it had left when this goes back to false.
+   */
+  setPaused(paused: boolean): void {
+    this.paused = paused;
   }
 
   // ---- Taps -------------------------------------------------------------------------------
@@ -224,7 +227,7 @@ export class MomentsView {
   /** The tappable box of the moment (at least minTapPx square), or null when nothing can be tapped. */
   private hitRect(canOpenCard: boolean): Phaser.Geom.Rectangle | null {
     const a = this.active;
-    if (!a || a.tappedAge >= 0 || a.fadeLeft >= 0) return null;
+    if (!a || a.tappedAge >= 0 || this.paused) return null;
     const m = MOMENT_TUNING.minTapPx;
     const box = (cx: number, cy: number, w: number, h: number) => {
       const bw = Math.max(m, w);
@@ -320,13 +323,14 @@ export class MomentsView {
       this.drawBurst();
       return;
     }
-    a.age += dtMs;
-    if (a.tappedAge >= 0) a.tappedAge += dtMs;
-    if (a.fadeLeft >= 0) a.fadeLeft = Math.max(0, a.fadeLeft - dtMs);
-    const fade = a.fadeLeft >= 0 ? Math.max(0, a.fadeLeft / MOMENT_TUNING.fadeOutMs) : 1;
-    const inAlpha = Math.min(1, a.age / 350);
-    const alpha = inAlpha * fade;
-    let done = a.fadeLeft === 0 || (a.fadeLeft < 0 && a.age >= a.life);
+    this.dim = easeMomentDim(this.dim, this.paused, dtMs);
+    // Paused: the moment's own clock stands still (age, tap timer and movement), only the dim eases.
+    const mdt = tickMomentAge(0, dtMs, !this.paused);
+    a.age += mdt;
+    if (a.tappedAge >= 0) a.tappedAge += mdt;
+    dtMs = mdt;
+    const alpha = Math.min(1, a.age / 350);
+    let done = a.age >= a.life;
     this.main.setVisible(false);
     this.second.setVisible(false);
 
@@ -353,6 +357,10 @@ export class MomentsView {
         done = this.updateShape(a, dtMs, tint) || done;
         break;
     }
+    this.main.setAlpha(this.main.alpha * this.dim);
+    this.second.setAlpha(this.second.alpha * this.dim);
+    this.fx.setAlpha(this.dim);
+    this.skyFx.setAlpha(this.dim);
     this.drawRings(tint);
     this.drawBurst();
     if (done) this.clearActive();
@@ -581,8 +589,7 @@ export class MomentsView {
       return t >= 1;
     }
     a.x += a.dir * 4 * (dtMs / 1000); // a slow drift
-    const fade = a.fadeLeft >= 0 ? Math.max(0, a.fadeLeft / MOMENT_TUNING.fadeOutMs) : 1;
-    const al = 0.65 * Math.min(1, a.age / 2600) * Math.min(1, (a.life - a.age) / 2800) * fade;
+    const al = 0.65 * Math.min(1, a.age / 2600) * Math.min(1, (a.life - a.age) / 2800);
     if (a.stage === 0 && a.age > 3500) {
       a.stage = 1; // one slow ripple above it, as if something breathed out
       this.rings.push({ x: a.x, y: a.y - 1, age: 0, ms: 2600, rx: 24, ry: 5 });

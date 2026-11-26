@@ -4,6 +4,9 @@ import type { LayerMix } from '../eerie';
 import { newPlayer } from '../inventory';
 import { seededRng } from '../random';
 import {
+  easeMomentDim,
+  momentClockRunning,
+  tickMomentAge,
   claimStar,
   dipCrickets,
   inHourWindow,
@@ -234,5 +237,36 @@ describe('rewards', () => {
   it('works on an old player without notes', () => {
     const { notes: _drop, ...old } = newPlayer();
     expect(openBottle(old, at(12), seededRng(9)).player.notes?.read).toHaveLength(1);
+  });
+});
+
+describe('moments wait for the fish', () => {
+  it('the clock stops while a fish is on the hook, in the fight or shown off, and runs otherwise', () => {
+    for (const k of ['bite', 'fighting', 'caught']) expect(momentClockRunning(k)).toBe(false);
+    for (const k of ['idle', 'charging', 'casting', 'waiting', 'retrieving', 'lost']) expect(momentClockRunning(k)).toBe(true);
+  });
+
+  it('a paused moment keeps the lifetime it had left, and goes on with it afterwards (also after an escape)', () => {
+    const life = MOMENTS.bottle.durationMs;
+    let age = tickMomentAge(0, 20_000, true);
+    for (let i = 0; i < 3000; i++) age = tickMomentAge(age, 16, false); // a long fight
+    expect(life - age).toBe(life - 20_000);
+    age = tickMomentAge(age, 1000, true);
+    expect(life - age).toBe(life - 21_000);
+  });
+
+  it('the dim eases to pausedAlpha and back, never overshooting', () => {
+    let d = 1;
+    for (let i = 0; i < 100; i++) d = easeMomentDim(d, true, 16);
+    expect(d).toBe(MOMENT_TUNING.pausedAlpha);
+    expect(easeMomentDim(1, true, 16)).toBeLessThan(1);
+    for (let i = 0; i < 100; i++) d = easeMomentDim(d, false, 16);
+    expect(d).toBe(1);
+  });
+
+  it('no moment starts unless she is idle or waiting: the scheduler is only fed then', () => {
+    // LakeScene passes active = idle|waiting only; a due gap does not fire while inactive.
+    const s = { remainingMs: 10 };
+    expect(tickScheduler(s, 1000, false, seededRng(1)).due).toBe(false);
   });
 });

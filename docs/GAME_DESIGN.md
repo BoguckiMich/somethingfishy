@@ -412,6 +412,8 @@ achievements system), a way to skip hours while waiting for a time of day (→ n
 "tap to update" did nothing (→ fix below). Takeaway: coins need more to buy, and new items should
 not be cheap. Slices 15a, 15c and 16 answer this.
 
+**Fix: moments wait for the fight (fix/moments-wait-for-fight; the player's wife: events showed while reeling and ended too fast).** A lake moment on screen when a bite, fight or the show-off starts no longer fades out in 0.4 s: it pauses (animation and lifetime frozen, dimmed to 0.6, not tappable) and resumes with the lifetime it had left, at full alpha, when the fish is landed or gets away. New moments already only start while idle or waiting. Rule in `momentClockRunning` (core/moments).
+
 **Fix: update toast (fix/update-toast).** Tapping "New version — tap to reload" did nothing on the
 playtester's phone. The reload waits for workbox-window's `controlling` event with `isUpdate`, which
 never fires when the tab was first opened uncontrolled (first visit, no `clientsClaim`) and kept

@@ -38,8 +38,12 @@ export const MOMENT_TUNING = {
   bottleWorms: { min: 2, max: 5 },
   /** Cricket gain factor while an uncanny moment is on screen (eased by the ambient bed). */
   cricketDip: 0.2,
-  /** A moment already on screen when a fight starts fades out this fast (real ms). */
+  /** A chapter figure on screen when a fight starts fades out this fast (real ms); lake moments wait instead (see pausedAlpha). */
   fadeOutMs: 400,
+  /** A moment on screen while a fish is hooked, fought or shown off waits, dimmed to this alpha factor. */
+  pausedAlpha: 0.6,
+  /** The dim eases in and out over this long (real ms). */
+  dimEaseMs: 250,
   /** A tap area is at least this big (game px, square), whatever the sprite size. */
   minTapPx: 40,
 } as const;
