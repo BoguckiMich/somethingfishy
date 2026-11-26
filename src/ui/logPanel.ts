@@ -1,4 +1,5 @@
 import { FONT, FS, LINE } from '../font';
+import { tr } from '../i18n/en';
 import { fishSizeClass, fishSprite } from '../art/fishArt';
 import { fishSilhouette } from '../art/fishVariants';
 import { spriteToRgba, TRANSPARENT, type Sprite } from '../art/pixelGrid';
@@ -185,7 +186,7 @@ function sticksView(body: HTMLElement, placeId: string, have: readonly string[])
   const col = el('div', 'display:flex;flex-direction:column;gap:6px');
   list.forEach((d, i) => col.append(stickRow(d, have.includes(d.id), i)));
   body.append(col);
-  if (n === 0) body.append(el('div', `margin-top:8px;text-align:center;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`, 'Bestia brings one now and then, when you leave them to play on the grass.'));
+  if (n === 0) body.append(el('div', `margin-top:8px;text-align:center;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`, tr('{dog} brings one now and then, when you leave them to play on the grass.')));
 }
 
 /** What the Sticks tab needs: the sticks she has, and which place's museum it is. */

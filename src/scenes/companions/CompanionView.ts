@@ -4,6 +4,7 @@ import { W } from '../../art/layout';
 import { PAL } from '../../art/palette';
 import { TEX, pajSitKey, pajWalkKey, stickGroundKey } from '../../art/textures';
 import { FONT, FS, textPad } from '../../font';
+import { tr } from '../../i18n/en';
 import { drawFrame } from '../frameDraw';
 import {
   PAJ_SPOT,
@@ -110,7 +111,8 @@ export class CompanionView {
     if (!b) return;
     const p = this.state.paj;
     const alpha = bubbleAlpha(b);
-    if (this.bubbleText.text !== b.text) this.bubbleText.setText(b.text);
+    const shown = tr(b.text); // the lines hold {player} {dog} {water} placeholders
+    if (this.bubbleText.text !== shown) this.bubbleText.setText(shown);
     const w = Math.round(this.bubbleText.width);
     const h = Math.round(this.bubbleText.height);
     const tx = Math.round(p.x);

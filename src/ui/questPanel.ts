@@ -12,6 +12,7 @@ import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import { shopTab, type PlayerStore } from './bagShop';
 import { rewardLine } from './rewardLine';
 import { unknownHints } from '../core/rare';
+import { EN, tr } from '../i18n/en';
 
 /** What the quest panel needs: the player (read and written back) and today's date. */
 export interface QuestStore extends PlayerStore {
@@ -98,9 +99,9 @@ function journalRow(e: JournalEntry, names: { alex: string; paj: string }): HTML
   const pic = el('div', 'flex:none;width:44px;height:36px;display:flex;align-items:center;justify-content:center');
   pic.append(spriteCanvas(icon, icon.width * scale));
   const col = el('div', 'flex:1;min-width:0');
-  col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.text}`, e.text));
+  col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.text}`, tr(e.text)));
   const thought = el('div', `margin-top:4px;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`);
-  thought.append(el('span', `color:${COLORS.gold}`, `${e.by === 'alex' ? names.alex : names.paj}: `), el('span', 'font-style:italic;font-synthesis:style', e.thought));
+  thought.append(el('span', `color:${COLORS.gold}`, `${e.by === 'alex' ? names.alex : names.paj}: `), el('span', 'font-style:italic;font-synthesis:style', tr(e.thought)));
   col.append(thought);
   row.append(pic, col);
   return row;
@@ -139,7 +140,7 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
       if (tab === 'story') {
         const entries = journalEntries(storyOf(store.get()), road);
         if (entries.length === 0) {
-          body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};padding:6px 0`, 'No pages yet. Watch the lake for bottles and odd things.'));
+          body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};padding:6px 0`, tr(EN.noPagesYet)));
           return;
         }
         const names = store.names();

@@ -44,7 +44,7 @@ export interface NapStatus {
 /** A nap is possible only with Alex idle and both companions idle on the dock (the same rule as the nap card). */
 export function napAvailable(f: NapFacts): NapStatus {
   if (f.mode === 'bed') return { available: false, reason: f.asleepInCar ? "They're already asleep" : "They're heading to the car" };
-  if (f.mode !== 'dock') return { available: false, reason: 'Pajkel is busy playing' };
+  if (f.mode !== 'dock') return { available: false, reason: '{companion} is busy playing' };
   if (f.fishing !== 'idle') return { available: false, reason: 'Reel in first' };
   if ((f.cooldownLeftMs ?? 0) > 0) return { available: false, reason: `Still waking up (${formatCooldown(f.cooldownLeftMs!)})` };
   return { available: true, reason: '' };
