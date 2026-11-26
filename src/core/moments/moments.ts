@@ -81,6 +81,28 @@ export function dipCrickets(mix: LayerMix, uncannyOnScreen: boolean): LayerMix {
   return uncannyOnScreen ? { ...mix, crickets: mix.crickets * MOMENT_TUNING.cricketDip } : mix;
 }
 
+// ---- Waiting for the fish ------------------------------------------------------------------
+
+/**
+ * Does a moment's own clock run in this fishing state? Not while a fish is on the hook, in the fight
+ * or being shown off (the same states the toast queue holds back for): the moment waits, with the
+ * lifetime it had left, and goes on afterwards (also when the fish got away). New moments never
+ * start then either, see tickScheduler's `active` (idle or waiting only).
+ */
+export function momentClockRunning(stateKind: string): boolean {
+  return stateKind !== 'bite' && stateKind !== 'fighting' && stateKind !== 'caught';
+}
+
+/** The moment's age after a frame: it only advances while its clock runs, so a pause keeps the lifetime left. */
+export const tickMomentAge = (age: number, dtMs: number, running: boolean): number => (running ? age + Math.max(0, dtMs) : age);
+
+/** The dim factor (1 = full, pausedAlpha = dimmed) eased toward its target over dimEaseMs. */
+export function easeMomentDim(dim: number, paused: boolean, dtMs: number): number {
+  const target = paused ? MOMENT_TUNING.pausedAlpha : 1;
+  const step = ((1 - MOMENT_TUNING.pausedAlpha) * Math.max(0, dtMs)) / MOMENT_TUNING.dimEaseMs;
+  return dim < target ? Math.min(target, dim + step) : Math.max(target, dim - step);
+}
+
 // ---- Notes ----------------------------------------------------------------------------------
 
 /** Which bottle notes were read in the current round (ids); a note repeats only after all available ones were read. */

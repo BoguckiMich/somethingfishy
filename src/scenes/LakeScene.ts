@@ -11,7 +11,7 @@ import { showBottleCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
 import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
 import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Lines, lineText, markPaleSeen, markSecondBlink, markSeen, secondBlinkDue, nextLine, paleBeatDue, queueLines, recordMilestones, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
-import { claimStar, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
+import { claimStar, momentClockRunning, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
 import { applyCatchToPlayer, claimableCount, doneCount, questsOf, syncQuests } from '../core/quests/quests';
@@ -1312,13 +1312,11 @@ export class LakeScene extends Phaser.Scene {
   private updateMoments(deltaMs: number): void {
     const kind = this.state.kind;
     const calm = (kind === 'idle' || kind === 'waiting') && !this.panel && !this.storyBusy();
-    if (kind === 'fighting' || kind === 'caught') {
-      this.moments.fadeOut();
-      this.story.fadeOut();
-    }
+    this.moments.setPaused(!momentClockRunning(kind));
+    if (kind === 'fighting' || kind === 'caught') this.story.fadeOut();
     if (this.moments.kind === null) {
       if (this.debugMoment) {
-        this.debugMoment.inMs -= deltaMs;
+        if (momentClockRunning(kind)) this.debugMoment.inMs -= deltaMs;
         if (this.debugMoment.inMs <= 0) {
           this.startMoment(this.debugMoment.kind);
           this.debugMoment = null;
