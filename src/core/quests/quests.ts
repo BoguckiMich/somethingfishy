@@ -6,7 +6,7 @@ import { QUEST_TUNING as T } from '../data/quests';
 import { RODS } from '../data/rods';
 import { SHOP_BAITS, baitById } from '../data/baits';
 import { addBait, type PlayerState } from '../inventory';
-import { livesAt, reachableFishZones, type ZoneId } from '../location';
+import { canBiteWithin, reachableFishZones, type ZoneId } from '../location';
 import { randInt, seededRng, type Rng } from '../random';
 import { speciesCaught } from '../fishLog';
 import { article } from '../../i18n/en';
@@ -75,6 +75,8 @@ export function hashString(s: string): number {
 // ---- Gear and what is possible ---------------------------------------------------------------
 
 const rodOf = (p: PlayerState) => RODS.find((r) => r.id === p.rodId) ?? RODS[0];
+/** How far the equipped rod casts, in meters. */
+export const rodReach = (p: PlayerState): number => rodOf(p).maxCastM;
 /** The depth classes the equipped rod can reach at the place she is at (Quiet Lake unless she travelled, slice 25a). */
 export function reachableZones(p: PlayerState): ZoneId[] {
   return reachableFishZones(locationById(p.place), rodOf(p).maxCastM);
@@ -119,9 +121,10 @@ function pickWeighted<A>(rng: Rng, items: A[], weight: (a: A) => number): A {
 export function rollQuest(kind: QuestKind, p: PlayerState, rng: Rng): Quest {
   switch (kind) {
     case 'catchSpecies': {
-      const zones = reachableZones(p);
+      // Only a fish that can bite where her rod lands at this place (a river species at the river, a lake one at the lake).
       const here = locationById(p.place);
-      const pool: Species[] = POOL_SPECIES.filter((s) => zones.includes(s.zone) && livesAt(here, s.id));
+      const reach = rodOf(p).maxCastM;
+      const pool: Species[] = POOL_SPECIES.filter((s) => canBiteWithin(here, s, reach));
       const sp = pickWeighted(rng, pool, (s) => T.speciesWeight[s.rarity]);
       const range = T.catchSpecies[sp.rarity as 'common' | 'uncommon' | 'rare'];
       const target = pickInRange(rng, range);
@@ -213,6 +216,26 @@ export function syncQuests(player: PlayerState, today: string): { player: Player
     paid,
     rolled: true,
   };
+}
+
+/**
+ * Quests are rolled once a day, but she may drive to another place: an unfinished species quest for a fish that cannot bite where her
+ * rod lands at the place she is at now is swapped for one that can (seeded from the date and slot, so it is stable). Others stay.
+ */
+export function retargetQuests(player: PlayerState): PlayerState {
+  const q = questsOf(player);
+  const here = locationById(player.place);
+  const reach = rodReach(player);
+  let changed = false;
+  const list = q.list.map((quest, i) => {
+    if (quest.kind !== 'catchSpecies' || quest.done) return quest;
+    const sp = speciesById(String(quest.params.speciesId));
+    if (sp && canBiteWithin(here, sp, reach)) return quest;
+    changed = true;
+    const seed = `${q.date}retarget${i}`;
+    return withBaitReward(rollQuest('catchSpecies', player, seededRng(hashString(seed))), seededRng(hashString(`${seed}bait`)));
+  });
+  return changed ? { ...player, quests: { ...q, list } } : player;
 }
 
 // ---- Progress --------------------------------------------------------------------------------

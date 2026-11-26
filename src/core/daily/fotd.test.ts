@@ -74,6 +74,6 @@ describe('best star in the log', () => {
     expect(bestStar(log, perch)).toBe('gold');
     expect(goldCount(log)).toBe(1);
     expect(goldCount(newFishLog())).toBe(0);
-    expect(POOL_SPECIES.length).toBe(15);
+    expect(POOL_SPECIES.length).toBe(21);
   });
 });

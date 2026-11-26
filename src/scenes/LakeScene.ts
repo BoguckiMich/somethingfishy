@@ -14,7 +14,7 @@ import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Line
 import { claimStar, momentClockRunning, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
-import { applyCatchToPlayer, claimableCount, doneCount, questsOf, syncQuests } from '../core/quests/quests';
+import { applyCatchToPlayer, claimableCount, doneCount, questsOf, retargetQuests, syncQuests } from '../core/quests/quests';
 import type { ZoneId } from '../core/location';
 import { sound } from '../audio/sound';
 import { cssColor, dayLook, lerpColor, letterboxBands, moonArc, sunArc, type DayLook } from '../art/dayCycle';
@@ -2043,8 +2043,16 @@ export class LakeScene extends Phaser.Scene {
   /** Makes the stored quests today's: a new day pays what was finished and rolls three new ones. */
   private syncQuestsNow(): void {
     const r = syncQuests(this.player, this.today);
-    if (!r.rolled) return;
-    this.setPlayer(r.player);
+    // A species quest for a fish that cannot bite at this place is swapped for one that can (she may have driven here).
+    const fixed = retargetQuests(r.player);
+    if (!r.rolled) {
+      if (fixed !== this.player) {
+        this.setPlayer(fixed);
+        this.questPanel?.refresh();
+      }
+      return;
+    }
+    this.setPlayer(fixed);
     this.seenDone = doneCount(questsOf(this.player));
     if (r.paid) {
       const bait = Object.values(r.paid.baits).reduce((a, b) => a + b, 0);

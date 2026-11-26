@@ -6,6 +6,9 @@ import { QUIET_LAKE, RIVER_BEND } from './data/locations';
 import { candidates, pickSpecies, spawnWeight } from './fish';
 import { poolAt, zoneAt, type Location } from './location';
 
+const RIVER_IDS = ['trout', 'grayling', 'nase', 'chub', 'barbel', 'vimba'];
+/** A pool of every lake species (the zone-class check applies): what "no pool" meant before the river species existed. */
+const LAKE_ONLY = { species: Object.fromEntries(POOL_SPECIES.filter((s) => !RIVER_IDS.includes(s.id)).map((s) => [s.id, 1])), specials: true };
 const TIMES = ['dawn', 'day', 'dusk', 'night'] as const;
 const WEATHERS = ['sunny', 'overcast', 'rain', 'windy', 'fog'] as const;
 const mid = (l: Location, i: number) => (l.zones[i].fromM + l.zones[i].toM) / 2;
@@ -19,7 +22,7 @@ describe('per-zone fish pools (M2 groundwork A)', () => {
       for (const t of TIMES) {
         for (const w of [undefined, ...WEATHERS]) {
           const fx = w ? weatherEffects(w, 12 * 60) : undefined;
-          const before = candidates(z.fishZone, t, fx);
+          const before = candidates(z.fishZone, t, fx).filter((s) => !RIVER_IDS.includes(s.id));
           const after = candidates(z.fishZone, t, fx, pool);
           expect(after.map((s) => s.id), `${z.id} ${t} ${w}`).toEqual(before.map((s) => s.id));
           for (const s of before) {
@@ -29,7 +32,7 @@ describe('per-zone fish pools (M2 groundwork A)', () => {
           }
         }
         for (let seed = 1; seed <= 40; seed++) {
-          expect(pickSpecies(z.fishZone, t, mulberry32(seed), undefined, undefined, undefined, pool).id).toBe(pickSpecies(z.fishZone, t, mulberry32(seed)).id);
+          expect(pickSpecies(z.fishZone, t, mulberry32(seed), undefined, undefined, undefined, pool).id).toBe(pickSpecies(z.fishZone, t, mulberry32(seed), undefined, undefined, undefined, LAKE_ONLY).id);
         }
       }
     });
@@ -44,7 +47,7 @@ describe('per-zone fish pools (M2 groundwork A)', () => {
         { id: 'b', name: 'B', fromM: 10, toM: 40, fishZone: 'deep' },
       ],
     };
-    expect(poolAt(fake, 5)).toEqual({ species: { perch: 5 }, specials: true });
+    expect(poolAt(fake, 5)).toEqual({ species: { perch: 5 }, exact: true, specials: true });
     expect(poolAt(fake, 20)).toBe(fake.fishPool);
     const perch = POOL_SPECIES.find((s) => s.id === 'perch')!;
     expect(spawnWeight(perch, undefined, undefined, undefined, poolAt(fake, 5))).toBe(5 * spawnWeight(perch));
