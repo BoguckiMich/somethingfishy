@@ -17,6 +17,8 @@ export const BAR_WINDOW = { x: BAR_FRAME.x + BAR_BORDER, y: BAR_FRAME.y + BAR_BO
 const STRIP_WINDOW = { x: STRIP_FRAME.x + STRIP_BORDER, y: STRIP_FRAME.y + STRIP_BORDER, w: STRIP_INNER.w, h: STRIP_INNER.h };
 
 const DEPTH = 30;
+/** The perfect-run star (the same shape as the size stars). */
+const STAR_ROWS = ['....o....', '...ofo...', '..ofhfo..', 'ooofhfooo', 'offfffffo', '.offfffo.', '.offoffo.', '.ofo.ofo.', '..o...o..'];
 /** A 9 x 9 fish above the progress strip (what you are after) and a net below it (what fills up), centred on the strip. */
 const ICON_GAP = 2;
 
@@ -100,7 +102,18 @@ export class CatchBarView {
       dyn.fillStyle(t(PAL.redDark), 1).fillRect(win.x + 3, cTop, win.w - 6, cBottom - cTop);
       dyn.fillStyle(t(PAL.red), 1).fillRect(win.x + 4, cTop + 1, win.w - 8, cBottom - cTop - 2);
       dyn.fillStyle(PAL.white, 0.35).fillRect(win.x + 4, cTop + 1, win.w - 8, 1);
+      // A high-contrast edge so the sweet spot reads without telling red from green: a white top and bottom line and dashed white sides.
+      const ex = win.x + 3;
+      const ew = win.w - 6;
+      dyn.fillStyle(t(PAL.white), 1).fillRect(ex, cTop, ew, 1).fillRect(ex, cBottom - 1, ew, 1);
+      for (let y = cTop + 1; y < cBottom - 1; y += 4) {
+        const h = Math.min(2, cBottom - 1 - y);
+        dyn.fillRect(ex, y, 1, h).fillRect(ex + ew - 1, y, 1, h);
+      }
     }
+
+    // The live perfect-catch cue (A3): a gold star above the bar while the run is still perfect; it greys and cracks the moment she leaves the green.
+    this.drawPerfectStar(dyn, !bar.leftZone, tint);
 
     // The fish, a little shaken when it is moving fast.
     const shake = Math.abs(bar.fishVel) > 0.5 ? Math.round(Math.sin(bar.elapsedMs / 35)) : 0;
@@ -122,5 +135,25 @@ export class CatchBarView {
     const color = t(progressColor(bar.progress));
     dyn.fillStyle(color).fillRect(STRIP_WINDOW.x, STRIP_WINDOW.y + STRIP_WINDOW.h - fillH, STRIP_WINDOW.w, fillH);
     dyn.fillStyle(PAL.white, 0.4).fillRect(STRIP_WINDOW.x, STRIP_WINDOW.y + STRIP_WINDOW.h - fillH, 2, fillH);
+  }
+
+  /** 9 x 9 star (drawn at 2x) above the bar (x centred on the bar frame). Gold and glinting while perfect; grey with a dark crack once broken. */
+  private drawPerfectStar(g: Phaser.GameObjects.Graphics, perfect: boolean, tint: number): void {
+    const k = 2; // drawn at 2x so it reads on a phone
+    const x0 = BAR_FRAME.x + Math.floor((BAR_INNER.w + BAR_BORDER * 2 - STAR_ROWS[0].length * k) / 2);
+    const y0 = BAR_FRAME.y - STAR_ROWS.length * k - 2;
+    const col = (c: string): number => {
+      if (c === 'o') return perfect ? PAL.outline : PAL.stoneDark;
+      if (c === 'h') return perfect ? 0xfff3a6 : PAL.stoneLight;
+      return perfect ? 0xffc72c : PAL.stone;
+    };
+    STAR_ROWS.forEach((row, ry) =>
+      [...row].forEach((c, rx) => {
+        if (c === '.') return;
+        // The crack: a dark zig-zag down the middle once the run is broken.
+        const crack = !perfect && (rx === 4 + (ry % 2) - (ry > 4 ? 1 : 0)) && ry >= 1 && ry <= 7;
+        g.fillStyle(crack ? PAL.outline : multiplyColor(col(c), tint), 1).fillRect(x0 + rx * k, y0 + ry * k, k, k);
+      }),
+    );
   }
 }

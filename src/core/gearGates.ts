@@ -31,3 +31,10 @@ export function gateText(itemId: string, p: PlayerState): string {
   const have = Math.min(gate.count, countedDone(gate, p));
   return `Finish ${gate.count === 1 ? 'a main bundle' : `${gate.count} main bundles`} ${have}/${gate.count} (${CHECKLIST_WHERE})`;
 }
+
+/** Shop gear that finishing this bundle just opened (called right after it is handed in): its own bundle gate, or a count gate it just reached. */
+export function gearOpenedBy(bundleId: string, p: PlayerState): string[] {
+  return Object.entries(GEAR_GATES)
+    .filter(([id, gate]) => ('bundle' in gate ? gate.bundle === bundleId : !gate.excluding.includes(bundleId) && countedDone(gate, p) === gate.count) && gearUnlocked(id, p))
+    .map(([id]) => id);
+}

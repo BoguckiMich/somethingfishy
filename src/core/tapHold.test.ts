@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MIN_HOLD_MS } from './casting';
-import { resolveRelease } from './tapHold';
+import { OBJECT_HOLD_MS, objectPressOutcome, resolveRelease } from './tapHold';
 
 describe('resolveRelease', () => {
   it('a short tap that ends on the object it started on is the object action', () => {
@@ -16,5 +16,19 @@ describe('resolveRelease', () => {
     expect(resolveRelease(100, 'sign', null)).toBe('tooShort');
     expect(resolveRelease(100, 'sign', 'car')).toBe('tooShort');
     expect(resolveRelease(100, null, null)).toBe('tooShort');
+  });
+});
+
+describe('objectPressOutcome', () => {
+  it('stays pending while the finger is on the object and the hold is short', () => {
+    expect(objectPressOutcome(0, true)).toBe('pending');
+    expect(objectPressOutcome(OBJECT_HOLD_MS - 1, true)).toBe('pending');
+  });
+  it('starts the charge once held long enough', () => {
+    expect(objectPressOutcome(OBJECT_HOLD_MS, true)).toBe('charge');
+    expect(objectPressOutcome(2000, true)).toBe('charge');
+  });
+  it('starts the charge at once when the finger slides off the object', () => {
+    expect(objectPressOutcome(10, false)).toBe('charge');
   });
 });

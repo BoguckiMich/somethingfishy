@@ -46,4 +46,7 @@ export const EN = {
   noPagesYet: 'No pages yet. Watch {water} for bottles and odd things.',
   roadFixedLines: ['The road to the river is fixed.', '{companion} packs the car.', '{dog} packs a stick.'],
   newRecord: 'New record!',
+  newGearInShop: 'New gear in the shop!',
+  reelInForBait: 'Reel in to change bait',
+  reelInFirstStory: 'Reel in first to read the story',
 } as const;
