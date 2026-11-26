@@ -1038,6 +1038,18 @@ tester agent before it is merged.
   day; 10 sticks at Quiet Lake (a few more kept for River bend). Deadpan one-line reviews. A "Sticks" tab in
   the Log; with Bestia's bed owned, a bed tap opens it too. `PlayerState.sticks?: string[]`.
 
+**Slice 26b: Pajkel skips the pebbles (user, after playing 26 on the phone: "just stones and numbers")**
+- Pajkel throws, not Alex (she can't leave her rod). A tap on the stones: he gets up from his chair, walks to
+  the stones, picks one up, crouches and flicks it sideways, watches it skip, reacts ("Five! Did you see
+  that?"), and walks back after ~5 s without another tap. While he stands at the stones another tap = another
+  throw. Bestia trots after him and sits by him.
+- The pebble flies out over the LEFT part of the water, away from the dock, Alex and the bobber; rings and
+  the "1, 2, 3…" pops sit along that stretch.
+- Tap = ordinary throw (2-3 skips); a fast swipe from the stones = he really goes for it (up to 5), with a
+  bigger wind-up.
+- Busy (fetch, mid-walk): he finishes and comes over, bubble "One sec!". In the car or asleep: the stones do nothing.
+- 5 skips: Pajkel cheers, Bestia barks once, Alex glances over. Still no coins.
+
 **Balance (review A2, all accepted)**
 - Economy: a bot sim first (is the "whole shop in ~85 min" real?), target the whole shop at no less than
   ~6 h of play over ~5 real days. Levers in order: a 2-minute cooldown between naps (never an energy bar),
