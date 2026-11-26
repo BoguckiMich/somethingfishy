@@ -403,6 +403,22 @@ export interface CompanionContext {
   night: boolean;
   /** Bestia's camp bed is owned (slice 27): she may nap in it after a play session. */
   bed?: boolean;
+  /** The campfire is owned: Pajkel keeps off its spot so his head never covers the flames. */
+  fire?: boolean;
+}
+
+/** The campfire's feet (art/campLayout.ts FIRE_FEET) and the zone below it where his head would cover the flames, and where he is nudged to. */
+export const FIRE_SPOT: Point = { x: 106, y: 497 };
+export const FIRE_KEEP_OFF = { halfW: 22, below: 46, standX: 130 };
+
+/** Is `p` (feet) where Pajkel's head would hide the fire? */
+export const coversFire = (p: Point): boolean =>
+  Math.abs(p.x - FIRE_SPOT.x) < FIRE_KEEP_OFF.halfW && p.y > FIRE_SPOT.y - 4 && p.y < FIRE_SPOT.y + FIRE_KEEP_OFF.below;
+
+/** Moves him sideways (at most `stepPx`) towards the clear spot right of the fire while he stands where he would cover it. */
+export function nudgeOffFire(p: Point, stepPx: number): void {
+  if (!coversFire(p)) return;
+  p.x = Math.min(FIRE_KEEP_OFF.standX, p.x + stepPx);
 }
 
 const rand = (rng: Rng, a: number, b: number) => a + rng() * (b - a);
@@ -1275,6 +1291,7 @@ const WALK_MIN_PX = 5;
 function tickPlay(s: Companions, dtMs: number, ctx: CompanionContext, rng: Rng): void {
   tickPlayPhase(s, dtMs, ctx, rng);
   const p = s.paj;
+  if (ctx.fire) nudgeOffFire(p, (60 * dtMs) / 1000);
   const a = p.walkAnchor;
   a.ms += dtMs;
   if (dist(a, p) >= WALK_MIN_PX) {

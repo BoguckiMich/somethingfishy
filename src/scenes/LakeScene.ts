@@ -1061,7 +1061,7 @@ export class LakeScene extends Phaser.Scene {
     }
     this.companions.update(
       deltaMs,
-      { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night', bed: hasCamp(this.player, 'dogbed') },
+      { fishing: this.state.kind, night: timeOfDay(this.clock.minute) === 'night', bed: hasCamp(this.player, 'dogbed'), fire: hasCamp(this.player, 'campfire') },
       this.elapsed,
       this.look2().worldTint,
       steamShows(timeOfDay(this.clock.minute)),
@@ -3130,12 +3130,8 @@ export class LakeScene extends Phaser.Scene {
       const fx = campfireLook(this.weatherVis('rain'), glow);
       let frame = Math.floor(this.elapsed / 130 + Math.sin(this.elapsed / 900) * 1.5);
       if (fx.lowFlame > 0 && ((Math.floor(this.elapsed / 130) * 2654435761) >>> 0) % 100 < fx.lowFlame * 100) frame = CAMPFIRE_FRAMES - 1; // frame 2 is the low flame
-      // If Pajkel stands in front of the fire his head would hide it: then the flames and their light are drawn over him instead.
-      const fb = { x: this.spots.camp.fire.x - CAMPFIRE_SIZE.w / 2, y: this.spots.camp.fire.y - CAMPFIRE_SIZE.h };
-      const pr = this.companions.pajRect();
-      const hides = pajVisible(this.companions.state) && pr.x < fb.x + CAMPFIRE_SIZE.w && pr.right > fb.x && pr.y < fb.y + CAMPFIRE_SIZE.h && pr.bottom > fb.y;
-      this.campFire.setDepth(hides ? Z.angler + 0.6 : Z.angler - 0.3 + this.spots.camp.fire.y / 10000);
-      this.campFx.setDepth(hides ? Z.angler + 0.55 : Z.angler - 0.15);
+      // Sorted by feet like everything on the grass: the fire is in front of Pajkel when he stands behind it (feet above its own).
+      this.campFire.setDepth(this.companions.state.paj.y < this.spots.camp.fire.y ? Z.angler + 0.6 : Z.angler - 0.3 + this.spots.camp.fire.y / 10000);
       this.campFire.setVisible(true).setTexture(campfireKey(((frame % CAMPFIRE_FRAMES) + CAMPFIRE_FRAMES) % CAMPFIRE_FRAMES));
       // The logs go dark with the evening like everything else; the fire itself does not (the tint fades to white as the glow rises).
       this.campFire.setTint(lerpColor(lerpColor(look.worldTint, 0xffffff, Math.max(glow, 0.35)), 0x8c929c, fx.damp));

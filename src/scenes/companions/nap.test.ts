@@ -3,6 +3,8 @@ import { BEDTIME_LINES } from '../../core/data/pajkelLines';
 import { seededRng } from '../../core/random';
 import {
   DOG_BED_SPOT,
+  FIRE_SPOT,
+  coversFire,
   NAP_TUNING,
   PLAY_AREA,
   companionPress,
@@ -153,5 +155,33 @@ describe('Bestia naps in her bed (slice 27)', () => {
 
   it('never leaves the grass: the bed spot is under the lawn, clear of the play area', () => {
     expect(DOG_BED_SPOT.y).toBeGreaterThan(PLAY_AREA.y1);
+  });
+});
+
+describe('Pajkel keeps off the campfire (slice 27)', () => {
+  it('knows where his head would cover the flames', () => {
+    expect(coversFire({ x: FIRE_SPOT.x, y: FIRE_SPOT.y + 40 })).toBe(true);
+    expect(coversFire({ x: FIRE_SPOT.x + 40, y: FIRE_SPOT.y + 40 })).toBe(false);
+    expect(coversFire({ x: FIRE_SPOT.x, y: FIRE_SPOT.y - 30 })).toBe(false); // behind the fire is fine
+    expect(coversFire({ x: FIRE_SPOT.x, y: FIRE_SPOT.y + 80 })).toBe(false);
+  });
+
+  it('walks out from in front of the fire when it is owned, and never lingers there while they play', () => {
+    const rng = seededRng(6);
+    const s = createCompanions(rng);
+    startPlayNow(s); // he starts at (112, 540): right under the fire
+    const ctx: CompanionContext = { fishing: 'idle', night: false, fire: true };
+    const spots: { x: number; y: number }[] = [];
+    for (let t = 0; t < 120_000; t += 50) {
+      tickCompanions(s, 50, ctx, rng);
+      if (t > 1000) spots.push({ x: s.paj.x, y: s.paj.y });
+    }
+    const inFront = spots.filter((p) => coversFire(p)).length;
+    expect(inFront / spots.length).toBeLessThan(0.05);
+    // And without the fire he is left alone.
+    const s2 = createCompanions(rng);
+    startPlayNow(s2);
+    tickCompanions(s2, 50, { fishing: 'idle', night: false }, rng);
+    expect(s2.paj.x).toBe(112);
   });
 });
