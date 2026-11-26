@@ -239,6 +239,8 @@ Dev URL flags (all dev-only): `?time=HH` start hour · `?debug=waiting` bobber i
 
 Any URL parameter except `?skipnames` / `?reset=` runs the game as a sandbox: the save is neither loaded nor written and a "DEV · not saving" tag shows, so the flags above never touch the real save.
 
+Play-test harness (a tester agent plays headless Edge as a phone: tap/hold/swipe/step/shot/state; dev server + `?harness=1`): see `docs/PLAYTEST_HARNESS.md` and `node scripts/playtest.mjs help`.
+
 Headless screenshots (Edge is installed, Chrome is not):
 
 ```sh
