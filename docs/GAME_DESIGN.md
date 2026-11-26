@@ -765,6 +765,17 @@ today's chapter when one is waiting (else the quests).
   walkable Stardew-like world (landscape), music, personal touches (her own legendary fish), cloud sync.
 
 ### Ideas (not scheduled)
+- **Our own catch mechanic (Alex, 2026-11-26; grill when there are tokens, before Google Play):** she says catching
+  "feels like Stardew Valley". For a public release the fight should be our own, not a Stardew look-alike (the
+  vertical bar + fish icon + green zone). Open questions: what replaces or reshapes the bar (e.g. line tension
+  you feel through rod bend + reel clicks, a horizontal "follow the fish" lane, timing pulls to the fish's
+  surges); new rod TYPES that change how the fight plays (float rod, feeder, spinning/lure with active
+  retrieve, fly), not only bigger numbers; reeling as its own verb (a reel you turn / hold-rhythm). Ties to
+  §4 v2a-v2d (spinning, feeder) and aimed casting. Must stay one-thumb and cozy.
+- **Feed Bestia (testers, 2026-11-26):** players want to feed the dog. Open questions: what (treats from the
+  shop? a small fish from the bag?), how often (once per real day, like the bait box?), what it gives (a happy
+  animation + a bowl by the bed, maybe she fetches longer or finds sticks more often; no stats or hunger,
+  she never gets sad or hungry). Small slice, fits next to the camp bed.
 - **Aimed casting** — while holding to charge, sliding the thumb left/right changes the cast
   direction (the landing marker follows). It only matters once the lake has *features* worth
   aiming at: reeds, lily pads, a sunken log, a drop-off, each holding different fish or better
