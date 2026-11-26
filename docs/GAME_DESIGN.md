@@ -779,7 +779,8 @@ old bar STAYS behind a toggle so testers can compare):
 - **Gear:** rod = flex (how long you may stay in the red), line = snap limit, reel = reel-in speed, bait as today.
 - **Fish personalities** from today's data: smooth = long steady pulls, darting = quick sideways cuts + short
   surges, sinker = heavy and deep (patience), erratic = random surges; trophies get one signature move each.
-- **Perfect catch:** never in the red and never slack beyond a short grace; the gold band replaces the red core.
+- **Perfect catch:** (tuning round) at most a tiny grace in the red and the needle inside the gold for at least 80 % of the fight time after the first second (slack counts against it). The star above the gauge shows it live: bright gold while the share is comfortable, dimmer as it falls toward the limit, grey and cracked once it cannot be reached. Downstream rules (+1 star tier, medals) unchanged.
+- **Control, not reaction (tuning round):** the telegraphs stay fair (0.35 s+), the skill is feathering. While the thumb is down the tension climbs steadily, faster the heavier the fish and the pull (a gentle hold works for an easy fish for a few seconds, a heavy one leaves the gold in a fraction of a second; hold on and it snaps); letting go makes it fall at a steady rate, so control means rhythm: hold, release, hold. The gold band is drawn exactly where the rules count it: wide (0.24) for easy fish, narrow (0.12) for hard fish and trophies, a touch wider with a better rod. Reeling works only with the tension right: full speed in the gold, slowly while slack, fading to nothing toward the red. A tiny phone tick (Android) marks the needle entering or leaving the gold.
 - **Reeling:** hold anywhere (no crank gesture).
 - **Haptics:** short pulses on a surge, a buzz near the red (Android only; the screen shows everything without it).
 - **Toggle (user, 2026-11-26):** Settings "Catch style: Classic / Line", saved on the device, default Classic
