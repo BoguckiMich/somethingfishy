@@ -219,12 +219,16 @@ export function createTextures(scene: Phaser.Scene): void {
   });
 }
 
+let skyBuffer: Raster | undefined;
+
 /** Repaints the sky gradient into its canvas texture (call when the colours change). */
 export function repaintSky(scene: Phaser.Scene, top: number, bottom: number): void {
   const tex = scene.textures.get(TEX.sky) as Phaser.Textures.CanvasTexture;
-  const r = new Raster(W, FAR_SHORE_Y);
+  // paintSky writes every pixel, so one buffer is reused instead of allocating (and copying) one per repaint.
+  skyBuffer ??= new Raster(W, FAR_SHORE_Y);
+  const r = skyBuffer;
   paintSky(r, top, bottom);
-  tex.getContext().putImageData(new ImageData(new Uint8ClampedArray(r.data), r.width, r.height), 0, 0);
+  tex.getContext().putImageData(new ImageData(r.data as Uint8ClampedArray<ArrayBuffer>, r.width, r.height), 0, 0);
   tex.refresh();
 }
 

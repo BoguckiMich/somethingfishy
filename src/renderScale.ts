@@ -10,14 +10,21 @@ import { H as GAME_HEIGHT, W as GAME_WIDTH } from './art/layout';
 
 let scaleK = 1;
 
-/** K = ceil(on-screen CSS scale of the 360x640 canvas x devicePixelRatio), clamped to 1..4. */
+/** Cap on K: at 4 a phone canvas gets very big for no visible gain; 3 keeps text and sprites sharp enough (M2 groundwork A). */
+export const MAX_RENDER_SCALE = 3;
+
+/** The K for a given fit and device pixel ratio (pure, tested): ceil(fit x dpr), clamped to 1..MAX_RENDER_SCALE. */
+export function renderScaleFor(fit: number, dpr: number): number {
+  // -0.02: a scale like 3.001 must not tip into the next whole number.
+  return Math.min(MAX_RENDER_SCALE, Math.max(1, Math.ceil(fit * dpr - 0.02)));
+}
+
+/** K = ceil(on-screen CSS scale of the 360x640 canvas x devicePixelRatio), clamped to 1..MAX_RENDER_SCALE. */
 export function pickRenderScale(): number {
   if (typeof window === 'undefined') return 1;
   const fit = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
   const dpr = window.devicePixelRatio || 1;
-  // -0.02: a scale like 3.001 must not tip into 4.
-  const k = Math.ceil(fit * dpr - 0.02);
-  scaleK = Math.min(4, Math.max(1, k));
+  scaleK = renderScaleFor(fit, dpr);
   return scaleK;
 }
 
