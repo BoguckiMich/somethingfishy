@@ -792,7 +792,7 @@ old bar STAYS behind a toggle so testers can compare):
 - **New rod types later, one at a time:** spinning (lure, active retrieve before the bite; River bend gear,
   slice 25g), then feeder (heavy fish, long patient fights), fly last if ever.
 
-### Shop per location (proposed 2026-11-26, user to confirm)
+### Shop per location (decided with the user 2026-11-26)
 The whole Quiet Lake shop takes ~4.2 h of play (ECONOMY_SIM.md, ~day 7 at 40 min a day). Proposal: not a
 rotating shop but stock per place. Worms and basic baits everywhere; each place sells its own gear and camp
 things (Quiet Lake as today; River bend the spinning rod and river gear, slice 25g). Buying out Quiet Lake in
