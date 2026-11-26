@@ -20,7 +20,7 @@ describe('napAvailable', () => {
   const dock = { fishing: 'idle', mode: 'dock', asleepInCar: false };
   it('on the dock with Alex idle', () => expect(napAvailable(dock)).toEqual({ available: true, reason: '' }));
   it('says why not while they play fetch', () => {
-    for (const mode of ['play', 'leaving', 'returning']) expect(napAvailable({ ...dock, mode })).toEqual({ available: false, reason: 'Pajkel is busy playing' });
+    for (const mode of ['play', 'leaving', 'returning']) expect(napAvailable({ ...dock, mode })).toEqual({ available: false, reason: '{companion} is busy playing' });
   });
   it('says why not while asleep or on the way', () => {
     expect(napAvailable({ ...dock, mode: 'bed', asleepInCar: true }).reason).toBe("They're already asleep");

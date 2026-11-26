@@ -1062,3 +1062,4 @@ one waits for its milestone. Slice 24; the journal counts seven chapters ("Chapt
 21. Story chapters, Quiet Lake (details in §3 → Slice 21)
 22. Polish pass (M1): 22a Pajkel's chair + sticks, 22b friendlier panels, 22c hints + shore sign (§3 → Polish pass; `docs/ui-review/UI_REVIEW.md`), 22d bigger sign + story journal, 22e fish knowledge (§3 → Slices 22d + 22e)
 23. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
+24. A3 words pass (docs/review/08 item 12): custom names everywhere as `{player}/{companion}/{dog}` placeholders (plus `{place}`, `{water}`) filled by `src/i18n/en.ts`, quest grammar (a/an, eel/ide plurals), no non-VT323 glyphs, location-aware and time-aware lines. Built on `copy/a3-words`, not merged. Open for later: moving the remaining scattered strings into `src/i18n/`, Polish plurals.

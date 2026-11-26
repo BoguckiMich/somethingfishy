@@ -10,6 +10,7 @@ import { bagTier } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { CAMP_ITEMS } from '../core/data/camp';
+import { tr } from '../i18n/en';
 import { buyCampItem, hasCamp } from '../core/camp';
 import type { Line, Reel, Rod } from '../core/gear';
 import { bundlesDone, gateFor, gearUnlocked } from '../core/gearGates';
@@ -148,10 +149,10 @@ function itemCard(o: CardOptions): HTMLElement {
   const card = el('div', `display:flex;flex-direction:column;gap:6px;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight}`);
   const top = el('div', 'display:flex;gap:8px;align-items:flex-start');
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
-  info.append(el('div', `color:${COLORS.text}`, o.name));
+  info.append(el('div', `color:${COLORS.text}`, tr(o.name)));
   if (o.price !== undefined) info.append(coinAmount(o.price));
   if (o.note) info.append(el('div', `color:${COLORS.gold}`, o.note));
-  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream};margin-top:2px`, o.effect));
+  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream};margin-top:2px`, tr(o.effect)));
   top.append(iconSlot(o.id, 48, missing > 0 || o.locked !== undefined), info);
   card.append(top);
   if (o.locked !== undefined) {
@@ -172,9 +173,9 @@ function gateCard(o: CardOptions, gate: { need: number; have: number }): HTMLEle
   const card = el('div', `display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid ${COLORS.woodLight};opacity:0.8`);
   card.dataset.locked = o.id;
   const info = el('div', `flex:1;min-width:0;font-size:${FS.body}px`);
-  info.append(el('div', `color:${COLORS.dim}`, o.name));
+  info.append(el('div', `color:${COLORS.dim}`, tr(o.name)));
   if (o.price !== undefined) info.append(coinAmount(o.price, COLORS.dim));
-  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.dim};margin-top:2px`, o.effect));
+  info.append(el('div', `font-size:${FS.small}px;line-height:1.1;color:${COLORS.dim};margin-top:2px`, tr(o.effect)));
   const lock = el('div', `display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:${FS.small}px;line-height:1.1;color:${COLORS.cream}`);
   lock.append(
     spriteCanvas(lockSprite(), 16),

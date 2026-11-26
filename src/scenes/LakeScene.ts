@@ -97,7 +97,8 @@ import {
 } from '../core/inventory';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import type { SoundSettings } from '../core/soundSettings';
-import { clearProfile, DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from '../core/profile';
+import { clearProfile, DEFAULT_PROFILE, loadProfile, normalizeProfile, saveProfile, type Profile } from '../core/profile';
+import { EN, setTextContext, tr, WATER_BY_BACKGROUND } from '../i18n/en';
 import { showBagFullCard } from '../ui/bagFullCard';
 import { openBagPanel, openShopPanel } from '../ui/bagShop';
 import { openLogPanel } from '../ui/logPanel';
@@ -112,7 +113,7 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { carVariant, chairEmpty, companionEvent, companionPress, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
-import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
+import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { WEATHER_IDS, WEATHER_LOOK, type WeatherId } from '../core/data/weather';
 import { fogStrength, weatherEffects, weatherFlipAllowed, weatherForHour, weatherHourKey, weatherLineDue, type WeatherEffects } from '../core/daily/weather';
 import { weatherLook } from '../art/weatherArt';
@@ -750,6 +751,7 @@ export class LakeScene extends Phaser.Scene {
     if (handoff?.toast) this.showToast(handoff.toast);
 
     this.setupProfile(params, handoff?.profile);
+    this.syncText();
     this.setupDebugPanels(dbg);
     // Let the companions settle in (at night the dog is already dozing when the game opens).
     for (let t = 0; t < 2000; t += 50) {
@@ -826,6 +828,7 @@ export class LakeScene extends Phaser.Scene {
   /** Makes a place the current one: its data drives the zones, fish, spots and pictures. */
   private applyPlace(loc: Location): void {
     this.loc = loc;
+    this.syncText();
     this.hits = hitRects(loc.spots);
     this.ctx = { ...this.ctx, location: loc };
     this.bg = loc.background === 'river' ? { farShore: TEX.riverFarBank, reflection: TEX.riverReflection, water: TEX.riverWater, nearShore: TEX.riverNearBank } : { farShore: TEX.farShore, reflection: TEX.reflection, water: TEX.water, nearShore: TEX.nearShore };
@@ -1304,7 +1307,7 @@ export class LakeScene extends Phaser.Scene {
     const wid = this.weatherId();
     if (wid && this.elapsed > 3500 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && weatherLineDue(this.player.weatherSeen, this.weatherKey)) {
       this.setPlayer({ ...this.player, weatherSeen: this.weatherKey });
-      this.companions.say(pickLine(WEATHER_LINES[wid]));
+      this.companions.say(pickLine(weatherLinesFor(wid, this.clock.minute)));
       this.storyLineMs = Math.max(this.storyLineMs, 4000);
     }
     // Pajkel hints at Old Mossback now and then while idle (slice 23d), more often on a foggy day; not once it is caught.
@@ -1587,7 +1590,7 @@ export class LakeScene extends Phaser.Scene {
       () => {
         this.setPlayer(releasePending(this.player));
         this.panel = null;
-        this.showToast('Released it back into the lake');
+        this.showToast(EN.releasedBack);
       },
       () => {
         this.setPlayer(swapForCheapest(this.player, fish).state);
@@ -2046,8 +2049,14 @@ export class LakeScene extends Phaser.Scene {
     if (params.get('reset') === 'profile') clearProfile(store);
     const stored = loadProfile(store);
     if (stored) this.profile = stored;
+    // Dev-only: ?names=Mia,Tom,Rex sets the three names for this (sandboxed) session and skips the name card.
+    const devNames = params.get('names');
+    if (devNames) {
+      const [player, companion, dog] = devNames.split(',');
+      this.profile = normalizeProfile({ player, companion, dog });
+    }
     // Dev-only: ?skipnames (or any ?debug=) skips the first-launch card.
-    const skip = params.has('skipnames') || params.has('debug') || params.has('story');
+    const skip = params.has('names') || params.has('skipnames') || params.has('debug') || params.has('story');
     if (!stored && !skip) {
       this.nameCardOpen = true;
       showNameOverlay(DEFAULT_PROFILE, true, (p) => {
@@ -2059,12 +2068,18 @@ export class LakeScene extends Phaser.Scene {
 
   private applyProfile(p: Profile, welcome = false): void {
     this.profile = p;
+    this.syncText();
     if (!this.sandbox) saveProfile(this.safeStorage(), p);
     if (welcome) {
       this.showTag(0, p.player, ALEX_POS.x + 16, ALEX_POS.y - 4);
       this.showTag(1, p.companion, 150, 358);
       this.showTag(2, p.dog, 178, 402);
     }
+  }
+
+  /** Tells the text helper who the three characters are and where she is, so `tr` fills {player}, {place} and so on. */
+  private syncText(): void {
+    setTextContext({ ...this.profile, place: this.loc.name, water: WATER_BY_BACKGROUND[this.loc.background] });
   }
 
   private safeStorage(): Storage | undefined {
@@ -2081,7 +2096,7 @@ export class LakeScene extends Phaser.Scene {
       this.pendingToasts = enqueueToast(this.pendingToasts, text);
       return;
     }
-    this.toast.setText(text);
+    this.toast.setText(tr(text)); // placeholders ({player} {dog} {water}...) are filled when shown
     this.toastAge = 0;
   }
 
@@ -2475,7 +2490,7 @@ export class LakeScene extends Phaser.Scene {
       this.caughtText.setText(speciesById(s.hooked.speciesId)?.name ?? 'Caught!');
       this.caughtSub.setText(formatCatchSize(s.hooked.lengthCm, s.hooked.weightG));
       const o = this.catchOutcome;
-      const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? '★ New record!' : '';
+      const badge = o.kind === 'newSpecies' ? 'New species!' : o.kind === 'newRecord' ? EN.newRecord : '';
       this.caughtBadge.setText(isGoldOrBetter(this.catchStar) ? (badge ? `${badge} Gold!` : 'Gold!') : badge);
       this.caughtNote.setText(
         this.catchTrophy === 'first' ? TROPHY_TEXT.firstLine : o.kind === 'newSpecies' ? (speciesById(s.hooked.speciesId)?.fact ?? '') : o.kind === 'newRecord' ? `was ${o.previousCm} cm` : '',
@@ -2489,7 +2504,7 @@ export class LakeScene extends Phaser.Scene {
       const tag = this.catchFits ? CATCH_FITS_GAP : 0;
       const fitsY = CATCH_SUB_Y + 28;
       const bottom = noteBottom + tag;
-      const bubbleText = this.companions.state.bubble?.text ?? '';
+      const bubbleText = tr(this.companions.state.bubble?.text ?? '');
       const limit = Math.min(CATCH_TEXT_LIMIT, CATCH_BUBBLE_TOP - (bubbleText.length > 24 ? 31 : 0));
       const lift = this.caughtNote.text || this.catchFits ? Math.min(0, limit - bottom) : 0;
       this.caughtText.setY(CATCH_TITLE_Y + lift);

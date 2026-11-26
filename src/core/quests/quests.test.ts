@@ -352,3 +352,27 @@ describe('words', () => {
     expect(rewardText({ coins: 30, worms: 4 })).toBe('+30 coins · +4 worms');
   });
 });
+
+describe('species quest grammar', () => {
+  const POOL = ['roach', 'rudd', 'bleak', 'perch', 'crucian', 'eel', 'ide', 'asp', 'bream', 'tench', 'carp', 'pike', 'zander', 'burbot', 'catfish'];
+  it('uses a / an by the first letter', () => {
+    expect(questText(quest('catchSpecies', { target: 1, speciesId: 'eel' }))).toBe('Catch an eel');
+    expect(questText(quest('catchSpecies', { target: 1, speciesId: 'ide' }))).toBe('Catch an ide');
+    expect(questText(quest('catchSpecies', { target: 1, speciesId: 'asp' }))).toBe('Catch an asp');
+    expect(questText(quest('catchSpecies', { target: 1, speciesId: 'crucian' }))).toBe('Catch a crucian carp');
+  });
+  it('pluralises eel and ide, the rest stay the same', () => {
+    expect(questText(quest('catchSpecies', { target: 2, speciesId: 'eel' }))).toBe('Catch 2 eels');
+    expect(questText(quest('catchSpecies', { target: 3, speciesId: 'ide' }))).toBe('Catch 3 ides');
+    for (const id of ['pike', 'bream', 'roach', 'carp', 'perch', 'asp', 'burbot', 'tench', 'crucian', 'zander', 'catfish', 'rudd', 'bleak']) {
+      const name = speciesById(id)!.name.toLowerCase();
+      expect(questText(quest('catchSpecies', { target: 2, speciesId: id }))).toBe(`Catch 2 ${name}`);
+    }
+  });
+  it('has no "a" before a vowel for any pool species', () => {
+    for (const id of POOL) {
+      expect(speciesById(id), id).toBeDefined();
+      expect(questText(quest('catchSpecies', { target: 1, speciesId: id }))).not.toMatch(/Catch a [aeiou]/);
+    }
+  });
+});

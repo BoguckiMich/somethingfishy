@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WEATHER_IDS, WEATHER_TUNING, type WeatherId } from '../data/weather';
-import { WEATHER_LINES } from '../data/pajkelLines';
+import { FOG_LIFTED_LINES, WEATHER_LINES, WEATHER_NIGHT_LINES, weatherLinesFor } from '../data/pajkelLines';
 import { speciesById } from '../data/fish';
 import { QUIET_LAKE } from '../data/locations';
 import { candidates, fightProfile, pickSpecies, spawnWeight } from '../fish';
@@ -228,5 +228,16 @@ describe('Pajkel weather line, once per weather change', () => {
       expect(WEATHER_LINES[id].length).toBeLessThanOrEqual(3);
       for (const l of WEATHER_LINES[id]) expect(l.length).toBeLessThanOrEqual(26);
     }
+    for (const l of [...FOG_LIFTED_LINES, ...Object.values(WEATHER_NIGHT_LINES).flat()]) expect(l.length).toBeLessThanOrEqual(26);
+  });
+  it('says what the weather is at the hour it is said (no "nice day" at night, no morning fog at noon)', () => {
+    expect(weatherLinesFor('sunny', 12 * 60)).toBe(WEATHER_LINES.sunny);
+    expect(weatherLinesFor('sunny', 23 * 60)).toBe(WEATHER_NIGHT_LINES.sunny);
+    expect(weatherLinesFor('overcast', 19 * 60)).toBe(WEATHER_NIGHT_LINES.overcast);
+    expect(weatherLinesFor('rain', 23 * 60)).toBe(WEATHER_LINES.rain);
+    expect(weatherLinesFor('fog', 7 * 60)).toBe(WEATHER_LINES.fog);
+    expect(weatherLinesFor('fog', 14 * 60)).toBe(FOG_LIFTED_LINES);
+    expect(weatherLinesFor('fog', 2 * 60)).toBe(FOG_LIFTED_LINES);
+    for (const l of WEATHER_LINES.sunny) expect(l).not.toMatch(/lake|bobber/);
   });
 });
