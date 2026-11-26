@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { pageParams } from './urlParams';
 import { sound } from './audio/sound';
 import { isSandbox } from './core/save';
+import { installHarness } from './devHarness';
 import { loadFonts } from './font';
 import { pickRenderScale } from './renderScale';
 import { LakeScene } from './scenes/LakeScene';
@@ -38,6 +39,7 @@ void loadFonts().then(() => {
   },
   scene: [LakeScene],
   });
+  game.events.once(Phaser.Core.Events.READY, () => installHarness(game));
   // pixelArt makes the canvas nearest-neighbour; when the CSS size is not the backing size (non-integer
   // phone scale) a smooth resample keeps the hi-res text clean instead of dropping pixels.
   game.events.once(Phaser.Core.Events.READY, () => {
