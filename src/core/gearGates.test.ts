@@ -4,7 +4,7 @@ import { CHECKLIST } from './data/checklist';
 import { GEAR_GATES } from './data/gearGates';
 import { LINES, REELS } from './data/tackle';
 import { RODS } from './data/rods';
-import { bundlesDone, gateFor, gateText, gearUnlocked } from './gearGates';
+import { bundlesDone, gateFor, gateText, gearOpenedBy, gearUnlocked } from './gearGates';
 import { buyLine, buyReel, buyRod, newPlayer, type PlayerState } from './inventory';
 
 /** A player with exactly these bundles finished (every slot filled). */
@@ -86,5 +86,16 @@ describe('gear gates (slice 23a, reworked in balance A2)', () => {
     // nothing to buy next, and nothing is taken away
     expect(buyRod(old)).toMatchObject({ error: 'bestRod' });
     expect(buyLine(old)).toMatchObject({ error: 'bestLine' });
+  });
+});
+
+describe('gearOpenedBy (A3: the "new gear" cue)', () => {
+  it('names the gear a just-finished bundle opened', () => {
+    expect(gearOpenedBy('bottom-of-things', withDone(['bottom-of-things'])).sort()).toEqual(['braided', 'carbon', 'smooth']); // the first main bundle also opens the count gates
+    expect(gearOpenedBy('night-shift', withDone(['bottom-of-things', 'night-shift'])).sort()).toEqual(['fluoro', 'pro']);
+  });
+  it('a bundle that opens nothing, or Duck Tax and Petrol Money, gives nothing', () => {
+    expect(gearOpenedBy('duck-tax', withDone(['duck-tax']))).toEqual([]);
+    expect(gearOpenedBy('petrol', withDone(['petrol']))).toEqual([]);
   });
 });

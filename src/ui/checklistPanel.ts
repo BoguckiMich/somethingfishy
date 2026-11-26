@@ -1,4 +1,5 @@
 import { FONT, FS, LINE } from '../font';
+import { EN, tr } from '../i18n/en';
 import { fishIconSprite } from '../art/fishArt';
 import { coinSprite } from '../art/iconArt';
 import { CHECKLIST_TITLE, type ChecklistBundle, type ChecklistSlot } from '../core/data/checklist';
@@ -22,10 +23,15 @@ export interface ChecklistStore extends PlayerStore {
   fotdId?(): string | undefined;
 }
 
-const TICK = '✓';
+/** A 10 px square box (VT323 has no tick or circle glyph): filled gold when done, an empty dim frame when open. Matches the slot dots. */
+function tickBox(done: boolean): HTMLElement {
+  return el('span', `display:block;flex:none;width:10px;height:10px;box-sizing:border-box;border:2px solid ${done ? COLORS.goldShade : COLORS.dim};background:${done ? COLORS.gold : 'transparent'}`);
+}
 
 function tick(done: boolean): HTMLElement {
-  return el('span', `flex:none;width:20px;text-align:center;font-size:${FS.body}px;color:${done ? COLORS.gold : COLORS.dim}`, done ? TICK : '○');
+  const box = el('span', 'flex:none;width:20px;display:flex;align-items:center;justify-content:center');
+  box.append(tickBox(done));
+  return box;
 }
 
 /** What an open slot asks for: its picture and its words. */
@@ -109,7 +115,7 @@ function bundleSection(
   left.append(el('div', 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis', bundle.name));
   head.append(left);
   if (done) {
-    head.append(el('div', `flex:none;font-size:${FS.body}px;color:${COLORS.gold}`, TICK));
+    head.append(tickBox(true));
   } else {
     left.append(slotDots(checklistOf(p)[bundle.id]));
     head.append(rewardIcons(bundle.reward));
@@ -134,8 +140,7 @@ export function showRoadFixedCard(onClose: () => void): PanelHandle {
   const panel: PanelHandle = openPanel(
     'Road fixed!',
     (body) => {
-      const lines = ['The road to the river is fixed.', 'Pajkel packs the car.', 'Bestia packs a stick.'];
-      for (const t of lines) body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text};padding:2px 0`, t));
+      for (const t of EN.roadFixedLines.map(tr)) body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text};padding:2px 0`, t));
       const col = el('div', 'display:flex;flex-direction:column;gap:8px;margin-top:12px');
       col.append(woodButton('Close', () => panel.close()));
       body.append(col);

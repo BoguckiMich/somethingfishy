@@ -1,5 +1,6 @@
 import { FONT, FS, LINE } from '../font';
 import { sound } from '../audio/sound';
+import { HAPTICS, vibrate } from '../scenes/haptics';
 import type { Profile } from '../core/profile';
 import type { SoundSettings } from '../core/soundSettings';
 import { saveSummary, type SaveData } from '../core/save';
@@ -196,6 +197,15 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
         sounds.ambience,
         (v) => store.setSoundSettings({ ...store.soundSettings(), ambience: v }),
         () => undefined, // the ambience itself is the sample
+      ),
+      // Vibration (A3): on by default; a short buzz confirms it when switched on.
+      row(
+        woodButton(`Vibration: ${sounds.haptics ? 'On' : 'Off'}`, () => {
+          const on = !store.soundSettings().haptics;
+          store.setSoundSettings({ ...store.soundSettings(), haptics: on });
+          if (on) vibrate(HAPTICS.hooked);
+          panel.refresh();
+        }),
       ),
     );
 

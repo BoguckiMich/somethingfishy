@@ -1038,6 +1038,22 @@ tester agent before it is merged.
   day; 10 sticks at Quiet Lake (a few more kept for River bend). Deadpan one-line reviews. A "Sticks" tab in
   the Log; with Bestia's bed owned, a bed tap opens it too. `PlayerState.sticks?: string[]`.
 
+**Slice 26b: Pajkel skips the pebbles (user, after playing 26 on the phone: "just stones and numbers")**
+- Pajkel throws, not Alex (she can't leave her rod). A tap on the stones: he gets up from his chair, walks to
+  the stones, picks one up, crouches and flicks it sideways, watches it skip, reacts ("Five! Did you see
+  that?"), and walks back after ~5 s without another tap. While he stands at the stones another tap = another
+  throw. Bestia trots after him and sits by him.
+- The pebble flies out over the LEFT part of the water, away from the dock, Alex and the bobber; rings and
+  the "1, 2, 3…" pops sit along that stretch.
+- Tap = ordinary throw (2-3 skips); a fast swipe from the stones = he really goes for it (up to 5), with a
+  bigger wind-up.
+- Busy (fetch, mid-walk): he finishes and comes over, bubble "One sec!". In the car or asleep: the stones do nothing.
+- 5 skips: Pajkel cheers, Bestia barks once, Alex glances over. Still no coins.
+- Casting no longer breaks up fetch (user, 2026-11-26): today any press (`companionPress`) sends everyone
+  back to the dock at once. Instead the round in progress finishes (she brings the stick back or keeps it,
+  a stick from the Museum can still drop), then they walk back; no new round starts while she fishes. A hook
+  or catch during the round: Pajkel cheers from where he stands. Bedtime and the car still interrupt at once.
+
 **Balance (review A2, all accepted)**
 - Economy: a bot sim first (is the "whole shop in ~85 min" real?), target the whole shop at no less than
   ~6 h of play over ~5 real days. Levers in order: a 2-minute cooldown between naps (never an energy bar),
@@ -1100,12 +1116,20 @@ tester agent before it is merged.
 21. Story chapters, Quiet Lake (details in §3 → Slice 21)
 22. Polish pass (M1): 22a Pajkel's chair + sticks, 22b friendlier panels, 22c hints + shore sign (§3 → Polish pass; `docs/ui-review/UI_REVIEW.md`), 22d bigger sign + story journal, 22e fish knowledge (§3 → Slices 22d + 22e)
 23. River bend: art, fish, travel (planned, M2 in ROADMAP.md)
+24. A3 words pass (docs/review/08 item 12): custom names everywhere as `{player}/{companion}/{dog}` placeholders (plus `{place}`, `{water}`) filled by `src/i18n/en.ts`, quest grammar (a/an, eel/ide plurals), no non-VT323 glyphs, location-aware and time-aware lines. Built on `copy/a3-words`, not merged. Open for later: moving the remaining scattered strings into `src/i18n/`, Polish plurals.
 26. Shore fiddles + Stick Museum (built on `slice/26-shore-fiddles`, from "Week of 2026-11-26: decisions"):
     - Pebble skipping: three flat stones on the near shore left of the dock (Quiet Lake only, `Spots.stones`, x 93 y 460). A press on them (idle or waiting, never in a bite/fight/show-off/panel) never starts the cast charge, never reels in and never reaches the state machine; on release a tap throws a medium pebble (3 skips), a swipe by its flick speed (speed over the last 110 ms: 0.3 / 0.7 / 1.2 / 1.9 px per ms for 2-5 skips, slower 1) and drifts sideways with the swipe. Alex flicks her free hand, a 2 px pebble arcs out, a ring and a plop at every touch-down (n + 1: the last one is where it sinks), then the line "4 skips!". Reward: only `skipsBest` and one Pajkel line (`SKIP_RECORD_LINES`) the first time a record is beaten on a real date (`skipsLineDay`; not for a lone skip). No coins.
     - Fetch on demand: a tap on a stick lying on the grass makes Pajkel take that stick as his next one and throw it at once (`fetchStickNow`). Only while they play on the grass, between two rounds (rest, giveUp, toStick); with no stick on the grass, or asleep, in the car, on the dock or mid-chase, nothing changes (the press goes on as usual). Petting stays on Bestia.
     - Stick Museum: `core/sticks.ts`: the first finished fetch round brings a stick, then rounds 4, 7, 10, ... (every 3rd after the first), at most 2 new sticks per real day (`stickDay`/`stickDayN`; a capped stick round is not made up), the next unfound stick of the place in data order. 10 Quiet Lake sticks plus 3 for the River bend in `core/data/sticks.ts`, each with a deadpan review. Toast "Bestia found: The Crooked Fork". Log panel: a Fish | Sticks tab bar, found sticks with picture, name and review, the rest a dim "???", "Sticks n/10" on the tab; with Bestia's bed owned, a tap on the bed opens it (a hold still casts).
     - Deviations / choices: "every 3rd round" is read as rounds 1, 4, 7 (not 3, 6, 9); the round counter is global, not per place; the stick is shown on the sprite variants unchanged (tilted, grass shadow row removed), no tint; the bed tap is a new `ShoreObject` so it follows the tap-opens / hold-casts rule of the other shore things.
     - Dev flags: `?sticks=all` / `?sticks=N`, `?debug=sticks`, `?debug=pebbles&pebbleAt=ms`, `?debug=fetchround` (all sandboxed like every flag).
+A3. A3 feedback (built on `feel/a3-feedback`, from "A3 + M2"):
+    - Shore taps never move the rod: a press on the car, sign, crate, chair, board or bed sends nothing; released within `OBJECT_HOLD_MS` (350 ms) on the object it is the object's action; held longer, or slid off, the charge starts then from zero (`objectPressOutcome` in `core/tapHold.ts`). The stones keep their own press handling.
+    - The top-right notice-board button is gone; the sign is the way in and now also works while the bobber is out (quests and story tab; the line stays in the water). A chapter or the bottle while waiting shows "Reel in first to read the story". Sign tap box is 60 x 62 (x 248-308, y 438-500), still clear of the dock end.
+    - Fight: a gold star above the bar while the run is still perfect, greying and cracking when she leaves the green; the red sweet-spot core has a white edge (solid top and bottom, dashed sides) for red-green colour blindness.
+    - Catch card: size text and stars centred as one group; Pajkel's praise line waits until the card is dismissed so it never covers Alex; the clock's weather icon has more right padding.
+    - A checklist bundle hand-in that opens shop gear toasts "New gear in the shop!" and puts a gold dot on Shop until it is opened (session only, not saved).
+    - Settings: a Vibration On/Off switch (`haptics` in the device settings, default on); every `vibrate` respects it.
 A2. **Balance A2 (2026-11-26, built on `balance/a2`, not merged)**, numbers in `docs/ECONOMY_SIM.md`: bot sim of the economy (`src/sim`, `SIM=1`); gear gates by bundle (carbon after The Bottom of Things, fluoro + pro after Night Shift, braided + smooth after one main bundle, Duck Tax and Petrol Money never count; lock text names the bundle); perfect catch forgives 300 ms in total outside the green zone; corn 18 coins per 10 and calms the fight (`Bait.calm`, `fightGear`), maggots wait x0.45; roach, rudd and bleak also bite at dawn; the asp is exempt from the shallow cap; sunny now speeds shallow bites x0.8 and slows deep ones x1.25 (a per-zone weight cancelled out); fog (look and rare-fish weight) lasts the whole fog hour, never thinner than a 0.5 mist; economy levers in order: 2-minute nap cooldown with a kind countdown on the nap card (no effect on the farm, see sim), deep-night catches (02:00-05:00) sell x0.85, camp prices x1.5 (campfire 1200, deck chair 900, bed 1500, tent 2250, lights 1800, windsock 600); story catch-up capped at 3 chapters a real date. The 6 h shop target is NOT met (4.2 h normal, 3.4 h abuser); proposal in ECONOMY_SIM.md.
 27. **Camp life and sound (2026-11-26, built on `slice/27-camp-life`, not merged)** — pays off the 5,500-coin camp; the user picked the "Camp life and sound" option:
     - Bestia sleeps in her bed (only with the bed owned): after a play-session's happy spin she naps (always at night, 50% by day, `napDue`): trots to the bed (`napGo`), circles once (`napCircle`, 1.4 s), lies curled for 20-34 s (`napCurl`, new `curl` dog shape, two breath frames: chest up 1 px, 2.2 s a breath), gets up (`napWake`) and the play goes on (`rest`). A tap on her wakes her at once, head up and wagging, with the petting heart; a stick tap, a cast (press) or the 02:00 bedtime also end it. Pajkel just stands on the lawn meanwhile. Pure and tested (`behaviour.ts`, `nap.test.ts`).

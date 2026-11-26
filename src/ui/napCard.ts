@@ -1,6 +1,7 @@
 import { FS, LINE } from '../font';
 import { formatCooldown, napOptions, napPrimaryId, type NapOption } from '../core/bedtime';
 import { formatClock } from '../core/clock';
+import { tr } from '../i18n/en';
 import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 
 /**
@@ -18,7 +19,7 @@ export function showNapCard(kit: boolean, pick: (o: NapOption) => void, onClose:
     (body) => {
       const left = cooldownLeft();
       body.append(
-        el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-bottom:8px`, left > 0 ? `They are still waking up. Another nap in ${formatCooldown(left)}.` : 'They rest in the car.'),
+        el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.cream};margin-bottom:8px`, left > 0 ? `They are still waking up. Another nap in ${formatCooldown(left)}.` : tr('{companion} and {dog} rest in the car.')),
       );
       const col = el('div', 'display:flex;flex-direction:column;gap:8px');
       for (const o of napOptions(kit)) {

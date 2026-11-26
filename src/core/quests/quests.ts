@@ -9,6 +9,7 @@ import { addBait, type PlayerState } from '../inventory';
 import { livesAt, reachableFishZones, type ZoneId } from '../location';
 import { randInt, seededRng, type Rng } from '../random';
 import { speciesCaught } from '../fishLog';
+import { article } from '../../i18n/en';
 
 /**
  * Daily quests (slice 13b). Pure: "today" is injected as `today` (YYYY-MM-DD) and every roll is
@@ -319,8 +320,10 @@ export function questText(quest: Quest): string {
   const n = quest.params.target;
   switch (quest.kind) {
     case 'catchSpecies': {
-      const name = (speciesById(quest.params.speciesId ?? '')?.name ?? 'fish').toLowerCase();
-      return n === 1 ? `Catch a ${name}` : `Catch ${n} ${name}`;
+      const sp = speciesById(quest.params.speciesId ?? '');
+      const one = (sp?.name ?? 'fish').toLowerCase();
+      const many = (sp?.plural ?? sp?.name ?? 'fish').toLowerCase();
+      return n === 1 ? `Catch ${article(one)} ${one}` : `Catch ${n} ${many}`;
     }
     case 'catchAny': return `Catch ${n} fish`;
     case 'catchAtTime': {

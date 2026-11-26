@@ -1135,6 +1135,16 @@ export function dogSprite(frame: DogFrame): Sprite {
     const ry = 3.3 + b * 0.5;
     const top = Math.round(cy - ry);
     p.ell(14.5, cy, 7.4, ry, (x, y) => (y >= 23 ? PAL.gingerDark : fur(x, y)));
+    // A light rim along her back, so the bundle keeps its shape against the dark bed at night.
+    for (let x = 8; x <= 21; x++) {
+      for (let y = 0; y < 24; y++) {
+        if (p.get(x, y) !== TRANSPARENT) {
+          p.set(x, y, PAL.gingerLight);
+          if (y + 1 < 23 && p.get(x, y + 1) === PAL.ginger) p.set(x, y + 1, PAL.gingerLight);
+          break;
+        }
+      }
+    }
     p.rect(12, top, 2, 4, PAL.harness); // the harness strap over her back
     p.set(12, top, PAL.harnessDark);
     p.line(8, top + 1, 11, top, PAL.gingerLight); // a light ridge of fur along the spine

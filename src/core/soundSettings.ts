@@ -7,9 +7,11 @@ export interface SoundSettings {
   sfx: number;
   /** Ambient bed volume, 0..100 % (water, birds, frogs, crickets). 0 = off. */
   ambience: number;
+  /** Phone vibration (nibble, bite, catch...). On by default (A3). */
+  haptics: boolean;
 }
 
-export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: 100, ambience: 100 };
+export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: 100, ambience: 100, haptics: true };
 
 export const SOUND_SETTINGS_KEY = 'rybki.settings.v1';
 
@@ -24,6 +26,7 @@ export function normalizeSoundSettings(raw: Partial<Record<keyof SoundSettings, 
   return {
     sfx: volume(raw?.sfx, DEFAULT_SOUND_SETTINGS.sfx),
     ambience: volume(raw?.ambience, DEFAULT_SOUND_SETTINGS.ambience),
+    haptics: typeof raw?.haptics === 'boolean' ? raw.haptics : DEFAULT_SOUND_SETTINGS.haptics,
   };
 }
 
