@@ -218,6 +218,26 @@ export function syncQuests(player: PlayerState, today: string): { player: Player
   };
 }
 
+/**
+ * Quests are rolled once a day, but she may drive to another place: an unfinished species quest for a fish that cannot bite where her
+ * rod lands at the place she is at now is swapped for one that can (seeded from the date and slot, so it is stable). Others stay.
+ */
+export function retargetQuests(player: PlayerState): PlayerState {
+  const q = questsOf(player);
+  const here = locationById(player.place);
+  const reach = rodReach(player);
+  let changed = false;
+  const list = q.list.map((quest, i) => {
+    if (quest.kind !== 'catchSpecies' || quest.done) return quest;
+    const sp = speciesById(String(quest.params.speciesId));
+    if (sp && canBiteWithin(here, sp, reach)) return quest;
+    changed = true;
+    const seed = `${q.date}retarget${i}`;
+    return withBaitReward(rollQuest('catchSpecies', player, seededRng(hashString(seed))), seededRng(hashString(`${seed}bait`)));
+  });
+  return changed ? { ...player, quests: { ...q, list } } : player;
+}
+
 // ---- Progress --------------------------------------------------------------------------------
 
 export interface CatchInfo {

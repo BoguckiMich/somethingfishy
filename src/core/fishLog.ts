@@ -87,14 +87,29 @@ export function placesOf(species: Species): string[] {
   return LOCATIONS.filter((l) => livesAt(l, species.id)).map((l) => l.name);
 }
 
-/** The line under a species' fact: "Quiet Lake", "River bend" or "Quiet Lake · River bend". */
-export const wherePlaces = (species: Species): string => placesOf(species).join(' · ');
+/** The river's bands in plain words (the zone ids of RIVER_BEND). */
+const RIVER_WORDS: Record<string, string> = { riffle: 'Shallows (short cast)', seam: 'Middle of the river', pool: 'Deep pool (long cast)' };
+
+/**
+ * The line under a species' fact: "Quiet Lake", "River bend", "Quiet Lake · River bend", or, when a shared species sits in a different
+ * depth at each place, "Quiet Lake: shallow water · River bend: deep pool".
+ */
+export function wherePlaces(species: Species): string {
+  const places = placesOf(species);
+  if (places.length < 2) return places.join('');
+  const lakeDeep = species.zone === 'deep';
+  const bands = zonesOfSpecies(RIVER_BEND, species);
+  const riverDeep = bands.every((z) => z.fishZone === 'deep');
+  const riverShallow = bands.every((z) => z.fishZone === 'shallow');
+  if ((lakeDeep && riverDeep) || (!lakeDeep && riverShallow)) return places.join(' · ');
+  return `Quiet Lake: ${lakeDeep ? 'deep' : 'shallow'} water · River bend: ${bands.map((z) => (RIVER_WORDS[z.id] ?? z.name).toLowerCase()).join(', ')}`;
+}
 
 /** A species that lives at the River bend and nowhere else: it is described by the river's own band names. */
 const riverOnly = (species: Species): boolean => species.rarity !== 'legendary' && species.rarity !== 'trophy' && placesOf(species).join() === RIVER_BEND.name;
 
 /** "Riffle, Seam, Bend pool": the river bands where it bites. */
-const riverWhere = (species: Species): string => zonesOfSpecies(RIVER_BEND, species).map((z) => z.name).join(', ');
+const riverWhere = (species: Species): string => zonesOfSpecies(RIVER_BEND, species).map((z) => RIVER_WORDS[z.id] ?? z.name).join(', ');
 
 /** "Shallow water · by day", "Deep water · at dusk and night", "Shallow water · any time"; the Pale One keeps its riddle. */
 export function lockedHint(species: Species): LockedHint {

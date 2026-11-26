@@ -12,6 +12,7 @@ import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
 import { shopTab, type PlayerStore } from './bagShop';
 import { rewardLine } from './rewardLine';
 import { unknownHints } from '../core/rare';
+import { locationOf } from '../core/place';
 import { EN, tr } from '../i18n/en';
 
 /** What the quest panel needs: the player (read and written back) and today's date. */
@@ -158,6 +159,8 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         panel.refresh();
       };
       // The checklist entry sits right under the tabs so it never hides below the quests (fix/board-and-car).
+      // The lake's checklist and rumours stay at the lake; the river has neither yet.
+      const atLake = locationOf(p).checklistId !== null;
       const cl = store.checklist();
       const clRow = el('div', 'margin:2px 0 8px');
       const clBtn = woodButton(`Quiet Lake checklist ${cl.done}/${cl.total}`, () => {
@@ -166,7 +169,7 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
       }, { variant: 'wood' });
       clBtn.style.width = '100%';
       clRow.append(clBtn);
-      body.append(clRow);
+      if (atLake) body.append(clRow);
       const fid = store.fotdId();
       const frow = fid ? fotdRow(fid) : undefined;
       if (frow) body.append(frow);
@@ -197,8 +200,10 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim};margin-top:${rerollNote ? 2 : 8}px`, 'New quests at midnight'));
       }
       // Rumours (slice 23d): the half-hints of the rare fish she has not caught yet, pinned as one more note.
-      const rumours = unknownHints(p.log);
-      if (rumours.length > 0) {
+      const rumours = atLake ? unknownHints(p.log) : [];
+      if (!atLake) {
+        body.append(el('div', `margin-top:12px;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim}`, 'River tales come later.'));
+      } else if (rumours.length > 0) {
         const note = el('div', `margin-top:12px;padding:8px;border:2px solid ${COLORS.woodLight};background:${COLORS.outline}`);
         note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.gold};margin-bottom:4px`, 'Rumours'));
         for (const h of rumours) note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};padding:2px 0`, `- ${h.text}`));

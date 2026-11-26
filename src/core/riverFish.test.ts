@@ -5,12 +5,12 @@ import { fishOfTheDay } from './daily/fotd';
 import { POOL_SPECIES, SPECIES, speciesById } from './data/fish';
 import { QUIET_LAKE, RIVER_BEND } from './data/locations';
 import { WEATHER_IDS } from './data/weather';
-import { candidates, pickSpecies, rollHookedFish, rollLength } from './fish';
+import { candidates, pickSpecies, rollHookedFish, rollLength, spawnWeight } from './fish';
 import { placesOf, wherePlaces, whereWhen, lockedHint } from './fishLog';
 import { newPlayer } from './inventory';
 import { canBiteWithin, poolAt, zoneAt, type Location } from './location';
 import { withPlace } from './place';
-import { rollQuest } from './quests/quests';
+import { retargetQuests, rollQuest } from './quests/quests';
 import { knowledgeRows } from './fishKnowledge';
 import { starFor } from './data/stars';
 import { weightG } from './fish';
@@ -89,7 +89,7 @@ describe('spawn tables per place and zone', () => {
   it('the riffle bites trout, grayling, nase and chub only, by their hours', () => {
     for (const t of TIMES) {
       const b = biters(RIVER_BEND, 0, t);
-      for (const id of b) expect(['trout', 'grayling', 'nase', 'chub'], `riffle ${t}`).toContain(id);
+      for (const id of b) expect(['trout', 'grayling', 'nase', 'chub', 'barbel'], `riffle ${t}`).toContain(id);
       expect(b.has('chub')).toBe(true);
     }
     expect(biters(RIVER_BEND, 0, 'dawn').has('trout')).toBe(true);
@@ -200,8 +200,11 @@ describe('the fish log is one book', () => {
   it('counts the river species too (25 in all) and each species names its places', () => {
     expect(SPECIES).toHaveLength(25);
     expect(SPECIES.filter((s) => s.rarity !== 'legendary' && s.rarity !== 'trophy')).toHaveLength(21);
-    for (const id of RIVER_IDS) expect(wherePlaces(speciesById(id)!), id).toBe(SHARED.includes(id) ? 'Quiet Lake · River bend' : 'River bend');
+    for (const id of RIVER_IDS) expect(wherePlaces(speciesById(id)!), id).toBe('River bend');
     for (const id of SHARED) expect(placesOf(speciesById(id)!)).toEqual(['Quiet Lake', 'River bend']);
+    expect(wherePlaces(speciesById('perch')!)).toBe('Quiet Lake: shallow water · River bend: deep pool (long cast)');
+    expect(wherePlaces(speciesById('asp')!)).toBe('Quiet Lake · River bend');
+    expect(wherePlaces(speciesById('pike')!)).toBe('Quiet Lake · River bend');
     expect(placesOf(speciesById('roach')!)).toEqual(['Quiet Lake']);
     expect(placesOf(speciesById('carp')!)).toEqual(['Quiet Lake']);
     expect(placesOf(speciesById('mossback')!)).toEqual(['Quiet Lake']);
@@ -209,12 +212,12 @@ describe('the fish log is one book', () => {
   });
 
   it('a river species says its bands, and shared and lake species keep their old text', () => {
-    expect(whereWhen(speciesById('trout')!)).toBe('Riffle · dawn, dusk');
-    expect(whereWhen(speciesById('barbel')!)).toBe('Seam, Bend pool · dusk, night');
-    expect(whereWhen(speciesById('chub')!)).toBe('Riffle, Seam, Bend pool · any time');
+    expect(whereWhen(speciesById('trout')!)).toBe('Shallows (short cast) · dawn, dusk');
+    expect(whereWhen(speciesById('barbel')!)).toBe('Shallows (short cast), Middle of the river, Deep pool (long cast) · dusk, night');
+    expect(whereWhen(speciesById('chub')!)).toBe('Shallows (short cast), Middle of the river, Deep pool (long cast) · any time');
     expect(whereWhen(speciesById('carp')!)).toBe('Deep water · any time');
     expect(whereWhen(speciesById('asp')!)).toBe('Shallow water · day');
-    expect(lockedHint(speciesById('grayling')!).text).toBe('Riffle · by day');
+    expect(lockedHint(speciesById('grayling')!).text).toBe('Shallows (short cast) · by day');
   });
 
   it('knowledge rows, stars and the gold length work for the new fish', () => {
@@ -226,5 +229,44 @@ describe('the fish log is one book', () => {
     }
     expect(knowledgeRows(speciesById('chub')!, 10).some((r) => r.kind === 'weather')).toBe(false);
     expect(knowledgeRows(speciesById('trout')!, 10).find((r) => r.kind === 'weather')?.weatherIds).toEqual(['rain', 'overcast']);
+  });
+});
+
+describe('no species dominates a river band', () => {
+  it('shares of the catches per zone and hour (plain weather): the chub is filler, never a third of the pool', () => {
+    const shares = (d: number, t: (typeof TIMES)[number]) => {
+      const pool = poolAt(RIVER_BEND, d);
+      const cs = candidates(zoneAt(RIVER_BEND, d).fishZone, t, undefined, pool);
+      const w = cs.map((s) => spawnWeight(s, undefined, undefined, undefined, pool));
+      const total = w.reduce((a, b) => a + b, 0);
+      return Object.fromEntries(cs.map((s, i) => [s.id, w[i] / total]));
+    };
+    for (const d of [5, 18, 33]) {
+      for (const t of TIMES) {
+        const sh = shares(d, t);
+        const max = Math.max(...Object.values(sh));
+        // The riffle at night has only the chub and the barbel to offer; every other hour stays under 60 %.
+        expect(max, `${d} m ${t} ${JSON.stringify(sh)}`).toBeLessThanOrEqual(d === 5 && t === 'night' ? 0.65 : 0.6);
+        if (d === 33) expect(sh.chub ?? 0, `pool ${t}`).toBeLessThan(0.3);
+      }
+    }
+    expect(shares(33, 'night').perch).toBeGreaterThan(0.1);
+    expect(shares(33, 'night').pike).toBeGreaterThan(0.1);
+    expect(shares(5, 'dusk').trout).toBeGreaterThan(0.25);
+    expect(shares(18, 'dusk').barbel).toBeGreaterThan(0.4);
+  });
+});
+
+describe('quests rolled at the lake, read at the river', () => {
+  it('an unfinished species quest for a lake fish is swapped for one that bites at the river; done ones and other kinds stay', () => {
+    const base = { ...newPlayer(), rodId: 'carbon' };
+    const quest = (speciesId: string, done = false) => ({ kind: 'catchSpecies' as const, params: { target: 2, speciesId }, progress: done ? 2 : 0, done, claimed: false, reward: { coins: 10, worms: 0 } });
+    const here = withPlace({ ...base, quests: { date: '2026-12-01', rerollUsed: false, list: [quest('roach'), quest('carp', true), quest('trout')] } }, 'river-bend');
+    const fixed = retargetQuests(here).quests!.list;
+    expect(RIVER_IDS.concat(SHARED)).toContain(fixed[0].params.speciesId);
+    expect(fixed[1].params.speciesId).toBe('carp');
+    expect(fixed[2].params.speciesId).toBe('trout');
+    const again = { ...here, quests: { ...here.quests!, list: [fixed[2]] } };
+    expect(retargetQuests(again)).toBe(again);
   });
 });

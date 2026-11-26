@@ -34,7 +34,7 @@ export const FISH_TUNING = {
 
 /** The species that may bite here and now; some weathers (overcast) let the ones that like it bite at any time of day. */
 export function candidates(zone: ZoneId, time: TimeOfDay, fx?: WeatherEffects, pool?: FishPool): Species[] {
-  return POOL_SPECIES.filter((s) => (pool ? biteableIn(pool, s.id, s.zone, zone) : s.zone === zone) && (s.times.includes(time) || weatherAllowsAnyTime(s, fx)));
+  return POOL_SPECIES.filter((s) => (pool ? biteableIn(pool, s.id, s.zone, zone) : s.zone === zone) && ((pool?.times?.[s.id] ?? s.times).includes(time) || weatherAllowsAnyTime(s, fx)));
 }
 
 /** The spawn weight of a species, with the bait's boost (slice 15c) on top; worms or none: the plain weight. */

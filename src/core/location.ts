@@ -1,3 +1,4 @@
+import type { TimeOfDay } from './clock';
 import type { ShopStock } from './data/shopStock';
 
 /** The depth class of a zone that species and rare-fish rules are written against: a lake's shallow/deep, a river's riffle/seam count as shallow, its pool as deep. */
@@ -24,6 +25,8 @@ export interface Zone {
    * The river's chub is small in the riffle and big in the bend pool.
    */
   sizeSkew?: Readonly<Record<string, number>>;
+  /** Hours this band bites a species at, replacing the species' own (the river's pool bites perch and pike at night too). */
+  times?: Readonly<Record<string, readonly TimeOfDay[]>>;
 }
 
 export interface Point {
@@ -48,6 +51,8 @@ export interface FishPool {
   exact?: boolean;
   /** The band's size bias (see `Zone.sizeSkew`). */
   sizeSkew?: Readonly<Record<string, number>>;
+  /** The band's own hours per species (see `Zone.times`). */
+  times?: Readonly<Record<string, readonly TimeOfDay[]>>;
   /** The rare trophy fish and the legendary of this place (rules in core/rare.ts and core/legendary.ts). */
   specials: boolean;
 }
@@ -141,7 +146,7 @@ export function zoneAt(location: Location, distanceM: number): Zone {
 /** The pool of one band: its own species if it has any (exact, see `FishPool.exact`), else the location's; the trophies flag always comes from the location. */
 function poolOfZone(location: Location, zone: Zone): FishPool {
   return zone.fishPool
-    ? { species: zone.fishPool, exact: true, specials: location.fishPool.specials, ...(zone.sizeSkew ? { sizeSkew: zone.sizeSkew } : {}) }
+    ? { species: zone.fishPool, exact: true, specials: location.fishPool.specials, ...(zone.sizeSkew ? { sizeSkew: zone.sizeSkew } : {}), ...(zone.times ? { times: zone.times } : {}) }
     : location.fishPool;
 }
 
