@@ -33,7 +33,7 @@ interface Bot {
   lapse: number;
 }
 const DECENT: Bot = { delayMs: 200, noise: 0.05, jitterMs: 100, lapse: 0.03 };
-const SKILLED: Bot = { delayMs: 150, noise: 0, jitterMs: 40, lapse: 0.02 };
+const SKILLED: Bot = { delayMs: 150, noise: 0, jitterMs: 50, lapse: 0.02 };
 
 export interface Played {
   caught: boolean;

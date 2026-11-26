@@ -30,7 +30,7 @@ export interface LineGear {
 /** Gear mapping: rod zone size → flex, line drain → snap limit, reel response → reel speed, bait calm → calmer surges. */
 export function lineGearOf(g: BarGear): LineGear {
   return {
-    flexS: T.flexBase + T.flexPerZone * (g.zoneSize - 0.3),
+    flexS: Math.max(0.6, T.flexBase + T.flexPerZone * (g.zoneSize - 0.3)),
     snapLimit: clamp(T.snapBase + T.snapPerDrain * (1 - g.lineDrain), 0.5, 0.97),
     reel: g.reelResponse,
     calm: clamp(g.baitCalm, 0, 1),
@@ -91,6 +91,8 @@ export interface LineFightState {
   /** The gold band of this fish (tension): narrower the harder the fish. The rules and the gauge both read it. */
   goldLo: number;
   goldHi: number;
+  /** Share of the fight time the needle must spend in the gold for a perfect catch: `perfectGold`, lower for the hardest fish. */
+  perfectNeed: number;
   /** The fastest the fish could be reeled in (metres per second), to tell when a perfect catch is out of reach. */
   fullReelMps: number;
   holding: boolean;
@@ -108,6 +110,9 @@ export function goldBandOf(fish: Pick<FishProfile, 'difficulty' | 'slipAfterMs'>
   if (gear) w = clamp(w + T.goldPerZone * (gear.zoneSize - T.goldZoneRef), 0.08, 0.4);
   return [T.goldCenter - w / 2, T.goldCenter + w / 2];
 }
+
+/** The gold share a perfect catch needs: 80 % for most fish, down to `perfectGoldHard` for the hardest (from difficulty `perfectEaseFrom` over `perfectEaseOver`). */
+export const perfectNeedOf = (difficulty: number): number => T.perfectGold - (T.perfectGold - T.perfectGoldHard) * clamp((difficulty - T.perfectEaseFrom) / T.perfectEaseOver, 0, 1);
 
 export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?: FishProfile, gear?: BarGear): LineFightState {
   const start = Math.max(1, startM);
@@ -141,6 +146,7 @@ export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?
     goldMs: 0,
     goldLo,
     goldHi,
+    perfectNeed: perfectNeedOf(fish?.difficulty ?? 0),
     fullReelMps: start * T.reelBase,
     holding: true, // the hooking press is still down
     elapsedMs: 0,
@@ -155,7 +161,7 @@ export const lineResult = (s: LineFightState): LineResult => s.result;
 export const goldShare = (s: LineFightState): number => (s.timedMs > 0 ? s.goldMs / s.timedMs : 1);
 
 /** A perfect catch: won, with no more than a tiny time in the red and the needle in the gold for `perfectGold` of the fight time after the first second. */
-export const isPerfectLine = (s: LineFightState): boolean => s.result === 'caught' && s.redTotalMs <= T.perfectRedGraceMs && goldShare(s) >= T.perfectGold;
+export const isPerfectLine = (s: LineFightState): boolean => s.result === 'caught' && s.redTotalMs <= T.perfectRedGraceMs && goldShare(s) >= s.perfectNeed;
 
 /**
  * Live view of the perfect catch for the star: `alive` is false once it can no longer be reached (red beyond its grace, or the gold share could not
@@ -166,8 +172,8 @@ export function perfectOutlook(s: LineFightState): { alive: boolean; glow: numbe
   const share = goldShare(s);
   const restMs = (s.distanceM / Math.max(0.01, s.fullReelMps)) * 1000;
   const best = (s.goldMs + restMs) / (s.timedMs + restMs);
-  const alive = s.redTotalMs <= T.perfectRedGraceMs && best >= T.perfectGold;
-  return { alive, share, glow: alive ? clamp((share - T.perfectGold) / 0.12, 0, 1) : 0 };
+  const alive = s.redTotalMs <= T.perfectRedGraceMs && best >= s.perfectNeed;
+  return { alive, share, glow: alive ? clamp((share - s.perfectNeed) / 0.08, 0, 1) : 0 };
 }
 
 /** Is the needle inside the gold band? */
@@ -223,11 +229,11 @@ function startSurge(s: LineFightState, fish: FishProfile, cfg: LinePattern, gear
   s.surgeCount++;
   if (s.signature && rng() < 1 / SIGNATURE_TUNING.oneIn) {
     if (s.signature === 'flash') {
-      strength = Math.max(strength, 0.9);
+      strength = Math.max(strength, 0.75);
       s.chain = 1;
     } else if (s.signature === 'feint') {
       s.feint = true;
-      strength = Math.max(strength * 1.05, 0.65);
+      strength = Math.max(strength * 1.35, 0.9);
     } else {
       strength = SIGNATURE_TUNING.diveStrength;
       warn = SIGNATURE_TUNING.diveWarnS;
@@ -264,6 +270,7 @@ export function tickLineFight(
   const flexS = gear.flexS * (trophy ? T.trophyFlex : 1);
   const slackLimit = trophy ? T.trophySlackS : T.slackS;
   [s.goldLo, s.goldHi] = goldBandOf(fish, barGear);
+  s.perfectNeed = perfectNeedOf(d);
   const reelRate = s.startM * T.reelBase * gear.reel * (1 - T.reelHeavy * d) * (T.reelEasy + (1 - T.reelEasy) * Math.min(1, d / T.reelEasyTo)) * cfg.reel;
 
   s.fullReelMps = reelRate;
@@ -329,13 +336,15 @@ export function tickLineFight(
       // Feathering: the tension climbs steadily while the thumb is down, the faster the heavier the fish and the pull.
       s.tension = s.tension + (cfg.rise[0] + (cfg.rise[1] - cfg.rise[0]) * Math.pow(d, T.riseCurve) + T.risePull * pull) * (1 + T.surgeRise * surge) * h;
     } else {
-      const target = T.release + T.releaseGain * base + T.surgeHold * surge;
+      const target = T.release + T.releaseGain * base + (T.surgeHold[0] + (T.surgeHold[1] - T.surgeHold[0]) * Math.pow(d, T.surgeHoldCurve)) * cfg.holdMul * surge;
       s.tension = s.tension > target ? Math.max(target, s.tension - lerp(cfg.fall, d) * h) : s.tension + (target - s.tension) * Math.min(1, T.releaseLag * h);
     }
     s.tension = clamp(s.tension, 0, 1);
 
     // ---- Reeling: only the gold reels at full speed, the red not at all; the reel is slower against a surge, and a surging fish takes line.
-    if (holding) s.distanceM -= reelRate * reelFactor(s, gear.snapLimit) * (1 - T.surgeBrake * surge) * h;
+    // A long fight speeds the reel up a little (the fish tires): + reelTire x how far past `reelTireFromS` it is, over `reelTireOverS`.
+    const tireUp = 1 + T.reelTire * clamp((s.elapsedMs / 1000 - T.reelTireFromS) / T.reelTireOverS, 0, 1);
+    if (holding) s.distanceM -= reelRate * tireUp * reelFactor(s, gear.snapLimit) * (1 - T.surgeBrake * surge) * h;
     s.distanceM += s.startM * T.surgeRun * surge * (holding ? 0.35 : 1) * h;
     s.distanceM = clamp(s.distanceM, 0, s.startM * T.maxFarFactor);
 
