@@ -111,8 +111,11 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { carVariant, chairEmpty, companionEvent, companionPress, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
-import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
+import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, stickAt, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, WEATHER_LINES } from '../core/data/pajkelLines';
+import { noteSkips, skipPlan, skipText, throwFor, type FlickSample } from '../core/skipping';
+import { finishFetchRound, firstSticks } from '../core/sticks';
+import { STONES_SIZE } from '../art/stonesArt';
 import { WEATHER_IDS, WEATHER_LOOK, type WeatherId } from '../core/data/weather';
 import { fogStrength, weatherEffects, weatherFlipAllowed, weatherForHour, weatherHourKey, weatherLineDue, type WeatherEffects } from '../core/daily/weather';
 import { weatherLook } from '../art/weatherArt';
@@ -278,13 +281,26 @@ function rollStoryDelay(): number {
 }
 
 /** The tap areas of a place's shore things: finger-sized boxes around the spots. */
-function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle } {
+function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle; stones: Phaser.Geom.Rectangle | null; bed: Phaser.Geom.Rectangle } {
   return {
+    // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed: its picture, a little bigger.
+    stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 9, sp.stones.y - 10, Math.min(STONES_SIZE.w + 18, 116 - (sp.stones.x - 9)), STONES_SIZE.h + 20) : null,
+    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, 32, 21),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
     sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 54, 56, 56),
     crate: new Phaser.Geom.Rectangle(sp.crate.x - 22, sp.crate.y - 34, 44, 44),
     trophy: new Phaser.Geom.Rectangle(sp.trophy.x - 28, sp.trophy.y - 46, 56, 48),
   };
+}
+
+/** A pebble in the air (slice 26): its skips, the touch-down distances, the sideways drift (-1..1), where it starts, how long it has flown and how many touch-downs are done. */
+interface PebbleFlight {
+  skips: number;
+  plan: number[];
+  side: number;
+  from: { x: number; y: number };
+  age: number;
+  hit: number;
 }
 
 /** Driving off takes this long (the car leaves the left edge), the screen then goes dark; the arrival is the same in reverse. */
@@ -559,6 +575,19 @@ export class LakeScene extends Phaser.Scene {
   private fightToasts = false;
   /** The shore object the current press started on (tap opens it, hold casts), or null. */
   private holdOn: ShoreObject | null = null;
+  /** A press that started on the skipping stones (slice 26): where, and the drag so far; null otherwise. */
+  private stoneDown: { x: number; y: number; samples: FlickSample[] } | null = null;
+  /** The pebble in the air (slice 26): how long it has flown, how many skips it makes, and where it starts and which way it drifts. */
+  private pebble: PebbleFlight | null = null;
+  /** The rings the pebble left on the water, and the arm flick (ms since the throw). */
+  private pebbleRings: { x: number; y: number; age: number; big: boolean; n: number }[] = [];
+  private flickAge = Infinity;
+  /** Dev flag ?debug=pebbles&pebbleAt=ms: the pebble's animation stops at that age (a screenshot of it mid-skip). */
+  private pebbleFrozen = false;
+  /** The stones' picture (Quiet Lake only). */
+  private stonesImg: Phaser.GameObjects.Image | null = null;
+  /** Fetch rounds already counted for the Stick Museum. */
+  private roundsSeen = 0;
   /** The fetch phase last frame, to bark when it changes. */
   private lastPlayPhase: string | null = null;
   private elapsed = 0;
@@ -657,6 +686,11 @@ export class LakeScene extends Phaser.Scene {
     }
     // Dev-only (slice 23e): ?camp=all owns every camp item.
     if (params.get('camp') === 'all') this.setPlayer({ ...this.player, camp: allCamp() });
+    // Dev-only (slice 26): ?sticks=all (or =N) fills the Stick Museum with the first N sticks of this place.
+    if (params.has('sticks')) {
+      const n = params.get('sticks') === 'all' ? Infinity : Math.max(0, Math.floor(Number(params.get('sticks')) || 0));
+      this.setPlayer({ ...this.player, sticks: firstSticks(this.loc.id, n) });
+    }
     const coinsParam = Number(params.get('coins'));
     if (params.has('coins') && Number.isFinite(coinsParam)) this.setPlayer({ ...this.player, coins: Math.max(0, Math.floor(coinsParam)) });
     const wormsParam = Number(params.get('worms'));
@@ -763,6 +797,23 @@ export class LakeScene extends Phaser.Scene {
       startPlayNow(this.companions.state);
       for (let t = 0; t < 1500; t += 50) tickCompanions(this.companions.state, 50, { fishing: 'idle', night: false });
     }
+    this.roundsSeen = this.companions.state.roundsDone;
+    // Dev-only (slice 26): ?debug=fetchround finishes one fetch round at once (the museum toast for the first stick).
+    if (params.get('debug') === 'fetchround') this.companions.state.roundsDone += 1;
+    this.pebble = null;
+    this.pebbleRings = [];
+    this.stoneDown = null;
+    this.pebbleFrozen = false;
+    this.flickAge = Infinity;
+    // Dev-only (slice 26): ?debug=pebbles throws a 4-skip pebble at the start; &pebbleAt=ms stops it at that age (screenshots).
+    if (params.get('debug') === 'pebbles') {
+      this.throwPebble(4, 0.2);
+      const at = Number(params.get('pebbleAt'));
+      if (Number.isFinite(at) && params.has('pebbleAt')) {
+        for (let t = 0; t < at; t += 16) this.advancePebble(16);
+        this.pebbleFrozen = true;
+      }
+    }
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') this.refreshDate();
@@ -772,8 +823,12 @@ export class LakeScene extends Phaser.Scene {
 
     // A long press on a phone can fire the context menu: keep it off the game.
     this.input.mouse?.disableContextMenu();
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (this.stoneDown && pointer.isDown) this.stoneDown.samples.push({ x: pointer.worldX, y: pointer.worldY, t: performance.now() });
+    });
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.holdOn = null;
+      this.stoneDown = null;
       if (this.panel || this.sleepFade || this.travel) return;
       if (this.handleTap(pointer.worldX, pointer.worldY)) {
         this.swallowUp = true; // a pet or a button press never reaches the fishing state machine
@@ -790,6 +845,14 @@ export class LakeScene extends Phaser.Scene {
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       const hold = this.holdOn;
       this.holdOn = null;
+      // A press that started on the stones throws a pebble on release; it never reaches the fishing state machine.
+      const stones = this.stoneDown;
+      this.stoneDown = null;
+      if (stones) {
+        this.swallowUp = false;
+        if (!pointer.wasCanceled) this.releaseStones(stones, pointer.worldX, pointer.worldY);
+        return;
+      }
       if (this.swallowUp) {
         this.swallowUp = false;
         return;
@@ -812,6 +875,7 @@ export class LakeScene extends Phaser.Scene {
     // Leaving the canvas: a mouse release as before; a finger that slid off (or was taken away) cancels instead of casting.
     this.input.on('gameout', () => {
       this.holdOn = null;
+      this.stoneDown = null;
       this.send({ type: this.input.activePointer.wasTouch ? 'cancel' : 'release' });
     });
 
@@ -927,6 +991,8 @@ export class LakeScene extends Phaser.Scene {
     this.updateStory(deltaMs);
     this.updateMoments(deltaMs);
     this.updateTravel(deltaMs);
+    if (!this.pebbleFrozen) this.advancePebble(deltaMs);
+    this.updateFetchRounds();
     if (this.debugToastInMs !== null && (this.debugToastInMs -= deltaMs) <= 0) {
       this.debugToastInMs = null;
       this.showToast('Quest done! +40 coins, +5 worms');
@@ -1597,7 +1663,7 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
-  private openPlayerPanel(kind: 'bag' | 'shop' | 'log' | 'bait' | 'settings', startWith?: string): void {
+  private openPlayerPanel(kind: 'bag' | 'shop' | 'log' | 'bait' | 'settings', startWith?: string, tab?: 'fish' | 'sticks'): void {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
     const store = {
@@ -1613,7 +1679,7 @@ export class LakeScene extends Phaser.Scene {
       : kind === 'shop' ? openShopPanel(store, onClose)
       : kind === 'bait' ? openBaitPicker(store, onClose)
       : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
-      : openLogPanel(() => this.player.log, onClose, startWith);
+      : openLogPanel(() => this.player.log, onClose, startWith, { sticks: () => this.player.sticks ?? [], placeId: this.loc.id, startTab: tab });
   }
 
   /** What the settings panel may ask of the scene. */
@@ -1706,6 +1772,10 @@ export class LakeScene extends Phaser.Scene {
     }
     if (dbg === 'log') {
       this.openPlayerPanel('log', pageParams().get('species') ?? undefined);
+      return;
+    }
+    if (dbg === 'sticks') {
+      this.openPlayerPanel('log', undefined, 'sticks');
       return;
     }
     if (dbg !== 'shop' && dbg !== 'bag' && dbg !== 'bagfull') return;
@@ -1916,6 +1986,125 @@ export class LakeScene extends Phaser.Scene {
     );
   }
 
+  // ---- Shore fiddles (slice 26) ------------------------------------------------------------
+
+  /** The finger came up after a press on the stones: a tap throws a medium pebble, a swipe by its speed (a bite meanwhile does not matter: it is only a picture). */
+  private releaseStones(down: { x: number; y: number; samples: FlickSample[] }, x: number, y: number): void {
+    const k = this.state.kind;
+    if (this.panel || this.sleepFade || this.travel || !(k === 'idle' || k === 'waiting' || k === 'bite')) return;
+    const samples = [...down.samples, { x, y, t: performance.now() }];
+    const t = throwFor({ x: down.x, y: down.y }, { x, y }, samples);
+    this.throwPebble(t.skips, t.side);
+  }
+
+  /** Alex flicks a pebble out over the water; it skips `skips` times and sinks. A new throw replaces one still in the air (its rings stay). */
+  private throwPebble(skips: number, side: number): void {
+    this.pebble = { skips, plan: skipPlan(skips), side, from: { x: ALEX_POS.x + 5, y: ALEX_POS.y + 25 }, age: 0, hit: 0 };
+    this.flickAge = 0;
+  }
+
+  /** Where the pebble is `ms` into its flight: segment times grow shorter with every skip. */
+  private pebbleSegments(p: PebbleFlight): { from: { x: number; y: number }; to: { x: number; y: number }; ms: number; arc: number }[] {
+    const last = p.plan[p.plan.length - 1];
+    const pts = p.plan.map((d) => ({ x: Math.max(10, Math.min(W - 10, p.from.x + p.side * 78 * (d / last))), y: distanceToY(d) }));
+    const segs = [{ from: p.from, to: pts[0], ms: 330, arc: 28 }];
+    for (let i = 1; i < pts.length; i++) segs.push({ from: pts[i - 1], to: pts[i], ms: 150 + 190 * 0.8 ** i, arc: 3 + 15 * 0.66 ** i });
+    return segs;
+  }
+
+  /** Moves the pebble, the rings and the arm flick on by `dtMs`: a ring and a plop at every touch-down, then the line. */
+  private advancePebble(dtMs: number): void {
+    this.flickAge += dtMs;
+    for (const r of this.pebbleRings) r.age += dtMs;
+    this.pebbleRings = this.pebbleRings.filter((r) => r.age < 900);
+    const p = this.pebble;
+    if (!p) return;
+    p.age += dtMs;
+    const segs = this.pebbleSegments(p);
+    let end = 0;
+    for (let i = 0; i < segs.length; i++) {
+      end += segs[i].ms;
+      if (p.age >= end && p.hit <= i) {
+        p.hit = i + 1;
+        const sink = i === segs.length - 1;
+        this.pebbleRings.push({ x: segs[i].to.x, y: segs[i].to.y, age: p.age - end, big: sink, n: sink ? 0 : i + 1 });
+        sound.play('plop');
+        if (sink) this.finishPebble(p.skips);
+      }
+    }
+    if (p.age >= end + 120) this.pebble = null;
+  }
+
+  /** The pebble sank: say how many skips, keep the record, and let Pajkel say his line the first time it is beaten on a real day. */
+  private finishPebble(skips: number): void {
+    const r = noteSkips(this.player, skips, this.today);
+    if (r.player !== this.player) this.setPlayer(r.player);
+    this.showToast(r.record && !r.speak ? `${skipText(skips)} New best!` : skipText(skips));
+    if (r.speak && this.pajCanSpeak()) this.companions.say(pickLine(SKIP_RECORD_LINES));
+  }
+
+  /** A 3x5 pixel digit (1-5) drawn at 2x, cream with a dark edge, centred on x. */
+  private drawDigit(g: Phaser.GameObjects.Graphics, n: number, x: number, y: number, alpha: number, tintFx: (c: number) => number): void {
+    const rows: Record<number, string[]> = {
+      1: ['010', '110', '010', '010', '111'],
+      2: ['111', '001', '111', '100', '111'],
+      3: ['111', '001', '111', '001', '111'],
+      4: ['101', '101', '111', '001', '001'],
+      5: ['111', '100', '111', '001', '111'],
+    };
+    const rs = rows[n];
+    if (!rs) return;
+    const x0 = x - 3;
+    for (const [dx, dy, col] of [[-1, 0, PAL.outline], [1, 0, PAL.outline], [0, -1, PAL.outline], [0, 1, PAL.outline], [0, 0, PAL.white]] as const) {
+      g.fillStyle(col === PAL.white ? tintFx(PAL.white) : col, alpha);
+      rs.forEach((row, ry) => [...row].forEach((c, rx) => { if (c === '1') g.fillRect(x0 + rx * 2 + dx * 1, y + ry * 2 + dy * 1, 2, 2); }));
+    }
+  }
+
+  private drawPebble(g: Phaser.GameObjects.Graphics, tintFx: (c: number) => number): void {
+    for (const r of this.pebbleRings) {
+      const t = r.age / 900;
+      const k = r.big ? 1.5 : 1;
+      pixelEllipse(g, r.x, r.y, (2 + t * 9) * k, (0.8 + t * 3.2) * k, tintFx(PAL.foam), (1 - t) * 0.9);
+      if (t > 0.25) pixelEllipse(g, r.x, r.y, (2 + (t - 0.25) * 9) * k, (0.8 + (t - 0.25) * 3.2) * k, tintFx(PAL.foam), (1 - t) * 0.5);
+      // The count of this skip pops up above its ring and drifts up.
+      if (r.n > 0) this.drawDigit(g, r.n, Math.round(r.x), Math.round(r.y - 8 - Math.min(1, r.age / 500) * 6), Math.min(1, (900 - r.age) / 300), tintFx);
+    }
+    // The arm: a tiny flick of her free hand (the rod hand keeps the rod).
+    if (this.flickAge < 260) {
+      const t = this.flickAge / 260;
+      const up = Math.sin(Math.min(1, t * 1.3) * Math.PI);
+      g.fillStyle(tintFx(PAL.skin), 1).fillRect(ALEX_POS.x + 5 - Math.round(up * 2), ALEX_POS.y + 29 - Math.round(up * 6), 2, 2);
+    }
+    const p = this.pebble;
+    if (!p) return;
+    const segs = this.pebbleSegments(p);
+    let start = 0;
+    for (const sg of segs) {
+      if (p.age < start + sg.ms) {
+        const t = Math.max(0, (p.age - start) / sg.ms);
+        const x = Math.round(sg.from.x + (sg.to.x - sg.from.x) * t);
+        const base = sg.from.y + (sg.to.y - sg.from.y) * t;
+        const y = Math.round(base - Math.sin(Math.PI * t) * sg.arc);
+        if (start > 0 || t > 0.15) pixelEllipse(g, x, Math.round(base) + 1, 1.5, 0.6, 0x000000, 0.25); // its shadow on the water
+        g.fillStyle(tintFx(PAL.stoneLight), 1).fillRect(x, y, 2, 2);
+        return;
+      }
+      start += sg.ms;
+    }
+  }
+
+  /** A finished fetch round (slice 26): it counts; now and then it brings a named stick for the museum. */
+  private updateFetchRounds(): void {
+    const done = this.companions.state.roundsDone;
+    while (this.roundsSeen < done) {
+      this.roundsSeen++;
+      const r = finishFetchRound(this.player, this.loc.id, this.today);
+      this.setPlayer(r.player);
+      if (r.found) this.showToast(`${this.profile.dog} found: ${r.found.name}`);
+    }
+  }
+
   /** Taps on the dog, Pajkel or the pencil button are handled here. Returns true when consumed. */
   private handleTap(x: number, y: number): boolean {
     // During the fight and the show-off every press belongs to the fishing state machine.
@@ -1935,6 +2124,12 @@ export class LakeScene extends Phaser.Scene {
     if (this.holdHit('car', x, y)) return this.objectTouched('car');
     if (this.holdHit('crate', x, y)) return this.objectTouched('crate');
     if (this.holdHit('board', x, y)) return this.objectTouched('board');
+    // The skipping stones: a press on them throws on release, never starts a cast and never scares a fish (idle or waiting only).
+    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.sleepFade && this.hits.stones?.contains(x, y)) {
+      this.stoneDown = { x, y, samples: [{ x, y, t: performance.now() }] };
+      this.markHint('stones');
+      return true;
+    }
     // A moment on the lake: a tap on it never starts a cast. The bottle opens a card, so only while idle.
     const momentOk = (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel;
     if (momentOk && this.story.tap(x, y, this.state.kind === 'idle')) return true;
@@ -1942,6 +2137,15 @@ export class LakeScene extends Phaser.Scene {
     // The notice-board sign: a tap never casts while idle or waiting; it acts only while idle. It wins over petting
     // Bestia (or tagging Pajkel) inside its box, so it is checked before them.
     if (this.holdHit('sign', x, y)) return this.objectTouched('sign');
+    // A stick lying on the grass (slice 26) wins over petting Bestia where she sits on it: a tap starts (or queues) a fetch, and a tap
+    // that cannot is swallowed (no cast, no hint, the family stays on the grass). Over Bestia herself it may still pet.
+    if ((this.state.kind === 'idle' || this.state.kind === 'waiting') && this.companions.state.mode === 'play') {
+      const near = stickAt(this.companions.state, x, y, true);
+      if (near) {
+        if (fetchStickNow(this.companions.state, near)) return true;
+        if (!this.companions.dogRect().contains(x, y)) return true;
+      }
+    }
     const dog = this.companions.dogRect();
     if (dogVisible(this.companions.state) && this.companions.state.mode !== 'bed' && dog.contains(x, y)) {
       this.markHint('dog');
@@ -1958,6 +2162,8 @@ export class LakeScene extends Phaser.Scene {
     }
     // His empty chair (with the thermos) while he is away or asleep in the car: a tap never casts.
     if (this.holdHit('chair', x, y)) return this.objectTouched('chair');
+    // Bestia's bed (if it is owned): a tap opens the Stick Museum, a hold still casts.
+    if (this.holdHit('bed', x, y)) return this.objectTouched('bed');
     return false;
   }
 
@@ -1977,6 +2183,8 @@ export class LakeScene extends Phaser.Scene {
         return on && chairEmpty(this.companions.state) && this.companions.chairRect().contains(x, y);
       case 'board':
         return on && this.trophyKey !== '' && this.hits.trophy.contains(x, y);
+      case 'bed':
+        return (k === 'idle' || k === 'charging') && hasCamp(this.player, 'dogbed') && this.hits.bed.contains(x, y);
     }
   }
 
@@ -2006,6 +2214,9 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'board':
         this.openTrophies();
+        break;
+      case 'bed':
+        this.openPlayerPanel('log', undefined, 'sticks');
         break;
       case 'chair': {
         const r = this.companions.chairRect();
@@ -2208,6 +2419,9 @@ export class LakeScene extends Phaser.Scene {
     this.crateImg = this.add.image(this.spots.crate.x, this.spots.crate.y, TEX.crate).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.crateImg);
     this.crateFx = this.add.graphics().setDepth(Z.angler - 0.1);
+    // The skipping stones (slice 26): where the place has them (Quiet Lake), flat grey pebbles on the shore.
+    this.stonesImg = this.spots.stones ? this.add.image(this.spots.stones.x, this.spots.stones.y, TEX.stones).setOrigin(0, 0).setDepth(Z.angler - 0.25) : null;
+    if (this.stonesImg) this.worldImgs.push(this.stonesImg);
     this.signImg = this.add.image(this.spots.sign.x, this.spots.sign.y, ensureSignTexture(this, this.signLook())).setOrigin(0.5, 1).setDepth(Z.angler - 0.2);
     this.worldImgs.push(this.signImg);
     this.trophyImg = this.add.image(this.spots.trophy.x, this.spots.trophy.y, ensureTrophyBoardTexture(this, [])).setOrigin(0.5, 1).setDepth(Z.angler - 0.2).setVisible(false);
@@ -2439,6 +2653,7 @@ export class LakeScene extends Phaser.Scene {
       const scale = r.big ? 2 : 1;
       pixelEllipse(g, r.x, r.y, (4 + t * 15) * scale, (1.5 + t * 5) * scale, tintFx(PAL.foam), (1 - t) * 0.9);
     }
+    this.drawPebble(g, tintFx);
 
     const s = this.state;
     const bobber = this.bobberPosition();
@@ -2655,8 +2870,9 @@ export class LakeScene extends Phaser.Scene {
       sign: { x: this.spots.sign.x - SIGN_SIZE.w / 2 + SIGN_GLINT.x, y: this.spots.sign.y - SIGN_SIZE.h + SIGN_GLINT.y },
       dog: { x: dog.x + 6, y: dog.y - DOG_SIZE.h - 2 },
       crate: null, // the crate has its own, constant twinkle (drawCrate)
+      stones: this.spots.stones ? { x: this.spots.stones.x + STONES_SIZE.w - 6, y: this.spots.stones.y + 2 } : null,
     };
-    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed' });
+    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed', stones: this.spots.stones !== undefined });
     if (live.includes('car')) this.drawCarCue(g);
     for (const id of live) {
       const k = glintPhase(this.elapsed, GLINTS.indexOf(id));

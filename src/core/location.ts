@@ -44,6 +44,8 @@ export interface Spots {
   crate: Point;
   trophy: Point;
   lantern: Point;
+  /** Top-left of the skipping stones on the near shore (slice 26); a place without them (the River bend) omits it. */
+  stones?: Point;
   camp: { tent: Point; pole: Point; fire: Point; bed: Point; sock: Point };
   /** The fetch lawn of the companions. */
   playArea: PlayArea;

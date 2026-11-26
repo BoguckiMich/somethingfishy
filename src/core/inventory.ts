@@ -71,6 +71,14 @@ export interface PlayerState {
   camp?: string[];
   /** Where she is (slice 25a): a Location id; missing = Quiet Lake. Read with placeOf() (core/place.ts). */
   place?: string;
+  /** The Stick Museum (slice 26): ids of core/data/sticks in the order found, the fetch rounds finished, and how many sticks were found on which real date (the daily cap). Read with sticksOf() / fetchRoundsOf(). */
+  sticks?: string[];
+  fetchRounds?: number;
+  stickDay?: string;
+  stickDayN?: number;
+  /** Pebble skipping (slice 26): the best skips of one throw, and the real date Pajkel last said his record line. Read with skipsBestOf(). */
+  skipsBest?: number;
+  skipsLineDay?: string;
 }
 
 export function newPlayer(): PlayerState {
