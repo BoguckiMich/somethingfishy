@@ -1806,7 +1806,7 @@ export class LakeScene extends Phaser.Scene {
     const onClose = () => (this.panel = null);
     this.panel =
       kind === 'bag' ? openBagPanel(store, onClose, () => { this.panel?.close(); this.openPlayerPanel('shop'); })
-      : kind === 'shop' ? openShopPanel(store, onClose)
+      : kind === 'shop' ? openShopPanel(store, onClose, undefined, this.loc)
       : kind === 'bait' ? openBaitPicker(store, onClose)
       : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
       : openLogPanel(() => this.player.log, onClose, startWith, { sticks: () => this.player.sticks ?? [], placeId: this.loc.id, startTab: tab });

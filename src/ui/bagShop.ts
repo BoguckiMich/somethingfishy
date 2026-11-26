@@ -6,6 +6,9 @@ import type { Sprite } from '../art/pixelGrid';
 import { SHOP_BAITS } from '../core/data/baits';
 import { speciesById } from '../core/data/fish';
 import { SHOP } from '../core/data/shop';
+import { sold } from '../core/data/shopStock';
+import { QUIET_LAKE } from '../core/data/locations';
+import type { Location } from '../core/location';
 import { bagTier } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
@@ -275,7 +278,8 @@ export function shopTab(label: string, active: boolean, onPick: () => void): HTM
 }
 
 /** The shop: Sell and Buy tabs (opens on Sell when the bag has fish, else Buy; `startTab` forces one). */
-export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?: 'sell' | 'buy'): PanelHandle {
+export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?: 'sell' | 'buy', place: Location = QUIET_LAKE): PanelHandle {
+  const stock = place.shop;
   let ownerNote = '';
   let tab: 'sell' | 'buy' = startTab ?? shopStartTab(store.get());
   const apply = (r: Outcome, boughtId?: string) => {
@@ -283,7 +287,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
     if (r.ok && boughtId) popId = boughtId;
   };
   const panel: PanelHandle = openPanel(
-    'Shop',
+    `Shop · ${place.name}`,
     (body, pinned) => {
       // Soft-lock guard: runs every time the shop is (re)drawn.
       const guard = freeWormsIfStuck(store.get());
@@ -348,14 +352,14 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
           effect: `${SHOP.wormPackSize} worms for bait`,
           coins: p.coins,
           buy: () => {
-            apply(buyWorms(store.get()), 'worms');
+            apply(buyWorms(store.get(), stock), 'worms');
             panel.refresh();
           },
         }),
       );
 
       // The special baits (slice 15c), packs of 10; glow bait is not sold.
-      for (const bait of SHOP_BAITS) {
+      for (const bait of SHOP_BAITS.filter((b) => sold(stock, b.id))) {
         const pack = bait.pack!;
         body.append(
           itemCard({
@@ -365,7 +369,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
             effect: `${pack.size} per pack. ${bait.effect}`,
             coins: p.coins,
             buy: () => {
-              apply(buyBait(store.get(), bait.id), bait.id);
+              apply(buyBait(store.get(), bait.id, stock), bait.id);
               panel.refresh();
             },
           }),
@@ -382,10 +386,11 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
         ...(hasNightKit(p) ? [tackleEntry(NIGHT_KIT, '')] : []),
       );
 
-      body.append(sectionTitle('Upgrades'));
+      body.append(sectionTitle(stock.gear.length > 0 ? 'Upgrades' : 'River gear'));
+      if (stock.gear.length === 0) body.append(emptyNote(stock.gearEmpty ?? 'Nothing for sale here yet.'));
       const rod = nextRod(p);
       const gateOf = (id: string) => (gearUnlocked(id, p) ? undefined : gateText(id, p));
-      body.append(
+      if (stock.gear.length > 0) body.append(
         rod
           ? itemCard({
               gate: gateOf(rod.id),
@@ -395,7 +400,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
               effect: rodEffect(rodNow, rod),
               coins: p.coins,
               buy: () => {
-                apply(buyRod(store.get()), rod.id);
+                apply(buyRod(store.get(), stock), rod.id);
                 panel.refresh();
               },
             })
@@ -409,19 +414,19 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
       );
       const line = nextLine(p);
       const reel = nextReel(p);
-      const lineCard = tackleCard(equippedLine(p), line, p.coins, () => {
-        apply(buyLine(store.get()), line?.id);
+      const lineCard = !line || sold(stock, line.id) ? tackleCard(equippedLine(p), line, p.coins, () => {
+        apply(buyLine(store.get(), stock), line?.id);
         panel.refresh();
-      }, line ? gateOf(line.id) : undefined);
-      const reelCard = tackleCard(equippedReel(p), reel, p.coins, () => {
-        apply(buyReel(store.get()), reel?.id);
+      }, line ? gateOf(line.id) : undefined) : undefined;
+      const reelCard = !reel || sold(stock, reel.id) ? tackleCard(equippedReel(p), reel, p.coins, () => {
+        apply(buyReel(store.get(), stock), reel?.id);
         panel.refresh();
-      }, reel ? gateOf(reel.id) : undefined);
+      }, reel ? gateOf(reel.id) : undefined) : undefined;
       if (lineCard) body.append(lineCard);
       if (reelCard) body.append(reelCard);
 
       // The night kit (slice 16): always shown; locked until the fiberglass rod (or better) is owned.
-      body.append(
+      if (sold(stock, NIGHT_KIT.id)) body.append(
         hasNightKit(p)
           ? itemCard({ id: NIGHT_KIT.id, name: NIGHT_KIT.name, note: 'Owned', effect: NIGHT_KIT.effect, coins: p.coins })
           : itemCard({
@@ -432,15 +437,15 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
               coins: p.coins,
               locked: nightKitForSale(p) ? undefined : `Needs the ${RODS.find((r) => r.id === NIGHT_KIT.needsRodId)?.name ?? 'Fiberglass Rod'}`,
               buy: () => {
-                apply(buyNightKit(store.get()), NIGHT_KIT.id);
+                apply(buyNightKit(store.get(), stock), NIGHT_KIT.id);
                 panel.refresh();
               },
             }),
       );
 
       // The camp (slice 23e): small things for the grass by the car, mostly cosmetic; each is bought once.
-      body.append(sectionTitle('Camp'));
-      for (const item of CAMP_ITEMS) {
+      if (stock.camp.length > 0) body.append(sectionTitle('Camp'));
+      for (const item of CAMP_ITEMS.filter((c) => sold(stock, c.id))) {
         body.append(
           hasCamp(p, item.id)
             ? itemCard({ id: item.id, name: item.name, note: 'Owned', effect: item.effect, coins: p.coins })
@@ -451,7 +456,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
                 effect: item.effect,
                 coins: p.coins,
                 buy: () => {
-                  apply(buyCampItem(store.get(), item.id), item.id);
+                  apply(buyCampItem(store.get(), item.id, stock), item.id);
                   panel.refresh();
                 },
               }),

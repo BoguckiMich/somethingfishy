@@ -1,5 +1,6 @@
 import type { CompanionSpots, Location } from '../location';
 import { POOL_SPECIES } from './fish';
+import { QUIET_LAKE_STOCK, RIVER_BEND_STOCK } from './shopStock';
 
 /** Every fish that bites at the lake with the plain weight (the trophies and the legendary are rolled apart, see `specials`). */
 const LAKE_FISH: Record<string, number> = Object.fromEntries(POOL_SPECIES.map((s) => [s.id, 1]));
@@ -54,6 +55,7 @@ export const QUIET_LAKE: Location = {
   momentsId: 'lake',
   checklistId: 'quiet-lake',
   storyPlaceId: 'quiet-lake',
+  shop: QUIET_LAKE_STOCK,
 };
 
 /**
@@ -81,6 +83,7 @@ export const RIVER_BEND: Location = {
   momentsId: null,
   checklistId: null,
   storyPlaceId: null,
+  shop: RIVER_BEND_STOCK,
 };
 
 export const LOCATIONS: readonly Location[] = [QUIET_LAKE, RIVER_BEND];
