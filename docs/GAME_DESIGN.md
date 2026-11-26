@@ -1021,6 +1021,44 @@ one waits for its milestone. Slice 24; the journal counts seven chapters ("Chapt
 | Q6 | carbon rod owned | `rodId` |
 | Q7 | 5 of 6 checklist bundles done | checklist state |
 
+### Week of 2026-11-26: decisions (grill with the user)
+
+Order of work: shore fiddles + Stick Museum → A2 balance + economy sim → A3 words → A3 fight/screen
+feedback + sign/tap fixes → camp life and sound → M2 groundwork. Each item gets a casual-mobile-gamer
+tester agent before it is merged.
+
+**Shore fiddles + Stick Museum (pitch #1, `docs/review/11-new-features-story-pitch.md`)**
+- Pebble skipping: a 3-stone cluster on the near shore left of the dock. A swipe that starts on the stones
+  throws a pebble, a plain tap throws a medium one; flick speed gives 1-5 skips (rings on the water,
+  "4 skips!"). Works while idle or waiting, never in a fight; a bite always wins; a press on the stones never
+  charges a cast and never scares fish.
+- Reward: only a best-skips record, and a Pajkel line the first time the record is beaten on a real day. No coins.
+- Fetch on demand: petting stays on Bestia; a tap on the stick lying on the grass starts a fetch round at once.
+- Stick Museum: the first fetch round brings a named stick, then one every 3rd round, at most 2 per real
+  day; 10 sticks at Quiet Lake (a few more kept for River bend). Deadpan one-line reviews. A "Sticks" tab in
+  the Log; with Bestia's bed owned, a bed tap opens it too. `PlayerState.sticks?: string[]`.
+
+**Balance (review A2, all accepted)**
+- Economy: a bot sim first (is the "whole shop in ~85 min" real?), target the whole shop at no less than
+  ~6 h of play over ~5 real days. Levers in order: a 2-minute cooldown between naps (never an energy bar),
+  deep-night prices ~15 % lower, then camp prices x1.5 if still fast. The sim also measures fresh save → all
+  six bundles (a tester did every quest in one day); M1's goal is ~4 real days.
+- Perfect catch: ~300 ms total grace outside the green zone; aim 15-25 % perfect for a skilled player on top gear.
+- Gear gates by bundle: carbon rod after "The Bottom of Things", fluoro line + pro reel after "Night Shift".
+- Corn 15-20 coins per 10 with the unused calm effect; maggots 0.6 → 0.45; dawn added to the Dawn Chorus
+  fish; asp exempt from the shallow difficulty cap; sunny weather really changes bites; fog visible all hour.
+
+**A3 + M2 (accepted)**
+- Remove the top-right notice-board button; the shore sign must then be reliable: it works while the bobber
+  is out (today `tapSign` silently ignores anything but idle), its tap box is generous, and a mouse click
+  never turns into a cast.
+- Rod flick on shore taps: a press on a shore object (car, sign, crate, chair, board, stones) does not start
+  the charge at once; the charge starts only if the press is held past a delay (~350 ms) or the finger leaves
+  the object, so a tap never moves the rod.
+- Render scale capped at 3x. River current: no forced auto reel-in, fights get a pattern instead of one-sided
+  drift, Ferry Pike band 18-26 m (design docs only this week).
+- Later: "DS4" stays, Bag into Shop, bedtime dim mode, the "— P." personal notes.
+
 
 ## 6. Workflow
 
