@@ -151,7 +151,7 @@ Ferry pike 10 -> 8 / 24 -> 12 / 93 -> 77 dry (rain 2 / 3 / 48), Lantern 24 -> 19
 
 **2. Mean seconds to the first bite** (carbon rod, day, 400 seeded casts per cell, 25 ms ticks; `-t "river bite timing"`):
 
-| band (cast) | Quiet Lake | river, bobber stays at the landing | river, settled in the eddy | river, real run (runS 30) | river, runS 12 (flow 1 / rain 1.6) |
+| band (cast) | Quiet Lake | river, bobber stays at the landing | river, settled in the eddy | river, real run (runS 30; now 15) | river, runS 12 (flow 1 / rain 1.6) |
 |---|---|---|---|---|---|
 | riffle 6 m | 6.7 | 6.7 | 16.6 | 6.7 | 6.7 / 7.2 |
 | seam 20 m | 8.1 | 4.9 | 16.5 | 4.9 | 4.9 / 4.9 |

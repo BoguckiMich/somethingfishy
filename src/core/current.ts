@@ -27,7 +27,7 @@ export const EASE_FROM = 0.7;
 
 /** The river's numbers (data/locations.ts points the River bend at this). */
 export const RIVER_CURRENT: RiverCurrent = {
-  runS: 30,
+  runS: 15,
   seamBandId: 'seam',
   seamBiteMul: 1.35,
   eddyBiteMul: 0.4,
