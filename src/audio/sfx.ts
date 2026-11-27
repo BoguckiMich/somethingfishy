@@ -25,6 +25,7 @@ export const SFX_NAMES = [
   'sleepyBoof',
   'trophy',
   'medal',
+  'creak',
 ] as const;
 export type SfxName = (typeof SFX_NAMES)[number];
 
@@ -152,6 +153,13 @@ const PLAYERS: Record<SfxName, Player> = {
     tone(g, out, t, { type: 'sine', f0: 140 * v.pitch, f1: 62 * v.pitch, dur: 0.16, attack: 0.006, peak: 0.42 * v.volume });
     burst(g, out, t, { filter: 'lowpass', f0: 520 * v.pitch, f1: 200, q: 0.7, dur: 0.1, attack: 0.005, peak: 0.22 * v.volume });
     tone(g, out, t, { type: 'triangle', f0: 1100 * v.pitch, f1: 800 * v.pitch, at: 0.07, dur: 0.035, attack: 0.004, peak: 0.07 * v.volume });
+  },
+  // The ferry rope creaking by itself (slice 25f): a low, slow sawtooth groan that wavers, with a dry rasp of rubbing fibres on top.
+  creak: (g, out, t, v) => {
+    tone(g, out, t, { type: 'sawtooth', f0: 96 * v.pitch, f1: 132 * v.pitch, dur: 0.9, attack: 0.18, peak: 0.07 * v.volume });
+    tone(g, out, t, { type: 'sawtooth', f0: 132 * v.pitch, f1: 88 * v.pitch, at: 0.85, dur: 0.8, attack: 0.12, peak: 0.06 * v.volume });
+    tone(g, out, t, { type: 'triangle', f0: 205 * v.pitch, f1: 250 * v.pitch, at: 0.3, dur: 0.7, attack: 0.2, peak: 0.03 * v.volume });
+    burst(g, out, t, { filter: 'bandpass', f0: 1150 * v.pitch, f1: 700, q: 6, dur: 1.6, attack: 0.3, peak: 0.05 * v.volume });
   },
   // A dog's boof in her sleep: lower, softer and slower than the awake one, with a sigh of breath.
   sleepyBoof: (g, out, t, v) => {

@@ -14,7 +14,7 @@ import { seededRng } from './random';
 const TICK = 16;
 const MAX_MS = 90_000;
 const GEARS: [string, BarGear][] = RODS.map((r) => [r.id, r.barGear]);
-const TROPHIES = ['goldenTench', 'mossback', 'silverGhost'];
+const TROPHIES = ['goldenTench', 'mossback', 'silverGhost', 'lantern', 'barbelKing', 'ferryPike'];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 const profileFor = (id: string, seed: number): FishProfile => {
   const sp = speciesById(id)!;
@@ -96,7 +96,7 @@ describe('trophy fights are never won by doing nothing', () => {
   it('a good player wins a fair share on the rod that reaches it, and a sloppy one wins clearly less', () => {
     // measured on the rod used here: golden tench (fiberglass) good 0.72 / sloppy 0.07, Old Mossback (carbon) 0.93 / 0.71,
     // silver ghost (bamboo) 0.56 / 0.01
-    const rodFor: Record<string, number> = { goldenTench: 1, mossback: 2, silverGhost: 0 };
+    const rodFor: Record<string, number> = { goldenTench: 1, mossback: 2, silverGhost: 0, lantern: 0, barbelKing: 2, ferryPike: 1 };
     for (const id of TROPHIES) {
       const gear = GEARS[rodFor[id]][1];
       const good = share(id, gear, { delayMs: 150, noise: 0 });

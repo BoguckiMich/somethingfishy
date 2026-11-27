@@ -78,7 +78,7 @@ describe('River bend (placeholder)', () => {
 
   it('only has species that exist, with no trophies or legendary', () => {
     for (const id of Object.keys(RIVER_BEND.fishPool.species)) expect(POOL_SPECIES.map((s) => s.id)).toContain(id);
-    expect(RIVER_BEND.fishPool.specials).toBe(false);
+    expect(RIVER_BEND.fishPool.specials).toBe(true); // the river's own trophies and the Ferryman, picked by the place id (slice 25f)
     expect(RIVER_BEND.momentsId).toBe('river');
     expect(RIVER_BEND.checklistId).toBe('river-bend');
     expect(RIVER_BEND.storyPlaceId).toBe('river-bend');
@@ -90,7 +90,7 @@ describe('River bend (placeholder)', () => {
       const rng = mulberry32(seed);
       const zone = seed % 2 ? 'deep' : 'shallow';
       const time = (['dawn', 'day', 'dusk', 'night'] as const)[seed % 4];
-      const hooked = rollHookedFish(zone, time, rng, undefined, { distanceM: 30, minute: 23 * 60 }, undefined, undefined, weatherEffects('fog', 23 * 60), RIVER_BEND.fishPool);
+      const hooked = rollHookedFish(zone, time, rng, undefined, { placeId: 'river-bend', bandId: 'pool', distanceM: 30, minute: 23 * 60 }, undefined, undefined, weatherEffects('fog', 23 * 60), RIVER_BEND.fishPool);
       expect(allowed).toContain(hooked.speciesId);
       expect(['pale', 'goldenTench', 'mossback', 'silverGhost']).not.toContain(hooked.speciesId);
     }

@@ -87,6 +87,9 @@ export function weightG(species: Species, lengthCm: number): number {
 
 /** Where and when the bobber landed; the legendary rule needs it (the zone and time of day are not enough). */
 export interface CastPlace {
+  /** The place's id and the id of the band the bobber landed in (slice 25f: the river's trophies and the Ferryman are written against them); missing = Quiet Lake. */
+  placeId?: string;
+  bandId?: string;
   distanceM: number;
   /** Minute of the in-game day. */
   minute: number;
@@ -94,12 +97,12 @@ export interface CastPlace {
 
 /** Picks the species (or the forced one) and rolls its size. A legendary or a trophy (slice 23d) may replace the normal pick. */
 export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects, fishPool?: FishPool): HookedFish {
-  // The trophies and the legendary are the lake's: a place whose pool has no `specials` never rolls them.
+  // The trophies and the legendary: a place whose pool has no `specials` never rolls them (each place's own are picked by its id in the rules).
   const specials = !fishPool || fishPool.specials;
   const species =
     (forcedId ? speciesById(forcedId) : undefined) ??
-    (place && specials ? rollLegendary(place.distanceM, place.minute, rng) : undefined) ??
-    (place && specials ? rollRare({ zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
+    (place && specials ? rollLegendary(place.distanceM, place.minute, rng, place.placeId, place.bandId) : undefined) ??
+    (place && specials ? rollRare({ placeId: place.placeId, bandId: place.bandId, zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
     pickSpecies(zone, time, rng, baitId, fotdId, fx, fishPool);
   const lengthCm = rollLength(species, rng, fishPool);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };

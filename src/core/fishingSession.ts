@@ -144,7 +144,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         ctx.timeOfDay(),
         ctx.rng,
         ctx.speciesOverride,
-        ctx.minute ? { distanceM: state.distanceM, minute: ctx.minute() } : undefined,
+        ctx.minute ? { placeId: ctx.location.id, bandId: zoneAt(ctx.location, state.distanceM).id, distanceM: state.distanceM, minute: ctx.minute() } : undefined,
         bait,
         ctx.fotdId?.(),
         fx,

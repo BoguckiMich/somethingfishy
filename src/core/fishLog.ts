@@ -1,7 +1,7 @@
 import type { TimeOfDay } from './clock';
 import { POOL_SPECIES, speciesById, type Species } from './data/fish';
 import { TIER_RANK, isGoldOrBetter, isTier, starFor, tierFor, type Tier } from './data/stars';
-import { PALE_ONE } from './data/legendary';
+import { FERRYMAN, PALE_ONE } from './data/legendary';
 import { RARE_RULES } from './data/rare';
 import type { HookedFish } from './fish';
 import { LOCATIONS, RIVER_BEND } from './data/locations';
@@ -81,9 +81,13 @@ export interface LockedHint {
 const TIME_ICON: Record<TimeOfDay, 'sun' | 'half' | 'moon'> = { dawn: 'half', day: 'sun', dusk: 'half', night: 'moon' };
 const TIME_PHRASE: Record<TimeOfDay, string> = { dawn: 'at dawn', day: 'by day', dusk: 'at dusk', night: 'at night' };
 
-/** The places (by name, in map order) where this species bites; the trophies and the legendary are the lake's. One book, one "where" line per card (slice 25d). */
+/** The place a trophy or a legendary belongs to (the lake's three and the Pale One, the river's three and the Ferryman). */
+const homeOf = (species: Species): string =>
+  (species.rarity === 'trophy' ? RARE_RULES.find((r) => r.speciesId === species.id)?.placeId : species.id === FERRYMAN.speciesId ? FERRYMAN.placeId : undefined) ?? 'quiet-lake';
+
+/** The places (by name, in map order) where this species bites; each trophy and legendary belongs to one place. One book, one "where" line per card (slice 25d). */
 export function placesOf(species: Species): string[] {
-  if (species.rarity === 'legendary' || species.rarity === 'trophy') return ['Quiet Lake'];
+  if (species.rarity === 'legendary' || species.rarity === 'trophy') return [LOCATIONS.find((l) => l.id === homeOf(species))?.name ?? 'Quiet Lake'];
   return LOCATIONS.filter((l) => livesAt(l, species.id)).map((l) => l.name);
 }
 
@@ -125,6 +129,7 @@ export function lockedHint(species: Species): LockedHint {
 
 /** "Shallow water · day", "Deep water · dusk, night", "Deep water · any time". */
 export function whereWhen(species: Species): string {
+  if (species.id === FERRYMAN.speciesId) return `Deep pool, ${FERRYMAN.minDistanceM} m or more · dusk`;
   if (species.rarity === 'legendary') {
     const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
     return `Deep water, ${PALE_ONE.minDistanceM} m or more · ${hh(PALE_ONE.fromHour)} to ${hh(PALE_ONE.toHour)}`;

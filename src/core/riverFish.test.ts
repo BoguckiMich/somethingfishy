@@ -197,8 +197,8 @@ describe('daily quests and the fish of the day follow the place', () => {
 });
 
 describe('the fish log is one book', () => {
-  it('counts the river species too (25 in all) and each species names its places', () => {
-    expect(SPECIES).toHaveLength(25);
+  it('counts the river species too (29 in all) and each species names its places', () => {
+    expect(SPECIES).toHaveLength(29);
     expect(SPECIES.filter((s) => s.rarity !== 'legendary' && s.rarity !== 'trophy')).toHaveLength(21);
     for (const id of RIVER_IDS) expect(wherePlaces(speciesById(id)!), id).toBe('River bend');
     for (const id of SHARED) expect(placesOf(speciesById(id)!)).toEqual(['Quiet Lake', 'River bend']);
@@ -209,6 +209,7 @@ describe('the fish log is one book', () => {
     expect(placesOf(speciesById('carp')!)).toEqual(['Quiet Lake']);
     expect(placesOf(speciesById('mossback')!)).toEqual(['Quiet Lake']);
     expect(placesOf(speciesById('pale')!)).toEqual(['Quiet Lake']);
+    for (const id of ['lantern', 'barbelKing', 'ferryPike', 'ferryman']) expect(placesOf(speciesById(id)!), id).toEqual(['River bend']);
   });
 
   it('a river species says its bands, and shared and lake species keep their old text', () => {

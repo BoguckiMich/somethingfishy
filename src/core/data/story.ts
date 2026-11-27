@@ -67,6 +67,7 @@ export const STORY_LINES: Record<string, string> = {
   r4a: 'Is that... OUR duck? It followed us?',
   r4b: 'Fine. Duck is family now. Duck, sit.',
   r6: "Road to the quarry. I'm driving!",
+  ferryman: 'It nodded. At you. A fish nodded at you.',
 };
 
 export const CHAPTERS: Record<string, readonly ChapterDef[]> = {
@@ -133,6 +134,13 @@ export const PALE_BEAT = {
   after: ['pale'],
 } as const;
 
+/** The Ferryman bonus beat (slice 25f, STORY.md section 3): the card shown the first time it is let go, and Pajkel's line. */
+export const FERRYMAN_BEAT = {
+  title: 'The Ferryman',
+  lines: ["It's as old as it looks.", 'On its back, a barnacle shaped like a W.', 'It nods, and swims on.'],
+  after: ['ferryman'],
+} as const;
+
 /** The icons of the journal (slice 22d): a picture per way a chapter is told. */
 export type JournalIcon = 'bottle' | 'duck' | 'star' | 'prints' | 'car' | 'pale' | 'stick' | 'hut' | 'key';
 
@@ -179,6 +187,12 @@ export const JOURNAL_PALE: JournalDef = {
   by: 'alex',
   text: 'It slipped back into the dark. For a moment it looked at you. Then you forgot why.',
   thought: 'I caught it. I think. Why is it so hard to remember?',
+};
+export const JOURNAL_FERRYMAN: JournalDef = {
+  icon: 'pale',
+  by: 'alex',
+  text: "It's as old as it looks. On its back, a barnacle shaped like a W. It nodded, and swam on.",
+  thought: 'W. said to be polite. I was. It nodded.',
 };
 /** The journal counts the seven chapters Q1-Q7 (the Pale One and the road-fixed pages are bonuses). */
 export const JOURNAL_TOTAL = 7;

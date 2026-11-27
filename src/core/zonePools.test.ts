@@ -58,7 +58,7 @@ describe('per-zone fish pools (M2 groundwork A)', () => {
       const d = (z.fromM + z.toM) / 2;
       const pool = poolAt(RIVER_BEND, d);
       expect(zoneAt(RIVER_BEND, d)).toBe(z);
-      expect(pool.specials).toBe(false);
+      expect(pool.specials).toBe(true);
       for (const id of Object.keys(pool.species)) expect(Object.keys(RIVER_BEND.fishPool.species), `${z.id} ${id}`).toContain(id);
       for (const t of TIMES) {
         for (let seed = 1; seed <= 60; seed++) {

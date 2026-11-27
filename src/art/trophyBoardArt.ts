@@ -9,6 +9,10 @@ import { sprite, TRANSPARENT, type Sprite } from './pixelGrid';
 export const TROPHY_BOARD_SIZE = { w: 40, h: 34 };
 /** The slot order on the board (left to right, top to bottom). */
 export const TROPHY_SLOT_IDS: readonly string[] = ['goldenTench', 'mossback', 'silverGhost', 'pale'];
+/** The River bend's board (slice 25f): the same board, its own four slots (the three trophies, then the Ferryman). */
+export const RIVER_SLOT_IDS: readonly string[] = ['lantern', 'barbelKing', 'ferryPike', 'ferryman'];
+/** The slot order of a set of mounted fish: the river's when any of them is the river's, else the lake's. */
+export const slotsFor = (mounted: readonly string[]): readonly string[] => (mounted.some((id) => RIVER_SLOT_IDS.includes(id)) ? RIVER_SLOT_IDS : TROPHY_SLOT_IDS);
 const SLOT = { w: 17, h: 9, gap: 1, x0: 3, y0: 3 };
 const FISH_W = 15;
 
@@ -37,7 +41,7 @@ export function trophyBoardSprite(mounted: readonly string[]): Sprite {
   const put = (x: number, y: number, c: number) => {
     if (x >= 0 && y >= 0 && x < base.width && y < base.height) px[y * base.width + x] = c;
   };
-  TROPHY_SLOT_IDS.forEach((id, i) => {
+  slotsFor(mounted).forEach((id, i) => {
     const { x, y } = slotXY(i);
     // The slot: a dark recess (the shelf), lighter once something hangs in it.
     const has = mounted.includes(id);
@@ -63,4 +67,4 @@ export function trophyBoardSprite(mounted: readonly string[]): Sprite {
 }
 
 /** Texture key of the board for a set of mounted fish (the same set always gives the same key). */
-export const trophyBoardKey = (mounted: readonly string[]): string => `trophyboard:${TROPHY_SLOT_IDS.filter((id) => mounted.includes(id)).join('+') || 'none'}`;
+export const trophyBoardKey = (mounted: readonly string[]): string => `trophyboard:${slotsFor(mounted).filter((id) => mounted.includes(id)).join('+') || 'none'}`;

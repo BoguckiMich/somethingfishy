@@ -80,7 +80,7 @@ export const RIVER_BEND: Location = {
     { id: 'pool', name: 'Bend pool', fromM: 26, toM: 40, fishZone: 'deep', fishPool: { barbel: 1, chub: 0.3, perch: 0.8, pike: 0.8 }, sizeSkew: { chub: 1 }, times: { perch: ANY_HOURS, pike: ANY_HOURS } },
   ],
   // Which species live here at all (the keys; the weights are the bands' own). The trophies and the legendary of the lake do not.
-  fishPool: { species: { nase: 1, trout: 1, grayling: 1, chub: 1, asp: 1, barbel: 1, vimba: 1, perch: 1, pike: 1 }, specials: false },
+  fishPool: { species: { nase: 1, trout: 1, grayling: 1, chub: 1, asp: 1, barbel: 1, vimba: 1, perch: 1, pike: 1 }, specials: true },
   background: 'river',
   // The river art (25b) kept the lake's near shore: landing, car, camp and the grass lawn stand where they did, so the companions walk the
   // same ground. What differs: no skipping stones (the left gravel bar is the river's own), so no pebble outing (`shore: null`). A test

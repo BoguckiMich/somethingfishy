@@ -320,7 +320,7 @@ describe('personalities', () => {
   });
 
   it('each trophy has its own signature move', () => {
-    expect(Object.keys(SIGNATURE_MOVES).sort()).toEqual(['goldenTench', 'mossback', 'silverGhost']);
+    expect(Object.keys(SIGNATURE_MOVES).sort()).toEqual(['barbelKing', 'ferryPike', 'goldenTench', 'lantern', 'mossback', 'silverGhost']);
     const seen = (speciesId: string, want: (s: LineFightState) => boolean) => {
       const rng = seededRng(31);
       const fish: FishProfile = { pattern: 'darting', difficulty: 0.8, slipAfterMs: 2500 };
@@ -334,6 +334,9 @@ describe('personalities', () => {
     expect(seen('silverGhost', (s) => s.phase === 'hush')).toBe(true); // the feint goes limp
     expect(seen('goldenTench', (s) => s.chain > 0)).toBe(true); // two surges back to back
     expect(seen('mossback', (s) => s.phase === 'warn' && s.phaseTotal >= 0.85)).toBe(true); // the long warning of the dive
+    expect(seen('ferryPike', (s) => s.phase === 'hush')).toBe(true); // the river's: the pike hangs limp under the rope
+    expect(seen('lantern', (s) => s.chain > 0)).toBe(true);
+    expect(seen('barbelKing', (s) => s.phase === 'warn' && s.phaseTotal >= 0.85)).toBe(true);
     expect(seen('roach', (s) => s.phase === 'hush' || s.chain > 0)).toBe(false);
   });
 });

@@ -5,9 +5,11 @@ import {
   BLINK_DAY_LINES,
   BLINK_NIGHT_LINES,
   CHAPTERS,
+  FERRYMAN_BEAT,
   JOURNAL,
   JOURNAL_BLINK_DAY,
   JOURNAL_BLINK_NIGHT,
+  JOURNAL_FERRYMAN,
   JOURNAL_PALE,
   JOURNAL_Q7_LATE,
   PALE_BEAT,
@@ -39,6 +41,9 @@ export interface StoryState {
   pale: boolean;
   /** The date the Pale One card was shown (the journal's order); older saves have none. */
   paleOn?: string;
+  /** The Ferryman bonus card was shown (slice 25f), and the date (the journal's order). */
+  ferryman?: true;
+  ferrymanOn?: string;
   /** Q4 was told as the night blink (the journal's version); missing = the day bottle. */
   blinkNight?: boolean;
   /** The night blink was shown later, as a bonus, after Q4 was told by day (blinkNight is then true too). */
@@ -250,6 +255,15 @@ export function markPaleSeen(s: StoryState, today?: string): StoryState {
   return queueLines({ ...s, pale: true, ...(today !== undefined && isValidDate(today) ? { paleOn: today } : {}) }, PALE_BEAT.after);
 }
 
+/** The Ferryman bonus beat has not been shown yet. */
+export const ferrymanBeatDue = (s: StoryState): boolean => s.ferryman !== true;
+
+/** The card was shown: remembered once, and Pajkel's line queued. */
+export function markFerrymanSeen(s: StoryState, today?: string): StoryState {
+  if (s.ferryman) return s;
+  return queueLines({ ...s, ferryman: true, ...(today !== undefined && isValidDate(today) ? { ferrymanOn: today } : {}) }, FERRYMAN_BEAT.after);
+}
+
 /** Anything saved -> a valid StoryState (never throws): unknown chapters, bad dates and unknown lines are dropped. */
 export function normalizeStory(v: unknown): StoryState {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return newStory();
@@ -261,6 +275,10 @@ export function normalizeStory(v: unknown): StoryState {
   const queue = Array.isArray(o.queue) ? o.queue.filter((id): id is string => typeof id === 'string' && has(STORY_LINES, id)) : [];
   const out: StoryState = { done, queue: queue.slice(-STORY_TUNING.queueMax), pale: o.pale === true };
   if (o.pale === true && isValidDate(o.paleOn)) out.paleOn = o.paleOn;
+  if (o.ferryman === true) {
+    out.ferryman = true;
+    if (isValidDate(o.ferrymanOn)) out.ferrymanOn = o.ferrymanOn;
+  }
   if (o.blinkNight === true && has(done, 'Q4')) out.blinkNight = true;
   if (o.blinkLater === true && has(done, 'Q4')) out.blinkLater = true;
   if (o.q7Late === true && has(done, 'Q7')) out.q7Late = true;
@@ -295,6 +313,7 @@ export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[]
     if (def) rows.push({ entry: page(chapter.id, def, def.text ?? chapter.text ?? '', chapter.place), date: s.done[chapter.id], rank });
   });
   if (s.pale) rows.push({ entry: page('pale', JOURNAL_PALE, JOURNAL_PALE.text ?? ''), date: s.paleOn ?? null, rank: ALL.length });
+  if (s.ferryman) rows.push({ entry: page('ferryman', JOURNAL_FERRYMAN, JOURNAL_FERRYMAN.text ?? '', 'river-bend'), date: s.ferrymanOn ?? null, rank: ALL.length + 1 });
   rows.sort((a, b) => {
     if (a.date === null || b.date === null) return a.date === b.date ? a.rank - b.rank : a.date === null ? 1 : -1;
     return a.date < b.date ? -1 : a.date > b.date ? 1 : a.rank - b.rank;
@@ -315,7 +334,7 @@ export function journalGroups(entries: readonly JournalEntry[], current: string)
 }
 
 /** "Chapter n of 7": the chapters seen (the Pale One and the road-fixed pages are bonuses and do not count). */
-export const journalChapterCount = (s: StoryState, roadFixed = false, place = QUIET_PLACE): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale' && e.id !== 'Q8' && e.place === place).length;
+export const journalChapterCount = (s: StoryState, roadFixed = false, place = QUIET_PLACE): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale' && e.id !== 'ferryman' && e.id !== 'Q8' && e.place === place).length;
 
 /** How many chapters a place tells (the "of 7" and "of 6" of the journal). */
 export const journalTotal = (place: string): number => chaptersOf(place).length;
@@ -330,4 +349,4 @@ export function markJournalLooked(s: StoryState, roadFixed = false): StoryState 
 }
 
 /** Nothing worth saving (a fresh game stores no key). */
-export const storyIsEmpty = (s: StoryState): boolean => Object.keys(s.done).length === 0 && s.queue.length === 0 && !s.pale;
+export const storyIsEmpty = (s: StoryState): boolean => Object.keys(s.done).length === 0 && s.queue.length === 0 && !s.pale && !s.ferryman;
