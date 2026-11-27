@@ -3,7 +3,7 @@
  * (bottle <= 90 characters, bubble <= 40, card lines <= ~38). The rules live in core/story/; the
  * pictures in scenes/StoryView.ts. Chapter and line ids are saved: never rename them.
  *
- * Every place has its own ordered chapter list (only Quiet Lake exists now); the river, the quarry
+ * Every place has its own ordered chapter list (Quiet Lake Q1-Q7, River bend R1-R6 since slice 25e); the quarry
  * and the sea slot in later as more keys of CHAPTERS.
  */
 
@@ -16,7 +16,20 @@ export type ChapterKind =
   /** The star reflection that blinks at night; the same chapter is a bottle by day or when Pajkel is awake. */
   | 'blink'
   /** Wet footprints on the dock (plays on its own). */
-  | 'prints';
+  | 'prints'
+  /** A story card only (River bend R2, R6): it opens when she is calm, and closing it counts as seen. */
+  | 'card'
+  /** A story card, then Bestia's stick floats upstream out of sight (R1; plays on its own after the card). */
+  | 'stick'
+  /** The duck comes round the bend with a worm in its beak (R4; plays on its own). */
+  | 'duckWorm';
+
+/** A chapter's card: a title and 2-4 short lines; with `tagLast` the last line is drawn as a gate tag (R6). */
+export interface ChapterCard {
+  title: string;
+  lines: readonly string[];
+  tagLast?: boolean;
+}
 
 export interface ChapterDef {
   id: string;
@@ -25,6 +38,10 @@ export interface ChapterDef {
   kind: ChapterKind;
   /** The bottle's note (kind bottle; for blink: the day version). */
   text?: string;
+  /** The card (kinds card and stick). */
+  card?: ChapterCard;
+  /** A sealed bottle that drifts slowly upstream instead of floating still (the river's R3). */
+  drift?: true;
   /** Pajkel lines (ids of STORY_LINES) said before the picture appears (queued if he sleeps). */
   before?: readonly string[];
   /** Pajkel lines said after she has seen the chapter (queued; they wait while he sleeps). */
@@ -44,6 +61,12 @@ export const STORY_LINES: Record<string, string> = {
   /** Q7 told after the road was already fixed. */
   q7Road: "Good thing the road's already fixed!",
   pale: 'You caught WHAT? I was asleep?!',
+  // River bend (slice 25e)
+  r1: "...sticks don't do that.",
+  r2: 'Back never, right? Classic W.',
+  r4a: 'Is that... OUR duck? It followed us?',
+  r4b: 'Fine. Duck is family now. Duck, sit.',
+  r6: "Road to the quarry. I'm driving!",
 };
 
 export const CHAPTERS: Record<string, readonly ChapterDef[]> = {
@@ -63,6 +86,40 @@ export const CHAPTERS: Record<string, readonly ChapterDef[]> = {
     { id: 'Q6', place: 'quiet-lake', kind: 'bottle', text: 'I caught the pale one once. I think. I wrote it down so I would remember. — W.', after: ['q6'] },
     { id: 'Q7', place: 'quiet-lake', kind: 'bottle', text: "This lake isn't a lake. It's a doorstep. The river knows more. Follow the bottles. — W.", after: ['q7'] },
   ],
+  // River bend (slice 25e): texts from STORY.md section 3, triggers from RIVER_BEND.md decision 6 (see storyMilestones).
+  'river-bend': [
+    {
+      id: 'R1',
+      place: 'river-bend',
+      kind: 'stick',
+      card: { title: 'Arrival', lines: ['River bend.', 'The water here is in a hurry.', 'Mostly in one direction.'] },
+      after: ['r1'],
+    },
+    {
+      id: 'R2',
+      place: 'river-bend',
+      kind: 'card',
+      card: { title: 'River bend', lines: ['An old hut by the bend.', 'Sign: W. - FERRY & BAIT.', 'Below it: GONE FISHING.', 'The kettle inside is still warm.'] },
+      after: ['r2'],
+    },
+    {
+      id: 'R3',
+      place: 'river-bend',
+      kind: 'bottle',
+      drift: true,
+      text: 'I ran the ferry for people. The Ferryman runs it for everything else. Be polite. — W.',
+      after: [],
+    },
+    { id: 'R4', place: 'river-bend', kind: 'duckWorm', after: ['r4a', 'r4b'] },
+    { id: 'R5', place: 'river-bend', kind: 'bottle', text: "Odd fish aren't really fish. They're dreams that swam too far from the one dreaming. — W.", after: [] },
+    {
+      id: 'R6',
+      place: 'river-bend',
+      kind: 'card',
+      card: { title: 'River bend', lines: ['In the hut, a hook for a key.', 'The key is gone.', 'The tag is still there:', 'OLD QUARRY - GATE.'], tagLast: true },
+      after: ['r6'],
+    },
+  ],
 };
 
 /** The night version of Q4 has its own line: Pajkel was asleep in the car. The day version has none. */
@@ -77,7 +134,7 @@ export const PALE_BEAT = {
 } as const;
 
 /** The icons of the journal (slice 22d): a picture per way a chapter is told. */
-export type JournalIcon = 'bottle' | 'duck' | 'star' | 'prints' | 'car' | 'pale';
+export type JournalIcon = 'bottle' | 'duck' | 'star' | 'prints' | 'car' | 'pale' | 'stick' | 'hut' | 'key';
 
 /** Who thinks the thought: Alex is the player, Pajkel the companion. */
 export type Thinker = 'alex' | 'paj';
@@ -100,6 +157,13 @@ export const JOURNAL: Record<string, JournalDef> = {
   Q6: { icon: 'bottle', by: 'alex', thought: 'How do you forget catching something like that?' },
   Q7: { icon: 'bottle', by: 'paj', thought: "A doorstep to what? I'm fixing the road anyway." },
   Q8: { icon: 'car', by: 'paj', text: 'The road to the river is open. The car is packed, stick and all.', thought: 'Car packed. Stick packed. Duck not invited.' },
+  // River bend (slice 25e)
+  R1: { icon: 'stick', by: 'alex', text: "{dog}'s stick floated upstream, slowly, and out of sight.", thought: 'The water is in a hurry. Mostly one way. Mostly.' },
+  R2: { icon: 'hut', by: 'alex', text: 'An old hut by the bend. FERRY & BAIT, then GONE FISHING. The kettle is still warm.', thought: 'Still warm. W. must have just left. Or never did.' },
+  R3: { icon: 'bottle', by: 'alex', thought: 'The Ferryman. Be polite. I can do polite.' },
+  R4: { icon: 'duck', by: 'paj', text: 'The duck came round the bend with a worm still in its beak. It followed us.', thought: 'Duck is family now. Nobody tell the duck.' },
+  R5: { icon: 'bottle', by: 'alex', thought: 'Dreams with fins. Someone is missing them.' },
+  R6: { icon: 'key', by: 'paj', text: 'In the hut, a hook for a key. The key is gone. The tag says: OLD QUARRY - GATE.', thought: "A quarry gate and no key. I'll drive anyway." },
 };
 export const JOURNAL_BLINK_NIGHT: JournalDef = {
   icon: 'star',
@@ -126,6 +190,8 @@ export const STORY_TUNING = {
   catchUpPerDay: 3,
   /** The in-game minute from which a visit counts as a night visit (21:00; Q4's milestone). */
   nightFromMinute: 21 * 60,
+  /** R4 (the duck) also fires on this many river catches made after R3, so it never stalls behind a time of day (RIVER_BEND.md decision 6). */
+  r4FallbackCatches: 3,
   /** Q7 comes when this many checklist bundles are done. */
   q7Bundles: 5,
   /** Q4 unlocks without the night flag once this many bundles are done (day-only players get the bottle version). */

@@ -2,11 +2,12 @@ import { FONT, FS, LINE } from '../font';
 import { EN, tr } from '../i18n/en';
 import { fishIconSprite } from '../art/fishArt';
 import { coinSprite } from '../art/iconArt';
-import { CHECKLIST_TITLE, type ChecklistBundle, type ChecklistSlot } from '../core/data/checklist';
+import { checklistFor, type ChecklistBundle, type ChecklistSlot } from '../core/data/checklist';
+import { STICK } from '../art/momentArt';
 import { speciesById } from '../core/data/fish';
 import { bagTier } from '../core/data/stars';
 import {
-  allDone, bundleDone, bundleTotal, canFill, checklistOrder, checklistOf, checklistRewardText, doneCount, firstOpenBundle, giveFish, giveWarning,
+  allDone, bundleDone, totalOf, canFill, checklistOrder, checklistOf, checklistRewardText, doneCount, firstOpenBundle, giveFish, giveWarning,
   payCoins, slotBlockReason, slotFilled, type HandIn,
 } from '../core/checklist/checklist';
 import type { PlayerStore } from './bagShop';
@@ -18,6 +19,8 @@ import { starRow } from './starRow';
 
 /** What the panel needs: the player, today's fish (for the Give warning), and a call when a hand-in finished a bundle (reward toast, all-done card). */
 export interface ChecklistStore extends PlayerStore {
+  /** The place whose checklist this is (a Location id). */
+  place: string;
   onHandIn(result: HandIn, bundle: ChecklistBundle, allFixed: boolean): void;
   /** Today's fish of the day, if any. */
   fotdId?(): string | undefined;
@@ -46,6 +49,20 @@ function slotLook(slot: ChecklistSlot): { pic: HTMLElement; text: string } {
     if (row) pic.append(row);
     pic.style.width = '58px';
     return { pic, text: slot.min === 'gold' ? 'any gold fish' : 'any fish, silver or better' };
+  }
+  if (slot.kind === 'anyOf') {
+    for (const id of slot.ids) pic.append(fishCanvas(fishIconSprite(id), 26, 1));
+    pic.style.width = '54px';
+    return { pic, text: slot.label };
+  }
+  if (slot.kind === 'tag') {
+    if (slot.tag === 'perfect') {
+      const row = starRow('gold', 2);
+      if (row) pic.append(row);
+      pic.style.width = '58px';
+    } else if (slot.tag === 'fetch') pic.append(spriteCanvas(STICK, 30));
+    else pic.append(el('div', `width:22px;height:11px;border-radius:11px 11px 0 0;background:${COLORS.amber};border-bottom:3px solid ${COLORS.dim}`));
+    return { pic, text: tr(slot.label) };
   }
   pic.append(spriteCanvas(coinSprite(), 32));
   return { pic, text: `${slot.amount} coins` };
@@ -156,19 +173,19 @@ export function showRoadFixedCard(onClose: () => void): PanelHandle {
  * finished bundles.
  */
 export function showChecklistPanel(store: ChecklistStore, onClose: () => void): PanelHandle {
-  let open: string | undefined = firstOpenBundle(store.get());
+  let open: string | undefined = firstOpenBundle(store.get(), store.place);
   const panel: PanelHandle = openPanel(
-    CHECKLIST_TITLE,
+    checklistFor(store.place).panelTitle,
     (body) => {
       const p = store.get();
       const act = (r: HandIn, b: ChecklistBundle) => {
         if (!r.ok) return;
         store.set(r.player);
-        store.onHandIn(r, b, allDone(r.player));
-        if (r.finished) open = firstOpenBundle(r.player);
+        store.onHandIn(r, b, allDone(r.player, store.place));
+        if (r.finished) open = firstOpenBundle(r.player, store.place);
         panel.refresh();
       };
-      for (const b of checklistOrder(p)) {
+      for (const b of checklistOrder(p, store.place)) {
         body.append(
           bundleSection(store, b, open === b.id, () => {
             open = open === b.id ? undefined : b.id;
@@ -182,7 +199,7 @@ export function showChecklistPanel(store: ChecklistStore, onClose: () => void): 
     },
     onClose,
     true,
-    () => `Quiet Lake checklist · ${doneCount(store.get())}/${bundleTotal}`,
+    () => `${checklistFor(store.place).id === 'quiet-lake' ? checklistFor(store.place).label : checklistFor(store.place).title} · ${doneCount(store.get(), store.place)}/${totalOf(store.place)}`,
   );
   return panel;
 }

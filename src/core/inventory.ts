@@ -6,6 +6,7 @@ import { NIGHT_KIT } from './data/nightKit';
 import { LINES, REELS } from './data/tackle';
 import { DEEP_NIGHT_PRICE_MULT, RARITY_PRICE_MULT, SHOP } from './data/shop';
 import { inSleepWindow } from './bedtime';
+import { timeOfDay } from './clock';
 import { FOTD_TUNING } from './data/fotd';
 import type { GameEvent } from './events';
 import { sizeShare, type HookedFish } from './fish';
@@ -35,6 +36,18 @@ export interface BagFish {
   price: number;
   /** Caught perfectly (the fish never left the green zone, slice 23f): its tier is one higher. Stored only when true. The price stays by size. */
   perfect?: true;
+  /** Caught at the River bend / at dusk / while Bestia played fetch (slice 25e, the river checklist's story slots). Stored only when true. */
+  river?: true;
+  dusk?: true;
+  fetch?: true;
+}
+
+/** Where and how a fish was caught, for the river checklist (slice 25e). */
+export interface CatchContext {
+  /** The place id she fished at. */
+  place?: string;
+  /** Bestia was playing fetch on the grass at the time. */
+  fetch?: boolean;
 }
 
 export interface PlayerState {
@@ -179,10 +192,19 @@ export function priceFor(species: Species, lengthCm: number): number {
 }
 
 /** A caught fish as a bag entry; today's fish (slice 19) sells for double and a fish caught in deep night (`minute` 02:00-05:00) for 15 % less, both fixed here at catch time. */
-export function toBagFish(hooked: HookedFish, fotdId?: string, perfect = false, minute?: number): BagFish {
+export function toBagFish(hooked: HookedFish, fotdId?: string, perfect = false, minute?: number, ctx?: CatchContext): BagFish {
   const species = speciesById(hooked.speciesId)!;
   const mult = (fotdId && hooked.speciesId === fotdId ? FOTD_TUNING.priceMult : 1) * (minute !== undefined && inSleepWindow(minute) ? DEEP_NIGHT_PRICE_MULT : 1);
-  return { ...hooked, price: Math.round(priceFor(species, hooked.lengthCm) * mult), ...(perfect ? { perfect: true as const } : {}) };
+  // The river checklist's story slots (slice 25e): only a river catch carries the tags.
+  const river = ctx?.place === 'river-bend';
+  return {
+    ...hooked,
+    price: Math.round(priceFor(species, hooked.lengthCm) * mult),
+    ...(perfect ? { perfect: true as const } : {}),
+    ...(river ? { river: true as const } : {}),
+    ...(river && minute !== undefined && timeOfDay(minute) === 'dusk' ? { dusk: true as const } : {}),
+    ...(river && ctx?.fetch ? { fetch: true as const } : {}),
+  };
 }
 
 export const bagValue = (bag: BagFish[]): number => bag.reduce((sum, f) => sum + f.price, 0);
@@ -212,8 +234,9 @@ export function addCatch(
   fotdId?: string,
   perfect = false,
   minute?: number,
+  ctx?: CatchContext,
 ): { state: PlayerState; result: 'added' | 'bagFull'; fish: BagFish } {
-  const fish = toBagFish(hooked, fotdId, perfect, minute);
+  const fish = toBagFish(hooked, fotdId, perfect, minute, ctx);
   if (state.bag.length >= SHOP.bagSlots) return { state, result: 'bagFull', fish };
   return { state: { ...state, bag: [...state.bag, fish] }, result: 'added', fish };
 }

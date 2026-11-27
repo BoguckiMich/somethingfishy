@@ -10,7 +10,6 @@ import {
   JOURNAL_BLINK_NIGHT,
   JOURNAL_PALE,
   JOURNAL_Q7_LATE,
-  JOURNAL_TOTAL,
   PALE_BEAT,
   STORY_LINES,
   STORY_TUNING,
@@ -21,7 +20,7 @@ import {
 } from '../data/story';
 import type { PlayerState } from '../inventory';
 import { speciesById } from '../data/fish';
-import { doneCount as bundlesDone } from '../checklist/checklist';
+import { allDone as bundlesAllDone, doneCount as bundlesDone } from '../checklist/checklist';
 import { questsOf } from '../quests/quests';
 import { speciesCaught } from '../fishLog';
 
@@ -52,6 +51,7 @@ export interface StoryState {
 
 const has = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
+const QUIET_PLACE = 'quiet-lake';
 export const newStory = (): StoryState => ({ done: {}, queue: [], pale: false });
 export const storyOf = (p: PlayerState): StoryState => normalizeStory(p.story);
 
@@ -75,7 +75,19 @@ export interface MilestoneFlags {
   deep?: true;
   /** She played at 21:00 or later on the game clock. */
   night?: true;
+  /** River bend (slice 25e): she has been there (R1), a fish was caught at the river (R2), in the seam band (R3). */
+  arrived?: true;
+  river?: true;
+  seam?: true;
+  /** She was at the river at dusk (R4), or at night, when the dusk was missed (R4's fallback). */
+  riverDusk?: true;
+  riverNight?: true;
+  /** River catches made after R3 was told, counted up to `STORY_TUNING.r4FallbackCatches` (R4's other fallback). */
+  lateCatches?: number;
 }
+
+/** The flags that are plain yes/no (the others carry a count). */
+export type FlagName = Exclude<keyof MilestoneFlags, 'lateCatches'>;
 
 export function normalizeMilestones(v: unknown): MilestoneFlags {
   const o = typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -83,11 +95,17 @@ export function normalizeMilestones(v: unknown): MilestoneFlags {
   if (o.quest === true) out.quest = true;
   if (o.deep === true) out.deep = true;
   if (o.night === true) out.night = true;
+  if (o.arrived === true) out.arrived = true;
+  if (o.river === true) out.river = true;
+  if (o.seam === true) out.seam = true;
+  if (o.riverDusk === true) out.riverDusk = true;
+  if (o.riverNight === true) out.riverNight = true;
+  if (typeof o.lateCatches === 'number' && Number.isFinite(o.lateCatches) && o.lateCatches >= 1) out.lateCatches = Math.min(Math.floor(o.lateCatches), STORY_TUNING.r4FallbackCatches);
   return out;
 }
 
 /** A flag was reached: the new player (the same object when nothing changes). */
-export function withFlag(p: PlayerState, flag: keyof MilestoneFlags): PlayerState {
+export function withFlag(p: PlayerState, flag: FlagName): PlayerState {
   const m = normalizeMilestones(p.milestones);
   return m[flag] ? p : { ...p, milestones: { ...m, [flag]: true } };
 }
@@ -115,7 +133,37 @@ export function storyMilestones(p: PlayerState): Record<string, boolean> {
     Q5: bundles >= 1,
     Q6: p.rodId === 'carbon',
     Q7: bundles >= STORY_TUNING.q7Bundles,
+    // River bend (RIVER_BEND.md decision 6): R1 the first arrival (the list only counts while she is there), R2 the first river catch, R3 the first catch
+    // in the seam, R4 the first dusk (or, so it never stalls: night came without one, or the third river catch after R3), R5 the first river bundle,
+    // R6 the river checklist done.
+    R1: m.arrived === true,
+    R2: m.river === true,
+    R3: m.seam === true,
+    R4: m.riverDusk === true || m.riverNight === true || (m.lateCatches ?? 0) >= STORY_TUNING.r4FallbackCatches,
+    R5: bundlesDone(p, 'river-bend') >= 1,
+    R6: bundlesAllDone(p, 'river-bend'),
   };
+}
+
+/** A fish was caught at the river (`band` is the id of the water band it bit in): the first catch (R2), the first in the seam (R3), and the catches after R3 (R4's fallback). */
+export function recordRiverCatch(p: PlayerState, band: string): PlayerState {
+  const s = storyOf(p);
+  let out = withFlag(p, 'river');
+  if (band === 'seam') out = withFlag(out, 'seam');
+  const m = normalizeMilestones(out.milestones);
+  if (has(s.done, 'R3') && !has(s.done, 'R4') && (m.lateCatches ?? 0) < STORY_TUNING.r4FallbackCatches) {
+    out = { ...out, milestones: { ...m, lateCatches: (m.lateCatches ?? 0) + 1 } };
+  }
+  return out;
+}
+
+/** She is at the river at this game minute: dusk counts as R4's dusk visit; the night coming without one (she was there as it fell) lets R4 through too. */
+export function recordRiverVisit(p: PlayerState, minute: number): PlayerState {
+  const t = timeOfDay(minute);
+  const here = withFlag(p, 'arrived');
+  if (t === 'dusk') return withFlag(here, 'riverDusk');
+  if (t === 'night') return withFlag(here, 'riverNight');
+  return here;
 }
 
 /** How many chapters were seen on this real date (a clock set back counts later dates too). */
@@ -216,12 +264,14 @@ export function normalizeStory(v: unknown): StoryState {
   if (o.blinkNight === true && has(done, 'Q4')) out.blinkNight = true;
   if (o.blinkLater === true && has(done, 'Q4')) out.blinkLater = true;
   if (o.q7Late === true && has(done, 'Q7')) out.q7Late = true;
-  if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), JOURNAL_TOTAL + 2);
+  if (typeof o.looked === 'number' && Number.isFinite(o.looked) && o.looked >= 1) out.looked = Math.min(Math.floor(o.looked), ALL.length + 3);
   return out;
 }
 
 /** One page of the story journal (slice 22d). */
 export interface JournalEntry {
+  /** The place the page belongs to (the journal tags the River bend's pages). */
+  place: string;
   /** The chapter id, or 'pale' for the bonus page. */
   id: string;
   icon: JournalIcon;
@@ -237,12 +287,12 @@ export interface JournalEntry {
  * Q8 card: it is not a daily chapter, so it is not in the story state.
  */
 export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[] {
-  const page = (id: string, def: JournalDef, text: string): JournalEntry => ({ id, icon: def.icon, text, by: def.by, thought: def.thought });
+  const page = (id: string, def: JournalDef, text: string, place = QUIET_PLACE): JournalEntry => ({ id, place, icon: def.icon, text, by: def.by, thought: def.thought });
   const rows: { entry: JournalEntry; date: string | null; rank: number }[] = [];
   ALL.forEach((chapter, rank) => {
     if (!has(s.done, chapter.id)) return;
     const def = chapter.id === 'Q4' ? (s.blinkNight ? JOURNAL_BLINK_NIGHT : JOURNAL_BLINK_DAY) : chapter.id === 'Q7' && s.q7Late ? JOURNAL_Q7_LATE : has(JOURNAL, chapter.id) ? JOURNAL[chapter.id] : undefined;
-    if (def) rows.push({ entry: page(chapter.id, def, def.text ?? chapter.text ?? ''), date: s.done[chapter.id], rank });
+    if (def) rows.push({ entry: page(chapter.id, def, def.text ?? chapter.text ?? '', chapter.place), date: s.done[chapter.id], rank });
   });
   if (s.pale) rows.push({ entry: page('pale', JOURNAL_PALE, JOURNAL_PALE.text ?? ''), date: s.paleOn ?? null, rank: ALL.length });
   rows.sort((a, b) => {
@@ -250,12 +300,25 @@ export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[]
     return a.date < b.date ? -1 : a.date > b.date ? 1 : a.rank - b.rank;
   });
   const out = rows.map((r) => r.entry);
-  if (roadFixed) out.push(page('Q8', JOURNAL.Q8, JOURNAL.Q8.text ?? ''));
+  if (roadFixed) {
+    // The road page ends the lake's pages: before the river's, which come after the drive.
+    const firstRiver = out.findIndex((e) => e.place !== QUIET_PLACE);
+    out.splice(firstRiver < 0 ? out.length : firstRiver, 0, page('Q8', JOURNAL.Q8, JOURNAL.Q8.text ?? ''));
+  }
   return out;
 }
 
+/** The pages grouped by place, the place she is at first (each keeps its own order); places without pages are left out. */
+export function journalGroups(entries: readonly JournalEntry[], current: string): { place: string; entries: JournalEntry[] }[] {
+  const places = [current, ...[...new Set(entries.map((e) => e.place))].filter((p) => p !== current)];
+  return places.map((place) => ({ place, entries: entries.filter((e) => e.place === place) })).filter((g) => g.entries.length > 0);
+}
+
 /** "Chapter n of 7": the chapters seen (the Pale One and the road-fixed pages are bonuses and do not count). */
-export const journalChapterCount = (s: StoryState, roadFixed = false): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale' && e.id !== 'Q8').length;
+export const journalChapterCount = (s: StoryState, roadFixed = false, place = QUIET_PLACE): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale' && e.id !== 'Q8' && e.place === place).length;
+
+/** How many chapters a place tells (the "of 7" and "of 6" of the journal). */
+export const journalTotal = (place: string): number => chaptersOf(place).length;
 
 /** A page was added since she last opened the Story tab. */
 export const journalHasNew = (s: StoryState, roadFixed = false): boolean => journalEntries(s, roadFixed).length > (s.looked ?? 0);

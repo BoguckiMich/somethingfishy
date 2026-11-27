@@ -28,6 +28,12 @@ const DEPTH = { water: 9.4, planks: 11.1, sandwich: 11.2, duck: 11.3, text: 31.5
 
 /** The sealed bottle floats here, near the dock end (never drifts). */
 export const SEALED_BOTTLE = { x: 86, y: 372 };
+/** The river's sealed bottle (R3) starts here and drifts upstream (right) to `maxX`, where the eddy holds it. */
+export const RIVER_BOTTLE = { x: 120, y: 326, maxX: 214 };
+/** R1: the stick floats from the water right of the landing, up and to the right, out of the picture. */
+const STICK_PATH = { from: { x: 262, y: 352 }, to: { x: 372, y: 296 }, ms: 22_000 };
+/** R4: the duck's lane on the river (it drifts a few px lower as it comes down the bend). */
+const DUCK_WORM_Y = 286;
 /** The sandwich lies on the planks at the dock's left edge, next to Pajkel's seat; the duck stops at the edge. */
 export const SANDWICH_AT = { x: 124, y: 414 };
 const DUCK_STOP = { x: 103, y: 410 };
@@ -91,6 +97,8 @@ interface Active {
   /** Blink: when it sinks (age). */
   sinkAt: number;
   fadeLeft: number;
+  /** The sealed bottle drifts slowly upstream (the river's R3). */
+  drift: boolean;
 }
 
 interface Ring {
@@ -155,13 +163,25 @@ export class StoryView {
 
   // ---- Start and stop -----------------------------------------------------------------------
 
-  start(kind: ChapterKind): void {
+  start(kind: ChapterKind, drift = false): void {
     this.clear();
-    const a: Active = { kind, age: 0, tappedAge: -1, stage: 0, x: 0, y: 0, stageAt: 0, quacks: 0, sinkAt: STORY_TUNING.blinkMs, fadeLeft: -1 };
+    const a: Active = { kind, age: 0, tappedAge: -1, stage: 0, x: 0, y: 0, stageAt: 0, quacks: 0, sinkAt: STORY_TUNING.blinkMs, fadeLeft: -1, drift };
     switch (kind) {
       case 'bottle':
-        a.x = SEALED_BOTTLE.x;
-        a.y = SEALED_BOTTLE.y;
+        a.x = drift ? RIVER_BOTTLE.x : SEALED_BOTTLE.x;
+        a.y = drift ? RIVER_BOTTLE.y : SEALED_BOTTLE.y;
+        break;
+      case 'stick':
+        a.x = STICK_PATH.from.x;
+        a.y = STICK_PATH.from.y;
+        this.hooks.sfx('boof'); // Bestia drops her stick in the river
+        this.hooks.sfx('plop');
+        this.rings.push({ x: a.x, y: a.y + 2, age: 0, ms: 1400, rx: 12, ry: 3.5 });
+        break;
+      case 'duckWorm':
+        a.x = W + 14;
+        a.y = DUCK_WORM_Y;
+        this.hooks.sfx('boof');
         break;
       case 'duck':
         a.x = -14;
@@ -173,6 +193,7 @@ export class StoryView {
         a.y = BLINK_AT.y;
         break;
       case 'prints':
+      case 'card':
         break;
     }
     this.active = a;
@@ -207,6 +228,7 @@ export class StoryView {
     };
     if (a.kind === 'bottle') return canOpenCard && a.age > 500 ? box(a.x, a.y, 28, 28) : null;
     if (a.kind === 'blink') return a.age > 1200 && a.age < a.sinkAt ? box(a.x, a.y, 30, 30) : null;
+    if (a.kind === 'stick') return a.age > 400 ? box(a.x, a.y, 44, 36) : null;
     return null;
   }
 
@@ -224,6 +246,12 @@ export class StoryView {
       return true;
     }
     a.tappedAge = 0;
+    if (a.kind === 'stick') {
+      // Bestia's stick: a tap and it bobs, glints and is carried off (the chapter is already counted as seen).
+      this.hooks.sfx('plop');
+      this.rings.push({ x: a.x, y: a.y + 3, age: 0, ms: 1100, rx: 12, ry: 3.5 });
+      return true;
+    }
     this.sink(a);
     return true;
   }
@@ -274,6 +302,14 @@ export class StoryView {
       case 'prints':
         seen = this.updatePrints(a, fade, tint);
         break;
+      case 'stick':
+        seen = this.updateStick(a, fade, tint);
+        break;
+      case 'duckWorm':
+        seen = this.updateDuckWorm(a, dtMs, fade, tint);
+        break;
+      case 'card':
+        break;
     }
     this.drawRings(tint);
     if (a.fadeLeft === 0) this.finish(false);
@@ -286,7 +322,7 @@ export class StoryView {
   }
 
   private place(img: Phaser.GameObjects.Image, key: string, x: number, y: number, alpha: number, tint: number, depth: number): void {
-    img.setTexture(momentKey(key)).setPosition(Math.round(x), Math.round(y)).setAlpha(alpha).setTint(tint).setDepth(depth).setVisible(true).setAngle(0).setFlipX(false);
+    img.setTexture(momentKey(key)).setPosition(Math.round(x), Math.round(y)).setAlpha(alpha).setTint(tint).setDepth(depth).setVisible(true).setAngle(0).setFlipX(false).setScale(1);
   }
 
   private ring(cx: number, cy: number, rx: number, ry: number, alpha: number, tint: number): void {
@@ -312,7 +348,78 @@ export class StoryView {
 
   // ---- The pictures -------------------------------------------------------------------------
 
+  /** R1: Bestia's stick floats upstream (up and to the right, against the current), slowly, then out of sight. */
+  private updateStick(a: Active, fade: number, tint: number): boolean {
+    const t = clamp01(a.age / STICK_PATH.ms);
+    a.x = STICK_PATH.from.x + (STICK_PATH.to.x - STICK_PATH.from.x) * t;
+    a.y = STICK_PATH.from.y + (STICK_PATH.to.y - STICK_PATH.from.y) * t + Math.sin(a.age / 600);
+    // Tapped: it is carried off at once (a short fade).
+    const gone = a.tappedAge >= 0 ? clamp01(1 - a.tappedAge / 600) : 1;
+    const alpha = clamp01(a.age / 500) * (t > 0.85 ? (1 - t) / 0.15 : 1) * fade * gone;
+    this.place(this.main, 'stick', a.x, a.y, alpha, tint, DEPTH.water);
+    this.main.setScale(2).setAngle(-14 + Math.round(Math.sin(a.age / 900) * 6));
+    // A little wake behind it, pointing back down the river, and a glint that winks on the wood so it reads from across the water.
+    for (let i = 1; i <= 5; i++) this.fx.fillStyle(multiply(PAL.foam, tint), alpha * (0.8 - i * 0.14)).fillRect(Math.round(a.x - 14 - i * 4), Math.round(a.y + 4 + i), 2, 1);
+    const k = a.age % 1400;
+    if (k < 700) {
+      const gx = Math.round(a.x) - 6 + Math.round((k / 700) * 12);
+      const gy = Math.round(a.y) - 4;
+      this.fx.fillStyle(PAL.white, alpha).fillRect(gx, gy, 1, 1).fillRect(gx - 1, gy, 3, 1).fillRect(gx, gy - 1, 1, 3);
+    }
+    return t >= 1 || (a.tappedAge >= 600);
+  }
+
+  /** R4: the duck comes round the bend from upstream with a worm hanging from its beak, stops by the landing for a moment (a quack), and paddles on downstream. */
+  private updateDuckWorm(a: Active, dtMs: number, fade: number, tint: number): boolean {
+    const alpha = clamp01(a.age / 350) * fade;
+    const STOP_X = 196;
+    const STOP_MS = 3200;
+    if (a.stage === 0) {
+      a.x -= 26 * (dtMs / 1000);
+      a.y = DUCK_WORM_Y + Math.round((W + 14 - a.x) / 40);
+      if (a.x <= STOP_X) {
+        a.stage = 1;
+        a.stageAt = a.age;
+        this.hooks.sfx('quack');
+      }
+    } else if (a.stage === 1) {
+      if (a.age - a.stageAt > STOP_MS) {
+        a.stage = 2;
+        a.stageAt = a.age;
+        this.hooks.sfx('quack');
+      }
+    } else {
+      a.x -= 30 * (dtMs / 1000);
+      if (a.x < -26) return true;
+    }
+    const bob = Math.round(Math.sin(a.age / 520));
+    this.place(this.main, 'duck', a.x, a.y + bob, alpha, tint, DEPTH.duck);
+    this.main.setFlipX(true);
+    // The wake behind (to the right, upstream).
+    for (let i = 1; i <= 5; i++) {
+      const bx = a.x + 10 + i * 4;
+      const spread = Math.round(i * 0.6);
+      this.fx.fillStyle(multiply(PAL.foam, tint), alpha * (0.85 - i * 0.14));
+      this.fx.fillRect(Math.round(bx), Math.round(a.y) + 5 - spread, 1, 1);
+      this.fx.fillRect(Math.round(bx), Math.round(a.y) + 5 + spread, 1, 1);
+    }
+    // The worm: pink, hanging from the beak tip and wriggling.
+    const wx = Math.round(a.x) - 12;
+    const wy = Math.round(a.y) + bob - 2;
+    const wig = Math.round(Math.sin(a.age / 140));
+    this.fx.fillStyle(PAL.outline, alpha);
+    this.fx.fillRect(wx - 1, wy - 1, 3, 1).fillRect(wx - 1 + wig, wy, 4, 10);
+    this.fx.fillStyle(multiply(PAL.pink, tint), alpha);
+    this.fx.fillRect(wx, wy, 1, 1).fillRect(wx + wig, wy + 1, 2, 8);
+    return false;
+  }
+
   private updateBottle(a: Active, tint: number): void {
+    // The river's bottle drifts slowly upstream (to the right) and settles in the eddy; the lake's never moves.
+    if (a.drift) {
+      a.x = Math.min(RIVER_BOTTLE.maxX, RIVER_BOTTLE.x + a.age * 0.0035);
+      a.y = RIVER_BOTTLE.y - Math.round((a.x - RIVER_BOTTLE.x) / 22);
+    }
     const alpha = clamp01(a.age / 1500);
     const bob = Math.round(Math.sin(a.age / 800));
     this.place(this.main, 'storyBottle', a.x, a.y + bob, alpha, tint, DEPTH.water);

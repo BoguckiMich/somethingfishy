@@ -79,8 +79,9 @@ describe('River bend (placeholder)', () => {
   it('only has species that exist, with no trophies or legendary', () => {
     for (const id of Object.keys(RIVER_BEND.fishPool.species)) expect(POOL_SPECIES.map((s) => s.id)).toContain(id);
     expect(RIVER_BEND.fishPool.specials).toBe(false);
-    expect(RIVER_BEND.momentsId).toBeNull();
-    expect(RIVER_BEND.checklistId).toBeNull();
+    expect(RIVER_BEND.momentsId).toBe('river');
+    expect(RIVER_BEND.checklistId).toBe('river-bend');
+    expect(RIVER_BEND.storyPlaceId).toBe('river-bend');
   });
 
   it('only ever bites its own species, and never a trophy or the Pale One, even in the lake conditions for them', () => {

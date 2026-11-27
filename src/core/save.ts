@@ -64,7 +64,7 @@ function normalizeBagFish(v: unknown): BagFish | null {
   if (!isObj(v) || typeof v.speciesId !== 'string' || !speciesById(v.speciesId)) return null;
   if (!isNum(v.lengthCm) || !isNum(v.weightG) || !isNum(v.price)) return null;
   if (v.lengthCm <= 0 || v.weightG <= 0 || v.price < 0) return null;
-  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price, ...(v.perfect === true ? { perfect: true as const } : {}) };
+  return { speciesId: v.speciesId, lengthCm: v.lengthCm, weightG: v.weightG, price: v.price, ...(v.perfect === true ? { perfect: true as const } : {}), ...(v.river === true ? { river: true as const } : {}), ...(v.dusk === true ? { dusk: true as const } : {}), ...(v.fetch === true ? { fetch: true as const } : {}) };
 }
 
 function normalizeLog(v: unknown): FishLog {
