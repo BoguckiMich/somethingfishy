@@ -45,6 +45,19 @@ describe('sprites', () => {
     expect(pajkelWalkSprite('walk1').width).toBeGreaterThan(0);
   });
 
+  it('Alex has two crank frames for the spinning rod (slice 32): the same size, different from each other and from the usual pose, only the right arm moves', () => {
+    for (const head of ALEX_HEADS) {
+      const usual = alexSprite(head, 0);
+      const c0 = alexSprite(head, 0, 0);
+      const c1 = alexSprite(head, 0, 1);
+      expect([c0.width, c0.height, c1.width, c1.height]).toEqual([ALEX_SIZE.w, ALEX_SIZE.h, ALEX_SIZE.w, ALEX_SIZE.h]);
+      expect(Array.from(c0.pixels)).not.toEqual(Array.from(c1.pixels));
+      expect(Array.from(c0.pixels)).not.toEqual(Array.from(usual.pixels));
+      const diff = (a: typeof c0, b: typeof c0) => Array.from(a.pixels).flatMap((v, i) => (v === b.pixels[i] ? [] : [i % ALEX_SIZE.w]));
+      expect(Math.min(...diff(c0, usual), ...diff(c1, usual))).toBeGreaterThanOrEqual(22); // nothing left of her right sleeve changes
+    }
+  });
+
   it("Pajkel's chair frames are 40x48, differ from each other, and the empty chair and fetch sticks have their sizes and colours (22a)", () => {
     const frames = PAJ_POSES.map((pose) => pajkelSittingSprite(pose, 0));
     for (const f of frames) expect([f.width, f.height]).toEqual([PAJ_SIZE.w, PAJ_SIZE.h]);

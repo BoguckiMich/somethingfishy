@@ -3,7 +3,7 @@ import { pageParams } from '../urlParams';
 import { hourLocal, todayLocal } from '../localDate';
 import { boxAvailable, dailyOf, openBox, tierFor } from '../core/daily/daily';
 import { showBaitBoxCard } from '../ui/baitBoxCard';
-import { openBaitPicker } from '../ui/baitPicker';
+import { openRigPicker } from '../ui/baitPicker';
 import { showQuestPanel, type NoticeTab } from '../ui/questPanel';
 import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
 import { allButPetrol, allDone as checklistAllDone, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots, totalOf, withBundlesDone } from '../core/checklist/checklist';
@@ -35,12 +35,13 @@ import { FONT, FS, textPad } from '../font';
 import { applyCameraZoom, sharpenTexts } from '../renderScale';
 import { drawFrame } from './frameDraw';
 import { mulberry32 } from '../art/raster';
-import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexKey, alexShowOffKey } from '../art/characters';
+import { ALEX_FEET_Y, ALEX_HANDS_KEY, DOG_SIZE, ALEX_HAND, SHOW_OFF_FISH_ANCHOR, alexCrankKey, alexKey, alexShowOffKey } from '../art/characters';
+import { crankFrame, lureScreenPos } from '../art/spinFx';
 import { lookEvent, newLook, tickLook, type LookDir, type LookState } from './anglerLook';
 import { fishHugKey, fishKey, fishSizeClass, isHugged } from '../art/fishArt';
 import { boulderKey, createRiverTextures, createTextures, ensureSignTexture, lanternKey, repaintSky, TEX, weatherKey } from '../art/textures';
 import { SIGN_GLINT, SIGN_SIZE, signNoteCenter, signSlots, type SignLook } from '../art/signArt';
-import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
+import { activeGlints, allSeen, GLINTS, glintPhase, isSeen, markCast, markSeen as markHintSeen, markSpinCast, spinCastCount, pickTip, signAction, TIP_TUNING, type Glint, type Tip } from '../core/tips';
 import { CAR_PARTS, CAR_SIZE, carKey } from '../art/carArt';
 import { LANTERN_FLAME, LANTERN_SIZE } from '../art/lanternArt';
 import { napCooldownLeftMs, crossedCompanionBedtime, crossedWarning, inCarWindow, inSleepWindow, inWarnHour, lanternGlow, loadClock, morningClock, napWakeClock, wakeGreeting, warningLines, type NapOption } from '../core/bedtime';
@@ -83,20 +84,24 @@ import { fightProfile, formatCatchSize, rollHookedFish, weightG, type HookedFish
 import {
   addCatch,
   applyEvent,
+  activeRig,
   addBait,
-  baitCount,
   canCast,
   chosenBait,
+  chosenLure,
   cheapestIndex,
   effectiveBarGear,
   equippedRod,
   freeWormsIfStuck,
   hasNightKit,
+  hasSpinRod,
+  lureReturnsOf,
   nightKitForSale,
   totalBait,
   newPlayer,
   releasePending,
   riverGearOf,
+  takeLureReturn,
   swapForCheapest,
   toBagFish,
   type BagFish,
@@ -117,11 +122,14 @@ import { showNameOverlay } from '../ui/nameOverlay';
 import { openSettingsPanel } from '../ui/settingsPanel';
 import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
-import { BAITS, WORM_ID, baitById } from '../core/data/baits';
+import { BRING_GAP_MS, baitCueText, baitRunOutToast, lureLostToasts, nextBringAt, rigChipView, spinDevFlags } from './RigChip';
+import { SpinView } from './SpinView';
+import { SPIN_ROD, lureById } from '../core/data/spinning';
+import { BAITS } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { fishScreenPos, LineFightView, type FightAnchor } from './LineFightView';
 import { driftPos, fightEveryMul } from '../core/current';
-import { inDockBed, bowlHasFood, feedBusy, feedRequest, carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { inDockBed, bowlHasFood, bringRequest, treatInBowl, feedRequest, carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipText, throwFor, type FlickSample } from '../core/skipping';
 import { pebbleRoute } from './pebbleRoute';
@@ -356,6 +364,8 @@ export class LakeScene extends Phaser.Scene {
     minute: () => this.clock.minute,
     canCast: () => canCast(this.player),
     baitId: () => chosenBait(this.player),
+    rig: () => activeRig(this.player),
+    lureId: () => chosenLure(this.player),
     fotdId: () => this.fotdId(),
     weatherFx: () => this.weatherNow(),
     flow: () => this.riverFlowRate() * this.devFlow,
@@ -522,6 +532,8 @@ export class LakeScene extends Phaser.Scene {
   private bobberImg!: Phaser.GameObjects.Image;
   private catchBar!: CatchBarView;
   private lineView!: LineFightView;
+  /** The spinning retrieve's look and cues (slice 32). */
+  private spin!: SpinView;
   /** Dev flag ?catch=line|classic: the style of every fight this session, over the Settings choice (sandboxed). */
   private catchStyleOverride: CatchStyle | null = null;
   /** Line fights seen this session: the first few show the hint line. */
@@ -658,6 +670,11 @@ export class LakeScene extends Phaser.Scene {
   private fedSeen = 0;
   /** The bowl was tapped with the line out: she eats as soon as it is back (slice 30). */
   private feedLater = false;
+  /** Pajkel's line for the new spinning rod waits for a calm moment (slice 32). */
+  private spinLineDue = false;
+  /** Scene ms when Bestia may next fetch a washed-up lure; null = none waits (slice 32). */
+  private bringAtMs: number | null = null;
+  private broughtSeen = 0;
   /** The fetch phase last frame, to bark when it changes. */
   private lastPlayPhase: string | null = null;
   private elapsed = 0;
@@ -750,6 +767,8 @@ export class LakeScene extends Phaser.Scene {
     const baitParam = BAITS.find((b) => b.id === params.get('bait'));
     if (baitParam) this.setPlayer({ ...addBait(this.player, baitParam.id, 10), baitId: baitParam.id });
     if (params.get('baits') === 'all') for (const b of BAITS) this.setPlayer(addBait(this.player, b.id, 10));
+    // Dev-only (slice 32): ?spinrod=1 ?lures=all ?lure=spinner|wobbler|jig ?rig=spin (see spinDevFlags).
+    this.setPlayer(spinDevFlags(this.player, params));
     // Dev-only (slice 23d, 25f): ?rare=goldenTench|mossback|silverGhost|lantern|barbelKing|ferryPike makes that fish bite on the next cast; ?trophies=all fills the board.
     const rareParam = params.get('rare');
     if (rareParam && isTrophy(speciesById(rareParam))) this.rareDev = rareParam;
@@ -1089,7 +1108,7 @@ export class LakeScene extends Phaser.Scene {
 
     if (this.state.kind === 'casting' || this.state.kind === 'retrieving') {
       const durationMs = this.state.kind === 'casting' ? 350 + this.state.distanceM * 25 : 300 + this.state.distanceM * 15;
-      this.anim = Math.min(1, this.anim + deltaMs / durationMs);
+      this.anim = Math.min(1, this.anim + (this.spin.snagging ? 0 : deltaMs / durationMs)); // a snag holds the line tight first
       if (this.anim >= 1) {
         if (this.state.kind === 'casting') {
           this.addRipple(this.state.distanceM, false);
@@ -1105,6 +1124,7 @@ export class LakeScene extends Phaser.Scene {
     for (const r of this.ripples) r.age += deltaMs;
     this.ripples = this.ripples.filter((r) => r.age < RIPPLE_MS);
     this.nibbleAge += deltaMs;
+    this.spin.tick(deltaMs, this.state);
     this.toastAge += deltaMs;
     this.fightToasts = this.state.kind === 'fighting';
     {
@@ -1125,6 +1145,7 @@ export class LakeScene extends Phaser.Scene {
     if (!this.pebbleFrozen) this.advancePebble(deltaMs);
     this.updateFetchRounds();
     this.updateFeeding();
+    this.updateSpinGear();
     if (this.debugToastInMs !== null && (this.debugToastInMs -= deltaMs) <= 0) {
       this.debugToastInMs = null;
       this.showToast('Quest done! +40 coins, +5 worms');
@@ -1762,7 +1783,7 @@ export class LakeScene extends Phaser.Scene {
     sound.setMinute(this.clock.minute);
     sound.setCamp(this.weatherId(), hasCamp(this.player, 'campfire')); // slice 27: the rain, wind and campfire beds
     sound.setRiver(this.loc.background === 'river'); // M2 groundwork B: the river current layer
-    sound.reel(deltaMs, this.state.kind === 'fighting' && this.state.bar.holding);
+    sound.reel(deltaMs, (this.state.kind === 'fighting' && this.state.bar.holding) || (this.state.kind === 'spinning' && this.state.spin.holding));
     const play = this.companions.state;
     const phase = play.mode === 'play' ? play.play.phase : null;
     if (phase !== this.lastPlayPhase && (phase === 'bring' || phase === 'dodge' || phase === 'spin')) sound.play('boof');
@@ -1795,13 +1816,14 @@ export class LakeScene extends Phaser.Scene {
       this.stateAge = 0;
     }
     // A fish hooked at the river fights from where the drifted bobber was (slice 25c).
-    if (next.kind === 'fighting' && prev.kind === 'bite') {
-      const spot = this.driftSpot(prev.drift);
+    if (next.kind === 'fighting' && (prev.kind === 'bite' || prev.kind === 'spinning')) {
+      const spot = this.driftSpot(prev.kind === 'bite' ? prev.drift : prev.spin.drift);
       this.fightFrom = spot.x === BOBBER_X && spot.dy === 0 ? null : { x: spot.x, dy: spot.dy };
     } else if (next.kind !== 'fighting') {
       this.fightFrom = null;
     }
     this.state = next;
+    if (next.kind === 'idle') this.spin.end();
     // The show-off is over: the fish goes into the bag (or the bag-full card asks).
     if (prev.kind === 'caught' && next.kind === 'idle') this.stowCatch(prev.hooked);
   }
@@ -1815,7 +1837,7 @@ export class LakeScene extends Phaser.Scene {
    * A won fight goes in the log before the bag decision. A new species gets the longer show-off;
    * a new species or record makes the companions react bigger.
    */
-  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean, perfect = false, distanceM?: number): void {
+  private noteCatch(hooked: HookedFish, zone: ZoneId, celebrate: boolean, perfect = false, distanceM?: number, lure = false): void {
     const r = recordCatch(this.player.log, hooked, perfect);
     const species = speciesById(hooked.speciesId);
     this.catchPerfect = perfect;
@@ -1829,6 +1851,7 @@ export class LakeScene extends Phaser.Scene {
       zone,
       timeOfDay: timeOfDay(this.clock.minute),
       isRecord: r.outcome.kind === 'newRecord',
+      lure,
     });
     this.setPlayer(zone === 'deep' && this.loc.id === QUIET_LAKE.id ? withFlag(q.player, 'deep') : this.loc.id === RIVER_BEND.id ? recordRiverCatch(q.player, distanceM === undefined ? 'riffle' : zoneAt(this.loc, distanceM).id) : q.player);
     this.catchOutcome = r.outcome;
@@ -1865,21 +1888,19 @@ export class LakeScene extends Phaser.Scene {
     this.lateLine = text;
   }
 
-  /** The player's side of a game event: bait use. */
+  /** The player's side of a game event: bait use and lure losses (the words are in RigChip). */
   private applyToPlayer(e: GameEvent): void {
-    const before = chosenBait(this.player);
+    const prev = this.player;
     const r = applyEvent(this.player, e, this.ctx.rng);
     this.setPlayer(r.state);
     if (r.baitUsed) {
-      // The "-1" cue floats up from the bait chip (the one bait counter, slice 22c).
+      // The "-1" cue floats up from the rig chip (the one bait counter, slice 22c).
       this.wormCueAge = 0;
-      this.wormCue.setText(`-1 ${baitById(r.baitUsed)?.name.toLowerCase() ?? 'worm'}`);
-      const after = chosenBait(r.state);
-      if (after !== before && baitCount(r.state, before) <= 0) {
-        const name = (id: string) => baitById(id)?.name.toLowerCase() ?? 'worms';
-        this.showToast(after === WORM_ID && r.state.worms <= 0 ? `Out of ${name(before)}` : `Out of ${name(before)}, using ${name(after)}`);
-      }
+      this.wormCue.setText(baitCueText(r.baitUsed));
+      const out = baitRunOutToast(prev, r.state);
+      if (out) this.showToast(out);
     }
+    if (e.type === 'lureLost') for (const t of lureLostToasts(prev, r.state, e.lure, e.cause)) this.pendingToasts = enqueueToast(this.pendingToasts, t);
   }
 
   /** Keeps the session's rod and catch-bar gear in step with the equipped rod, line and reel. */
@@ -1945,17 +1966,19 @@ export class LakeScene extends Phaser.Scene {
     const store = {
       get: () => this.player,
       set: (p: PlayerState) => {
+        const hadRod = hasSpinRod(this.player);
         this.setPlayer(p);
         this.syncRod();
+        if (!hadRod && hasSpinRod(p)) this.spinLineDue = true; // Pajkel tells her how it works once the shop is shut (slice 32)
       },
     };
     const onClose = () => (this.panel = null);
     this.panel =
       kind === 'bag' ? openBagPanel(store, onClose, () => { this.panel?.close(); this.openPlayerPanel('shop'); })
       : kind === 'shop' ? openShopPanel(store, onClose, undefined, this.loc)
-      : kind === 'bait' ? openBaitPicker(store, onClose)
+      : kind === 'bait' ? openRigPicker(store, onClose)
       : kind === 'settings' ? openSettingsPanel(this.settingsStore(), onClose)
-      : openLogPanel(() => this.player.log, onClose, startWith, { sticks: () => this.player.sticks ?? [], placeId: this.loc.id, startTab: tab });
+      : openLogPanel(() => this.player.log, onClose, startWith, { sticks: () => this.player.sticks ?? [], placeId: this.loc.id, startTab: tab }, () => hasSpinRod(this.player));
   }
 
   /** What the settings panel may ask of the scene. */
@@ -2116,8 +2139,17 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'fishCaught':
         vibrate(HAPTICS.caught);
-        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true, e.perfect === true, (this.state as { distanceM?: number }).distanceM);
+        this.noteCatch({ speciesId: e.speciesId, lengthCm: e.lengthCm, weightG: e.weightG }, e.zone, true, e.perfect === true, (this.state as { distanceM?: number }).distanceM, e.lure !== undefined);
         sound.play(catchJingle({ outcome: this.catchOutcome.kind, star: this.catchStar, perfect: this.catchPerfect, trophy: this.catchTrophy !== 'none', slips: slipsAway(e.speciesId) }));
+        break;
+      case 'follow':
+      case 'followLost':
+      case 'strike':
+      case 'nip':
+      case 'snag':
+      case 'lureLost':
+      case 'lureSpat':
+        this.spin.onEvent(e, this.bobberPosition());
         break;
       case 'fishLost':
         this.showToast(e.snapped ? 'The line snapped!' : e.slipped ? 'It slipped the hook!' : 'It got away…');
@@ -2126,7 +2158,11 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'cast':
         this.setPlayer({ ...this.player, seen: markCast(this.player.seen) });
-        this.onRiverGearCast();
+        if (e.lure) {
+          const castsBefore = spinCastCount(this.player.seen);
+          this.setPlayer({ ...this.player, seen: markSpinCast(this.player.seen) });
+          this.spin.begin(e.lure, castsBefore);
+        } else this.onRiverGearCast();
         // The state is still the charging one: a fuller charge makes a higher, louder whoosh.
         sound.play('cast', { charge: s.kind === 'charging' ? chargePower(s.heldMs) : 0.5 });
         break;
@@ -2434,7 +2470,7 @@ export class LakeScene extends Phaser.Scene {
   /** Taps on the dog, Pajkel or the pencil button are handled here. Returns true when consumed. */
   private handleTap(x: number, y: number): boolean {
     // During the fight and the show-off every press belongs to the fishing state machine.
-    if (this.state.kind === 'fighting' || this.state.kind === 'caught') return false;
+    if (this.state.kind === 'fighting' || this.state.kind === 'caught' || this.state.kind === 'spinning') return false;
     // The bottom bar: its buttons work only while idle, and a tap there never casts.
     if (this.state.kind === 'idle' && this.bottomBar.covers(x, y)) {
       const hit = this.bottomBar.hit(x, y);
@@ -2564,7 +2600,7 @@ export class LakeScene extends Phaser.Scene {
     if ((k !== 'idle' && k !== 'waiting' && k !== 'casting') || this.panel || this.sleepFade) return;
     this.markHint('bowl');
     const c = this.companions.state;
-    if (feedBusy(c) || this.feedLater) return; // a treat is already in the bowl
+    if (treatInBowl(c) || this.feedLater) return; // a treat is already in the bowl
     const check = checkFeed(this.player, this.today);
     if (check === 'noTreats') return this.showToast(EN.feedNoTreats);
     if (check === 'full') return this.showToast(EN.feedFull);
@@ -2592,6 +2628,33 @@ export class LakeScene extends Phaser.Scene {
       if (!r) continue;
       this.setPlayer(r.player);
       if (r.bonus && this.pajCanSpeak()) this.companions.say(EN.feedBonus);
+    }
+  }
+
+  /**
+   * The spinning rod's side of the shore (slice 32): Pajkel's line once the rod is bought, and Bestia fetching a washed-up lure (about a minute
+   * after it was lost, then every few minutes while more wait): she is sent from the dock when the line is idle or waiting and nothing is open.
+   */
+  private updateSpinGear(): void {
+    const k = this.state.kind;
+    const c = this.companions.state;
+    const calm = (k === 'idle' || k === 'waiting') && !this.panel && !this.sleepFade;
+    if (this.spinLineDue && k === 'idle' && calm && this.pajCanSpeak() && c.bubble === null) {
+      this.spinLineDue = false;
+      if (!isSeen(this.player.seen, 'spinLine')) {
+        this.setPlayer({ ...this.player, seen: markHintSeen(this.player.seen, 'spinLine') });
+        this.companions.say(EN.spinLine);
+      }
+    }
+    this.bringAtMs = nextBringAt(lureReturnsOf(this.player).length > 0, this.bringAtMs, this.elapsed);
+    if (this.bringAtMs !== null && this.elapsed >= this.bringAtMs && calm && bringRequest(c) === 'started') this.bringAtMs = this.elapsed + BRING_GAP_MS;
+    while (this.broughtSeen < c.lureBrought) {
+      this.broughtSeen++;
+      const r = takeLureReturn(this.player);
+      if (!r.lure) continue;
+      this.setPlayer(r.state);
+      this.showToast(`{dog} brought back your ${lureById(r.lure)?.name.toLowerCase() ?? 'lure'}.`);
+      if (this.pajCanSpeak()) this.companions.say(EN.spinBringBack);
     }
   }
 
@@ -2829,6 +2892,7 @@ export class LakeScene extends Phaser.Scene {
     this.fireflies = this.add.graphics().setDepth(Z.fireflies);
     this.catchBar = new CatchBarView(this);
     this.lineView = new LineFightView(this);
+    this.spin = new SpinView(this, { toast: (t) => this.showToast(t), queueToast: (t) => (this.pendingToasts = enqueueToast(this.pendingToasts, t)) });
     this.moments = new MomentsView(
       this,
       {
@@ -3021,7 +3085,9 @@ export class LakeScene extends Phaser.Scene {
     // Angler: 2-frame breathing, and the head turns when she glances around.
     const breath = (Math.floor(this.elapsed / 900) % 2) as 0 | 1;
     const showingOff = this.state.kind === 'caught';
-    this.alexImg.setTexture(showingOff ? alexShowOffKey(breath) : alexKey(this.lookOverride ?? this.look.dir, breath));
+    const cranking = this.state.kind === 'spinning' && this.state.spin.holding;
+    const head = this.lookOverride ?? this.look.dir;
+    this.alexImg.setTexture(showingOff ? alexShowOffKey(breath) : cranking ? alexCrankKey(head, crankFrame(this.elapsed)) : alexKey(head, breath));
     this.showOffFish.setVisible(showingOff);
     this.showOffHands.setVisible(showingOff);
     if (this.state.kind === 'caught') {
@@ -3076,7 +3142,10 @@ export class LakeScene extends Phaser.Scene {
     }
     const tip = this.rodTip();
     // The rod, line and bobber are put away while she shows off the catch.
-    if (s.kind !== 'caught') this.drawRod(g, look, tip);
+    if (s.kind !== 'caught') {
+      if (this.spinRodOut()) this.spin.drawRod(g, tintFx, ROD_HAND, tip, cranking, this.elapsed);
+      else this.drawRod(g, look, tip);
+    }
     if (bobber) {
       const slack = s.kind === 'lost' ? 22 * Math.min(1, this.stateAge / 220) : 0;
       if (s.kind === 'fighting' && s.line) {
@@ -3086,14 +3155,18 @@ export class LakeScene extends Phaser.Scene {
         const strain = Phaser.Math.Clamp((s.line.tension - (lim - 0.12)) / 0.12, 0, 1);
         this.drawLine(g, look, tip, bobber.x, bobber.y, strain > 0 ? Math.sin(this.elapsed / 28) * 1.6 * strain : 0, 26 * sag * sag, lerpColor(0xffffff, PAL.redLight, strain));
       } else {
-        this.drawLine(g, look, tip, bobber.x, bobber.y, s.kind === 'waiting' ? 6 : tight ? 0 : s.kind === 'lost' ? 4 : 2, slack);
+        const ll = this.spin.lineLook(s); // a lure's line (slice 32) bows as it is reeled and goes tight when snagged
+        this.drawLine(g, look, tip, bobber.x, bobber.y, ll ? ll.sag : s.kind === 'waiting' ? 6 : tight ? 0 : s.kind === 'lost' ? 4 : 2, ll ? ll.droop : slack);
       }
       if (s.kind === 'waiting') pixelEllipse(g, Math.round(bobber.x), Math.round(bobber.y) + 1, 4, 1, tintFx(PAL.foam), 0.45);
-      this.placeBobber(bobber.x, bobber.y, tight, look);
+      if (this.spin.active) this.bobberImg.setVisible(false);
+      else this.placeBobber(bobber.x, bobber.y, tight, look);
     } else {
       this.bobberImg.setVisible(false);
     }
 
+    if (this.spin.active) this.spin.draw({ state: s, pos: bobber, tintFx, elapsedMs: this.elapsed });
+    else this.spin.hide();
     this.alertMark.setVisible(s.kind === 'bite' && bobber !== null);
     if (s.kind === 'bite' && bobber) {
       const pop = Math.round(Math.sin(this.elapsed / 60) * 2);
@@ -3228,6 +3301,7 @@ export class LakeScene extends Phaser.Scene {
       : s.kind === 'charging' ? 'Release to cast!'
       : s.kind === 'waiting' ? 'Wait for the bobber to go under…'
       : s.kind === 'bite' ? 'TAP NOW!'
+      : s.kind === 'spinning' ? this.spin.hint(s)
       : s.kind === 'fighting' ? (s.line ? (this.lineFights <= LINE_HINT_FIGHTS ? 'Hold to reel · let go when it pulls' : '') : 'Hold to raise the bar')
       : s.kind === 'caught' ? (slipsAway(s.hooked.speciesId) ? 'Tap to let it go' : 'Tap to continue')
       : '';
@@ -3995,6 +4069,12 @@ export class LakeScene extends Phaser.Scene {
     return { x: Phaser.Math.Linear(from.x, BOBBER_X, k), dy: from.dy * (1 - k) };
   }
 
+  /** The spinning rod is in her hands (slice 32): chosen while she waits to cast, or the cast in the water is a lure cast. */
+  private spinRodOut(): boolean {
+    const k = this.state.kind;
+    return k === 'idle' || k === 'charging' ? activeRig(this.player) === 'spin' : this.spin.active;
+  }
+
   private bobberPosition(): { x: number; y: number } | null {
     const s = this.state;
     if (s.kind === 'casting') {
@@ -4017,6 +4097,7 @@ export class LakeScene extends Phaser.Scene {
       const drift = Math.round(this.weatherVis('windy') * (Math.sin(this.elapsed / 1700) * 2.2 + Math.sin(this.elapsed / 610) * 0.8));
       return { x: spot.x + sway + drift, y: distanceToY(s.distanceM) + spot.dy + bob + dip };
     }
+    if (s.kind === 'spinning') return lureScreenPos(s.spin.distanceM, s.spin.depth, this.driftSpot(s.spin.drift));
     if (s.kind === 'bite') {
       const shake = Math.round(Math.sin(this.elapsed / 30));
       const spot = this.driftSpot(s.drift);
@@ -4107,8 +4188,15 @@ export class LakeScene extends Phaser.Scene {
         break;
       }
       case 'retrieving':
+        if (this.spin.snagging) {
+          ({ dx, dy, bend } = this.spin.rodMotion(s, this.elapsed));
+          break;
+        }
         dy = 12 * Math.sin(this.anim * Math.PI);
         bend = 6;
+        break;
+      case 'spinning':
+        ({ dx, dy, bend } = this.spin.rodMotion(s, this.elapsed));
         break;
     }
     return { x: Math.round(ROD_TIP.x + dx), y: Math.round(ROD_TIP.y + dy), bend };
@@ -4231,7 +4319,7 @@ export class LakeScene extends Phaser.Scene {
     for (let i = 1; i < 10; i++) g.fillRect(x + Math.round((w * i) / 10), y + 9, 1, 3);
 
     // Landing marker on the water.
-    const distanceM = castDistance(power, this.ctx.rod);
+    const distanceM = castDistance(power, this.spinRodOut() ? SPIN_ROD : this.ctx.rod);
     const ly = Math.round(distanceToY(distanceM));
     const pulse = 1 + Math.sin(this.elapsed / 120) * 0.2;
     pixelEllipse(g, BOBBER_X, ly, 8 * pulse, 2.5 * pulse, color, 0.95);
@@ -4271,8 +4359,7 @@ export class LakeScene extends Phaser.Scene {
       enabled: this.state.kind === 'idle' && !this.panel,
       bagCount: this.player.bag.length,
       bagSlots: SHOP.bagSlots,
-      baitId: chosenBait(this.player),
-      baitCount: baitCount(this.player, chosenBait(this.player)),
+      chip: rigChipView(this.player),
       logFound: speciesCaught(this.player.log),
       logTotal: SPECIES.length,
       shopDot: this.shopDot,

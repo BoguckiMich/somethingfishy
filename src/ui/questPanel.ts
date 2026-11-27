@@ -215,6 +215,12 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         for (const h of rumours) note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};padding:2px 0`, `- ${h.text}`));
         body.append(note);
       }
+      // W.'s note from the hut about the spinning rod (slice 32): the River bend's board carries it (the hut has no tappable note).
+      if (here.id === 'river-bend') {
+        const w = el('div', `margin-top:12px;padding:8px;border:2px solid ${COLORS.woodLight};background:${COLORS.outline}`);
+        w.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.gold};margin-bottom:4px`, 'Pinned by the hut'), el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`, tr(EN.spinNoteW)));
+        body.append(w);
+      }
       const close = el('div', 'margin-top:10px');
       close.append(woodButton('Close', () => panel.close(), { variant: 'wood' }));
       body.append(close);

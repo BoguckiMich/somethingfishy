@@ -4,10 +4,12 @@ import { KNOWLEDGE_TIERS, NOT_FUSSY } from './data/fishKnowledge';
 import { WEATHER_WORDS, type WeatherId } from './data/weather';
 import { starFor } from './data/stars';
 import { weightG } from './fish';
+import { LURES } from './data/spinning';
+import { favouriteLureIds } from './spinning';
 
 /** One extra line on a species' log card (slice 22e). */
 export interface KnowledgeRow {
-  kind: 'range' | 'bait' | 'weather' | 'gold';
+  kind: 'range' | 'bait' | 'weather' | 'gold' | 'lure';
   /** Catches needed to learn it. */
   need: number;
   unlocked: boolean;
@@ -17,6 +19,8 @@ export interface KnowledgeRow {
   baitIds: string[];
   /** For `weather` (slice 23b): the weathers it likes, shown with their icons. */
   weatherIds: WeatherId[];
+  /** For `lure` (slice 32): the favourite lures (lure ids). */
+  lureIds?: string[];
 }
 
 /** "20 g", "300 g", "1.6 kg", "43 kg": two significant figures, kg from 1000 g. */
@@ -52,12 +56,14 @@ export function goldFromCm(species: Species): number {
 }
 
 /** The extra lines of the card, unlocked by `count` catches. The legendary has none; old saves unlock from their counts. */
-export function knowledgeRows(species: Species, count: number): KnowledgeRow[] {
+/** `withLures` (she owns the spinning rod, slice 32) adds the "Likes: <lure>" row of a predator, unlocked with the favourite bait's catches and hidden until then. */
+export function knowledgeRows(species: Species, count: number, withLures = false): KnowledgeRow[] {
   if (isUnique(species)) return [];
   const lock = (need: number) => `??? · catch ${need} to learn`;
   const baits = favouriteBaits(species);
   const likes = species.likes ?? [];
-  const rows: { kind: KnowledgeRow['kind']; need: number; text: string; baitIds: string[]; weatherIds: WeatherId[] }[] = [
+  const lures = withLures ? favouriteLureIds(species.id, LURES) : [];
+  const rows: { kind: KnowledgeRow['kind']; need: number; text: string; baitIds: string[]; weatherIds: WeatherId[]; lureIds?: string[] }[] = [
     { kind: 'range', need: KNOWLEDGE_TIERS.range, text: sizeRangeText(species), baitIds: [], weatherIds: [] },
     {
       kind: 'bait',
@@ -69,6 +75,9 @@ export function knowledgeRows(species: Species, count: number): KnowledgeRow[] {
     // The weather it likes comes with the favourite bait; a species with none has no such line, and it stays hidden until learned.
     ...(likes.length > 0 && count >= KNOWLEDGE_TIERS.bait
       ? [{ kind: 'weather' as const, need: KNOWLEDGE_TIERS.bait, text: `Likes: ${likes.map((w) => WEATHER_WORDS[w]).join(', ')}`, baitIds: [], weatherIds: likes }]
+      : []),
+    ...(lures.length > 0 && count >= KNOWLEDGE_TIERS.bait
+      ? [{ kind: 'lure' as const, need: KNOWLEDGE_TIERS.bait, text: `Likes: ${lures.map((id) => LURES.find((l) => l.id === id)!.name.toLowerCase()).join(', ')}`, baitIds: [], weatherIds: [], lureIds: lures }]
       : []),
     { kind: 'gold', need: KNOWLEDGE_TIERS.gold, text: `Gold from ${goldFromCm(species)} cm`, baitIds: [], weatherIds: [] },
   ];

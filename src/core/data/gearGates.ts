@@ -24,4 +24,8 @@ export const GEAR_GATES: Readonly<Record<string, GearGate>> = {
   // River gear (slice 25g): by finished river checklist bundles.
   float: { count: 1, excluding: RIVER_MAIN_ONLY, place: 'river-bend' },
   lead: { count: 2, excluding: RIVER_MAIN_ONLY, place: 'river-bend' },
+  // The spinning rod and its lures (slice 32), same river bundles. The spinner has no gate of its own: it only needs the rod.
+  spinrod: { count: 1, excluding: RIVER_MAIN_ONLY, place: 'river-bend' },
+  wobbler: { count: 2, excluding: RIVER_MAIN_ONLY, place: 'river-bend' },
+  jig: { count: 3, excluding: RIVER_MAIN_ONLY, place: 'river-bend' },
 };

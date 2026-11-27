@@ -7,6 +7,7 @@ import { NEW_GAME_CLOCK, MINUTES_PER_DAY, type GameClock } from './clock';
 import { BAITS, baitById } from './data/baits';
 import { speciesById } from './data/fish';
 import { RODS } from './data/rods';
+import { LURES, lureById } from './data/spinning';
 import { TIER_RANK, isTier, starFor } from './data/stars';
 import { SHOP } from './data/shop';
 import { LINES, REELS } from './data/tackle';
@@ -145,6 +146,22 @@ export function normalizeBaits(v: unknown): Record<string, number> {
   return out;
 }
 
+/** Lure counts: only known lures, whole numbers >= 1 (anything else counts as 0 and is dropped). */
+export function normalizeLures(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!isObj(v)) return out;
+  for (const l of LURES) {
+    const n = intAtLeast(v[l.id], 0, 0);
+    if (n > 0) out[l.id] = Math.min(n, 9999);
+  }
+  return out;
+}
+
+/** Lures waiting for Bestia: known ids only, at most 20. */
+export function normalizeLureReturns(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((id): id is string => typeof id === 'string' && lureById(id) !== undefined).slice(0, 20) : [];
+}
+
 function normalizePlayer(v: unknown): PlayerState {
   const p = isObj(v) ? v : {};
   const bag = Array.isArray(p.bag) ? p.bag.map(normalizeBagFish).filter((f): f is BagFish => f !== null) : [];
@@ -168,6 +185,12 @@ function normalizePlayer(v: unknown): PlayerState {
     // The river gear (slice 25g): each key only when owned (older saves have none).
     ...(p.riverFloat === true ? { riverFloat: true } : {}),
     ...(p.riverLead === true ? { riverLead: true } : {}),
+    // Spinning (slice 32): each key only when there is something to keep (older saves have none). The rig is stored only as 'spin'.
+    ...(p.spinRod === true ? { spinRod: true } : {}),
+    ...(Object.keys(normalizeLures(p.lures)).length > 0 ? { lures: normalizeLures(p.lures) } : {}),
+    ...(p.rig === 'spin' ? { rig: 'spin' as const } : {}),
+    ...(typeof p.lure === 'string' && lureById(p.lure) ? { lure: p.lure } : {}),
+    ...(normalizeLureReturns(p.lureReturns).length > 0 ? { lureReturns: normalizeLureReturns(p.lureReturns) } : {}),
     // The checklist: stored only when something is filled (older saves have no key).
     ...(Object.values(normalizeChecklist(p.checklist)).some((a) => a.some(Boolean)) ? { checklist: normalizeChecklist(p.checklist) } : {}),
     // The story (slice 21): stored only when something happened (older saves have no key).

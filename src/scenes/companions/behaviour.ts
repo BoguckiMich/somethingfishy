@@ -7,9 +7,11 @@ import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE, ONE_SEC_LINE, SKIP_FIVE_L
 import type { Rng } from '../../core/random';
 import { QUIET_LAKE } from '../../core/data/locations';
 import type { CompanionSpots, Spots } from '../../core/location';
+import type { GameEvent } from '../../core/events';
 import { BOWL_SIZE } from '../../art/bowlArt';
 
-export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
+/** Every core event type; the companions react to the float rig's (the spinning events of slice 32 do nothing here until part B decides). */
+export type GameEventKind = GameEvent['type'];
 
 export interface Point {
   x: number;
@@ -386,6 +388,8 @@ export interface Companions {
   feedWant: boolean;
   /** Treats she has finished eating since the game started (the scene counts the rises: the heart, the day's count, the cozy bonus). */
   fedCount: number;
+  /** Lures she has dropped by Alex since the game started (slice 32; the scene counts the rises and gives the lure back). */
+  lureBrought: number;
 }
 
 /** One throw of a pebble, as the stones were tapped or swiped (see core/skipping.ts `throwFor`). */
@@ -582,6 +586,7 @@ export function createCompanions(rng: Rng = Math.random, spots: Spots = QL): Com
     feed: null,
     feedWant: false,
     fedCount: 0,
+    lureBrought: 0,
   };
 }
 
@@ -2169,7 +2174,8 @@ export const FEED_ANIM = {
   laneY: 576,
 };
 
-export type FeedPhase = 'go' | 'eat' | 'wag' | 'back';
+/** `eat` at the water edge is the dip for the lure and `bring` the trot back with it in her mouth (slice 32); the meal has neither `bring` nor a dip. */
+export type FeedPhase = 'go' | 'eat' | 'bring' | 'wag' | 'back';
 
 export interface FeedState {
   phase: FeedPhase;
@@ -2185,7 +2191,19 @@ export interface FeedState {
   nap: boolean;
   /** A cast came mid-meal: the family goes back as this press asks once she is done (the fishing state at that press). */
   press: string | null;
+  /** Not a meal but a bring-back (slice 32): she fetches a washed-up lure from the water edge and drops it by Alex. */
+  lure: boolean;
 }
+
+/** Bestia brings a lure back (slice 32, reusing the meal's walk): where she dips for it at the water edge (left of the dock), where she drops it (on the planks by Alex), how long the dip and the drop take. */
+export const BRING_ANIM = {
+  edge: { x: 104, y: 456 },
+  /** A waypoint on the grass below the dock's left corner, so she walks round the planks to the shore and back. */
+  corner: { x: 108, y: 486 },
+  drop: { x: 202, y: 402 },
+  dipMs: 1600,
+  dropMs: 1200,
+};
 
 /** Where her feet stand to eat from the bowl of this place. */
 export const bowlStand = (sp: Spots): Point => ({ x: sp.bowl.x + BOWL_SIZE.w / 2 + FEED_ANIM.standDx, y: sp.bowl.y + BOWL_SIZE.h - 1 });
@@ -2193,8 +2211,11 @@ export const bowlStand = (sp: Spots): Point => ({ x: sp.bowl.x + BOWL_SIZE.w / 2
 /** A treat is in the bowl, waiting or being eaten (a second tap is not needed). */
 export const feedBusy = (s: Companions): boolean => s.feed !== null || s.feedWant;
 
+/** A treat is in the bowl (waiting, or being eaten): a lure errand (slice 32) does not count. */
+export const treatInBowl = (s: Companions): boolean => s.feedWant || (s.feed !== null && !s.feed.lure);
+
 /** The bowl shows its kibble from the moment the treat goes in until she has eaten it. */
-export const bowlHasFood = (s: Companions): boolean => s.feedWant || (s.feed !== null && (s.feed.phase === 'go' || s.feed.phase === 'eat'));
+export const bowlHasFood = (s: Companions): boolean => s.feedWant || (s.feed !== null && !s.feed.lure && (s.feed.phase === 'go' || s.feed.phase === 'eat'));
 
 /** The play phases where she is free (no stick in her mouth, no round going): she can be called to the bowl. */
 const FEED_PLAY_PHASES: readonly PlayPhase[] = ['rest', 'spin', 'drop'];
@@ -2215,18 +2236,32 @@ function feedStartable(s: Companions, ctx: Pick<CompanionContext, 'night'>): boo
 export function feedRequest(s: Companions, ctx: Pick<CompanionContext, 'night'>): 'started' | 'queued' | 'no' {
   if (s.mode === 'bed') return 'no';
   if (ctx.night && (s.dog.sleeping || isCurled(s))) return 'no';
-  if (feedBusy(s)) return 'queued';
+  // A lure errand (slice 32) is not a treat in the bowl: the treat waits for her to be back.
+  if (feedBusy(s) && !(s.feed?.lure && !s.feedWant)) return 'queued';
   s.idleMs = 0;
   s.feedWant = true;
-  if (feedStartable(s, ctx)) {
+  if (!s.feed && feedStartable(s, ctx)) {
     startFeed(s);
     return 'started';
   }
   return 'queued';
 }
 
+/**
+ * A lure washed up and she may fetch it (slice 32): she trots to the water edge, comes back with it in her mouth and drops it by Alex. Asked by the
+ * scene now and then while lures are waiting; only from the dock (not asleep or curled in her bed, not in the middle of a meal or a nap, a fetch round or bedtime).
+ * Returns whether she went.
+ */
+export function bringRequest(s: Companions): 'started' | 'no' {
+  if (s.mode !== 'dock' || feedBusy(s) || s.nap !== null || s.dog.sleeping || s.dog.shape === 'sleep' || isCurled(s)) return 'no';
+  s.idleMs = 0;
+  startFeed(s, true);
+  return 'started';
+}
+
 /** The way from where she is to the bowl (and the same way back, reversed by `feedBack`). */
-function feedRoute(s: Companions, from: Point, fromDock: boolean): Point[] {
+function feedRoute(s: Companions, from: Point, fromDock: boolean, lure = false): Point[] {
+  if (lure) return [...dogDown(s).map((p) => ({ ...p })), { ...BRING_ANIM.corner }, { ...BRING_ANIM.edge }];
   const stand = bowlStand(s.spots);
   const lane = { x: FEED_ANIM.laneX, y: FEED_ANIM.laneY };
   return [...(fromDock ? dogDown(s).map((p) => ({ ...p })) : []), ...(from.x > lane.x ? [lane] : []), stand];
@@ -2240,7 +2275,7 @@ function feedBack(s: Companions, f: FeedState): Point[] {
   return [lane, clampArea(s, { x: s.paj.x + 30, y: s.paj.y + 4 })];
 }
 
-function startFeed(s: Companions): void {
+function startFeed(s: Companions, lure = false): void {
   const d = s.dog;
   const from = s.mode === 'dock' ? 'dock' : s.mode === 'shore' ? 'shore' : 'play';
   s.feedWant = false;
@@ -2254,7 +2289,7 @@ function startFeed(s: Companions): void {
   d.path = [];
   const napping = (s.nap?.napMs ?? 0) > 0;
   s.nap = null;
-  s.feed = { phase: 'go', phaseMs: 0, from, x: d.x, y: d.y, face: d.face, path: feedRoute(s, d, from === 'dock'), nap: napping, press: null };
+  s.feed = { phase: 'go', phaseMs: 0, from, x: d.x, y: d.y, face: d.face, path: feedRoute(s, d, from === 'dock', lure), nap: napping, press: null, lure };
   d.shape = 'run';
 }
 
@@ -2269,7 +2304,7 @@ function tickFeed(s: Companions, dtMs: number): void {
   d.face = f.face;
   d.path = f.path;
   d.hop = 0;
-  const stand = bowlStand(s.spots);
+  const stand = f.lure ? BRING_ANIM.edge : bowlStand(s.spots);
   const next = (phase: FeedPhase) => {
     f.phase = phase;
     f.phaseMs = 0;
@@ -2281,13 +2316,25 @@ function tickFeed(s: Companions, dtMs: number): void {
       if (done) {
         d.x = stand.x;
         d.y = stand.y;
-        d.face = -1; // the bowl is on her left
-        d.shape = 'eat';
+        d.face = -1; // the bowl (and the water) is on her left
+        d.shape = f.lure ? 'bow' : 'eat';
         next('eat');
       }
       break;
     }
     case 'eat': {
+      if (f.lure) {
+        // The dip: her nose in the shallows, tail going, then she turns for the dock with the lure in her mouth.
+        d.shape = 'bow';
+        d.face = -1;
+        d.wagMs = 1 + f.phaseMs;
+        if (f.phaseMs >= BRING_ANIM.dipMs) {
+          d.wagMs = 0;
+          d.path = [{ ...BRING_ANIM.corner }, ...[...dogDown(s)].reverse().map((p) => ({ ...p })), { ...BRING_ANIM.drop }];
+          next('bring');
+        }
+        break;
+      }
       d.shape = 'eat';
       d.face = -1;
       d.wagMs = 1 + f.phaseMs;
@@ -2297,16 +2344,26 @@ function tickFeed(s: Companions, dtMs: number): void {
       }
       break;
     }
+    case 'bring': {
+      const done = follow(d, FEED_ANIM.trotSpeed, dtMs);
+      d.shape = done ? 'stand' : 'run';
+      if (done) {
+        s.lureBrought++; // she drops it by Alex: the scene gives it back
+        d.face = 1;
+        next('wag');
+      }
+      break;
+    }
     case 'wag': {
       // Done: she stands up, looks pleased and wags (the scene floats the heart as the count rises).
       d.shape = 'stand';
-      d.face = -1;
+      d.face = f.lure ? 1 : -1;
       d.wagMs = 1 + f.phaseMs;
       d.hop = Math.abs(Math.sin(f.phaseMs / 110)) * 2;
-      if (f.phaseMs >= FEED_ANIM.wagMs) {
+      if (f.phaseMs >= (f.lure ? BRING_ANIM.dropMs : FEED_ANIM.wagMs)) {
         d.wagMs = 0;
         d.hop = 0;
-        d.path = feedBack(s, f);
+        d.path = f.lure ? [{ ...cs(s).dog }] : feedBack(s, f);
         next('back');
       }
       break;
@@ -2359,6 +2416,8 @@ export interface DogView {
   breath: 0 | 1;
   /** Eating from the bowl (slice 30): the munch frame, 0 or 1. */
   munch: 0 | 1;
+  /** A lure in her mouth, or lying where she dropped it (slice 32); null = none. */
+  lure: 'mouth' | 'drop' | null;
 }
 
 export function dogView(s: Companions): DogView {
@@ -2373,7 +2432,8 @@ export function dogView(s: Companions): DogView {
     step: Math.floor(s.elapsed / 90) % 4,
     carry: s.stick.state === 'carried',
     breath: napBreath(s.elapsed),
-    munch: s.feed?.phase === 'eat' ? ((Math.floor(s.feed.phaseMs / FEED_ANIM.munchMs) % 2) as 0 | 1) : 0,
+    munch: s.feed?.phase === 'eat' && !s.feed.lure ? ((Math.floor(s.feed.phaseMs / FEED_ANIM.munchMs) % 2) as 0 | 1) : 0,
+    lure: s.feed?.lure ? (s.feed.phase === 'bring' ? 'mouth' : s.feed.phase === 'wag' ? 'drop' : null) : null,
   };
 }
 

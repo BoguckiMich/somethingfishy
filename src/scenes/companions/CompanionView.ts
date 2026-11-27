@@ -13,6 +13,7 @@ import {
   bubbleAlpha,
   chairEmpty,
   createCompanions,
+  DOG_MOUTH,
   dogView,
   dogVisible,
   groundStickAlpha,
@@ -83,6 +84,8 @@ export class CompanionView {
   private dogShape: string = 'lie';
   private zs: Phaser.GameObjects.Image[] = [];
   private hearts: { img: Phaser.GameObjects.Image; age: number; life: number }[] = [];
+  /** The lure in her mouth or on the planks where she dropped it (slice 32). */
+  private lure: Phaser.GameObjects.Image;
   private bubbleGfx: Phaser.GameObjects.Graphics;
   private bubbleText: Phaser.GameObjects.Text;
   /** Bestia's one "Woof!" after a five-skip pebble (slice 26b). */
@@ -98,6 +101,7 @@ export class CompanionView {
     this.dog = scene.add.image(0, 0, dogKey({ shape: 'lie', tail: 0, perked: false, step: 0 })).setDepth(DEPTH);
     this.chair = scene.add.image(this.state.spots.companions.paj.x - PAJ_SIZE.w / 2 + EMPTY_CHAIR.x, this.state.spots.companions.paj.y - PAJ_ORIGIN_Y + EMPTY_CHAIR.y, TEX.emptyChair).setOrigin(0, 0).setDepth(DEPTH - 1).setVisible(false);
     this.stick = scene.add.image(0, 0, TEX.stickSpin[0]).setDepth(DEPTH + 1).setVisible(false);
+    this.lure = scene.add.image(0, 0, TEX.lureGlint).setDepth(DEPTH + 1.2).setVisible(false);
     this.puff = scene.add.image(0, 0, TEX.stickPuff[0]).setDepth(DEPTH - 0.4).setVisible(false);
     for (let i = 0; i < 3; i++) this.steam.push({ img: scene.add.image(0, 0, TEX.steam).setOrigin(0.5, 1).setDepth(DEPTH + 2).setVisible(false), age: Infinity, x: 0, y: 0 });
     for (const key of [TEX.zSmall, TEX.zBig]) {
@@ -291,6 +295,11 @@ export class CompanionView {
       .setDepth(this.dogBehind ? DEPTH - 0.1 : DEPTH + 0.1) // behind him while she is further up the screen
       .setVisible(dogVisible(s))
       .setAlpha(s.bed?.dogA ?? 1);
+
+    // The lure she fetches (slice 32): in her mouth on the way back, then on the planks by Alex while she wags.
+    this.lure.setVisible(v.lure !== null);
+    if (v.lure === 'mouth') this.lure.setPosition(Math.round(d.x + d.face * DOG_MOUTH.x - 2), Math.round(d.y - DOG_MOUTH.y + Math.sin(elapsed / 90) - d.hop)).setTint(tint);
+    else if (v.lure === 'drop') this.lure.setPosition(Math.round(d.x + 16 - 2), Math.round(d.y - 2)).setTint(tint);
 
     // Sleeping "z"s.
     const asleep = (v.shape === 'sleep' || curled) && s.mode !== 'bed';

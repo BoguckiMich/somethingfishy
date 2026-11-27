@@ -6,6 +6,8 @@ import {
   glintPhase,
   isSeen,
   markCast,
+  markSpinCast,
+  spinCastCount,
   markSeen,
   normalizeSeen,
   pickTip,
@@ -142,5 +144,18 @@ describe('signAction', () => {
   it('opens the quests otherwise', () => {
     expect(signAction({ bottleOnWater: false, chapterWaiting: true, calm: false })).toBe('quests');
     expect(signAction({ bottleOnWater: false, chapterWaiting: false, calm: true })).toBe('quests');
+  });
+});
+
+describe('spin casts (slice 32)', () => {
+  it('counts spin casts up to 3, apart from the float casts', () => {
+    let seen: string[] = ['cast1'];
+    for (let i = 0; i < 5; i++) seen = markSpinCast(seen);
+    expect(spinCastCount(seen)).toBe(3);
+    expect(castCount(seen)).toBe(1);
+    expect(spinCastCount(undefined)).toBe(0);
+  });
+  it('keeps the rod line flag through normalisation', () => {
+    expect(normalizeSeen(['spinLine', 'spin1', 'nope'])).toEqual(['spin1', 'spinLine']);
   });
 });

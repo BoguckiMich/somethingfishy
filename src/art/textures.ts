@@ -1,7 +1,7 @@
 import { trophyBoardKey, trophyBoardSprite } from './trophyBoardArt';
 import type Phaser from 'phaser';
 import { CAMPFIRE_FRAMES, WINDSOCK_LEVELS, campfireSprite, dogBedSprite, lightPoleSprite, tentSprite, windsockSprite } from './campArt';
-import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VARIANTS, emptyChairSprite, stickCarrySprite, stickGroundSprite, stickPuffSprite, stickSpinSprite, type StickVariant, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
+import { PAJ_POSES, PAJ_WALK_POSES, ALEX_HANDS_KEY, ALEX_HEADS, HEART, STICK_VARIANTS, emptyChairSprite, stickCarrySprite, stickGroundSprite, stickPuffSprite, stickSpinSprite, type StickVariant, alexCrankKey, alexKey, alexShowOffHandsSprite, alexShowOffKey, alexShowOffSprite, alexSprite, allDogFrames, dogKey, dogSprite, pajkelSittingSprite, pajkelWalkSprite, type PajPose, type PajWalkPose } from './characters';
 import { CAR_VARIANTS, carKey, carSprite } from './carArt';
 import { lanternSprite } from './lanternArt';
 import { BAR_INNER, STRIP_INNER, barFrameSprite, stripFishSprite, stripNetSprite } from './catchBarArt';
@@ -12,6 +12,8 @@ import { signKey, signSprite, type SignLook } from './signArt';
 import { FISH_SIZE_CLASSES, fishHugKey, fishHugSprite, fishIconKey, fishIconSprite, fishKey, fishSprite, isHugged } from './fishArt';
 import { BAITS } from '../core/data/baits';
 import { SPECIES } from '../core/data/fish';
+import { LURES } from '../core/data/spinning';
+import { LURE_GLINT } from './spinFx';
 import { FAR_SHORE_Y, W } from './layout';
 import { coinSprite, gearSprite, wormSprite, zSprite } from './iconArt';
 import { MOMENT_SPRITES } from './momentArt';
@@ -80,6 +82,7 @@ export const TEX = {
   stickFloat: 'stickFloat',
   stickFloatUnder: 'stickFloatUnder',
   heart: 'heart',
+  lureGlint: 'lureGlint',
   stickCarry: 'stickCarry',
   stickSpin: ['stickSpin0', 'stickSpin1', 'stickSpin2', 'stickSpin3'],
   stickPuff: ['stickPuff0', 'stickPuff1'],
@@ -118,6 +121,8 @@ export const weatherKey = (id: WeatherId): string => `weather-${id}`;
 
 /** Texture key of a bait's 16 x 16 icon (the bottom-bar chip); worms use the plain worm icon. */
 export const baitIconKey = (id: string): string => (id === 'worm' ? TEX.worm : `bait:${id}`);
+/** A lure's icon for the rig chip (slice 32). */
+export const lureIconKey = (id: string): string => `lure:${id}`;
 
 /** The notice-board sign for a look (slice 22c): baked the first time it is needed, then reused. Returns its key. */
 export function ensureSignTexture(scene: Phaser.Scene, look: SignLook): string {
@@ -199,6 +204,7 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.worm, () => Raster.fromSprite(wormSprite()));
   addRaster(scene, TEX.coin, () => Raster.fromSprite(coinSprite()));
   for (const b of BAITS) addRaster(scene, baitIconKey(b.id), () => Raster.fromSprite(shopIconSprite(b.id)!));
+  for (const l of LURES) addRaster(scene, lureIconKey(l.id), () => Raster.fromSprite(shopIconSprite(l.id)!));
   addRaster(scene, TEX.zSmall, () => Raster.fromSprite(zSprite(false)));
   addRaster(scene, TEX.zBig, () => Raster.fromSprite(zSprite(true)));
   for (const star of ['bronze', 'silver', 'gold', 'medal'] as const) addRaster(scene, starKey(star), () => Raster.fromSprite(starRowSprite(star)!));
@@ -253,6 +259,7 @@ export { dogKey };
 function createCharacterTextures(scene: Phaser.Scene): void {
   for (const head of ALEX_HEADS) {
     for (const b of [0, 1] as const) addRaster(scene, alexKey(head, b), () => Raster.fromSprite(alexSprite(head, b)));
+    for (const c of [0, 1] as const) addRaster(scene, alexCrankKey(head, c), () => Raster.fromSprite(alexSprite(head, 0, c)));
   }
   for (const b of [0, 1] as const) addRaster(scene, alexShowOffKey(b), () => Raster.fromSprite(alexShowOffSprite(b)));
   addRaster(scene, ALEX_HANDS_KEY, () => Raster.fromSprite(alexShowOffHandsSprite()));
@@ -272,6 +279,7 @@ function createCharacterTextures(scene: Phaser.Scene): void {
   }
   for (const f of allDogFrames()) addRaster(scene, dogKey(f), () => Raster.fromSprite(dogSprite(f)));
   addRaster(scene, TEX.heart, () => Raster.fromSprite(HEART));
+  addRaster(scene, TEX.lureGlint, () => Raster.fromSprite(LURE_GLINT));
   for (let i = 0; i < 4; i++) addRaster(scene, TEX.stickSpin[i], () => Raster.fromSprite(stickSpinSprite(i)));
   for (const f of [0, 1] as const) addRaster(scene, TEX.stickPuff[f], () => Raster.fromSprite(stickPuffSprite(f)));
   addRaster(scene, TEX.emptyChair, () => Raster.fromSprite(emptyChairSprite()));

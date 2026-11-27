@@ -5,6 +5,7 @@ import { RODS } from './rods';
 import { TREATS } from './treats';
 import { LINES, REELS } from './tackle';
 import { RIVER_GEAR_ITEMS } from './riverGear';
+import { LURES, SPIN_ROD_ID } from './spinning';
 
 /** What one place's shop sells, as item ids by section (slice 29). Owned gear stays owned and usable everywhere; this only gates buying. */
 export interface ShopStock {
@@ -30,10 +31,10 @@ export const QUIET_LAKE_STOCK: ShopStock = {
   camp: CAMP_ITEMS.map((c) => c.id),
 };
 
-/** River bend: the basics and the "River tackle" section (the trotting float and heavy lead, slice 25g; the spinning rod joins in slice 32). Camp items stay at the lake. */
+/** River bend: the basics and the "River tackle" section (the trotting float and heavy lead, slice 25g; the spinning rod and the three lures, slice 32). Camp items stay at the lake. */
 export const RIVER_BEND_STOCK: ShopStock = {
   bait: BASIC_BAIT,
-  gear: RIVER_GEAR_ITEMS.map((g) => g.id),
+  gear: [...RIVER_GEAR_ITEMS.map((g) => g.id), SPIN_ROD_ID, ...LURES.map((l) => l.id)],
   camp: [],
   gearTitle: 'River tackle',
 };

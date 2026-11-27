@@ -6,6 +6,7 @@ import { NIGHT_KIT } from './data/nightKit';
 import { LINES, REELS } from './data/tackle';
 import { RIVER_GEAR_ITEMS, riverGearItem } from './data/riverGear';
 import type { RiverGearOwned } from './current';
+import { LURES, SPIN_ROD, SPIN_ROD_ID, lureById, type Lure } from './data/spinning';
 import { DEEP_NIGHT_PRICE_MULT, RARITY_PRICE_MULT, SHOP } from './data/shop';
 import { inSleepWindow } from './bedtime';
 import { timeOfDay } from './clock';
@@ -75,6 +76,16 @@ export interface PlayerState {
   /** Owns the river gear (slice 25g): the trotting float and the heavy lead; missing = no. Read with riverGearOf(). */
   riverFloat?: boolean;
   riverLead?: boolean;
+  /** The spinning rod (slice 32), bought at the River bend; missing = no. Read with hasSpinRod(). */
+  spinRod?: boolean;
+  /** Lures owned, by lure id (slice 32); missing = none. Read with lureCount(). */
+  lures?: Record<string, number>;
+  /** The rig she fishes with (slice 32): missing = float. Read with activeRig(), which also needs the rod and a lure. */
+  rig?: 'spin';
+  /** The lure she chose; missing = the first one she has. Read with chosenLure(). */
+  lure?: string;
+  /** Snapped lures that washed up and wait for Bestia to bring them back (slice 32), the lure ids in the order they were lost. Read with lureReturnsOf(). */
+  lureReturns?: string[];
   /** Owns the night kit "Lantern & blanket" (slice 16); missing = no. */
   nightKit?: boolean;
   /** Filled slots per checklist bundle (slice 20); missing = nothing filled. Read with checklistOf(). */
@@ -188,7 +199,8 @@ export function buyTreats(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOC
 
 /** Can the player cast at all? Needs some of the chosen bait, or worms as the fallback. */
 export function canCast(p: PlayerState): boolean {
-  return baitCount(p, chosenBait(p)) > 0;
+  // A spin cast needs a lure, not bait (slice 32).
+  return activeRig(p) === 'spin' || baitCount(p, chosenBait(p)) > 0;
 }
 
 /** basePrice x rarity multiplier x (0.7 + position of the length in the species range), rounded. */
@@ -356,6 +368,90 @@ export function buyRiverGear(state: PlayerState, id: string, stock: ShopStock = 
 /** The river gear she owns, as the items (for "Your tackle"). */
 export const ownedRiverGear = (p: PlayerState) => RIVER_GEAR_ITEMS.filter((g) => p[g.flag] === true);
 
+// ---- Spinning (slice 32) ---------------------------------------------------------------------------
+
+export const hasSpinRod = (p: PlayerState): boolean => p.spinRod === true;
+
+/** How many of a lure she has. */
+export const lureCount = (p: PlayerState, id: string): number => (lureById(id) ? Math.max(0, Math.floor(p.lures?.[id] ?? 0)) : 0);
+
+/** The lures she has any of, in shop order. */
+export const ownedLures = (p: PlayerState): { lure: Lure; count: number }[] => LURES.filter((l) => lureCount(p, l.id) > 0).map((l) => ({ lure: l, count: lureCount(p, l.id) }));
+
+/** The lure on the line: her choice while she has any, else the first one she has; undefined with none. */
+export function chosenLure(p: PlayerState): string | undefined {
+  if (p.lure && lureCount(p, p.lure) > 0) return p.lure;
+  return ownedLures(p)[0]?.lure.id;
+}
+
+/** The rig that will really be used: spin only with the rod, the rig chosen and a lure to cast. */
+export const activeRig = (p: PlayerState): 'float' | 'spin' => (p.rig === 'spin' && hasSpinRod(p) && chosenLure(p) !== undefined ? 'spin' : 'float');
+
+/** Chooses a lure she has and switches to the spinning rig with it (picking a lure picks the rig). */
+export function chooseLure(p: PlayerState, id: string): { state: PlayerState; ok: boolean } {
+  if (!hasSpinRod(p) || lureCount(p, id) <= 0) return { state: p, ok: false };
+  return { state: { ...p, lure: id, rig: 'spin' }, ok: true };
+}
+
+/** Back to the float rig (the bait picker's choice sets it). The spinning rig needs a lure (`chooseLure`). */
+export function chooseFloatRig(p: PlayerState): PlayerState {
+  if (p.rig === undefined) return p;
+  const { rig: _gone, ...rest } = p;
+  return rest;
+}
+
+/** Adds `n` of a lure (unknown ids and n <= 0 change nothing). */
+export function addLure(p: PlayerState, id: string, n: number): PlayerState {
+  if (n <= 0 || !lureById(id)) return p;
+  return { ...p, lures: { ...p.lures, [id]: lureCount(p, id) + n } };
+}
+
+/** One lure is gone for good; `bringBack` queues it for Bestia. The choice and the rig fall back when it was the last one. */
+export function loseLure(p: PlayerState, id: string, bringBack: boolean): PlayerState {
+  if (lureCount(p, id) <= 0) return p;
+  const left = lureCount(p, id) - 1;
+  const lures = { ...p.lures };
+  if (left > 0) lures[id] = left;
+  else delete lures[id];
+  const next: PlayerState = { ...p, lures };
+  if (Object.keys(lures).length === 0) delete next.lures;
+  if (bringBack) next.lureReturns = [...(p.lureReturns ?? []), id];
+  return next;
+}
+
+/** The lures waiting for Bestia, oldest first. */
+export const lureReturnsOf = (p: PlayerState): string[] => (p.lureReturns ?? []).filter((id) => lureById(id) !== undefined);
+
+/** Bestia brings the oldest waiting lure back: it is owned again. `lure` is its id (undefined when none was waiting). */
+export function takeLureReturn(p: PlayerState): { state: PlayerState; lure?: string } {
+  const [lure, ...rest] = lureReturnsOf(p);
+  if (!lure) return { state: p };
+  const back = addLure(p, lure, 1);
+  const next: PlayerState = { ...back };
+  if (rest.length > 0) next.lureReturns = rest;
+  else delete next.lureReturns;
+  return { state: next, lure };
+}
+
+/** Buys the spinning rod (once): sold at the river only, behind a river checklist bundle. */
+export function buySpinRod(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
+  if (!sold(stock, SPIN_ROD_ID)) return fail(state, 'notSoldHere');
+  if (hasSpinRod(state)) return fail(state, 'owned');
+  if (!gearUnlocked(SPIN_ROD_ID, state)) return fail(state, 'locked');
+  if (state.coins < SPIN_ROD.price) return fail(state, 'needCoins', SPIN_ROD.price - state.coins);
+  return { ok: true, state: { ...state, coins: state.coins - SPIN_ROD.price, spinRod: true } };
+}
+
+/** Buys one lure (any number of times; needs the rod). A new lure is not auto-chosen: picking one switches the rig. */
+export function buyLure(state: PlayerState, id: string, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
+  const lure = lureById(id);
+  if (!lure || !sold(stock, lure.id)) return fail(state, 'notSoldHere');
+  if (!hasSpinRod(state)) return fail(state, 'needRod');
+  if (!gearUnlocked(lure.id, state)) return fail(state, 'locked');
+  if (state.coins < lure.price) return fail(state, 'needCoins', lure.price - state.coins);
+  return { ok: true, state: addLure({ ...state, coins: state.coins - lure.price }, lure.id, 1) };
+}
+
 // ---- The night kit (slice 16) ----------------------------------------------------------------
 
 export const hasNightKit = (p: PlayerState): boolean => p.nightKit === true;
@@ -402,6 +498,9 @@ export function freeWormsIfStuck(state: PlayerState): { state: PlayerState; gran
  * fight uses it half the time (rolled through `rng`); scares and missed bites never cost one.
  */
 export function applyEvent(state: PlayerState, event: GameEvent, rng: Rng): { state: PlayerState; wormUsed: boolean; baitUsed?: string } {
+  // Spinning (slice 32): a lure catch or loss spends no bait (and draws nothing from the rng); a lost lure goes from the count.
+  if (event.type === 'lureLost') return { state: loseLure(state, event.lure, event.bringBack), wormUsed: false };
+  if ((event.type === 'fishCaught' || event.type === 'fishLost') && event.lure) return { state, wormUsed: false };
   const uses =
     event.type === 'fishCaught' || (event.type === 'fishLost' && rng() < SHOP.lostFightWormChance);
   const id = chosenBait(state);

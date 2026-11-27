@@ -74,10 +74,10 @@ export function lengthSkewFor(species: Species, pool?: FishPool): number {
   return species.rarity !== 'legendary' && species.lengthCm[1] >= FISH_TUNING.bigSpeciesCm ? FISH_TUNING.bigLengthSkew : FISH_TUNING.lengthSkew;
 }
 
-/** Whole centimetres within the species range, skewed small. */
-export function rollLength(species: Species, rng: Rng, pool?: FishPool): number {
+/** Whole centimetres within the species range, skewed small (`skewMul` below 1 skews less: the spinning rod's bigger fish, slice 32). */
+export function rollLength(species: Species, rng: Rng, pool?: FishPool, skewMul = 1): number {
   const [min, max] = species.lengthCm;
-  return Math.round(min + (max - min) * Math.pow(rng(), lengthSkewFor(species, pool)));
+  return Math.round(min + (max - min) * Math.pow(rng(), lengthSkewFor(species, pool) * skewMul));
 }
 
 /** Weight in whole grams: a * L^3. */
@@ -96,7 +96,7 @@ export interface CastPlace {
 }
 
 /** Picks the species (or the forced one) and rolls its size. A legendary or a trophy (slice 23d) may replace the normal pick. */
-export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects, fishPool?: FishPool): HookedFish {
+export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId?: string, place?: CastPlace, baitId?: string, fotdId?: string, fx?: WeatherEffects, fishPool?: FishPool, sizeSkewMul = 1): HookedFish {
   // The trophies and the legendary: a place whose pool has no `specials` never rolls them (each place's own are picked by its id in the rules).
   const specials = !fishPool || fishPool.specials;
   const species =
@@ -104,7 +104,7 @@ export function rollHookedFish(zone: ZoneId, time: TimeOfDay, rng: Rng, forcedId
     (place && specials ? rollLegendary(place.distanceM, place.minute, rng, place.placeId, place.bandId) : undefined) ??
     (place && specials ? rollRare({ placeId: place.placeId, bandId: place.bandId, zone, distanceM: place.distanceM, minute: place.minute, weather: fx?.id, baitId }, rng) : undefined) ??
     pickSpecies(zone, time, rng, baitId, fotdId, fx, fishPool);
-  const lengthCm = rollLength(species, rng, fishPool);
+  const lengthCm = rollLength(species, rng, fishPool, sizeSkewMul);
   return { speciesId: species.id, lengthCm, weightG: weightG(species, lengthCm) };
 }
 

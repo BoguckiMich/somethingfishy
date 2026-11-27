@@ -16,6 +16,7 @@ import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { CAMP_ITEMS } from '../core/data/camp';
 import { RIVER_GEAR_ITEMS, riverGearItem } from '../core/data/riverGear';
+import { LURES, SPIN_ROD } from '../core/data/spinning';
 import { EN, tr } from '../i18n/en';
 import { buyCampItem, hasCamp } from '../core/camp';
 import type { Line, Reel, Rod } from '../core/gear';
@@ -29,7 +30,9 @@ import {
   hasNightKit,
   nightKitForSale,
   buyReel,
+  buyLure,
   buyRiverGear,
+  buySpinRod,
   buyRod,
   buyTreats,
   buyWorms,
@@ -37,6 +40,8 @@ import {
   equippedReel,
   freeWormsIfStuck,
   hasRiverGear,
+  hasSpinRod,
+  lureCount,
   ownedRiverGear,
   nextLine,
   nextReel,
@@ -208,6 +213,9 @@ function tackleEntry(owned: { id: string; name: string } | undefined, emptyText:
   }
   return row;
 }
+
+/** What the spinning rod does, for its shop card (slice 32). */
+const SPIN_ROD_EFFECT = `Casts lures up to ${SPIN_ROD.maxCastM} m. Predators follow, then strike`;
 
 /** A rod's red core as a share of its catch zone: "20%" (slice 23f). */
 const coreText = (rod: Rod): string => `${Math.round((rod.barGear.coreShare ?? 0) * 100)}%`;
@@ -410,6 +418,7 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
         tackleEntry(equippedReel(p), 'No reel yet'),
         ...(hasNightKit(p) ? [tackleEntry(NIGHT_KIT, '')] : []),
         ...ownedRiverGear(p).map((g) => tackleEntry(g, '')),
+        ...(hasSpinRod(p) ? [tackleEntry(SPIN_ROD, '')] : []),
       );
 
       // Rods, lines and reels are the lake's section ("Upgrades"); the river sells its own items under `stock.gearTitle` ("River tackle", slice 25g).
@@ -470,6 +479,45 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
                   panel.refresh();
                 },
               }),
+        );
+      }
+
+      // The spinning rod and its lures (slice 32), in the River tackle: the rod once (behind a river bundle), the lures one at a time and as often as she likes.
+      if (sold(stock, SPIN_ROD.id)) {
+        body.append(
+          hasSpinRod(p)
+            ? itemCard({ id: SPIN_ROD.id, name: SPIN_ROD.name, note: 'Owned', effect: SPIN_ROD_EFFECT, coins: p.coins })
+            : itemCard({
+                gate: gateOf(SPIN_ROD.id),
+                id: SPIN_ROD.id,
+                name: SPIN_ROD.name,
+                price: SPIN_ROD.price,
+                effect: SPIN_ROD_EFFECT,
+                coins: p.coins,
+                buy: () => {
+                  apply(buySpinRod(store.get(), stock), SPIN_ROD.id);
+                  panel.refresh();
+                },
+              }),
+        );
+      }
+      for (const lure of LURES.filter((l) => sold(stock, l.id))) {
+        const have = lureCount(p, lure.id);
+        body.append(
+          itemCard({
+            gate: hasSpinRod(p) ? gateOf(lure.id) : undefined,
+            id: lure.id,
+            name: lure.name,
+            price: lure.price,
+            ...(have > 0 ? { note: `Owned: ${have}` } : {}),
+            effect: lure.effect,
+            coins: p.coins,
+            ...(hasSpinRod(p) ? {} : { locked: `Needs the ${SPIN_ROD.name}` }),
+            buy: () => {
+              apply(buyLure(store.get(), lure.id, stock), lure.id);
+              panel.refresh();
+            },
+          }),
         );
       }
 

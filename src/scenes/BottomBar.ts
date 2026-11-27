@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { W } from '../art/layout';
 import { PAL } from '../art/palette';
-import { TEX, baitIconKey } from '../art/textures';
+import { TEX, baitIconKey, lureIconKey } from '../art/textures';
+import type { RigChipView } from './RigChip';
 import { FONT, FS, textPad } from '../font';
 import { drawFrame } from './frameDraw';
 
@@ -30,7 +31,7 @@ const hitRectOf = (i: number) => {
   return new Phaser.Geom.Rectangle(r.x - pad, BTN.hitY, r.width + pad * 2, BTN.hitH);
 };
 
-/** The bait chip's rectangle, for the "-1" cue that floats up from it. */
+/** The rig chip's rectangle, for the "-1" cue that floats up from it. */
 export const baitChipRect = (): Phaser.Geom.Rectangle => rectOf(ORDER.indexOf('bait'));
 
 /** Top edge of the bar, so the hint can sit just above it. */
@@ -41,9 +42,8 @@ export interface BarView {
   enabled: boolean;
   bagCount: number;
   bagSlots: number;
-  /** The bait on the hook (slice 15c) and how many are left; shown on the chip. */
-  baitId: string;
-  baitCount: number;
+  /** The rig chip (slice 15c, rig in slice 32): the bait on the hook or the lure on the line, and how many are left. */
+  chip: RigChipView;
   /** The fish log: species found and how many there are (the label reads "Log 6/13"). */
   logFound: number;
   logTotal: number;
@@ -95,9 +95,9 @@ export class BottomBar {
       const label = this.labels[i];
       // Amber from 8 of 10 on, so the warning comes before the bag-full card.
       const full = id === 'bag' && v.bagCount >= v.bagSlots - 2;
-      label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : id === 'log' ? `Log ${v.logFound}/${v.logTotal}` : id === 'bait' ? String(v.baitCount) : '');
+      label.setText(id === 'bag' ? `Bag ${v.bagCount}/${v.bagSlots}` : id === 'shop' ? 'Shop' : id === 'log' ? `Log ${v.logFound}/${v.logTotal}` : id === 'bait' ? String(v.chip.count) : '');
       if (id === 'settings') this.gear.setAlpha(a);
-      if (id === 'bait') this.baitIcon.setTexture(baitIconKey(v.baitId)).setAlpha(a);
+      if (id === 'bait') this.baitIcon.setTexture(v.chip.rig === 'spin' ? lureIconKey(v.chip.id) : baitIconKey(v.chip.id)).setAlpha(a);
       label.setColor(full ? '#ffb347' : '#fff6e4');
       label.setAlpha(a);
       if (id === 'shop' && v.shopDot) {

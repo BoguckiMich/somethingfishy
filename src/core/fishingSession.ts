@@ -13,6 +13,8 @@ import type { BarGear, Rod } from './gear';
 import { poolAt, zoneAt, type Location, type ZoneId } from './location';
 import type { Rng } from './random';
 import { randInt, randRange } from './random';
+import { SPIN_ROD } from './data/spinning';
+import { newSpin, pressSpin, releaseSpin, snapFate, tickSpin, type SpinEnv, type SpinState } from './spinning';
 
 /**
  * The float-fishing state machine. Pure: the scene sends events in and renders whatever
@@ -22,18 +24,21 @@ import { randInt, randRange } from './random';
 export type FishingState =
   | { kind: 'idle' }
   | { kind: 'charging'; heldMs: number }
-  | { kind: 'casting'; power: number; distanceM: number; zone: ZoneId }
+  /** `lure` (slice 32): a spinning cast, the lure id; absent = the float rig. */
+  | { kind: 'casting'; power: number; distanceM: number; zone: ZoneId; lure?: string }
   /** Bobber in the water. `untilMs` counts down to the next nibble or the real bite. `drift` (slice 25c, moving water only: 0 landed .. 1 settled in the eddy) is carried through every state after, so the bobber stays where it is. */
   | { kind: 'waiting'; distanceM: number; zone: ZoneId; hooked: HookedFish; untilMs: number; nibblesLeft: number; hadNibble: boolean; drift?: number }
   /** The real bite: the bobber is under and the player must tap within `windowLeftMs`. */
   | { kind: 'bite'; distanceM: number; zone: ZoneId; hooked: HookedFish; windowLeftMs: number; drift?: number }
   /** The fight. Classic: holding raises the catch-bar zone; `bar.holding` mirrors the player's thumb. Line style (slice 28): `line` carries the fight and `bar` is an inert placeholder (core/fight.ts). */
-  | { kind: 'fighting'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; bar: CatchBarState; line?: LineFightState; drift?: number }
+  | { kind: 'fighting'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; bar: CatchBarState; line?: LineFightState; drift?: number; /** Hooked on this lure (slice 32). */ lure?: string }
   /** The show-off: the fish is held up. A press (after a short guard) or the timer ends it. */
   | { kind: 'caught'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; shownMs: number }
   /** The fish got away: the line hangs slack for a moment, then the normal reel-in follows. */
   | { kind: 'lost'; distanceM: number; ageMs: number; drift?: number }
-  | { kind: 'retrieving'; distanceM: number; drift?: number };
+  | { kind: 'retrieving'; distanceM: number; drift?: number }
+  /** The spinning retrieve (slice 32, core/spinning.ts): the lure is in the water and the thumb reels (down) or pauses (up). `distanceM` and `zone` follow the lure. */
+  | { kind: 'spinning'; distanceM: number; zone: ZoneId; spin: SpinState };
 
 export type FishingInput =
   | { type: 'press' }
@@ -60,6 +65,10 @@ export interface SessionContext {
   flow?: () => number;
   /** The river gear she owns (slice 25g: trotting float, heavy lead). Absent = none. Only a place with a `current` reads it. */
   riverGear?: () => RiverGearOwned;
+  /** Which rig she fishes with (slice 32): 'spin' casts a lure with the spinning rod (30 m, its own flex) and plays the retrieve; absent or 'float' = the float rig as ever. */
+  rig?: () => 'float' | 'spin';
+  /** The lure on the line (a lure id from data/spinning.ts); a spin cast needs one (no lure = a float cast). */
+  lureId?: () => string | undefined;
   /** Today's weather and what it does to the bites right now (slice 23b). Absent means none. */
   weatherFx?: () => WeatherEffects | undefined;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
@@ -116,6 +125,34 @@ export function fightGear(gear: BarGear, baitId: string | undefined): BarGear {
 /** The drift of a state, as a spread for the next state (nothing at still water, so Quiet Lake's states are what they always were). */
 const driftOf = (state: { drift?: number }): { drift?: number } => (state.drift !== undefined ? { drift: state.drift } : {});
 
+/** Is this a spin cast (slice 32)? The rig must be spin AND a lure chosen; the id of the lure, or undefined for a float cast. */
+const spinLure = (ctx: SessionContext): string | undefined => (ctx.rig?.() === 'spin' ? ctx.lureId?.() : undefined);
+
+/** The rod's catch-bar values on the spinning rod: its zone and core on top of the equipped line and reel (the rods share everything else). */
+export function spinBarGear(gear: BarGear): BarGear {
+  return { ...gear, zoneSize: SPIN_ROD.barGear.zoneSize, ...(SPIN_ROD.barGear.coreShare !== undefined ? { coreShare: SPIN_ROD.barGear.coreShare } : {}) };
+}
+
+const spinEnv = (ctx: SessionContext): SpinEnv => ({ location: ctx.location, time: ctx.timeOfDay(), minute: ctx.minute?.(), fx: ctx.weatherFx?.(), fotdId: ctx.fotdId?.(), flow: ctx.flow?.() ?? 1 });
+
+/** The session's view of a spin step: the state to continue with and the events, or the fight a hooked strike starts. */
+function spinResult(state: Extract<FishingState, { kind: 'spinning' }>, r: ReturnType<typeof tickSpin>, ctx: SessionContext): StepResult {
+  const { spin, events, outcome } = r;
+  const zone = zoneAt(ctx.location, spin.distanceM).fishZone;
+  if (outcome.kind === 'out') return { state: INITIAL_STATE, events };
+  if (outcome.kind === 'snag') return { state: { kind: 'retrieving', distanceM: spin.distanceM, ...(spin.drift !== undefined ? { drift: spin.drift } : {}) }, events };
+  if (outcome.kind === 'hooked') {
+    const hooked = outcome.hooked;
+    const fish = ctx.fishOverride ?? fightProfile(speciesById(hooked.speciesId)!, hooked.lengthCm, ctx.weatherFx?.()?.difficultyAdd);
+    const fight = beginFight(ctx.catchStyle?.() ?? 'classic', fish, spinBarGear(ctx.barGear), ctx.rng, spin.distanceM, hooked.speciesId, fightEveryMul(ctx.location.current, ctx.weatherFx?.()?.id === 'rain', fish.slipAfterMs !== undefined));
+    return {
+      state: { kind: 'fighting', distanceM: spin.distanceM, zone, hooked, fish, ...fight, lure: spin.lure, ...(spin.drift !== undefined ? { drift: spin.drift } : {}) },
+      events: [...events, { type: 'hooked', zone, lure: spin.lure }],
+    };
+  }
+  return { state: { ...state, distanceM: spin.distanceM, zone, spin }, events };
+}
+
 export const INITIAL_STATE: FishingState = { kind: 'idle' };
 
 const same = (state: FishingState): StepResult => ({ state, events: [] });
@@ -133,17 +170,20 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         // Too short a hold is a tap: back to idle, no cast and (the bait is used on the cast event) no bait spent.
         if (state.heldMs < MIN_HOLD_MS) return same(INITIAL_STATE);
         const power = chargePower(state.heldMs);
-        const distanceM = castDistance(power, ctx.rod);
+        const lure = spinLure(ctx);
+        const distanceM = castDistance(power, lure ? SPIN_ROD : ctx.rod);
         const zone = zoneAt(ctx.location, distanceM).fishZone;
         return {
-          state: { kind: 'casting', power, distanceM, zone },
-          events: [{ type: 'cast', distanceM, zone, locationId: ctx.location.id }],
+          state: { kind: 'casting', power, distanceM, zone, ...(lure ? { lure } : {}) },
+          events: [{ type: 'cast', distanceM, zone, locationId: ctx.location.id, ...(lure ? { lure } : {}) }],
         };
       }
       return same(state);
 
     case 'casting':
       if (input.type !== 'landed') return same(state);
+      // A lure (slice 32): the retrieve begins, no fish is rolled until a predator follows.
+      if (state.lure) return same({ kind: 'spinning', distanceM: state.distanceM, zone: state.zone, spin: newSpin(state.lure, state.distanceM, ctx.location) });
       // The fish is chosen as the bobber lands: its species shapes the wait (shy fish nibble more).
       const bait = ctx.baitId?.();
       const fx = ctx.weatherFx?.();
@@ -245,6 +285,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
               lengthCm: hooked.lengthCm,
               weightG: hooked.weightG,
               ...(outcome.perfect ? { perfect: true } : {}),
+              ...(state.lure ? { lure: state.lure } : {}),
             },
           ],
         };
@@ -261,7 +302,10 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
               speciesId: hooked.speciesId,
               ...(outcome.slipped ? { slipped: true } : {}),
               ...(outcome.snapped ? { snapped: true } : {}),
+              ...(state.lure ? { lure: state.lure } : {}),
             },
+            // A snapped line may take the lure with it (slice 32); a slip or any other escape keeps it.
+            ...(state.lure && outcome.snapped ? [snapFate(state.lure, ctx.rng)] : []),
           ],
         };
       }
@@ -279,6 +323,14 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (input.type !== 'tick') return same(state); // presses are ignored while the line hangs slack
       const ageMs = state.ageMs + input.dtMs;
       return same(ageMs >= FIGHT_TUNING.slackMs ? { kind: 'retrieving', distanceM: state.distanceM, ...driftOf(state) } : { ...state, ageMs });
+    }
+
+    case 'spinning': {
+      const env = spinEnv(ctx);
+      if (input.type === 'press') return spinResult(state, pressSpin(state.spin, env, ctx.rng), ctx);
+      if (input.type === 'release' || input.type === 'cancel') return same({ ...state, spin: releaseSpin(state.spin) });
+      if (input.type !== 'tick') return same(state);
+      return spinResult(state, tickSpin(state.spin, input.dtMs, env, ctx.rng), ctx);
     }
 
     case 'retrieving':
