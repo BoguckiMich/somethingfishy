@@ -171,3 +171,30 @@ Slice 25g (`RIVER_GEAR` in `core/current.ts`): trotting float (drift x0.6, seam 
 | pool 32 m | 7.1 s / 0 % | 7.1 s / 0 % | 5.4 s / 0 % | 5.4 s / 0 % |
 
 The float is worth about 10 % in the seam in bite time (the bigger gain is the 25 s the bobber spends crossing it, which is what the item is for); the lead about 24 % in the pool. Neither changes the riffle. No wait reaches the eddy before the bite with or without gear (the bite comes in 4-7 s on average, the run is 15-83 s), so the eddy rule is untouched. Fights are not changed by the gear, so no catch-rate sim is needed.
+
+## Spinning (32, `SIM=1 npx vitest run src/sim/spinning`)
+
+Method. `src/sim/spinning.sim.test.ts` plays the real fishing state machine (float rig and the spinning rig, Line fight, seeded RNG, game clock) at the River bend for 120 real minutes per seed, 16 seeds (`SIM_SEEDS`, `SIM_MIN`). Kit for both rigs: carbon rod, braided line, smooth reel; the float rig also has the trotting float and heavy lead. Human assumptions (identical for both rigs unless named): 9 s x 0.4..1.6 between the last thing and the next cast, 0.9 s cast flight, reaction 250-500 ms (5 % of strikes she is looking away and takes 0.9 s: a nip), show-off 3.2 s, the Line fight bot of the line sim (200 ms +-100, 3 % lapses). The float bot casts at 8, 19 or 32 m. The decent spinning bot picks the lure and the rhythm of the band it casts at (pool: soft jig, 1.0 s burst / 2.5 s pause; seam: wobbler, 3.0 / 0.5 s; riffle, dawn and dusk only: spinner, 3.5 / 0.4 s; +-20 % noise) and reels in a thumb-up strike within its reaction time. The careless bot reels all the time and never pauses. Lures lost count at their price (the snapped ones Bestia brings back count as kept, snags at full price); worms for the float rig at 1 coin each; quests, bundles and the shop trips are left out of both rigs.
+
+Strikes per cast, by the band the cast lands in (a strike is a predator that followed at least 0.5 s):
+
+| bot | band | follows / cast | strikes / cast | catches / cast |
+|---|---|---|---|---|
+| decent | riffle (dawn, dusk) | 0.69 | 0.40 | 0.39 |
+| decent | seam | 0.99 | 0.99 | 0.98 |
+| decent | bend pool | 0.96 | 0.90 | 0.84 |
+| careless | riffle | 0.65 | 0.22 | 0.22 |
+| careless | seam | 1.22 | 0.63 | 0.63 |
+| careless | bend pool | 1.76 | 0.14 | 0.13 |
+
+Coins per minute, River bend, 16 x 120 min:
+
+| rig | casts / min | catches / min | gross c / min | lure + worm cost | net c / min |
+|---|---|---|---|---|---|
+| float (carbon, trotting float, lead) | 2.42 | 2.39 | 69.2 | 2.4 | 66.7 |
+| spinning, decent bot | 2.31 | 2.09 | 76.6 | 15.2 | 61.5 |
+| spinning, careless bot | 2.41 | 0.98 | 39.4 | 3.3 | 36.1 |
+
+Spinning / float net = 0.92 (target 0.85-1.15). The careless bot lands 47 % of the decent bot's catches (target about half). The decent bot loses 2.6 lures an hour (about 20 % of its gross; none to snags, because its pauses never reach 3 s on the bottom: a snag needs a long lie), nearly all of them snapped lines in Line fights against pike and asp. The spinning rod brings only predators and bigger ones (mean length cm, float / spin: chub 30 / 38, perch 19 / 23, asp 53 / 63, pike 66 / 78, trout 36 / 46). The float rig numbers are unchanged by this slice (same seeds, same 2.39 catches a minute as before the lure code went in).
+
+What was tuned (the spec fixed the rules, these numbers were mine): a follow roll every 0.5 s with chance 0.14 x the band's suitable-predator weight (full from 15) x the seam bonus; every predator weighs as an uncommon one in the follow pick (a lure does not care how common a fish is: without it the common chub took 55 % of the bites and spinning paid 0.67 of the float); chub likes the spinner 0.8, the wobbler 2, the jig 0.5; size roll exponent x0.45; strike hazard 0.9 per second x interest squared x (3 just after a burst, 0.7 later in a pause, 0.4 while reeling). The riffle is the weak band at 0.4 strikes a cast by design: only the trout (dawn, dusk) and the small chub live there.

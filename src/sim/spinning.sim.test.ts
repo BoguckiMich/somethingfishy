@@ -12,7 +12,7 @@ import { CHARGE_HALF_CYCLE_MS } from '../core/casting';
 import { advanceClock, NEW_GAME_CLOCK, timeOfDay, type GameClock } from '../core/clock';
 import { RIVER_BEND } from '../core/data/locations';
 import { speciesById } from '../core/data/fish';
-import { LURES, lureById, SPIN_ROD } from '../core/data/spinning';
+import { lureById, SPIN_ROD } from '../core/data/spinning';
 import type { GameEvent } from '../core/events';
 import { INITIAL_STATE, step, type FishingInput, type FishingState, type SessionContext } from '../core/fishingSession';
 import { effectiveBarGear, equippedRod, newPlayer, toBagFish, type PlayerState } from '../core/inventory';
@@ -366,10 +366,5 @@ describe.skipIf(!ON)('spinning sim (SIM=1)', () => {
     expect(ratio).toBeLessThan(1.15);
     expect(careless).toBeGreaterThan(0.35);
     expect(careless).toBeLessThan(0.65);
-  });
-
-  it('lures: which lure brings what (decent rhythm per band)', { timeout: 600_000 }, () => {
-    void LURES;
-    expect(true).toBe(true);
   });
 });
