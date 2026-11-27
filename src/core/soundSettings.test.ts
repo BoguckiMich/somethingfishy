@@ -20,25 +20,25 @@ describe('sound settings', () => {
   });
 
   it('defaults to full volume for both', () => {
-    expect(DEFAULT_SOUND_SETTINGS).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'classic' });
-    expect(loadSoundSettings(undefined)).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'classic' });
-    expect(loadSoundSettings(memory())).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'classic' });
+    expect(DEFAULT_SOUND_SETTINGS).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'line' });
+    expect(loadSoundSettings(undefined)).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'line' });
+    expect(loadSoundSettings(memory())).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'line' });
   });
 
   it('round-trips through storage', () => {
     const m = memory();
-    expect(saveSoundSettings(m, { sfx: 0, ambience: 40, haptics: false, catchStyle: 'classic' })).toBe(true);
-    expect(loadSoundSettings(m)).toEqual({ sfx: 0, ambience: 40, haptics: false, catchStyle: 'classic' });
-    expect(JSON.parse(m.data.get(SOUND_SETTINGS_KEY)!)).toEqual({ sfx: 0, ambience: 40, haptics: false, catchStyle: 'classic' });
+    expect(saveSoundSettings(m, { sfx: 0, ambience: 40, haptics: false, catchStyle: 'classic', catchStylePicked: true })).toBe(true);
+    expect(loadSoundSettings(m)).toEqual({ sfx: 0, ambience: 40, haptics: false, catchStyle: 'classic', catchStylePicked: true });
+    expect(JSON.parse(m.data.get(SOUND_SETTINGS_KEY)!)).toEqual({ sfx: 0, ambience: 40, haptics: false, catchStyle: 'classic', catchStylePicked: true });
   });
 
   it('reads the old on/off toggles as full / silent', () => {
-    expect(loadSoundSettings(memory('{"sfx":false,"ambience":true}'))).toEqual({ sfx: 0, ambience: 100, haptics: true, catchStyle: 'classic' });
+    expect(loadSoundSettings(memory('{"sfx":false,"ambience":true}'))).toEqual({ sfx: 0, ambience: 100, haptics: true, catchStyle: 'line' });
   });
 
   it('clamps and rounds volumes to whole percents', () => {
-    expect(normalizeSoundSettings({ sfx: 150, ambience: -3 })).toEqual({ sfx: 100, ambience: 0, haptics: true, catchStyle: 'classic' });
-    expect(normalizeSoundSettings({ sfx: 33.6, ambience: 50 })).toEqual({ sfx: 34, ambience: 50, haptics: true, catchStyle: 'classic' });
+    expect(normalizeSoundSettings({ sfx: 150, ambience: -3 })).toEqual({ sfx: 100, ambience: 0, haptics: true, catchStyle: 'line' });
+    expect(normalizeSoundSettings({ sfx: 33.6, ambience: 50 })).toEqual({ sfx: 34, ambience: 50, haptics: true, catchStyle: 'line' });
   });
 
   it('survives junk', () => {
@@ -50,8 +50,8 @@ describe('sound settings', () => {
   });
 
   it('keeps a valid field next to a broken one', () => {
-    expect(loadSoundSettings(memory('{"sfx":20,"ambience":"x"}'))).toEqual({ sfx: 20, ambience: 100, haptics: true, catchStyle: 'classic' });
-    expect(normalizeSoundSettings({ ambience: 0 })).toEqual({ sfx: 100, ambience: 0, haptics: true, catchStyle: 'classic' });
+    expect(loadSoundSettings(memory('{"sfx":20,"ambience":"x"}'))).toEqual({ sfx: 20, ambience: 100, haptics: true, catchStyle: 'line' });
+    expect(normalizeSoundSettings({ ambience: 0 })).toEqual({ sfx: 100, ambience: 0, haptics: true, catchStyle: 'line' });
   });
 
   it('reports a failed write without throwing', () => {
@@ -79,18 +79,31 @@ describe('volumeGain', () => {
   });
 });
 
-describe('catch style (slice 28)', () => {
-  it('defaults to classic, is read as saved, and junk falls back to classic', () => {
-    expect(DEFAULT_SOUND_SETTINGS.catchStyle).toBe('classic');
+describe('catch style (slice 28; Line default since 2026-11-27)', () => {
+  it('defaults to line, and junk falls back to line', () => {
+    expect(DEFAULT_SOUND_SETTINGS.catchStyle).toBe('line');
     expect(loadSoundSettings(memory('{"catchStyle":"line"}')).catchStyle).toBe('line');
-    expect(loadSoundSettings(memory('{"catchStyle":"sideways"}')).catchStyle).toBe('classic');
-    expect(loadSoundSettings(memory('{"sfx":20}')).catchStyle).toBe('classic');
-    expect(normalizeSoundSettings(undefined).catchStyle).toBe('classic');
+    expect(loadSoundSettings(memory('{"catchStyle":"sideways"}')).catchStyle).toBe('line');
+    expect(loadSoundSettings(memory('{"sfx":20}')).catchStyle).toBe('line');
+    expect(normalizeSoundSettings(undefined).catchStyle).toBe('line');
   });
 
-  it('round-trips through storage', () => {
+  it('an old saved classic that nobody picked becomes line', () => {
+    expect(loadSoundSettings(memory('{"sfx":40,"ambience":100,"haptics":true,"catchStyle":"classic"}')).catchStyle).toBe('line');
+  });
+
+  it('a picked classic stays classic and round-trips through storage', () => {
     const m = memory();
-    expect(saveSoundSettings(m, { sfx: 100, ambience: 100, haptics: true, catchStyle: 'line' })).toBe(true);
+    expect(saveSoundSettings(m, { sfx: 100, ambience: 100, haptics: true, catchStyle: 'classic', catchStylePicked: true })).toBe(true);
+    expect(loadSoundSettings(m)).toEqual({ sfx: 100, ambience: 100, haptics: true, catchStyle: 'classic', catchStylePicked: true });
+    // Saving other settings later keeps the choice.
+    expect(saveSoundSettings(m, { ...loadSoundSettings(m), sfx: 10 })).toBe(true);
+    expect(loadSoundSettings(m).catchStyle).toBe('classic');
+  });
+
+  it('round-trips line through storage', () => {
+    const m = memory();
+    expect(saveSoundSettings(m, { sfx: 100, ambience: 100, haptics: true, catchStyle: 'line', catchStylePicked: true })).toBe(true);
     expect(loadSoundSettings(m).catchStyle).toBe('line');
   });
 });

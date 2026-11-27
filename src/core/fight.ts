@@ -11,7 +11,7 @@ import { seededRng } from './random';
  */
 export type CatchStyle = 'classic' | 'line';
 export const CATCH_STYLES: readonly CatchStyle[] = ['classic', 'line'];
-export const DEFAULT_CATCH_STYLE: CatchStyle = 'classic';
+export const DEFAULT_CATCH_STYLE: CatchStyle = 'line';
 
 /**
  * The state of a running fight. `bar` is the classic bar; in the line style it stays an inert placeholder (only `holding` and

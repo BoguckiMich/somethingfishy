@@ -784,6 +784,9 @@ old bar STAYS behind a toggle so testers can compare):
 - **Reeling:** hold anywhere (no crank gesture).
 - **Haptics:** short pulses on a surge, a buzz near the red (Android only; the screen shows everything without it).
 - **Toggle (user, 2026-11-26):** Settings "Catch style: Classic / Line", saved on the device, default Classic
+- **Line is the default (user, 2026-11-27):** Classic stays in Settings to pick. A stored 'classic' counts only if the
+  player tapped the button (`catchStylePicked`); older saves wrote 'classic' on every settings save, so those now get Line.
+  User note: the Ferryman fight took 3-5 s and Line feels quite easy after the tuning; revisit after Alex has tested it.
   until testers have compared; dev flag `?catch=line|classic`. Both styles feed the same catch result (size,
   stars, perfect, trophies, quests).
 - **Order:** slice 28 builds it behind the toggle with tuning in data and a bot sim (aim: catch rates close to
@@ -1248,7 +1251,7 @@ A2. **Balance A2 (2026-11-26, built on `balance/a2`, not merged)**, numbers in `
       the fish plus a short haptic pulse and the nibble sound; the pull is a big churn, a wake, and chevrons pointing where it runs plus a heavier pulse; near the red a buzz. A half-round gauge by the reel (slack grey and dotted ·
       steady thick gold · amber · red with teeth, a needle, tick marks) says the rest by position and shape, with the distance in m under it, a red "snap" bar and a grey "slip" bar that appear when either danger builds, and the perfect star
       above it (gold while clean, grey and cracked after). No vertical bar. The hint "Hold to reel · let go when it pulls" shows for the first three line fights of a session.
-    - **Toggle:** Settings -> Fishing -> "Catch style: Classic / Line" (`catchStyle` in the device settings, `core/soundSettings.ts`, default Classic); dev flag `?catch=line|classic` (sandboxed; wins over the setting, and the
+    - **Toggle:** Settings -> Fishing -> "Catch style: Classic / Line" (`catchStyle` in the device settings, `core/soundSettings.ts`, default Line since 2026-11-27); dev flag `?catch=line|classic` (sandboxed; wins over the setting, and the
       Settings panel says so).
     - **Tuning sim** (`src/sim/lineFight.sim.test.ts`, `SIM=1`; numbers in `docs/ECONOMY_SIM.md` -> "Line fight"): the decent bot's catch rates are within 10 points of the classic bar's decent bot in every species / rod cell except the golden
       tench (+14 / +20); the skilled bot's perfect rate on darting fish at top gear is 19 % (classic 11 %). Easy fish are always perfect for a skilled player (weak spot).
