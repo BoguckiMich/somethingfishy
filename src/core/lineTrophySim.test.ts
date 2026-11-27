@@ -5,6 +5,8 @@ import { fightProfile, rollLength } from './fish';
 import { newLineFight, tickLineFight, type LineFightState } from './lineFight';
 import { SIGNATURE_MOVES, SIGNATURE_TUNING } from './data/lineFight';
 import { seededRng } from './random';
+import { playClassic, playLine } from '../sim/lineFight.sim.test';
+import type { BarGear } from './gear';
 
 /**
  * The decent thumb against each trophy in the Line style (slice 25f fix): the signature moves must not make a trophy much harder than in
@@ -43,9 +45,42 @@ describe('Line trophies and the decent thumb', () => {
     expect(Object.keys(SIGNATURE_MOVES).length).toBe(6);
   });
 
-  it('the Ferry pike in Line is landed by the decent thumb about as often as in Classic (0.475, +-0.10)', () => {
-    const w = share('ferryPike');
-    expect(w).toBeGreaterThan(0.375);
-    expect(w).toBeLessThan(0.575);
-  });
+  // The Ferry pike's Line-vs-Classic share is guarded below against the sim's decent bot (the older 0.475 target came from a cruder bot).
+});
+
+/**
+ * Balance pass (branch tune/line-trophies): the decent bot of the sim (src/sim/lineFight.sim.test.ts) lands these cells in Line within about 10 points
+ * of Classic. Tolerance 12 here because 200 fights per cell are noisy; the full table is in docs/ECONOMY_SIM.md "Line fight".
+ */
+const DECENT_BOT = { delayMs: 200, noise: 0.05, jitterMs: 100, lapse: 0.03 };
+const [BAMBOO, FIBER, CARBON] = RODS.map((r) => r.barGear);
+function lineVsClassic(id: string, gear: BarGear, n = 200): number {
+  const sp = speciesById(id)!;
+  let line = 0;
+  let classic = 0;
+  for (let seed = 1; seed <= n; seed++) {
+    const fish = fightProfile(sp, rollLength(sp, seededRng(seed * 977)));
+    if (playLine(fish, DECENT_BOT, seed, gear, sp.zone === 'deep' ? 20 : 8, id).caught) line++;
+    if (playClassic(fish, DECENT_BOT, seed, gear).caught) classic++;
+  }
+  return ((line - classic) / n) * 100;
+}
+
+describe('Line vs Classic, decent bot, cheap rods (balance pass)', () => {
+  const cells: [string, string, BarGear][] = [
+    ['silverGhost', 'bamboo', BAMBOO],
+    ['silverGhost', 'fiberglass', FIBER],
+    ['lantern', 'bamboo', BAMBOO],
+    ['lantern', 'fiberglass', FIBER],
+    ['ferryPike', 'bamboo', BAMBOO],
+    ['ferryPike', 'fiberglass', FIBER],
+    ['pike', 'fiberglass', FIBER],
+    ['goldenTench', 'fiberglass', FIBER],
+    ['barbelKing', 'carbon', CARBON],
+  ];
+  for (const [id, rod, gear] of cells) {
+    it(`${id} on ${rod}: within 12 points of Classic`, { timeout: 60_000 }, () => {
+      expect(Math.abs(lineVsClassic(id, gear))).toBeLessThanOrEqual(12);
+    });
+  }
 });

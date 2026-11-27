@@ -1,5 +1,5 @@
 import type { FishProfile } from './catchBar';
-import { LINE_FIGHT_TUNING, SIGNATURE_MOVES, SIGNATURE_TUNING, type LinePattern, type Range, type SignatureMove } from './data/lineFight';
+import { LINE_FIGHT_TUNING, SIGNATURE_MOVES, SIGNATURE_TUNING, SPECIES_LINE_TUNING, type LinePattern, type Range, type SignatureMove, type SpeciesLineTune } from './data/lineFight';
 import type { BarGear } from './gear';
 import type { Rng } from './random';
 import { randRange } from './random';
@@ -75,6 +75,8 @@ export interface LineFightState {
   feint: boolean;
   /** The signature move of the trophy (none for other fish). */
   signature?: SignatureMove;
+  /** This species' own tuning on top of its pattern (data/lineFight.ts SPECIES_LINE_TUNING). */
+  tune?: SpeciesLineTune;
   surgeCount: number;
   /** The wobble phase of the steady pull. */
   wobble: number;
@@ -138,6 +140,7 @@ export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?
     chain: 0,
     feint: false,
     signature: speciesId ? SIGNATURE_MOVES[speciesId] : undefined,
+    tune: speciesId ? SPECIES_LINE_TUNING[speciesId] : undefined,
     surgeCount: 0,
     wobble: rng() * Math.PI * 2,
     slackS: 0,
@@ -230,7 +233,7 @@ function startSurge(s: LineFightState, fish: FishProfile, cfg: LinePattern, gear
   s.feint = false;
   s.chain = 0;
   s.surgeCount++;
-  if (s.signature && rng() < 1 / SIGNATURE_TUNING.oneIn) {
+  if (s.signature && rng() < 1 / (s.tune?.oneIn ?? SIGNATURE_TUNING.oneIn)) {
     if (s.signature === 'flash') {
       strength = Math.min(Math.max(strength, 0.75), SIGNATURE_TUNING.feintMaxStrength);
       s.chain = 1;
@@ -243,7 +246,7 @@ function startSurge(s: LineFightState, fish: FishProfile, cfg: LinePattern, gear
       run = SIGNATURE_TUNING.diveRunS;
     }
   }
-  s.strength = clamp(strength, 0.15, 1);
+  s.strength = clamp(strength * (s.tune?.strengthMul ?? 1), 0.15, 1);
   s.phase = 'warn';
   s.phaseT = s.phaseTotal = warn;
   s.runDir = rng() < 0.5 ? -1 : 1;
@@ -270,8 +273,9 @@ export function tickLineFight(
   const d = clamp(fish.difficulty, 0, 1);
   const gear = lineGearOf(barGear);
   const trophy = fish.slipAfterMs !== undefined;
-  const flexS = gear.flexS * (trophy ? T.trophyFlex : 1);
-  const slackLimit = trophy ? T.trophySlackS : T.slackS;
+  const tune = s.tune;
+  const flexS = gear.flexS * (trophy ? T.trophyFlex : 1) * (tune?.flexMul ?? 1) * (tune?.flexSlope ? Math.pow(gear.flexS / 1.4, tune.flexSlope) : 1);
+  const slackLimit = (trophy ? T.trophySlackS : T.slackS) * (tune?.slackMul ?? 1);
   [s.goldLo, s.goldHi] = goldBandOf(fish, barGear);
   s.perfectNeed = perfectNeedOf(d);
   const reelRate = s.startM * T.reelBase * gear.reel * (1 - T.reelHeavy * d) * (T.reelEasy + (1 - T.reelEasy) * Math.min(1, d / T.reelEasyTo)) * cfg.reel;
@@ -338,9 +342,9 @@ export function tickLineFight(
     const tensionBefore = s.tension;
     if (holding) {
       // Feathering: the tension climbs steadily while the thumb is down, the faster the heavier the fish and the pull.
-      s.tension = s.tension + (cfg.rise[0] + (cfg.rise[1] - cfg.rise[0]) * Math.pow(d, T.riseCurve) + T.risePull * pull) * (1 + T.surgeRise * surge) * h;
+      s.tension = s.tension + (cfg.rise[0] + (cfg.rise[1] - cfg.rise[0]) * Math.pow(d, T.riseCurve) + T.risePull * pull) * (tune?.riseMul ?? 1) * (1 + T.surgeRise * surge) * h;
     } else {
-      const target = T.release + T.releaseGain * base + (T.surgeHold[0] + (T.surgeHold[1] - T.surgeHold[0]) * Math.pow(d, T.surgeHoldCurve)) * cfg.holdMul * surge;
+      const target = T.release + T.releaseGain * base + (T.surgeHold[0] + (T.surgeHold[1] - T.surgeHold[0]) * Math.pow(d, T.surgeHoldCurve)) * cfg.holdMul * (tune?.holdMul ?? 1) * surge;
       s.tension = s.tension > target ? Math.max(target, s.tension - lerp(cfg.fall, d) * h) : s.tension + (target - s.tension) * Math.min(1, T.releaseLag * h);
     }
     // Nothing but a telegraphed cut may lift the needle fast: the climb is capped at a third of the gold's width per 100 ms (a little more in a surge).
@@ -393,7 +397,7 @@ export function tickLineFight(
     }
     // The thumb-up time in the calm between surges (a surge lifts the tension, so only the quiet counts); any holding starts it over.
     s.releasedS = holding ? 0 : s.releasedS + (s.phase === 'run' ? T.releasedRunShare : s.phase === 'warn' ? 0.6 : 1) * (s.tension < s.goldLo ? 1 : 0.3) * h;
-    if (s.slackS > slackLimit || s.releasedS > T.releasedSlipS) {
+    if (s.slackS > slackLimit || s.releasedS > T.releasedSlipS * (tune?.releasedMul ?? 1)) {
       s.result = 'slipped';
       break;
     }

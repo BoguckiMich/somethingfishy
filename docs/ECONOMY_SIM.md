@@ -100,8 +100,26 @@ faster than a third of the gold's width per 100 ms (`riseCapPerS`, a bit more in
 counts from the very start, at full rate in calm and hush, 0.6x in a telegraph and 0.2x in a run, and only 0.3x while the needle is up in the gold or above (`releasedSlipS` 4). Trophy slack limit 1.7 s.
 
 **Catch rate, decent bot** (classic -> line, 300 fights per cell; fiberglass / carbon unless noted): bleak/perch (bamboo) 100 -> 96-97, eel 100 -> 90, asp bamboo 97 -> 98; bream 93/99 -> 100/100; carp 79/92 -> 80/94; pike 63/84 -> 76/87;
-catfish 74/93 -> 80/92; golden tench (fiberglass / carbon / top gear) 44/70/100 -> 47/64/97; mossback 61/86/99 -> 70/87/100; silver ghost (bamboo / fiberglass / top) 21/45/100 -> 51/62/93; Pale One 52/80 -> 62/75. **Within 10 points of classic
-in every cell except pike fiberglass (+13) and silver ghost on bamboo (+30) and fiberglass (+17):** the feint (slack slip or snap) is hard to tune on the low rods. Eel -10 is on the edge. Median won-fight length: shallow 4-5 s, deep 7-14 s.
+catfish 74/93 -> 80/92; golden tench (fiberglass / carbon / top gear) 44/70/100 -> 47/64/97; mossback 61/86/99 -> 70/87/100; silver ghost (bamboo / fiberglass / top) 21/45/100 -> 51/62/93; Pale One 52/80 -> 62/75. **Superseded by the balance pass below** (the cells that were outside +-10 then: pike fiberglass +13, silver ghost bamboo +30 / fiberglass +17). Median won-fight length: shallow 4-5 s, deep 7-14 s.
+
+**Balance pass (branch `tune/line-trophies`): every cell within +-10.** Per-species tuning in `SPECIES_LINE_TUNING` (`src/core/data/lineFight.ts`: `strengthMul`, `flexMul`, `flexSlope`, `slackMul`, `releasedMul`; other species and Classic untouched).
+`flexSlope` makes the rod matter more (the flex budget is also x (flex / 1.4 s)^slope), which is what Classic does and the Line fight did not: trophies in Line were too easy on bamboo and fiberglass and slightly too hard with the top rod.
+Decent bot, 300 fights per cell, Line minus Classic in points (before -> after):
+
+| cell | bamboo | fiberglass | carbon / top gear |
+|---|---|---|---|
+| silver ghost | +31 -> +5 | +19 -> +5 | top -5 -> -5 |
+| Lantern (river) | +46 -> +4 | +39 -> +3 | top -1 -> -1 |
+| Ferry pike (river) | +20 -> +6 | +16 -> +5 | top -15 -> -5 |
+| golden tench | | +17 -> +4 | carbon +6 -> +2, top -1 |
+| Barbel King (river) | | -10 -> +2 | carbon -14 -> -3, top +1 -> +2 |
+| Old Mossback | | +9 -> +7 | carbon +1 -> -1 |
+| Pale One / Ferryman | | +9 / +10 -> +4 / +6 | carbon -5 -> +3 |
+| pike | | +13 -> +5 | carbon +4 -> -2 |
+| eel | -7..-10 -> -2 | -8..-10 -> -2 | |
+
+Absolute Line catch after: silver ghost 26 / 50 %, Lantern 24 / 47 %, Ferry pike 10 / 24 % (Classic 4 / 19 / 98 % on bamboo / fiberglass / top). Perfect catches are unchanged (skilled bot, top gear: darting 41 %, trophies 9 %).
+Guard tests: `src/core/lineTrophySim.test.ts` ("Line vs Classic, decent bot, cheap rods"). Re-run the table with `SIM=1 SIM_FIGHTS=300 npx vitest run src/sim/lineFight < /dev/null` (`SIM_ONLY=lantern,pike` limits it to those species).
 
 **Perfect catch, skilled bot, top gear** (150 ms, +-50 ms): classic darting 11 %, trophies 3 %, others 35 %; **line skilled: darting 41 %, trophies 8 %** (golden tench 11, silver ghost 10, mossback 4), pike 17 %, bleak 57, perch 64, asp 26, **easy fish roach 33 %,
 rudd 14 %**; line decent: darting 30 %, trophies 7 %. Before the control rounds: darting 77 %, trophies 42 %. Darting is above the 15-25 % aim only because bleak and perch (easy darters) are high; pike and the trophies are in range.
