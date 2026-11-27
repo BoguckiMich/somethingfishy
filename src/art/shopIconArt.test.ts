@@ -4,6 +4,7 @@ import { LINES, REELS } from '../core/data/tackle';
 import { CAMP_ITEMS } from '../core/data/camp';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { RODS } from '../core/data/rods';
+import { RIVER_GEAR_ITEMS } from '../core/data/riverGear';
 import { PAL } from './palette';
 import { TRANSPARENT, type Sprite } from './pixelGrid';
 import { SHOP_ICON_IDS, shopIconSprite } from './shopIconArt';
@@ -20,6 +21,7 @@ const GROUPS: Record<string, string[]> = {
   baits: BAITS.map((b) => b.id),
   nightKit: [NIGHT_KIT.id],
   camp: CAMP_ITEMS.map((c) => c.id),
+  riverGear: RIVER_GEAR_ITEMS.map((g) => g.id),
 };
 
 describe('shop icons', () => {
@@ -95,5 +97,7 @@ describe('shop icons', () => {
     expect(colours(icon('tent')).has(PAL.cream)).toBe(true);
     expect(colours(icon('lights')).has(PAL.blueFlower)).toBe(true);
     expect(colours(icon('windsock')).has(PAL.white)).toBe(true);
+    expect(colours(icon('float')).has(PAL.redLight)).toBe(true); // the bright tip
+    expect(colours(icon('lead')).has(PAL.stoneLight)).toBe(true);
   });
 });

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { allButPetrol, withBundlesDone } from './checklist/checklist';
-import { CHECKLIST } from './data/checklist';
+import { ALL_BUNDLES, CHECKLIST } from './data/checklist';
 import { GEAR_GATES } from './data/gearGates';
 import { LINES, REELS } from './data/tackle';
+import { RIVER_GEAR_ITEMS } from './data/riverGear';
 import { RODS } from './data/rods';
 import { bundlesDone, gateFor, gateText, gearOpenedBy, gearUnlocked } from './gearGates';
 import { buyLine, buyReel, buyRod, newPlayer, type PlayerState } from './inventory';
@@ -23,7 +24,7 @@ describe('gear gates (slice 23a, reworked in balance A2)', () => {
     expect(GEAR_GATES.braided).toMatchObject({ count: 1, excluding: ['duck-tax', 'petrol'] });
     expect(GEAR_GATES.smooth).toMatchObject({ count: 1, excluding: ['duck-tax', 'petrol'] });
     for (const id of Object.keys(GEAR_GATES)) {
-      expect([...RODS, ...LINES, ...REELS].some((g) => g.id === id)).toBe(true);
+      expect([...RODS, ...LINES, ...REELS, ...RIVER_GEAR_ITEMS].some((g) => g.id === id)).toBe(true);
     }
     for (const g of Object.values(GEAR_GATES)) if ('bundle' in g) expect(CHECKLIST.some((b) => b.id === g.bundle)).toBe(true);
   });
@@ -97,5 +98,49 @@ describe('gearOpenedBy (A3: the "new gear" cue)', () => {
   it('a bundle that opens nothing, or Duck Tax and Petrol Money, gives nothing', () => {
     expect(gearOpenedBy('duck-tax', withDone(['duck-tax']))).toEqual([]);
     expect(gearOpenedBy('petrol', withDone(['petrol']))).toEqual([]);
+  });
+});
+
+describe('river gear gates (slice 25g)', () => {
+  /** A player with exactly these river bundles finished. */
+  const riverDone = (ids: string[], p: PlayerState = newPlayer()): PlayerState => ({
+    ...p,
+    checklist: Object.fromEntries(ALL_BUNDLES.map((b) => [b.id, b.slots.map(() => ids.includes(b.id))])),
+  });
+  it('the float waits for one finished river bundle, the lead for two', () => {
+    expect(GEAR_GATES.float).toMatchObject({ count: 1, place: 'river-bend' });
+    expect(GEAR_GATES.lead).toMatchObject({ count: 2, place: 'river-bend' });
+    expect(gearUnlocked('float', newPlayer())).toBe(false);
+    expect(gearUnlocked('lead', newPlayer())).toBe(false);
+    expect(gearUnlocked('float', riverDone(['swift-water']))).toBe(true);
+    expect(gearUnlocked('lead', riverDone(['swift-water']))).toBe(false);
+    expect(gearUnlocked('lead', riverDone(['swift-water', 'the-hunter']))).toBe(true);
+  });
+  it('counts the RIVER checklist, not the lake\'s: four finished lake bundles open nothing at the river', () => {
+    const lake = withDone(['dawn-chorus', 'night-shift', 'bottom-of-things', 'shiny-ones']);
+    expect(gearUnlocked('float', lake)).toBe(false);
+    expect(gearUnlocked('lead', lake)).toBe(false);
+    // ...and river bundles do not open the lake's count gates
+    expect(gearUnlocked('braided', riverDone(['swift-water', 'the-hunter']))).toBe(false);
+  });
+  it('the coin-only Ferry Fare does not count', () => {
+    expect(gearUnlocked('float', riverDone(['ferry-fare']))).toBe(false);
+    expect(gearUnlocked('lead', riverDone(['ferry-fare', 'swift-water']))).toBe(false);
+  });
+  it('the dev flag ?bundles=N at the river opens them (N = 1 float, N = 2 lead)', () => {
+    expect(gearUnlocked('float', withBundlesDone(newPlayer(), 1, 'river-bend'))).toBe(true);
+    expect(gearUnlocked('lead', withBundlesDone(newPlayer(), 1, 'river-bend'))).toBe(false);
+    expect(gearUnlocked('lead', withBundlesDone(newPlayer(), 2, 'river-bend'))).toBe(true);
+  });
+  it('the lock line says how many river bundles are missing', () => {
+    expect(gateText('float', newPlayer())).toBe('Unlocks after 1 river checklist bundle (0/1)');
+    expect(gateText('lead', newPlayer())).toBe('Unlocks after 2 river checklist bundles (0/2)');
+    expect(gateText('lead', riverDone(['swift-water']))).toBe('Unlocks after 2 river checklist bundles (1/2)');
+  });
+  it('finishing a river bundle announces the gear it opened; a lake bundle never does', () => {
+    expect(gearOpenedBy('swift-water', riverDone(['swift-water']))).toEqual(['float']);
+    expect(gearOpenedBy('the-hunter', riverDone(['swift-water', 'the-hunter']))).toEqual(['lead']);
+    expect(gearOpenedBy('ferry-fare', riverDone(['ferry-fare']))).toEqual([]);
+    expect(gearOpenedBy('dawn-chorus', riverDone(['swift-water', 'the-hunter', 'dawn-chorus']))).toEqual(['braided', 'smooth']);
   });
 });

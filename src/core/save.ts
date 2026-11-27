@@ -165,6 +165,9 @@ function normalizePlayer(v: unknown): PlayerState {
     notes: normalizeNotes(p.notes),
     // The night kit: stored only when owned (older saves have no key).
     ...(p.nightKit === true ? { nightKit: true } : {}),
+    // The river gear (slice 25g): each key only when owned (older saves have none).
+    ...(p.riverFloat === true ? { riverFloat: true } : {}),
+    ...(p.riverLead === true ? { riverLead: true } : {}),
     // The checklist: stored only when something is filled (older saves have no key).
     ...(Object.values(normalizeChecklist(p.checklist)).some((a) => a.some(Boolean)) ? { checklist: normalizeChecklist(p.checklist) } : {}),
     // The story (slice 21): stored only when something happened (older saves have no key).

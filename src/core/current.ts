@@ -35,9 +35,38 @@ export const RIVER_CURRENT: RiverCurrent = {
   rainFightEveryMul: 0.85,
 };
 
-/** The run advances by `dtMs / runS * flow` (flow 1 = normal weather, more in rain, less while the ferry slows the water); it never goes past 1. */
-export function advanceDrift(drift: number, dtMs: number, flow: number, cur: RiverCurrent): number {
-  return Math.min(1, drift + (dtMs / 1000 / cur.runS) * Math.max(0, flow));
+/** The river gear she owns (slice 25g): both passive and always on, like the line and reel. Absent = none. */
+export interface RiverGearOwned {
+  float: boolean;
+  lead: boolean;
+}
+
+/** What the river gear does (slice 25g, RIVER_BEND.md section 7 question 5). Only places with a `current` ever read it. */
+export const RIVER_GEAR = {
+  /** Trotting float: the drift runs at this speed (x0.6: the 15 s run takes 25 s). */
+  floatDriftMul: 0.6,
+  /** Trotting float: the seam's bite countdown speed while drifting, in place of the river's `seamBiteMul` (x1.35). */
+  floatSeamBiteMul: 1.5,
+  /** The band the heavy lead works in. */
+  leadBandId: 'pool',
+  /** Heavy lead: the drift speed in the lead's band (it stacks on the float's: both = x0.18). */
+  leadDriftMul: 0.3,
+  /** Heavy lead: the bite countdown speed in the lead's band while the bobber has not settled. */
+  leadBiteMul: 1.3,
+} as const;
+
+/** The drift speed scale from the gear: the float slows it everywhere, the lead in the pool band as well (no gear: 1). */
+export function driftGearMul(gear: RiverGearOwned | undefined, bandId: string | undefined): number {
+  if (!gear) return 1;
+  return (gear.float ? RIVER_GEAR.floatDriftMul : 1) * (gear.lead && bandId === RIVER_GEAR.leadBandId ? RIVER_GEAR.leadDriftMul : 1);
+}
+
+/**
+ * The run advances by `dtMs / runS * flow * gear` (flow 1 = normal weather, more in rain, less while the ferry slows the water; gear 1 without
+ * float or lead, see `driftGearMul`); it never goes past 1.
+ */
+export function advanceDrift(drift: number, dtMs: number, flow: number, cur: RiverCurrent, gearMul = 1): number {
+  return Math.min(1, drift + (dtMs / 1000 / cur.runS) * Math.max(0, flow) * gearMul);
 }
 
 /** The eased position of the bobber along its run, 0..1: steady for the first `EASE_FROM`, then a smooth stop (zero speed) exactly at 1. */
@@ -49,11 +78,12 @@ export function driftPos(drift: number): number {
   return v * (EASE_FROM + u - u * u / (2 * (1 - EASE_FROM)));
 }
 
-/** How fast the bite countdown runs (1 = as at the lake): faster in the seam while the bobber drifts, slower once it sits in the eddy. */
-export function biteRate(cur: RiverCurrent | undefined, bandId: string, drift: number | undefined): number {
+/** How fast the bite countdown runs (1 = as at the lake): faster in the seam while the bobber drifts (more with the trotting float), faster in the pool with the heavy lead, slower once it sits in the eddy (whatever the gear). */
+export function biteRate(cur: RiverCurrent | undefined, bandId: string, drift: number | undefined, gear?: RiverGearOwned): number {
   if (!cur || drift === undefined) return 1;
   if (drift >= 1) return cur.eddyBiteMul;
-  return bandId === cur.seamBandId ? cur.seamBiteMul : 1;
+  if (bandId === cur.seamBandId) return gear?.float ? RIVER_GEAR.floatSeamBiteMul : cur.seamBiteMul;
+  return gear?.lead && bandId === RIVER_GEAR.leadBandId ? RIVER_GEAR.leadBiteMul : 1;
 }
 
 /**

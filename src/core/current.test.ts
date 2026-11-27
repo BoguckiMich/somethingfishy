@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { STARTER_BAR_GEAR } from './data/barGear';
 import { QUIET_LAKE, RIVER_BEND } from './data/locations';
 import { RODS } from './data/rods';
-import { advanceDrift, biteRate, driftPos, EASE_FROM, fightEveryMul, RIVER_CURRENT as C } from './current';
+import { advanceDrift, biteRate, driftGearMul, driftPos, EASE_FROM, fightEveryMul, RIVER_CURRENT as C, RIVER_GEAR as G, type RiverGearOwned } from './current';
 import { beginFight } from './fight';
 import { step, type FishingState, type SessionContext } from './fishingSession';
 import type { HookedFish } from './fish';
@@ -261,3 +261,126 @@ describe('river fight surges', () => {
 });
 
 const PIN_MS = 6000;
+
+const NONE: RiverGearOwned = { float: false, lead: false };
+const FLOAT: RiverGearOwned = { float: true, lead: false };
+const LEAD: RiverGearOwned = { float: false, lead: true };
+const BOTH: RiverGearOwned = { float: true, lead: true };
+
+describe('river gear (slice 25g): drift speed', () => {
+  it('the numbers are the decided ones', () => {
+    expect(G.floatDriftMul).toBe(0.6);
+    expect(G.floatSeamBiteMul).toBe(1.5);
+    expect(G.leadDriftMul).toBe(0.3);
+    expect(G.leadBiteMul).toBe(1.3);
+    expect(G.leadBandId).toBe('pool');
+  });
+  it('the multiplier: float slows every band, the lead only the pool, both stack, none is 1', () => {
+    for (const band of ['riffle', 'seam']) {
+      expect(driftGearMul(NONE, band)).toBe(1);
+      expect(driftGearMul(FLOAT, band)).toBe(0.6);
+      expect(driftGearMul(LEAD, band)).toBe(1);
+      expect(driftGearMul(BOTH, band)).toBe(0.6);
+    }
+    expect(driftGearMul(NONE, 'pool')).toBe(1);
+    expect(driftGearMul(FLOAT, 'pool')).toBe(0.6);
+    expect(driftGearMul(LEAD, 'pool')).toBe(0.3);
+    expect(driftGearMul(BOTH, 'pool')).toBeCloseTo(0.18, 12);
+    expect(driftGearMul(undefined, 'pool')).toBe(1);
+  });
+  it('the float stretches the 15 s run to 25 s; the lead stretches it in the pool only', () => {
+    const runS = (band: string, gear: RiverGearOwned | undefined) => {
+      let d = 0;
+      let ms = 0;
+      while (d < 1 && ms < 600 * SEC) {
+        d = advanceDrift(d, 10, 1, C, driftGearMul(gear, band));
+        ms += 10;
+      }
+      return ms / SEC;
+    };
+    expect(runS('seam', NONE)).toBeCloseTo(15, 1);
+    expect(runS('seam', FLOAT)).toBeCloseTo(25, 1);
+    expect(runS('seam', LEAD)).toBeCloseTo(15, 1);
+    expect(runS('pool', NONE)).toBeCloseTo(15, 1);
+    expect(runS('pool', FLOAT)).toBeCloseTo(25, 1);
+    expect(runS('pool', LEAD)).toBeCloseTo(50, 1);
+    expect(runS('pool', BOTH)).toBeCloseTo(15 / 0.18, 1);
+  });
+  it('advanceDrift without a gear argument is what it was', () => {
+    expect(advanceDrift(0.2, 1000, 1, C)).toBe(advanceDrift(0.2, 1000, 1, C, 1));
+    expect(advanceDrift(0.2, 1000, 1, C)).toBeCloseTo(0.2 + 1 / C.runS, 12);
+  });
+});
+
+describe('river gear (slice 25g): bite rate', () => {
+  it('the float makes the drifting seam x1.5 (instead of x1.35), nothing else', () => {
+    expect(biteRate(C, 'seam', 0.5, NONE)).toBe(C.seamBiteMul);
+    expect(biteRate(C, 'seam', 0.5, FLOAT)).toBe(1.5);
+    expect(biteRate(C, 'seam', 0.5, BOTH)).toBe(1.5);
+    expect(biteRate(C, 'seam', 0.5, LEAD)).toBe(C.seamBiteMul);
+    expect(biteRate(C, 'riffle', 0.5, FLOAT)).toBe(1);
+    expect(biteRate(C, 'pool', 0.5, FLOAT)).toBe(1);
+  });
+  it('the lead makes the drifting pool x1.3, nothing else', () => {
+    expect(biteRate(C, 'pool', 0.5, NONE)).toBe(1);
+    expect(biteRate(C, 'pool', 0.5, LEAD)).toBe(1.3);
+    expect(biteRate(C, 'pool', 0.5, BOTH)).toBe(1.3);
+    expect(biteRate(C, 'seam', 0.5, LEAD)).toBe(C.seamBiteMul);
+    expect(biteRate(C, 'riffle', 0.5, LEAD)).toBe(1);
+  });
+  it('the eddy rule is unchanged: settled is x0.4 whatever the gear', () => {
+    for (const gear of [undefined, NONE, FLOAT, LEAD, BOTH]) for (const band of ['riffle', 'seam', 'pool']) expect(biteRate(C, band, 1, gear)).toBe(C.eddyBiteMul);
+  });
+  it('without gear the old numbers stand, and still water ignores the gear', () => {
+    for (const band of ['riffle', 'seam', 'pool']) expect(biteRate(C, band, 0.3)).toBe(biteRate(C, band, 0.3, NONE));
+    expect(biteRate(undefined, 'seam', 0.5, BOTH)).toBe(1);
+    expect(biteRate(undefined, 'pool', 1, BOTH)).toBe(1);
+    expect(biteRate(C, 'pool', undefined, BOTH)).toBe(1);
+  });
+});
+
+describe('river gear (slice 25g): in the session', () => {
+  const gearCtx = (gear: RiverGearOwned, flow = 1): SessionContext => ({ ...riverCtx(() => flow), riverGear: () => gear });
+  const driftAfter = (distanceM: number, gear: RiverGearOwned) => drifted(step(waiting(distanceM), { type: 'tick', dtMs: 3000 }, gearCtx(gear)).state)!;
+  const untilAfter = (distanceM: number, gear: RiverGearOwned) =>
+    (step(waiting(distanceM, { untilMs: 10_000, drift: 0.2 }), { type: 'tick', dtMs: 1000 }, gearCtx(gear)).state as { untilMs: number }).untilMs;
+
+  it('the drift speed follows the band the bobber lies in', () => {
+    expect(driftAfter(20, NONE)).toBeCloseTo(3 / 15, 6);
+    expect(driftAfter(20, FLOAT)).toBeCloseTo((3 / 15) * 0.6, 6);
+    expect(driftAfter(20, LEAD)).toBeCloseTo(3 / 15, 6);
+    expect(driftAfter(32, LEAD)).toBeCloseTo((3 / 15) * 0.3, 6);
+    expect(driftAfter(32, BOTH)).toBeCloseTo((3 / 15) * 0.18, 6);
+    expect(driftAfter(6, BOTH)).toBeCloseTo((3 / 15) * 0.6, 6);
+  });
+  it('the countdown runs at the gear rates', () => {
+    expect(untilAfter(20, NONE)).toBeCloseTo(10_000 - 1000 * 1.35, 6);
+    expect(untilAfter(20, FLOAT)).toBeCloseTo(10_000 - 1000 * 1.5, 6);
+    expect(untilAfter(32, NONE)).toBeCloseTo(9000, 6);
+    expect(untilAfter(32, LEAD)).toBeCloseTo(10_000 - 1000 * 1.3, 6);
+    expect(untilAfter(32, BOTH)).toBeCloseTo(10_000 - 1000 * 1.3, 6);
+  });
+  it('a settled bobber (drift 1) is x0.4 with any gear', () => {
+    for (const gear of [NONE, FLOAT, LEAD, BOTH]) {
+      const s = step(waiting(32, { untilMs: 10_000, drift: 1 }), { type: 'tick', dtMs: 1000 }, gearCtx(gear)).state as { untilMs: number };
+      expect(s.untilMs).toBeCloseTo(10_000 - 1000 * C.eddyBiteMul, 6);
+    }
+  });
+  it('an absent callback means no gear', () => {
+    const a = step(waiting(32, { untilMs: 10_000 }), { type: 'tick', dtMs: 1000 }, riverCtx()).state;
+    const b = step(waiting(32, { untilMs: 10_000 }), { type: 'tick', dtMs: 1000 }, gearCtx(NONE)).state;
+    expect(a).toEqual(b);
+  });
+  it('Quiet Lake ignores the gear: the pinned cast bites after exactly the same time and carries no drift', () => {
+    const ctx: SessionContext = { location: QUIET_LAKE, rod: RODS[2], barGear: STARTER_BAR_GEAR, rng: seededRng(5), timeOfDay: () => 'day', flow: () => 9, weatherFx: () => weatherEffects('rain'), riverGear: () => BOTH };
+    let state = step({ kind: 'casting', power: 1, distanceM: 20, zone: 'shallow' }, { type: 'landed' }, ctx).state;
+    let ms = 0;
+    while (state.kind === 'waiting') {
+      expect('drift' in state).toBe(false);
+      state = step(state, { type: 'tick', dtMs: 16 }, ctx).state;
+      ms += 16;
+    }
+    expect(state.kind).toBe('bite');
+    expect(ms).toBe(PIN_MS);
+  });
+});

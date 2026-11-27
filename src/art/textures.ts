@@ -25,6 +25,8 @@ import { stonesSprite } from './stonesArt';
 import {
   BOBBER,
   BOBBER_UNDER,
+  STICK_FLOAT,
+  STICK_FLOAT_UNDER,
   LILY_A,
   LILY_B,
   CRATE,
@@ -75,6 +77,8 @@ export const TEX = {
   moon: 'moon',
   bobber: 'bobber',
   bobberUnder: 'bobberUnder',
+  stickFloat: 'stickFloat',
+  stickFloatUnder: 'stickFloatUnder',
   heart: 'heart',
   stickCarry: 'stickCarry',
   stickSpin: ['stickSpin0', 'stickSpin1', 'stickSpin2', 'stickSpin3'],
@@ -189,6 +193,8 @@ export function createTextures(scene: Phaser.Scene): void {
   addRaster(scene, TEX.moon, () => moonRaster());
   addRaster(scene, TEX.bobber, () => Raster.fromSprite(BOBBER));
   addRaster(scene, TEX.bobberUnder, () => Raster.fromSprite(BOBBER_UNDER));
+  addRaster(scene, TEX.stickFloat, () => Raster.fromSprite(STICK_FLOAT));
+  addRaster(scene, TEX.stickFloatUnder, () => Raster.fromSprite(STICK_FLOAT_UNDER));
   addRaster(scene, TEX.gear, () => Raster.fromSprite(gearSprite()));
   addRaster(scene, TEX.worm, () => Raster.fromSprite(wormSprite()));
   addRaster(scene, TEX.coin, () => Raster.fromSprite(coinSprite()));

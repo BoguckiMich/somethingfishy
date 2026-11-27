@@ -37,6 +37,13 @@ describe('save code', () => {
     const r = decodeSaveCode(code);
     expect(r).toEqual({ ok: true, save: fullSave(), profile });
   });
+  it('round-trips the river gear (slice 25g)', () => {
+    const save = { ...fullSave(), player: { ...fullSave().player, riverFloat: true, riverLead: true, seen: ['riverFloat', 'riverLead'] } };
+    const r = decodeSaveCode(encodeSaveCode(save, profile));
+    expect(r.ok && r.save.player.riverFloat).toBe(true);
+    expect(r.ok && r.save.player.riverLead).toBe(true);
+    expect(r.ok && r.save.player.seen).toEqual(['riverFloat', 'riverLead']);
+  });
   it('round-trips a new save', () => {
     const r = decodeSaveCode(encodeSaveCode(newSave(), profile));
     expect(r.ok && r.save).toEqual({ ...newSave(), player: newPlayer() });
