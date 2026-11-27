@@ -124,9 +124,9 @@ export function lureAffinity(lure: Lure, speciesId: string, fishZone: 'shallow' 
   return (lure.likes[speciesId] ?? 1) * (fishZone === 'deep' ? lure.deepLikes?.[speciesId] ?? 1 : 1);
 }
 
-/** The lures a predator likes best (affinity 3 or more), for the fish log's "Likes:" row. */
+/** The lures a predator likes best (affinity 2 or more), for the fish log's "Likes:" row. */
 export function favouriteLureIds(speciesId: string, all: readonly Lure[]): string[] {
-  return all.filter((l) => (l.likes[speciesId] ?? 1) >= 3).map((l) => l.id);
+  return all.filter((l) => (l.likes[speciesId] ?? 1) >= 2).map((l) => l.id);
 }
 
 /** Is the lure lying still on the bottom (thumb up)? No follower starts and none strikes then. */
@@ -146,17 +146,20 @@ export function snagChance(location: Location, distanceM: number): number {
 
 // ---- Following --------------------------------------------------------------------------------------------------------
 
-/** The weighted predators that may follow a lure in this band right now (peaceful fish never; the weights include the lure's taste and its depth). */
+/**
+ * The weighted predators that may follow a lure in this band right now (peaceful fish never; the weights include the lure's taste and its depth).
+ * A lure does not care how common a fish is: every predator weighs as an uncommon one, times the band's own say (so the river's seam is mostly asp).
+ */
 export function followCandidates(lure: Lure, depth: number, distanceM: number, env: SpinEnv): { id: string; w: number }[] {
   const band = zoneAt(env.location, distanceM);
   const pool = poolAt(env.location, distanceM);
   return candidates(band.fishZone, env.time, env.fx, pool)
     .filter((s) => PREDATORS.includes(s.id))
-    .map((s) => ({ id: s.id, w: spawnWeight(s, undefined, env.fotdId, env.fx, pool) * lureAffinity(lure, s.id, band.fishZone) * (0.3 + 0.7 * depthFit(depth, s.id)) }));
+    .map((s) => ({ id: s.id, w: spawnWeight({ ...s, rarity: 'uncommon' }, undefined, env.fotdId, env.fx, pool) * lureAffinity(lure, s.id, band.fishZone) * (0.3 + 0.7 * depthFit(depth, s.id)) }));
 }
 
 /** One follow roll: a new follower, or undefined. */
-function rollFollower(s: SpinState, lure: Lure, env: SpinEnv, rng: Rng): Follower | undefined {
+export function rollFollower(s: SpinState, lure: Lure, env: SpinEnv, rng: Rng): Follower | undefined {
   const band = zoneAt(env.location, s.distanceM);
   const cands = followCandidates(lure, s.depth, s.distanceM, env);
   const total = cands.reduce((sum, c) => sum + c.w, 0);

@@ -38,7 +38,7 @@ export interface Lure {
   pauseMax: number;
   /** A burst starts with a hop: the lure jumps up by this much (the soft jig hops off the bottom). */
   hop: number;
-  /** How much each species likes it, a multiplier on the follow weight (missing = 1). A "favourite" is 3 or more. */
+  /** How much each species likes it, a multiplier on the follow weight (missing = 1). A "favourite" is 2 or more. */
   likes: Readonly<Record<string, number>>;
   /** Extra multiplier in the deep bands (the bend pool: a jig is a perch's lure in the pool). */
   deepLikes?: Readonly<Record<string, number>>;
@@ -48,17 +48,17 @@ export const LURES: readonly Lure[] = [
   {
     id: 'spinner', name: 'Spinner', price: 300, bundles: 0, effect: 'Flashy and shallow: trout, perch and asp',
     reelDepth: 0.12, reelDepthPerS: 2, sinkPerS: 0.35, pauseMax: 1, hop: 0,
-    likes: { trout: 3, perch: 3, asp: 3, chub: 1.2, pike: 0.8 },
+    likes: { trout: 3, perch: 3, asp: 3, chub: 0.8, pike: 0.8 },
   },
   {
     id: 'wobbler', name: 'Wobbler', price: 600, bundles: 2, effect: 'Swims at mid depth: chub, asp and trout',
     reelDepth: 0.45, reelDepthPerS: 1.2, sinkPerS: 0.1, pauseMax: 0.55, hop: 0,
-    likes: { chub: 3, asp: 3, trout: 3, pike: 1.2, perch: 1 },
+    likes: { chub: 2, asp: 3, trout: 3, pike: 1.2, perch: 1 },
   },
   {
     id: 'jig', name: 'Soft jig', price: 450, bundles: 3, effect: 'Hops along the bottom: pike, and perch in the pool',
     reelDepth: 0.85, reelDepthPerS: 1, sinkPerS: 0.6, pauseMax: 1, hop: 0.3,
-    likes: { pike: 3, perch: 1, chub: 0.8, trout: 0.4, asp: 0.4 },
+    likes: { pike: 3, perch: 1, chub: 0.5, trout: 0.4, asp: 0.4 },
     deepLikes: { perch: 2 },
   },
 ];
@@ -103,9 +103,9 @@ export const SPIN_TUNING = {
   nipInterestLoss: 0.2,
   /** A follow roll every this much lure time; the chance of a follower per roll before the multipliers. */
   checkMs: 500,
-  followChance: 0.1,
+  followChance: 0.14,
   /** Reference weight: a band whose suitable predators weigh this much (or more) gives the full chance. */
-  presenceRef: 25,
+  presenceRef: 15,
   /** A follower starts with this interest (0..1); it leaves at 0, and may strike from `strikeInterestMin`. */
   startInterest: 0.55,
   strikeInterestMin: 0.5,
@@ -120,7 +120,7 @@ export const SPIN_TUNING = {
   laterPauseMul: 0.7,
   reelMul: 0.4,
   /** The length roll exponent is multiplied by this (below 1: bigger fish than the float rig brings). */
-  sizeSkewMul: 0.7,
+  sizeSkewMul: 0.45,
   /** The Ferry pike's chance (RARE_TUNING.chance) is multiplied by this for the soft jig. */
   jigFerryMul: 1.25,
   /** The lure must have lain on the bottom this long before the next reel-in can snag it. */
