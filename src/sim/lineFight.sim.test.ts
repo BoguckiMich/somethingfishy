@@ -20,6 +20,8 @@ import { seededRng } from '../core/random';
 
 declare const process: { env: Record<string, string | undefined> };
 const ON = process.env.SIM === '1';
+/** `SIM_ONLY=silverGhost,lantern` runs the catch-rate table for those species only. */
+const ONLY = process.env.SIM_ONLY?.split(',');
 const N = Number(process.env.SIM_FIGHTS ?? 200);
 
 const TICK = 16;
@@ -153,6 +155,7 @@ describe.skipIf(!ON)('line fight sim (SIM=1)', () => {
     const rows: string[] = ['species   zone    rod         classic catch/med s   line catch/med s   (line: slipped/snapped)   diff'];
     const worst: string[] = [];
     for (const sp of SPECIES) {
+      if (ONLY && !ONLY.includes(sp.id)) continue;
       const sets: [string, BarGear][] = sp.zone === 'deep' ? [['fiberglass', FIBER], ['carbon', CARBON]] : [['bamboo', BAMBOO], ['fiberglass', FIBER]];
       if (sp.rarity === 'trophy') sets.push(['top gear', TOP]);
       for (const [label, gear] of sets) {

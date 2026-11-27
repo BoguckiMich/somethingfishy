@@ -192,3 +192,39 @@ export const SIGNATURE_TUNING = {
   diveRunS: 2.2,
   diveWarnS: 0.9,
 };
+
+/**
+ * Per-species tuning on top of the pattern, so single cells of the bot sim (docs/ECONOMY_SIM.md "Line fight") can be matched to the Classic bar
+ * without moving any other fish. Every field is optional (1 / 0 = no change).
+ */
+export interface SpeciesLineTune {
+  /** x on every surge's strength (after the signature caps). */
+  strengthMul?: number;
+  /** x on the rod's flex budget (seconds in the red before the line snaps). */
+  flexMul?: number;
+  /** The rod matters more (> 0) or less (< 0): the flex budget is also x (flex / 1.4 s)^flexSlope, so bamboo suffers and carbon gains. */
+  flexSlope?: number;
+  /** x on the slack limit (how long the hook hangs slack before it slips). */
+  slackMul?: number;
+  /** x on `releasedSlipS` (how long the thumb may stay up in the calm before the hook slips). */
+  releasedMul?: number;
+  /** x on the surge holding the needle up with the thumb off (`holdMul`). */
+  holdMul?: number;
+  /** x on how fast the tension climbs under the thumb. */
+  riseMul?: number;
+  /** Overrides `SIGNATURE_TUNING.oneIn` (the signature replaces a normal surge one time in this many). */
+  oneIn?: number;
+}
+
+export const SPECIES_LINE_TUNING: Record<string, SpeciesLineTune> = {
+  ferryPike: { flexMul: 0.6, flexSlope: 2.2, slackMul: 2, releasedMul: 2.5, strengthMul: 1.1 },
+  goldenTench: { flexMul: 0.75, flexSlope: 0.3 },
+  barbelKing: { flexMul: 1.3 },
+  pale: { flexMul: 0.75, flexSlope: 1 },
+  ferryman: { flexMul: 0.75, flexSlope: 1 },
+  mossback: { flexMul: 0.93 },
+  eel: { releasedMul: 1.35, slackMul: 1.4 },
+  pike: { strengthMul: 1.03 },
+  lantern: { strengthMul: 1.03, flexMul: 0.33, flexSlope: 0.9 },
+  silverGhost: { flexMul: 0.55, flexSlope: 0.9, slackMul: 1.3, strengthMul: 1.1 },
+};
