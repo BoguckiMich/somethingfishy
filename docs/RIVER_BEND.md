@@ -158,7 +158,7 @@ everywhere (it is the real hour), which also keeps the code simple.
 3. **Current mechanic**: bobber drift, seam bonus, the settle-in-the-eddy end of the run (no forced reel-in, decided 2026-11-26), river fight surges (decided 2026-11-26); tests and a sim.
 4. **River fish** (BUILT, slice 25d): trout, grayling, nase, chub, barbel, vimba (+ shared asp, perch, pike) with art and facts.
 5. **River checklist + story R1-R6 + river moments** (BUILT, slice 25e): kingfisher, otter, upstream lantern, paper boat, heron.
-6. **Rare river fish + river trophy board, the Ferryman**.
+6. **Rare river fish + river trophy board, the Ferryman** (BUILT, slice 25f): the three trophies by their exact conditions, the river board, and the Ferryman with its creak window.
 7. **River gear** (trotting float, heavy lead) behind river bundles.
 
 **Done when (M2):** she can drive to the river and back; the river has ~4 days of its own goals; the river

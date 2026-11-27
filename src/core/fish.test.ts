@@ -12,12 +12,12 @@ const TIMES: TimeOfDay[] = ['dawn', 'day', 'dusk', 'night'];
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 describe('roster data', () => {
-  it('has the 21 pool species (15 lake, 6 river) plus the 3 trophies and the legendary, unique ids and sane ranges', () => {
-    expect(SPECIES).toHaveLength(25);
+  it('has the 21 pool species (15 lake, 6 river) plus the 6 trophies and the 2 legendaries, unique ids and sane ranges', () => {
+    expect(SPECIES).toHaveLength(29);
     expect(POOL_SPECIES).toHaveLength(21);
-    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(25);
-    expect(SPECIES.filter((s) => s.rarity === 'legendary').map((s) => s.id)).toEqual(['pale']);
-    expect(SPECIES.filter((s) => s.rarity === 'trophy').map((s) => s.id)).toEqual(['goldenTench', 'mossback', 'silverGhost']);
+    expect(new Set(SPECIES.map((s) => s.id)).size).toBe(29);
+    expect(SPECIES.filter((s) => s.rarity === 'legendary').map((s) => s.id)).toEqual(['pale', 'ferryman']);
+    expect(SPECIES.filter((s) => s.rarity === 'trophy').map((s) => s.id)).toEqual(['goldenTench', 'mossback', 'silverGhost', 'lantern', 'barbelKing', 'ferryPike']);
     expect(POOL_SPECIES.some((s) => s.rarity === 'trophy' || s.rarity === 'legendary')).toBe(false);
     for (const s of SPECIES) {
       expect(s.lengthCm[0]).toBeLessThan(s.lengthCm[1]);

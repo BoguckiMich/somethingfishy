@@ -27,10 +27,10 @@ describe('large fish sprites', () => {
 
   it('roughly follow real size (px width incl. outline) and the roster order', () => {
     const w = (id: string) => FISH_LARGE[id].width;
-    const want: Record<string, number> = { bleak: 18, roach: 22, rudd: 22, perch: 22, crucian: 20, tench: 28, bream: 30, carp: 34, zander: 34, ide: 26, asp: 34, burbot: 38, eel: 40, pike: 40, catfish: 44, pale: 52, goldenTench: 28, mossback: 38, silverGhost: 22, trout: 28, grayling: 28, nase: 24, chub: 26, barbel: 34, vimba: 26 };
+    const want: Record<string, number> = { bleak: 18, roach: 22, rudd: 22, perch: 22, crucian: 20, tench: 28, bream: 30, carp: 34, zander: 34, ide: 26, asp: 34, burbot: 38, eel: 40, pike: 40, catfish: 44, pale: 52, goldenTench: 28, mossback: 38, silverGhost: 22, trout: 28, grayling: 28, nase: 24, chub: 26, barbel: 34, vimba: 26, lantern: 30, barbelKing: 38, ferryPike: 38, ferryman: 48 };
     for (const id of IDS) expect(Math.abs(w(id) - want[id]), id).toBeLessThanOrEqual(3);
     for (const id of IDS) if (id !== 'bleak') expect(w('bleak')).toBeLessThan(w(id));
-    for (const big of ['catfish', 'pike', 'eel']) for (const id of IDS) if (!['catfish', 'pike', 'eel', 'pale'].includes(id)) expect(w(big)).toBeGreaterThan(w(id));
+    for (const big of ['catfish', 'pike', 'eel']) for (const id of IDS) if (!['catfish', 'pike', 'eel', 'pale', 'ferryman'].includes(id)) expect(w(big)).toBeGreaterThan(w(id));
     for (const id of IDS) if (id !== 'pale') expect(w('pale')).toBeGreaterThan(w(id)); // the biggest fish of all
     expect(w('catfish')).toBeGreaterThanOrEqual(w('pike'));
   });
@@ -89,7 +89,7 @@ describe('fish variants', () => {
     for (const cls of FISH_CLASSES) {
       const w = (id: string) => fishVariant(id, cls).width;
       for (const id of IDS) if (id !== 'bleak') expect(w('bleak'), `${cls} ${id}`).toBeLessThanOrEqual(w(id));
-      for (const big of ['catfish', 'pike', 'eel']) for (const id of IDS) if (!['catfish', 'pike', 'eel', 'pale'].includes(id)) expect(w(big), `${cls} ${big}>${id}`).toBeGreaterThan(w(id));
+      for (const big of ['catfish', 'pike', 'eel']) for (const id of IDS) if (!['catfish', 'pike', 'eel', 'pale', 'ferryman'].includes(id)) expect(w(big), `${cls} ${big}>${id}`).toBeGreaterThan(w(id));
     }
   });
 

@@ -8,9 +8,9 @@ import { COLORS, el, openPanel, woodButton, type PanelHandle } from './panel';
  * The wood card for a message in a bottle: the note, and, when there were any, the worms tucked
  * inside. Like the bait-box card it is only a view; the scene already granted the worms.
  */
-export function showBottleCard(contents: BottleContents, onClose: () => void): PanelHandle {
+export function showBottleCard(contents: BottleContents, onClose: () => void, title = 'Bottle note'): PanelHandle {
   const panel: PanelHandle = openPanel(
-    'Bottle note',
+    title,
     (body) => {
       body.append(el('div', `font-size:${FS.body}px;line-height:${LINE};color:${COLORS.text};padding:4px 0 6px`, keepSignature(contents.text)));
       if (contents.worms > 0) {

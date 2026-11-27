@@ -171,6 +171,11 @@ export const SIGNATURE_MOVES: Record<string, SignatureMove> = {
   goldenTench: 'flash',
   silverGhost: 'feint',
   mossback: 'dive',
+  // River bend (slice 25f): the Lantern flashes (two quick surges, like a lit window), the Barbel King dives like Old Mossback (the same heavy
+  // bottom-feeder), the Ferry pike feints (it hangs limp under the rope, then bolts).
+  lantern: 'flash',
+  barbelKing: 'dive',
+  ferryPike: 'feint',
 };
 
 export const SIGNATURE_TUNING = {

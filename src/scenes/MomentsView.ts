@@ -21,8 +21,8 @@ export interface MomentHooks {
   claimStar(): number;
   /** The bottle was tapped: open its note card. */
   openBottle(): void;
-  /** A paper boat was caught: grant its worms (about 1 in 4 holds some) and return how many (0 = an empty boat). */
-  claimBoat(): number;
+  /** A paper boat was caught: grant its worms (about 1 in 4 holds some) and return how many (0 = an empty boat); `note` = the empty boat held a folded hint, and its card opens (slice 25f). */
+  claimBoat(): { worms: number; note: boolean };
 }
 
 /** Layers (the scene's Z: waterFx 8, waterDecor 9, nearShore 10). */
@@ -359,9 +359,9 @@ export class MomentsView {
         this.showFloat('...', a.x, a.y + 30, false);
         break;
       case 'paperBoat': {
-        const worms = this.hooks.claimBoat();
+        const { worms, note } = this.hooks.claimBoat();
         this.hooks.sfx(worms > 0 ? 'sparkle' : 'tap');
-        this.showFloat(worms > 0 ? `+${worms} worms!` : 'Only a boat.', a.x, a.y + 26, false);
+        this.showFloat(worms > 0 ? `+${worms} worms!` : note ? 'A folded note!' : 'Only a boat.', a.x, a.y + 26, false);
         break;
       }
       case 'heron':

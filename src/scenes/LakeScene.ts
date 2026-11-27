@@ -9,9 +9,9 @@ import { showChecklistPanel, showRoadFixedCard } from '../ui/checklistPanel';
 import { allButPetrol, allDone as checklistAllDone, bundleTotal, checklistRewardText, doneCount as checklistDone, fittingSlots, totalOf, withBundlesDone } from '../core/checklist/checklist';
 import { showBottleCard, showChapterCard, showStoryCard } from '../ui/bottleCard';
 import { StoryView } from './StoryView';
-import { PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
-import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Lines, lineText, markPaleSeen, markSecondBlink, markSeen, secondBlinkDue, nextLine, paleBeatDue, queueLines, recordMilestones, recordRiverCatch, recordRiverVisit, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
-import { claimBoat, claimStar, momentClockRunning, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
+import { FERRYMAN_BEAT, PALE_BEAT, STORY_TUNING, type ChapterDef } from '../core/data/story';
+import { blinkIsNight, blinkLines, chapterById, chaptersOf, chapterWaits, q7Lines, lineText, ferrymanBeatDue, markFerrymanSeen, markPaleSeen, markSecondBlink, markSeen, secondBlinkDue, nextLine, paleBeatDue, queueLines, recordMilestones, recordRiverCatch, recordRiverVisit, storyMilestones, storyOf, todaysChapter, isNightVisit, withFlag } from '../core/story/story';
+import { boatNote, claimBoat, claimStar, momentClockRunning, newScheduler, openBottle, pickMoment, tickScheduler, type Scheduler } from '../core/moments/moments';
 import { MOMENT_KINDS, type MomentKind } from '../core/data/moments';
 import { MomentsView } from './MomentsView';
 import { applyCatchToPlayer, claimableCount, doneCount, questsOf, retargetQuests, syncQuests } from '../core/quests/quests';
@@ -55,8 +55,8 @@ import { beginFight, holdFight, CATCH_STYLES, type CatchStyle } from '../core/fi
 import { LINE_FIGHT_TUNING } from '../core/data/lineFight';
 import { inGold, lineGearOf, surgeLevel, warnLevel } from '../core/lineFight';
 import { isLegendary, isTrophy, speciesById, SPECIES } from '../core/data/fish';
-import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../core/data/rare';
-import { addTrophy, boardIds, fullBoard } from '../core/rare';
+import { BOAT_NOTE, HINT_GAP_MS, PAJKEL_HINT_FISH, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../core/data/rare';
+import { addTrophy, boardIds, boardShows, fullBoard } from '../core/rare';
 import { showTrophyCard } from '../ui/trophyCard';
 import { campfireKey, ensureTrophyBoardTexture, windsockKey } from '../art/textures';
 import { BOWL_SIZE } from '../art/bowlArt';
@@ -65,8 +65,8 @@ import { TENT_APEX, TENT_DOOR, tentDoorHalf, BED_FRONT_FROM, BED_SIZE, CAMPFIRE_
 import { SOCK_ORIGIN_X } from '../art/campLayout';
 import { catchJingle } from '../core/catchSound';
 import { allCamp, campfireLook, hasCamp, tentGlow, windsockLevel } from '../core/camp';
-import { PALE_ONE } from '../core/data/legendary';
-import { eerieLevel, eerieLook } from '../core/eerie';
+import { FERRYMAN, PALE_ONE } from '../core/data/legendary';
+import { eerieLevel, eerieLook, ferryCreak, ferryWindowOpen, type FerryCreak } from '../core/eerie';
 import { slipsAway } from '../core/legendary';
 import { LOCATIONS, QUIET_LAKE, RIVER_BEND } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
@@ -560,6 +560,12 @@ export class LakeScene extends Phaser.Scene {
   /** Eased eerie look: green overlay alpha on the water and how still the water is (0..1). */
   private eerieTint = 0;
   private eerieCalm = 0;
+  /** The Ferryman's window (slice 25f): real ms since the dusk window opened at the river (0 outside it), the creak of now, and the creak whose sound has played. Dev flag ?ferry=1 holds the window open. */
+  private ferryMs = 0;
+  private ferryNow: FerryCreak = ferryCreak(-1);
+  private ferryHeard = -1;
+  private ferryDev = false;
+  private ferrymanCardPending = false;
   /** Drift clock of the water dashes: runs slower while the lake is still. */
   private driftT = 0;
   private eerieFx!: Phaser.GameObjects.Graphics;
@@ -728,14 +734,17 @@ export class LakeScene extends Phaser.Scene {
     const baitParam = BAITS.find((b) => b.id === params.get('bait'));
     if (baitParam) this.setPlayer({ ...addBait(this.player, baitParam.id, 10), baitId: baitParam.id });
     if (params.get('baits') === 'all') for (const b of BAITS) this.setPlayer(addBait(this.player, b.id, 10));
-    // Dev-only (slice 23d): ?rare=goldenTench|mossback|silverGhost makes that fish bite on the next cast; ?trophies=all fills the board.
+    // Dev-only (slice 23d, 25f): ?rare=goldenTench|mossback|silverGhost|lantern|barbelKing|ferryPike makes that fish bite on the next cast; ?trophies=all fills the board.
     const rareParam = params.get('rare');
     if (rareParam && isTrophy(speciesById(rareParam))) this.rareDev = rareParam;
+    // Dev-only (slice 25f): ?ferry=1 holds the Ferryman's window open (the rope creaks by itself every few seconds, the current slows) whatever the clock says.
+    this.ferryDev = params.get('ferry') === '1';
     if (params.get('trophies') === 'all') {
       const board = fullBoard(this.today);
       const log = { ...this.player.log };
       for (const [id, t] of Object.entries(board)) log[id] ??= { count: 1, bestLengthCm: t.lengthCm, bestWeightG: t.weightG };
       log.pale ??= { count: 1, bestLengthCm: 182, bestWeightG: 64000 };
+      log.ferryman ??= { count: 1, bestLengthCm: 262, bestWeightG: 196000 };
       this.setPlayer({ ...this.player, trophies: board, log });
     }
     // Dev-only (slice 23e): ?camp=all owns every camp item.
@@ -760,6 +769,7 @@ export class LakeScene extends Phaser.Scene {
     // Dev-only: ?story=Q1..Q7 makes that chapter today's and starts it in ~3 s; ?story=pale shows the Pale One card.
     const storyParam = params.get('story');
     if (storyParam === 'pale') this.paleCardPending = true;
+    else if (storyParam === 'ferryman') this.ferrymanCardPending = true;
     else if (storyParam) {
       const ch = chapterById(storyParam.toUpperCase());
       if (ch) {
@@ -777,7 +787,7 @@ export class LakeScene extends Phaser.Scene {
     if (params.get('journal') === 'all') {
       const done = Object.fromEntries(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6'].map((id, i) => [id, `2026-11-${String(i + 1).padStart(2, '0')}`]));
       this.journalAll = true;
-      this.setPlayer({ ...this.player, story: { done, queue: [], pale: true, paleOn: '2026-11-04', blinkNight: true } });
+      this.setPlayer({ ...this.player, story: { done, queue: [], pale: true, paleOn: '2026-11-04', blinkNight: true, ferryman: true, ferrymanOn: '2026-11-12' } });
     }
     if (dbg === 'log') this.setPlayer({ ...this.player, log: debugLog('half') });
     if (params.get('log') === 'all') this.setPlayer({ ...this.player, log: debugLog('all') });
@@ -1245,7 +1255,7 @@ export class LakeScene extends Phaser.Scene {
     if (this.state.kind !== 'idle' || this.panel) return;
     this.swallowUp = false;
     sound.play('boof');
-    this.panel = showTrophyCard(this.player.trophies, this.player.log, () => (this.panel = null));
+    this.panel = showTrophyCard(this.player.trophies, this.player.log, () => (this.panel = null), this.loc.id);
   }
 
   /** Can the road map open right now (fix/board-and-car)? Any companion mode; Alex idle or the bobber waiting. */
@@ -1480,7 +1490,10 @@ export class LakeScene extends Phaser.Scene {
 
   /** Real ms until Pajkel's next rare-fish hint: sooner on a foggy day (the weather Old Mossback needs). */
   private hintGap(): number {
-    const g = this.weatherId() === 'fog' ? HINT_GAP_MS.matching : HINT_GAP_MS.normal;
+    // The weather of the hinted fish: fog for Old Mossback at the lake, overcast (the Barbel King) or windy (the Ferry pike) at the river.
+    const w = this.weatherId();
+    const matching = this.loc.id === RIVER_BEND.id ? w === 'overcast' || w === 'windy' : w === 'fog';
+    const g = matching ? HINT_GAP_MS.matching : HINT_GAP_MS.normal;
     return g.min + Math.random() * (g.max - g.min);
   }
 
@@ -1497,6 +1510,16 @@ export class LakeScene extends Phaser.Scene {
     if (this.loc.id === RIVER_BEND.id) {
       const seen = recordRiverVisit(this.player, this.clock.minute);
       if (seen !== this.player) this.setPlayer(seen);
+    }
+    // The Ferryman's card (slice 25f), like the Pale One's.
+    if (this.ferrymanCardPending && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
+      this.ferrymanCardPending = false;
+      this.swallowUp = false;
+      this.setPlayer({ ...this.player, story: markFerrymanSeen(storyOf(this.player), this.today) });
+      this.panel = showStoryCard(FERRYMAN_BEAT.title, FERRYMAN_BEAT.lines, () => {
+        this.panel = null;
+        this.storyLineMs = Math.max(this.storyLineMs, 1000);
+      });
     }
     // The Pale One card and Pajkel's queued lines.
     if (this.paleCardPending && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
@@ -1522,8 +1545,10 @@ export class LakeScene extends Phaser.Scene {
     this.hintLineMs -= deltaMs;
     if (this.hintLineMs <= 0 && calmKind && !this.panel && !this.nameCardOpen && !this.sleepFade && this.companions.state.bubble === null && this.pajCanSpeak() && this.storyLineMs <= 0) {
       this.hintLineMs = this.hintGap();
-      if (!this.player.log.mossback) {
-        this.companions.say(pickLine(PAJKEL_HINT_LINES.mossback));
+      // He hints at a trophy of this place he has a line for and she has not caught (slice 25f: the lake's Old Mossback, the river's Barbel King and Ferry pike).
+      const hintable = (PAJKEL_HINT_FISH[this.loc.id] ?? []).filter((id) => !this.player.log[id]);
+      if (hintable.length > 0) {
+        this.companions.say(pickLine(PAJKEL_HINT_LINES[hintable[Math.floor(Math.random() * hintable.length)]]));
         this.storyLineMs = Math.max(this.storyLineMs, 4000);
       }
     }
@@ -1692,6 +1717,15 @@ export class LakeScene extends Phaser.Scene {
     this.eerieCalm += (Math.max(look.calm, this.story.calm) - this.eerieCalm) * k;
     this.driftT += (deltaMs / 1000) * (1 - 0.9 * this.eerieCalm);
     sound.setEerie(level);
+    // The Ferryman's window (slice 25f): at dusk at the river the rope creaks by itself now and then and the current slows for a moment.
+    const ferryOpen = this.ferryDev || ferryWindowOpen(this.loc.id, this.clock.minute);
+    this.ferryMs = ferryOpen ? this.ferryMs + deltaMs : 0;
+    this.ferryNow = ferryOpen ? ferryCreak(this.ferryMs) : ferryCreak(-1);
+    if (!ferryOpen) this.ferryHeard = -1;
+    else if (this.ferryNow.soundDue && this.ferryNow.index !== this.ferryHeard) {
+      this.ferryHeard = this.ferryNow.index;
+      sound.play('creak');
+    }
   }
 
   /** Ambient follows the game clock; the reel clicks while the catch bar is held; the dog barks at fetch. */
@@ -1821,7 +1855,9 @@ export class LakeScene extends Phaser.Scene {
     // A legendary is a trophy: no bag slot (so the bag-full card never shows), no coins. It was logged already.
     if (slipsAway(hooked.speciesId)) {
       this.slipNoteAge = 0;
-      if (paleBeatDue(storyOf(this.player))) this.paleCardPending = true;
+      if (hooked.speciesId === FERRYMAN.speciesId) {
+        if (ferrymanBeatDue(storyOf(this.player))) this.ferrymanCardPending = true;
+      } else if (paleBeatDue(storyOf(this.player))) this.paleCardPending = true;
       return;
     }
     // A trophy goes straight to the board (it was put there when it was caught): no bag slot, no coins.
@@ -2747,7 +2783,13 @@ export class LakeScene extends Phaser.Scene {
         claimBoat: () => {
           const r = claimBoat(this.player, Math.random);
           this.setPlayer(r.player);
-          return r.worms;
+          // An empty boat may hold a folded hint about a river trophy (slice 25f); the card needs her idle, else it was only a boat.
+          const text = r.worms === 0 && this.state.kind === 'idle' && !this.panel ? boatNote(this.player.log, this.loc.id, Math.random) : undefined;
+          if (text) {
+            this.swallowUp = false;
+            this.panel = showBottleCard({ noteId: 'boat', text, worms: 0 }, () => (this.panel = null), BOAT_NOTE.title);
+          }
+          return { worms: r.worms, note: !!text };
         },
       },
       Math.random,
@@ -2943,6 +2985,15 @@ export class LakeScene extends Phaser.Scene {
     const g = this.action;
     g.clear();
     const tintFx = (c: number) => multiply(c, look.worldTint);
+    // The Lantern's spots glow in the dark (slice 25f): a soft pale-green halo round the trout she holds up once the fireflies are out.
+    if (this.state.kind === 'caught' && this.state.hooked.speciesId === 'lantern' && look.fireflyAlpha > 0.05) {
+      const glow = Math.min(1, look.fireflyAlpha * 1.5) * (0.8 + 0.2 * Math.sin(this.elapsed / 420));
+      const cx = Math.round(this.showOffFish.x + this.showOffFish.width / 2);
+      const cy = Math.round(this.showOffFish.y + this.showOffFish.height / 2);
+      g.fillStyle(0xd8ff8a, 0.1 * glow).fillEllipse(cx, cy, 52, 28);
+      g.fillStyle(0xd8ff8a, 0.14 * glow).fillEllipse(cx, cy, 34, 18);
+      g.fillStyle(0xf4ffb0, 0.16 * glow).fillEllipse(cx, cy, 20, 10);
+    }
 
     for (const r of this.ripples) {
       const t = r.age / RIPPLE_MS;
@@ -3196,7 +3247,8 @@ export class LakeScene extends Phaser.Scene {
   /** The trophy board shows once a rare fish is mounted (slice 23d); its texture changes with the set of mounted fish. */
   private drawTrophyBoard(): void {
     // The Pale One alone does not bring the board: it appears with the first rare fish.
-    const shown = this.loc.id === QUIET_LAKE.id && this.player.trophies && Object.keys(this.player.trophies).length > 0 ? boardIds(this.player.trophies, this.player.log) : [];
+    // Each place has its own board with its own trophies (slice 25f); the legendary alone does not bring it.
+    const shown = boardShows(this.player.trophies, this.loc.id) ? boardIds(this.player.trophies, this.player.log, this.loc.id) : [];
     const key = shown.length > 0 ? ensureTrophyBoardTexture(this, shown) : '';
     if (key !== this.trophyKey) {
       this.trophyKey = key;
@@ -3676,7 +3728,7 @@ export class LakeScene extends Phaser.Scene {
     // Streaks drift along the bend, ~1.6x faster in rain; the flow clock keeps its phase when the weather changes.
     const dt = Math.max(0, this.elapsed - this.riverLastT) / 1000;
     this.riverLastT = this.elapsed;
-    this.riverFlowT += dt * (1 + STREAK_RAIN_BOOST * this.weatherVis('rain')) * (1 - 0.9 * calm);
+    this.riverFlowT += dt * (1 + STREAK_RAIN_BOOST * this.weatherVis('rain')) * (1 - 0.9 * calm) * this.ferryNow.current;
     for (const s of this.riverStreaks) {
       const d = streakAt(s, this.riverFlowT, 1);
       if (!d) continue;
@@ -3703,7 +3755,7 @@ export class LakeScene extends Phaser.Scene {
       for (const f of rockFoam(rock, t)) g.fillStyle(foam, f.alpha * lightLevel * still).fillRect(f.x, f.y, f.w, 1);
     }
     // The ferry rope: pixel-stepped, tinted by the day, swaying more when it is windy.
-    const pts = ropePoints(ropeSway(t, this.weatherVis('windy')));
+    const pts = ropePoints(ropeSway(t, this.weatherVis('windy')) + this.ferryNow.sway);
     const ropeCol = multiply(PAL.sand, look.worldTint);
     const shadow = multiply(PAL.woodDark, look.worldTint);
     // A pixel line, not a box per segment (boxes filled whole diagonals and made the far end look fat): 2 px near us, 1 px far away.

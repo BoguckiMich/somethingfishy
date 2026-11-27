@@ -187,12 +187,41 @@ export const SPECIES: Species[] = [
     logHint: 'On bright noons, something pale flickers in the shallows. It likes maggots.',
   },
   {
+    // The River bend's three trophies (slice 25f): same rules as the lake's, written against the river's bands in core/data/rare.ts.
+    id: 'lantern', name: 'Rainbow trout "Lantern"', zone: 'shallow', times: ['night'], rarity: 'trophy', pattern: 'darting', difficulty: 0.8,
+    lengthCm: [45, 75], nibbles: [2, 4], bodyFactor: 0.0105, basePrice: 450,
+    fact: 'Some rainbow trout carry a faint glow in their spots, which scientists blame on the dark and an overactive imagination.',
+    logHint: 'When it rains after dark, the riffle lights up like a window.',
+  },
+  {
+    id: 'barbelKing', name: 'The Barbel King', zone: 'deep', times: ['dusk'], rarity: 'trophy', pattern: 'sinker', difficulty: 0.95,
+    lengthCm: [90, 130], nibbles: [2, 4], bodyFactor: 0.0072, basePrice: 650,
+    fact: 'Barbel can live for twenty years or more, and the old ones grow whiskers like a walrus. This one has earned them.',
+    logHint: 'The old king eats at dusk, when the sky cannot make up its mind.',
+    showOff: 'hug',
+  },
+  {
+    id: 'ferryPike', name: 'Ferry pike', zone: 'shallow', times: ['day'], rarity: 'trophy', pattern: 'darting', difficulty: 0.85,
+    lengthCm: [100, 140], nibbles: [1, 3], bodyFactor: 0.0033, basePrice: 550,
+    fact: 'A big pike hangs in the shade of anything that overhangs the water, and strikes whatever dangles in it. Even a rope.',
+    logHint: 'Something hunts under the rope when the wind shakes it.',
+    showOff: 'hug',
+  },
+  {
     // Legendary (slice 12): not in the weighted pool. Spawn rule and tunables: core/data/legendary.ts.
     // basePrice 0: it is never sold. `times` is only informational; the rule is the clock window.
     id: 'pale', name: 'The Pale One', zone: 'deep', times: ['night'], rarity: 'legendary', pattern: 'abyssal', difficulty: 0.9,
     lengthCm: [150, 220], nibbles: [0, 1], bodyFactor: 0.01, basePrice: 0,
     fact: 'No one has caught it twice. No one remembers why.',
     logHint: 'Deep, far water. When the clock shows 3.',
+    showOff: 'hug',
+  },
+  {
+    // The Ferryman (slice 25f): the river's legendary. Not in the weighted pool; rule and tunables in core/data/legendary.ts.
+    id: 'ferryman', name: 'The Ferryman', zone: 'deep', times: ['dusk'], rarity: 'legendary', pattern: 'abyssal', difficulty: 0.9,
+    lengthCm: [220, 320], nibbles: [0, 1], bodyFactor: 0.0055, basePrice: 0,
+    fact: 'Sturgeons are older than the dinosaurs, and this one acts like it.',
+    logHint: 'The deep pool by the far post, at dusk, when the rope creaks by itself.',
     showOff: 'hug',
   },
 ];

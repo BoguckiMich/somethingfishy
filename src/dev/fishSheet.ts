@@ -89,7 +89,7 @@ for (const sp of SPECIES) {
 if (!only || only.includes('board')) {
   const row = document.createElement('div');
   row.className = 'row';
-  for (const [label, ids] of [['empty', []], ['golden tench', ['goldenTench']], ['all four', ['goldenTench', 'mossback', 'silverGhost', 'pale']]] as const) {
+  for (const [label, ids] of [['empty', []], ['golden tench', ['goldenTench']], ['all four', ['goldenTench', 'mossback', 'silverGhost', 'pale']], ['river one', ['lantern']], ['river all four', ['lantern', 'barbelKing', 'ferryPike', 'ferryman']]] as const) {
     row.append(cell(`board ${label}`, trophyBoardSprite(ids), scale, PAL.grass0));
   }
   const name = document.createElement('div');

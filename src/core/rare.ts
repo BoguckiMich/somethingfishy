@@ -1,5 +1,5 @@
 import { timeOfDay } from './clock';
-import { RARE_RULES, RARE_TUNING, TROPHY_IDS, type RareRule } from './data/rare';
+import { LAKE_ID, RARE_RULES, RARE_TUNING, RIVER_ID, TROPHY_IDS, trophyIdsAt, type RareRule } from './data/rare';
 import { speciesById, type Species } from './data/fish';
 import { tierFor } from './data/stars';
 import { isValidDate } from './daily/dates';
@@ -15,6 +15,10 @@ import type { Rng } from './random';
 
 /** What the rule needs to know about a landed cast. */
 export interface RareCast {
+  /** The place's id; missing = Quiet Lake (the rules of slice 23d knew only one place). */
+  placeId?: string;
+  /** The id of the band the bobber landed in (the river's 'riffle', 'seam' or 'pool'); only the river's rules read it. */
+  bandId?: string;
   zone: ZoneId;
   distanceM: number;
   /** Minute of the in-game day. */
@@ -29,6 +33,8 @@ const MINUTES_PER_DAY = 24 * 60;
 
 /** Do ALL of the rule's conditions hold for this cast? Each condition missing means no spawn. */
 export function ruleMet(rule: RareRule, c: RareCast): boolean {
+  if ((c.placeId ?? LAKE_ID) !== rule.placeId) return false;
+  if (rule.bandId && c.bandId !== rule.bandId) return false;
   if (!c.weather || c.weather !== rule.weather) return false;
   const minute = ((c.minute % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   if (rule.times && !rule.times.includes(timeOfDay(minute))) return false;
@@ -36,6 +42,7 @@ export function ruleMet(rule: RareRule, c: RareCast): boolean {
   if (rule.zone && c.zone !== rule.zone) return false;
   if (rule.baitId && c.baitId !== rule.baitId) return false;
   if (rule.minDistanceM !== undefined && c.distanceM < rule.minDistanceM) return false;
+  if (rule.maxDistanceM !== undefined && c.distanceM >= rule.maxDistanceM) return false;
   return true;
 }
 
@@ -103,11 +110,18 @@ export function normalizeTrophies(v: unknown): TrophyState {
   return out;
 }
 
-/** The ids that are on the board: the caught trophies (in board order), then the Pale One when it is in the log. */
-export function boardIds(trophies: TrophyState | undefined, log: Record<string, unknown>): string[] {
-  const ids = TROPHY_IDS.filter((id) => !!trophies?.[id]);
-  return log.pale ? [...ids, 'pale'] : ids;
+/** The legendary of each place: it is on that place's board once it is in the log. */
+export const BOARD_LEGENDARY: Record<string, string> = { [LAKE_ID]: 'pale', [RIVER_ID]: 'ferryman' };
+
+/** The ids that are on a place's board (default Quiet Lake): its caught trophies (in board order), then its legendary when it is in the log. */
+export function boardIds(trophies: TrophyState | undefined, log: Record<string, unknown>, placeId: string = LAKE_ID): string[] {
+  const ids = trophyIdsAt(placeId).filter((id) => !!trophies?.[id]);
+  const legend = BOARD_LEGENDARY[placeId];
+  return legend && log[legend] ? [...ids, legend] : ids;
 }
+
+/** Does a place's board show at all? Only once one of ITS trophies is mounted (the legendary alone does not bring the board). */
+export const boardShows = (trophies: TrophyState | undefined, placeId: string): boolean => trophyIdsAt(placeId).some((id) => !!trophies?.[id]);
 
 /** Fills the board with a plausible catch of every trophy (dev flag ?trophies=all). */
 export function fullBoard(date: string): TrophyState {
@@ -120,7 +134,7 @@ export function fullBoard(date: string): TrophyState {
   return out;
 }
 
-/** The trophy hints not yet caught, in board order: the notice board's rumours. */
-export function unknownHints(log: Record<string, unknown>): { id: string; text: string }[] {
-  return TROPHY_IDS.filter((id) => !log[id]).map((id) => ({ id, text: speciesById(id)?.logHint ?? '' }));
+/** The trophy hints of a place (default Quiet Lake) not yet caught, in board order: the notice board's rumours. */
+export function unknownHints(log: Record<string, unknown>, placeId: string = LAKE_ID): { id: string; text: string }[] {
+  return trophyIdsAt(placeId).filter((id) => !log[id]).map((id) => ({ id, text: speciesById(id)?.logHint ?? '' }));
 }

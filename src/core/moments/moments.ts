@@ -1,7 +1,9 @@
 import { EERIE_NOTE_WINDOW, MOMENTS, MOMENT_POOLS, MOMENT_TUNING, NOTES, type MomentKind, type NoteDef } from '../data/moments';
+import { BOAT_NOTE } from '../data/rare';
 import type { LayerMix } from '../eerie';
 import type { PlayerState } from '../inventory';
 import { randInt, randRange, type Rng } from '../random';
+import { unknownHints } from '../rare';
 
 /**
  * Lake moments (slice 14), pure rules: when the next one comes, which one it is, what a tap gives.
@@ -167,6 +169,17 @@ export function claimStar(player: PlayerState, rng: Rng): { player: PlayerState;
 export function claimBoat(player: PlayerState, rng: Rng): { player: PlayerState; worms: number } {
   const worms = rng() < MOMENT_TUNING.boatWormChance ? randInt(rng, MOMENT_TUNING.boatWorms.min, MOMENT_TUNING.boatWorms.max) : 0;
   return { player: worms > 0 ? { ...player, worms: player.worms + worms } : player, worms };
+}
+
+/**
+ * The note a worm-less paper boat may carry (slice 25f, the River bend has no bottle moment): about one boat in two holds a folded hint
+ * about a trophy of this place she has not caught yet. Undefined when none is left to hint at, or the roll says no. The rng is drawn only
+ * when there is a hint to give.
+ */
+export function boatNote(log: Record<string, unknown>, placeId: string, rng: Rng): string | undefined {
+  const hints = unknownHints(log, placeId).filter((h) => h.text !== '');
+  if (hints.length === 0 || rng() >= BOAT_NOTE.chance) return undefined;
+  return hints[Math.min(hints.length - 1, Math.floor(rng() * hints.length))].text;
 }
 
 export interface BottleContents {

@@ -166,9 +166,8 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         panel.refresh();
       };
       // The checklist entry sits right under the tabs so it never hides below the quests (fix/board-and-car).
-      // Each place has its own checklist (slice 25e); the lake's rumours stay at the lake, the river's wait for its rare fish.
+      // Each place has its own checklist (slice 25e); each place's rumours are its own trophies' (slice 25f).
       const here = locationOf(p);
-      const atLake = here.id === 'quiet-lake';
       const cl = store.checklist();
       const clRow = el('div', 'margin:2px 0 8px');
       const clBtn = woodButton(`${checklistFor(here.checklistId ?? undefined).label} ${cl.done}/${cl.total}`, () => {
@@ -208,10 +207,9 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
         body.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim};margin-top:${rerollNote ? 2 : 8}px`, 'New quests at midnight'));
       }
       // Rumours (slice 23d): the half-hints of the rare fish she has not caught yet, pinned as one more note.
-      const rumours = atLake ? unknownHints(p.log) : [];
-      if (!atLake) {
-        body.append(el('div', `margin-top:12px;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim}`, 'River tales come later.'));
-      } else if (rumours.length > 0) {
+      // At the river (slice 25f) they are the river trophies' rumours; a place without trophies has none.
+      const rumours = unknownHints(p.log, here.id);
+      if (rumours.length > 0) {
         const note = el('div', `margin-top:12px;padding:8px;border:2px solid ${COLORS.woodLight};background:${COLORS.outline}`);
         note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.gold};margin-bottom:4px`, 'Rumours'));
         for (const h of rumours) note.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream};padding:2px 0`, `- ${h.text}`));

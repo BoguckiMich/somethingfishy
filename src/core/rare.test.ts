@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RARE_RULES, RARE_TUNING, TROPHY_IDS } from './data/rare';
+import { LAKE_ID, RARE_RULES, RARE_TUNING, RIVER_ID, TROPHY_IDS, trophyIdsAt } from './data/rare';
 import { speciesById } from './data/fish';
 import { rollHookedFish } from './fish';
 import { addTrophy, boardIds, fullBoard, normalizeTrophies, rareCanSpawn, rollRare, ruleMet, unknownHints, type RareCast } from './rare';
@@ -16,6 +16,10 @@ const GOOD: Record<string, RareCast> = {
   goldenTench: { zone: 'deep', distanceM: 20, minute: hm(6), weather: 'rain', baitId: 'worm' },
   mossback: { zone: 'deep', distanceM: 32, minute: hm(14), weather: 'fog', baitId: 'corn' },
   silverGhost: { zone: 'shallow', distanceM: 8, minute: hm(12), weather: 'sunny', baitId: 'maggots' },
+  // The river's (slice 25f); the full rules are tested in riverTrophies.test.ts
+  lantern: { placeId: RIVER_ID, bandId: 'riffle', zone: 'shallow', distanceM: 6, minute: hm(23), weather: 'rain', baitId: 'maggots' },
+  barbelKing: { placeId: RIVER_ID, bandId: 'pool', zone: 'deep', distanceM: 33, minute: hm(18, 30), weather: 'overcast', baitId: 'strip' },
+  ferryPike: { placeId: RIVER_ID, bandId: 'seam', zone: 'shallow', distanceM: 22, minute: hm(13), weather: 'windy', baitId: 'worm' },
 };
 
 describe('the three rare fish: every condition is needed', () => {
@@ -156,11 +160,14 @@ describe('the trophy board state', () => {
     expect(normalizeTrophies({ mossback: { lengthCm: 0, weightG: 1, date: '' } })).toEqual({});
     const full = fullBoard('2026-11-24');
     expect(Object.keys(full)).toEqual([...TROPHY_IDS]);
+    expect(TROPHY_IDS).toHaveLength(6);
     expect(normalizeTrophies(full)).toEqual(full);
   });
 
   it('the rumours are the hints of the trophies not in the log yet', () => {
-    expect(unknownHints({}).map((h) => h.id)).toEqual([...TROPHY_IDS]);
+    expect(unknownHints({}).map((h) => h.id)).toEqual(['goldenTench', 'mossback', 'silverGhost']);
+    expect(unknownHints({}, LAKE_ID).map((h) => h.id)).toEqual(trophyIdsAt(LAKE_ID));
+    expect(unknownHints({}, RIVER_ID).map((h) => h.id)).toEqual(['lantern', 'barbelKing', 'ferryPike']);
     expect(unknownHints({ mossback: {} }).map((h) => h.id)).toEqual(['goldenTench', 'silverGhost']);
     for (const h of unknownHints({})) expect(h.text.length).toBeGreaterThan(20);
   });
