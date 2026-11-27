@@ -130,7 +130,7 @@ function knowledgeLine(r: KnowledgeRow): HTMLElement {
   return row;
 }
 
-function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
+function detail(s: Species, log: FishLog, onBack: () => void, spinRod = false): HTMLElement {
   const entry = log[s.id]!;
   const col = el('div', 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center');
   const art = el('div', `box-sizing:border-box;width:100%;height:96px;display:flex;align-items:center;justify-content:center;background:${COLORS.woodLight}`);
@@ -146,7 +146,7 @@ function detail(s: Species, log: FishLog, onBack: () => void): HTMLElement {
     el('div', `font-size:${FS.small}px;color:${COLORS.cream}`, whereWhen(s)),
     el('div', `font-size:${FS.small}px;color:${COLORS.dim}`, wherePlaces(s)),
   );
-  const rows = knowledgeRows(s, entry.count);
+  const rows = knowledgeRows(s, entry.count, spinRod);
   if (rows.length) {
     const know = el('div', 'display:flex;flex-direction:column;gap:3px;width:100%;margin-top:2px');
     for (const r of rows) know.append(knowledgeLine(r));
@@ -198,7 +198,7 @@ export interface LogSticks {
 }
 
 /** The fish log: a 3x4 grid of species, and a detail card for the ones she has caught. */
-export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWith?: string, museum?: LogSticks): PanelHandle {
+export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWith?: string, museum?: LogSticks, spinRod: () => boolean = () => false): PanelHandle {
   let selected: string | null = startWith ?? null;
   let tab: 'fish' | 'sticks' = museum && museum.startTab === 'sticks' ? 'sticks' : 'fish';
   const panel: PanelHandle = openPanel(
@@ -226,7 +226,7 @@ export function openLogPanel(getLog: () => FishLog, onClose: () => void, startWi
         return;
       }
       if (open && log[open.id]) {
-        body.append(detail(open, log, () => { selected = null; panel.refresh(); }));
+        body.append(detail(open, log, () => { selected = null; panel.refresh(); }, spinRod()));
         return;
       }
       const gold = el('div', `display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px;font-size:${FS.body}px;line-height:${LINE};color:${COLORS.gold}`);

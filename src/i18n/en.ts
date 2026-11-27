@@ -58,6 +58,10 @@ export const EN = {
   /** Pajkel, the first cast at the river with the trotting float / the heavy lead (slice 25g). */
   floatLine: 'That float rides it nicely. Longer in the seam.',
   leadLine: 'The lead holds it down there. Patient fish like that.',
+  /** Pajkel, when the spinning rod is bought (slice 32); W.'s note on the River bend's notice board (there is no tappable hut note, so the board carries it). */
+  spinLine: 'Hold to reel, let go to let it flutter. Watch for a shadow.',
+  spinNoteW: "Fast for trout and asp, slow for pike. They hit when you stop. Don't let it rest on the roots. - W.",
+  spinBringBack: "She's better at this than both of us.",
   feedAsleep: '{dog} is asleep.',
   feedBedtime: 'Bedtime first.',
   feedAfter: '{dog} can eat after this one.',

@@ -12,8 +12,12 @@ export type Glint = (typeof GLINTS)[number];
 export const HINT_CASTS = 3;
 const CAST_IDS = ['cast1', 'cast2', 'cast3'] as const;
 
-/** Every id `seen` may hold: a glint tapped once, the n-th cast made, the river's eddy line (slice 25c) said, or the river gear's first-cast lines (slice 25g). */
-export const SEEN_IDS: readonly string[] = [...GLINTS, ...CAST_IDS, 'eddy', 'riverFloat', 'riverLead'];
+/** The spinning rod's hint line ("Hold to reel...") shows for this many spin casts (slice 32), counted like the float casts. */
+export const HINT_SPIN_CASTS = 3;
+const SPIN_CAST_IDS = ['spin1', 'spin2', 'spin3'] as const;
+
+/** Every id `seen` may hold: a glint tapped once, the n-th cast made, the river's eddy line (slice 25c) said, the river gear's first-cast lines (slice 25g), the n-th spin cast and Pajkel's line when the spinning rod was bought (slice 32). */
+export const SEEN_IDS: readonly string[] = [...GLINTS, ...CAST_IDS, 'eddy', 'riverFloat', 'riverLead', ...SPIN_CAST_IDS, 'spinLine'];
 
 /** How long the one-off lines (3 and later) stay up, and how often a glint twinkles. */
 export const TIP_TUNING = { onceMs: 6000, glintEveryMs: 4000, glintMs: 900 } as const;
@@ -39,6 +43,15 @@ export const castCount = (seen: readonly string[] | undefined): number => CAST_I
 export const markCast = (seen: readonly string[] | undefined): string[] => {
   const n = castCount(seen);
   return n >= HINT_CASTS ? normalizeSeen(seen) : markSeen(seen, CAST_IDS[n]);
+};
+
+/** How many spin casts have been made (capped at HINT_SPIN_CASTS). */
+export const spinCastCount = (seen: readonly string[] | undefined): number => SPIN_CAST_IDS.filter((id) => isSeen(seen, id)).length;
+
+/** One more spin cast made. */
+export const markSpinCast = (seen: readonly string[] | undefined): string[] => {
+  const n = spinCastCount(seen);
+  return n >= HINT_SPIN_CASTS ? normalizeSeen(seen) : markSeen(seen, SPIN_CAST_IDS[n]);
 };
 
 /** Dev sandbox default: everything already seen, so other flags show a clean lake. */

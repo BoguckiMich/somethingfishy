@@ -221,6 +221,8 @@ export const ALEX_FEET_Y = 55;
 export type AlexHead = 'forward' | 'left' | 'right';
 export const ALEX_HEADS: readonly AlexHead[] = ['forward', 'left', 'right'];
 export const alexKey = (head: AlexHead, breath: 0 | 1) => `alex:${head}:${breath}`;
+/** The two crank frames (slice 32): the same Alex with her right fist turning the spinning reel. */
+export const alexCrankKey = (head: AlexHead, crank: 0 | 1) => `alex:${head}:crank${crank}`;
 
 /**
  * Hair colour for a pixel. Colours are sampled in head-local rows (y - dy), so the strand pattern
@@ -266,7 +268,8 @@ function paintAlexLegs(p: Pix): void {
   }
 }
 
-export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
+/** `crank` (slice 32): one of the two reeling frames of the spinning rod; absent = the usual pose. */
+export function alexSprite(head: AlexHead, breath: 0 | 1, crank?: 0 | 1): Sprite {
   const p = new Pix(32, 56);
   const dy = breath;
   // Slim black band tee: narrow shoulders, a waist, a slight flare at the hem.
@@ -282,14 +285,17 @@ export function alexSprite(head: AlexHead, breath: 0 | 1): Sprite {
   p.rect(8, 22, 2, 4, PAL.tee);
   p.rect(8, 26, 2, 9, PAL.skin);
   p.rect(9, 26, 1, 9, PAL.skinShade);
-  // Right arm bent out to the rod: sleeve, forearm, fist, smartwatch on the wrist.
+  // Right arm bent out to the rod: sleeve, forearm, fist, smartwatch on the wrist. Cranking the spinning rod's reel (slice 32) the fist
+  // turns: one frame a pixel up (wrist forward), the other a pixel down.
+  const cy = crank === undefined ? 0 : crank === 0 ? -1 : 1;
   p.rect(22, 22, 3, 3, PAL.tee);
-  p.rect(23, 25, 2, 3, PAL.skin);
+  p.rect(23, 25, 2, 3 + (cy === -1 ? -1 : 0), PAL.skin);
   p.set(24, 25, PAL.skinShade);
   p.set(24, 26, PAL.skinShade);
-  p.rect(25, 27, 3, 3, PAL.skin);
-  p.set(27, 29, PAL.skinShade);
-  p.rect(25, 27, 1, 2, PAL.watch);
+  p.rect(25, 27 + cy, 3, 3, PAL.skin);
+  p.set(27, 29 + cy, PAL.skinShade);
+  p.rect(25, 27 + cy, 1, 2, PAL.watch);
+  if (cy === 1) p.rect(24, 27, 1, 1, PAL.skin); // the wrist bends down to meet the lowered fist
   paintAlexLegs(p);
   // Neck.
   p.rect(14, 17 + dy, 3, 5 - dy, PAL.skinShade);
