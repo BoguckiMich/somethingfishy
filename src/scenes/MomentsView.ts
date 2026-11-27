@@ -366,7 +366,7 @@ export class MomentsView {
       }
       case 'heron':
         this.hooks.sfx('boof');
-        this.showFloat('Hmph.', a.x, a.y + 10, false);
+        this.showFloat('Hmph.', a.x, a.y - 52, false);
         a.stage = 1;
         a.leftAt = a.age;
         break;
@@ -765,12 +765,23 @@ export class MomentsView {
     }
     const since = a.age - a.leftAt;
     if (a.stage === 1) {
-      // The roll and the dive: the arched back, then nothing for a moment.
-      if (since < 450) this.place(this.main, 'otterDive', a.x, a.y - 2 + since / 150, 1, tint, DEPTH.water);
-      if (since >= 1700) {
+      // It rolls over and swims off fast, arching out of the water and in again (porpoising), then pops its head up a little way off.
+      const RUN_MS = 1500;
+      const HUMP_MS = 375;
+      const run = Math.min(since, RUN_MS);
+      const dir: 1 | -1 = a.x < 110 ? 1 : a.x > 280 ? -1 : a.dir;
+      const px = a.x + dir * 52 * (run / 1000);
+      const phase = Math.floor(run / HUMP_MS);
+      if (since < RUN_MS && phase % 2 === 0) {
+        const f = (run % HUMP_MS) / HUMP_MS;
+        this.place(this.main, 'otterDive', px, a.y - Math.round(Math.sin(f * Math.PI) * 4), 1, tint, DEPTH.water);
+        this.main.setFlipX(dir > 0).setAngle(dir * (f < 0.5 ? -8 : 8));
+      }
+      if (since < RUN_MS && run % HUMP_MS < dtMs && phase > 0) this.rings.push({ x: px, y: a.y + 4, age: 0, ms: 1000, rx: 9, ry: 2.8 });
+      if (since >= RUN_MS + 500) {
         a.stage = 2;
         a.leftAt = a.age;
-        a.x = Math.max(60, Math.min(300, a.x + (this.rng() < 0.5 ? -34 : 34)));
+        a.x = Math.max(60, Math.min(300, a.x + dir * 52 * (RUN_MS / 1000)));
         a.tappedAge = -1; // it can be tapped once more
         this.hooks.sfx('plop');
         this.rings.push({ x: a.x, y: a.y + 5, age: 0, ms: 1300, rx: 12, ry: 3.5 });
@@ -805,7 +816,7 @@ export class MomentsView {
     }
     this.place(this.main, 'lantern', cx, cy - 2, al, lift(tint), DEPTH.water);
     // Its reflection, shorter and dimmer, and the light on the water around it.
-    this.place(this.second, 'lantern', cx, cy + 14, al * 0.35 * flick, lift(tint), DEPTH.water - 0.01);
+    this.place(this.second, 'lantern', cx, cy + 18, al * 0.35 * flick, lift(tint), DEPTH.water - 0.01);
     this.second.setFlipY(true);
     this.fx.fillStyle(PAL.gold, 0.25 * al * flick).fillRect(cx - 7, cy + 10, 14, 1).fillRect(cx - 4, cy + 12, 8, 1);
     return a.x > W + 24;

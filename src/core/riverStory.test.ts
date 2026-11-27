@@ -9,7 +9,7 @@ import { claimBoat, isUncanny, momentsAt, pickMoment } from './moments/moments';
 import { seededRng } from './random';
 import { normalizeSave } from './save';
 import { gearUnlocked } from './gearGates';
-import { journalChapterCount, journalEntries, journalTotal, markSeen, newStory, normalizeMilestones, recordRiverCatch, recordRiverVisit, storyMilestones, todaysChapter, withFlag } from './story/story';
+import { journalChapterCount, journalEntries, journalGroups, journalTotal, markSeen, newStory, normalizeMilestones, recordRiverCatch, recordRiverVisit, storyMilestones, todaysChapter, withFlag } from './story/story';
 import type { StoryState } from './story/story';
 
 const RIVER = 'river-bend';
@@ -229,6 +229,13 @@ describe('river chapters R1-R6', () => {
     expect(journalChapterCount(s)).toBe(1);
     expect(journalChapterCount(s, false, RIVER)).toBe(2);
     expect(journalEntries(s).find((e) => e.id === 'R1')?.icon).toBe('stick');
+  });
+  it('journalGroups puts the current place first and keeps each place in order', () => {
+    const s = markSeen(markSeen(markSeen(newStory(), 'Q1', '2026-12-01'), 'R1', '2026-12-02'), 'Q2', '2026-12-03');
+    const e = journalEntries(s);
+    expect(journalGroups(e, RIVER).map((g) => [g.place, g.entries.map((x) => x.id)])).toEqual([[RIVER, ['R1']], ['quiet-lake', ['Q1', 'Q2']]]);
+    expect(journalGroups(e, 'quiet-lake').map((g) => g.place)).toEqual(['quiet-lake', RIVER]);
+    expect(journalGroups([], RIVER)).toEqual([]);
   });
   it('R1 queues its bubble, R4 two', () => {
     expect(markSeen(newStory(), 'R1', '2026-12-01').queue).toEqual(['r1']);

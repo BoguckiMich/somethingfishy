@@ -1588,7 +1588,11 @@ export class LakeScene extends Phaser.Scene {
           return;
         }
         const play = () => {
-          if (chapter.kind === 'stick') this.story.start('stick');
+          // R1 counts as seen when the stick starts to float (it plays out, or ends with a tap, on its own).
+          if (chapter.kind === 'stick') {
+            this.story.start('stick');
+            this.completeChapter();
+          }
           else this.completeChapter();
         };
         if (this.cardShownFor === chapter.id) play();

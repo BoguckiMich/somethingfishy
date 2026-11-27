@@ -308,6 +308,12 @@ export function journalEntries(s: StoryState, roadFixed = false): JournalEntry[]
   return out;
 }
 
+/** The pages grouped by place, the place she is at first (each keeps its own order); places without pages are left out. */
+export function journalGroups(entries: readonly JournalEntry[], current: string): { place: string; entries: JournalEntry[] }[] {
+  const places = [current, ...[...new Set(entries.map((e) => e.place))].filter((p) => p !== current)];
+  return places.map((place) => ({ place, entries: entries.filter((e) => e.place === place) })).filter((g) => g.entries.length > 0);
+}
+
 /** "Chapter n of 7": the chapters seen (the Pale One and the road-fixed pages are bonuses and do not count). */
 export const journalChapterCount = (s: StoryState, roadFixed = false, place = QUIET_PLACE): number => journalEntries(s, roadFixed).filter((e) => e.id !== 'pale' && e.id !== 'Q8' && e.place === place).length;
 

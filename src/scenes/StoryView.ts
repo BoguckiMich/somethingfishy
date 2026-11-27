@@ -31,7 +31,7 @@ export const SEALED_BOTTLE = { x: 86, y: 372 };
 /** The river's sealed bottle (R3) starts here and drifts upstream (right) to `maxX`, where the eddy holds it. */
 export const RIVER_BOTTLE = { x: 120, y: 326, maxX: 214 };
 /** R1: the stick floats from the water right of the landing, up and to the right, out of the picture. */
-const STICK_PATH = { from: { x: 262, y: 352 }, to: { x: 372, y: 296 }, ms: 17_000 };
+const STICK_PATH = { from: { x: 262, y: 352 }, to: { x: 372, y: 296 }, ms: 22_000 };
 /** R4: the duck's lane on the river (it drifts a few px lower as it comes down the bend). */
 const DUCK_WORM_Y = 286;
 /** The sandwich lies on the planks at the dock's left edge, next to Pajkel's seat; the duck stops at the edge. */
@@ -228,6 +228,7 @@ export class StoryView {
     };
     if (a.kind === 'bottle') return canOpenCard && a.age > 500 ? box(a.x, a.y, 28, 28) : null;
     if (a.kind === 'blink') return a.age > 1200 && a.age < a.sinkAt ? box(a.x, a.y, 30, 30) : null;
+    if (a.kind === 'stick') return a.age > 400 ? box(a.x, a.y, 44, 36) : null;
     return null;
   }
 
@@ -245,6 +246,12 @@ export class StoryView {
       return true;
     }
     a.tappedAge = 0;
+    if (a.kind === 'stick') {
+      // Bestia's stick: a tap and it bobs, glints and is carried off (the chapter is already counted as seen).
+      this.hooks.sfx('plop');
+      this.rings.push({ x: a.x, y: a.y + 3, age: 0, ms: 1100, rx: 12, ry: 3.5 });
+      return true;
+    }
     this.sink(a);
     return true;
   }
@@ -315,7 +322,7 @@ export class StoryView {
   }
 
   private place(img: Phaser.GameObjects.Image, key: string, x: number, y: number, alpha: number, tint: number, depth: number): void {
-    img.setTexture(momentKey(key)).setPosition(Math.round(x), Math.round(y)).setAlpha(alpha).setTint(tint).setDepth(depth).setVisible(true).setAngle(0).setFlipX(false);
+    img.setTexture(momentKey(key)).setPosition(Math.round(x), Math.round(y)).setAlpha(alpha).setTint(tint).setDepth(depth).setVisible(true).setAngle(0).setFlipX(false).setScale(1);
   }
 
   private ring(cx: number, cy: number, rx: number, ry: number, alpha: number, tint: number): void {
@@ -346,12 +353,20 @@ export class StoryView {
     const t = clamp01(a.age / STICK_PATH.ms);
     a.x = STICK_PATH.from.x + (STICK_PATH.to.x - STICK_PATH.from.x) * t;
     a.y = STICK_PATH.from.y + (STICK_PATH.to.y - STICK_PATH.from.y) * t + Math.sin(a.age / 600);
-    const alpha = clamp01(a.age / 500) * (t > 0.85 ? (1 - t) / 0.15 : 1) * fade;
+    // Tapped: it is carried off at once (a short fade).
+    const gone = a.tappedAge >= 0 ? clamp01(1 - a.tappedAge / 600) : 1;
+    const alpha = clamp01(a.age / 500) * (t > 0.85 ? (1 - t) / 0.15 : 1) * fade * gone;
     this.place(this.main, 'stick', a.x, a.y, alpha, tint, DEPTH.water);
-    this.main.setAngle(-14 + Math.round(Math.sin(a.age / 900) * 6));
-    // A little wake behind it, pointing back down the river.
-    for (let i = 1; i <= 4; i++) this.fx.fillStyle(multiply(PAL.foam, tint), alpha * (0.8 - i * 0.16)).fillRect(Math.round(a.x - 9 - i * 3), Math.round(a.y + 3 + i), 1, 1);
-    return t >= 1;
+    this.main.setScale(2).setAngle(-14 + Math.round(Math.sin(a.age / 900) * 6));
+    // A little wake behind it, pointing back down the river, and a glint that winks on the wood so it reads from across the water.
+    for (let i = 1; i <= 5; i++) this.fx.fillStyle(multiply(PAL.foam, tint), alpha * (0.8 - i * 0.14)).fillRect(Math.round(a.x - 14 - i * 4), Math.round(a.y + 4 + i), 2, 1);
+    const k = a.age % 1400;
+    if (k < 700) {
+      const gx = Math.round(a.x) - 6 + Math.round((k / 700) * 12);
+      const gy = Math.round(a.y) - 4;
+      this.fx.fillStyle(PAL.white, alpha).fillRect(gx, gy, 1, 1).fillRect(gx - 1, gy, 3, 1).fillRect(gx, gy - 1, 1, 3);
+    }
+    return t >= 1 || (a.tappedAge >= 600);
   }
 
   /** R4: the duck comes round the bend from upstream with a worm hanging from its beak, stops by the landing for a moment (a quack), and paddles on downstream. */

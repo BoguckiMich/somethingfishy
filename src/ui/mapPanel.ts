@@ -48,7 +48,7 @@ export function showMapPanel(opts: MapOptions, onClose: () => void): PanelHandle
   const { onNap, onChecklist, checklist } = opts;
   const roadFixed = checklist.done >= checklist.total;
   /** Open = she can fish there: Quiet Lake always, the River bend once the road is fixed (or with ?travel=1). */
-  const isOpen = (p: (typeof MAP_PLACES)[number]): boolean => p.id === 'river-bend' ? roadFixed || opts.travelAny : p.status === 'open';
+  const isOpen = (p: (typeof MAP_PLACES)[number]): boolean => p.id === opts.current ? true : p.id === 'river-bend' ? roadFixed || opts.travelAny : p.status === 'open';
   const riverDone = opts.river.done >= opts.river.total;
   const blurbOf = (p: (typeof MAP_PLACES)[number]): string => {
     if (p.id === 'river-bend' && !isOpen(p)) return `Finish the Quiet Lake checklist to fix the road (${checklist.done}/${checklist.total})`;

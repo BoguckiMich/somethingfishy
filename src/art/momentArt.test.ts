@@ -25,7 +25,7 @@ describe('moment art', () => {
     expect(size('blinkHalf')).toEqual([9, 5]);
     expect(size('blinkShut')).toEqual([9, 3]);
     expect(size('otterBack')).toEqual([30, 11]);
-    expect(size('lantern')).toEqual([9, 13]);
+    expect(size('lantern')).toEqual([11, 15]);
     expect(size('heronStand')).toEqual([16, 28]);
     expect(size('heronStep')).toEqual([16, 28]);
     expect(size('stick')).toEqual([15, 4]);

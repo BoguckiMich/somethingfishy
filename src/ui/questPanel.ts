@@ -1,8 +1,9 @@
 import { FS, LINE } from '../font';
 import { journalIconSprite } from '../art/journalIconArt';
-import { journalChapterCount, journalEntries, journalHasNew, journalTotal, markJournalLooked, storyOf, type JournalEntry } from '../core/story/story';
+import { journalChapterCount, journalEntries, journalGroups, journalHasNew, journalTotal, markJournalLooked, storyOf, type JournalEntry } from '../core/story/story';
 import { checklistFor } from '../core/data/checklist';
 import { locationById } from '../core/data/locations';
+import { keepSignature } from './bottleCard';
 import { spriteCanvas } from './spriteCanvas';
 import { claimQuest, questText, questsOf, rerollQuest, canReroll, type Quest } from '../core/quests/quests';
 import type { PlayerState } from '../core/inventory';
@@ -101,8 +102,7 @@ function journalRow(e: JournalEntry, names: { alex: string; paj: string }): HTML
   const pic = el('div', 'flex:none;width:44px;height:36px;display:flex;align-items:center;justify-content:center');
   pic.append(spriteCanvas(icon, icon.width * scale));
   const col = el('div', 'flex:1;min-width:0');
-  if (e.place !== 'quiet-lake') col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.dim}`, `${locationById(e.place).name} · ${e.id}`));
-  col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.text}`, tr(e.text)));
+  col.append(el('div', `font-size:${FS.small}px;line-height:${LINE};color:${COLORS.text}`, keepSignature(tr(e.text))));
   const thought = el('div', `margin-top:4px;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.cream}`);
   thought.append(el('span', `color:${COLORS.gold}`, `${e.by === 'alex' ? names.alex : names.paj}: `), el('span', 'font-style:italic;font-synthesis:style', tr(e.thought)));
   col.append(thought);
@@ -147,7 +147,12 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
           return;
         }
         const names = store.names();
-        entries.forEach((e) => body.append(journalRow(e, names)));
+        // The pages of this place first, then the other place's, each under a small heading once there are two.
+        const groups = journalGroups(entries, locationOf(store.get()).storyPlaceId ?? 'quiet-lake');
+        for (const g of groups) {
+          if (groups.length > 1) body.append(el('div', `margin-top:8px;font-size:${FS.small}px;line-height:${LINE};color:${COLORS.gold};border-bottom:2px solid ${COLORS.woodLight}`, locationById(g.place).name));
+          g.entries.forEach((e) => body.append(journalRow(e, names)));
+        }
         const close = el('div', 'margin-top:10px');
         close.append(woodButton('Close', () => panel.close(), { variant: 'wood' }));
         body.append(close);
@@ -221,7 +226,7 @@ export function showQuestPanel(store: QuestStore, onClose: () => void, startTab:
     () => {
       if (tab !== 'story') return '';
       const place = locationOf(store.get()).storyPlaceId ?? 'quiet-lake';
-      return `Chapter ${journalChapterCount(storyOf(store.get()), store.roadFixed(), place)} of ${journalTotal(place)}`;
+      return `${locationById(place).name}: chapter ${journalChapterCount(storyOf(store.get()), store.roadFixed(), place)} of ${journalTotal(place)}`;
     },
   );
   return panel;
