@@ -84,10 +84,10 @@ Ordered by how much Alex (or a tester) would notice. **Checked** = confirmed in 
    game. Fix: skip or confirm checklist/gold fish, a pip on those rows.
 7. **Catch screen skipped by an excited thumb** (consultants: 400 ms guard after a fight). Lengthen for new
    species / trophies.
-8. **Three stale local branches**: `feat/line-default`, `slice/25c-river-current`, `slice/25g-river-gear` are
-   merged but not deleted.
-9. **HANDOFF table is stale**: rows 25d, 25e, 25f, 26-31, A3, balance still say "not merged / awaiting review".
-   Tidy into one "merged" table so a new session is not misled.
+8. ~~**Three stale local branches**: `feat/line-default`, `slice/25c-river-current`, `slice/25g-river-gear` are
+   merged but not deleted.~~ Done 2026-11-27.
+9. ~~**HANDOFF table is stale**: rows 25d, 25e, 25f, 26-31, A3, balance still say "not merged / awaiting review".
+   Tidy into one "merged" table so a new session is not misled.~~ Done 2026-11-27.
 10. Small slips from the consultants still unverified: first-catch trophy line dropped at night, catch screen
     crowding at 360 px (bubble over Alex, size line off-centre), campfire/string lights vs the trophy board,
     moon glitter at full brightness in rain, River Bend dock corner tile. One tester-agent pass to confirm or close.
@@ -113,7 +113,7 @@ Ordered by how much Alex (or a tester) would notice. **Checked** = confirmed in 
 ## 4. What we should do next (in order)
 
 1. **Alex plays the river** (25c current, 25g gear, Line default). Collect her notes; nothing big lands before.
-2. **Housekeeping, ~1 h**: delete merged branches, tidy the HANDOFF table (items 8-9).
+2. ~~**Housekeeping**: delete merged branches, tidy the HANDOFF table (items 8-9).~~ Done 2026-11-27.
 3. **Slice 32 · Spinning rod** (spec ready in GAME_DESIGN). Branch `slice/32-spinning`, Sonnet builds, Opus
    reviews, stop for phone play. Pull the rig chip and retrieve view out of `LakeScene` while building it.
 4. **Line difficulty revisit** (item 1) once Alex has played, together with the spinning sim numbers.
