@@ -2422,7 +2422,7 @@ export class LakeScene extends Phaser.Scene {
       this.markHint('dog');
       this.companions.pet();
       sound.play('boof');
-      this.showTag(2, this.profile.dog, dog.centerX, dog.y - 14);
+      this.showTag(2, this.profile.dog, dog.centerX, dog.bottom + 26); // below her: above her it covers Alex and Pajkel on the dock
       this.showToast(`${this.profile.dog} wags happily`);
       return true;
     }

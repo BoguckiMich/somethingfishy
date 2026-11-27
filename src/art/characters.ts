@@ -1160,7 +1160,7 @@ export function dogSprite(frame: DogFrame): Sprite {
     for (let x = 8; x <= 21; x++) {
       for (let y = 0; y < 24; y++) {
         if (p.get(x, y) !== TRANSPARENT) {
-          p.set(x, y, PAL.gingerLight);
+          p.set(x, y, 0xffd9a0); // 1 px of warm lamp-light on the very top of her back
           if (y + 1 < 23 && p.get(x, y + 1) === PAL.ginger) p.set(x, y + 1, PAL.gingerLight);
           break;
         }
