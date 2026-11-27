@@ -120,7 +120,9 @@ first; maybe a hammock between two willows later (coin sink for the river).
 ❓5. **Gear gates at the river?**
 ➡️ New gear is a good river goal: **a float set ("trotting float")** that slows the drift (longer run
 through the seam) and **a heavier lead** that keeps the bait down in the pool. Both gated by river
-checklist bundles, same pattern as 23a. Rods/lines/reels stay as they are.
+checklist bundles, same pattern as 23a. Rods/lines/reels stay as they are. **(2026-11-27)** The spinning rod is
+not river gear in this sense but a second way of fishing, slice 32 (GAME_DESIGN -> "Spinning rod"); it is sold in
+the river shop's "River tackle" section next to these two.
 
 ❓6. **Story pacing (R1-R6)**: milestones like Quiet Lake (slice 24) instead of days.
 ➡️ R1 first arrival · R2 first river catch · R3 first catch in the seam · R4 first dusk at the river
@@ -150,7 +152,7 @@ fade if they are playing). ~5 s, skippable by tap.
 ➡️ The in-game clock keeps running (the drive takes ~30 in-game minutes). Weather is the same
 everywhere (it is the real hour), which also keeps the code simple.
 
-## 9. Build order (slices 25a-25g)
+## 9. Build order (slices 25a-25g, then 32)
 
 1. **Location as data + travel**: scene takes a `Location` (background, zones, fish pool, moments, spots for
    car/camp/companions), map "Drive there", the fade. River scene with placeholder art.
@@ -160,6 +162,7 @@ everywhere (it is the real hour), which also keeps the code simple.
 5. **River checklist + story R1-R6 + river moments** (BUILT, slice 25e): kingfisher, otter, upstream lantern, paper boat, heron.
 6. **Rare river fish + river trophy board, the Ferryman** (BUILT, slice 25f): the three trophies by their exact conditions, the river board, and the Ferryman with its creak window.
 7. **River gear** (trotting float, heavy lead) behind river bundles.
+8. **Spinning rod** (slice 32, GAME_DESIGN -> "Spinning rod", grilled 2026-11-27): lures, retrieve rhythm, the lure drifts in the current while paused.
 
 **Done when (M2):** she can drive to the river and back; the river has ~4 days of its own goals; the river
 checklist ends with the key tag pointing at the quarry.

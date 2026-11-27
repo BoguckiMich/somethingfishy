@@ -794,12 +794,55 @@ old bar STAYS behind a toggle so testers can compare):
   perfect-catch sims are re-run. River bend content (25c onwards) waits for it: the river current and the
   spinning rod build on the line fight.
 - **New rod types later, one at a time:** spinning (lure, active retrieve before the bite; River bend gear,
-  slice 25g), then feeder (heavy fish, long patient fights), fly last if ever.
+  slice 32, see "Spinning rod" below), then feeder (heavy fish, long patient fights), fly last if ever.
+
+### Spinning rod (grilled with the user 2026-11-27; slice 32, after 25c and 25g)
+
+Settled in one grill (all of the main session's recommendations accepted, plus the user's snap-loss, price and snag rules):
+- **Order:** 25c river current, then 25g trotting float + heavy lead (RIVER_BEND §7), then slice 32 spinning. No spinning
+  code before 25c has been played on the phone.
+- **What it is:** a second way of fishing next to the float rig (patient float vs active spinning), not a float-rod tier.
+  Sold only in the River bend shop ("River tackle"), works everywhere once owned (slice 29 rule).
+- **Switching:** the bait chip becomes a rig chip; the picker has Float (baits) and Spin (lures) tabs. Picking a lure
+  switches the rig. (Later maybe: tap a rod leaning on the dock rail.)
+- **Rod:** one spinning rod, 2500 coins, gated by 1 river bundle; reach 30 m; Line-fight flex between fiberglass and
+  carbon; line and reel are shared with the float rig.
+- **Lures** (bought one at a time, kept until lost, 16x16 icons, a "Likes: <lure>" row in fish knowledge):
+  Spinner 300 (with the rod; shallow, flashy: trout, perch, asp), Wobbler 600 (2 river bundles; mid depth: chub,
+  asp, trout), Soft jig 450 (3 river bundles; deep, hops on the bottom: pike, perch in the pool).
+- **Retrieve (one thumb):** the cast is the usual hold-to-charge. Hold = reel (the lure comes in and rises), release =
+  pause (it flutters and sinks). A predator first **follows** (dark shadow + V-wake behind the lure, at least 0.5 s),
+  then **strikes**, most often on the pause just after a burst. Rhythm per species: trout and asp fast and steady near
+  the top, pike slow with long pauses, perch small twitches, chub in between. A lure that reaches the dock untouched
+  is just out; cast again. River: while paused the lure drifts downstream at the 25c bobber speed (reeling brings it
+  straight in), and river fish strike most in the seam, the same seam bonus as the float. No drift at the lake.
+- **Strike -> hook:** sets itself if the thumb is down or goes down within 0.6 s (rod jolt, splash, buzz). A miss is a
+  nip: the lure carries on and the same cast can still get a strike. The fight is the normal Line fight (species
+  pattern as today) starting at the lure's distance; nothing spin-specific in it.
+- **Which fish:** predators only (pike, perch, asp, chub, brown trout; the Ferry pike). Peaceful fish never. The float
+  rig still catches predators as today; spinning gets them more often and bigger (bite chance up, size skew up).
+- **Losing a lure:** snapped line = lure lost 85 % (15 % the fish spits it). Hook slip or other escape = the lure stays.
+  **Snag:** only after the lure has lain on the bottom for 3 s or more; then on the next reel-in one roll, 1 % riffle /
+  shallow, 2 % seam / middle, 3 % bend pool / deep: rod bends, the line goes tight and stops, "Snagged on a root...",
+  lure gone; no rescue mini-game. **Bestia bring-back:** 1 in 5 snap-lost lures wash up later and she brings it back
+  (Pajkel: "She's better at this than both of us"); never for a snag.
+- **Trophies:** each keeps its exact rules. The Ferry pike ("any bait") can take a lure, small bonus for the soft jig;
+  Lantern, Barbel King, the Ferryman and the lake trophies are float only. **No spin-only trophy FOR NOW** (user's
+  emphasis): test spinning first, a spin-only trophy may come right after.
+- **Look:** Alex stands with the spinning rod, two new crank frames while reeling; the line runs from the tip to a small
+  glint just under the surface with a faint ripple trail while reeling; the glint sinks and dims as the lure sinks.
+- **Idle:** a lure lying still gets no bites; AFK play stays float-only; hint "Reel it in or switch to the float."
+- **Teaching:** W.'s note in the hut and a Pajkel line when the rod is bought ("Hold to reel, let go to let it
+  flutter. Watch for a shadow."), the hint line for the first 3 spin casts. No new story chapter.
+- **Quests:** once the rod is owned, daily quests can roll "Catch a predator on a lure" (any place). Checklist unchanged.
+- **Balance + tests:** a bot sim of the rhythms. Decent bot with the right lure and rhythm: about one strike every
+  1-2 casts in the predator's band; spinning coins per minute within +-15 % of the float rig (lure losses counted);
+  a careless bot (always reeling, never pausing) still catches at about half the rate.
 
 ### Shop per location (decided with the user 2026-11-26)
 The whole Quiet Lake shop takes ~4.2 h of play (ECONOMY_SIM.md, ~day 7 at 40 min a day). Proposal: not a
 rotating shop but stock per place. Worms and basic baits everywhere; each place sells its own gear and camp
-things (Quiet Lake as today; River bend the spinning rod and river gear, slice 25g). Buying out Quiet Lake in
+things (Quiet Lake as today; River bend the river gear, slice 25g, and the spinning rod, slice 32). Buying out Quiet Lake in
 ~4 h then fits the first chapter (it ends near the road fix), and River bend opens a fresh shop. Later idea: a
 "travelling merchant" with one rotating daily special (retention).
 
@@ -1269,3 +1312,4 @@ A2. **Balance A2 (2026-11-26, built on `balance/a2`, not merged)**, numbers in `
 29. **Shop per place (2026-11-26, built on `slice/29-shop-per-place`, not merged)**: what the shop sells depends on where she stands, per "Shop per location" above. Each `Location` has a `shop: ShopStock` (`core/data/shopStock.ts`): item ids by section (`bait`, `gear` = rods, lines, reels and the night kit, `camp`) plus an optional `gearEmpty` line. Worms and the basic packs (corn, maggots, strip) are sold everywhere; Quiet Lake sells exactly what it sold before (pinned by a test with the old item list); River bend has the basics, an empty "River gear" section saying "W.'s river tackle comes later" and no camp items (the camp is at the lake). The pure buy functions (`buyWorms`, `buyBait`, `buyRod`, `buyLine`, `buyReel`, `buyNightKit`, `buyCampItem`) take the stock as a last argument (default Quiet Lake) and refuse an item not sold there with the new error `notSoldHere`; owned gear stays owned and usable everywhere, and the checklist gates still decide when lake gear can be bought. The shop panel is titled "Shop · Quiet Lake" / "Shop · River bend" and simply leaves out what the place does not sell; selling fish works everywhere. Tests: `core/shopStock.test.ts`.
 30. **Feeding Bestia (2026-11-26, built on `slice/30-feed-bestia`, not merged)**: the rules of "Feeding Bestia" above. **Bowl:** a small blue bowl (`art/bowlArt.ts`, 20 x 11, empty and with kibble) stands free on the grass by the car from the start, `Spots.bowl` (Quiet Lake x 22, y 572 top-left; the River bend inherits the same ground, so it is there too), a generous tap box (a thumb of room all round, clear of the car's box and the bottom bar). It is a shore object like the sign (`ShoreObject 'bowl'`): a quick tap acts, a hold still casts, the tap never moves the rod, it works while idle or waiting (not in panels, fights, the show-off, the sleep fade); petting Bestia wins where she stands at it. **Treats:** "Dog treats x5", 25 coins (`core/data/treats.ts`), in `BASIC_BAIT` so every place sells them, a bone-biscuit icon (`shopIconSprite('treats')`), a card in the Bait section with "(have N)"; `buyTreats` in `core/inventory.ts`. **Rules (pure, `core/feeding.ts`):** `checkFeed` ('ok' | 'noTreats' | 'full'), `feedDog` (the treat leaves the bag, today's count +1, the first feed of a real day sets `cozy`), `spendCozy`, `normalizeFeeding`; `finishFetchRound` counts a round as a stick round when `cozy` is set (the bonus is spent by that round whatever comes of it; the 2-new-sticks-a-day cap and the full museum still apply). Saved in PlayerState, each key only when set: `treats`, `fedDay` + `fedDayN` (clamped to 3), `cozy`. No hunger and no stats. **Scene flow:** a tap with treats asks the companions (`feedRequest`); the treat only leaves the bag when she has finished eating (`Companions.fedCount` rises, the scene's `updateFeeding` applies `feedDog`, floats the heart and, on the first feed of the day, has Pajkel say "Spoiled. Good." through `tr`), so an interrupted meal costs nothing. Lines (`EN` in `i18n/en.ts`): "Out of treats. The shop has some.", "She's full. Look at that belly.", "{dog} is asleep." (car, asleep at night), "Bedtime first." (bedtime). **Behaviour (`scenes/companions/behaviour.ts`):** an overlay on the mode, `Companions.feed` (`go` -> `eat` 2 s, a 2-frame munch (dog shape `eat`, `art/characters.ts`) -> `wag` 1.3 s -> `back`), driven from its own position because the dock and the lawn reset hers every tick; the lawn and stones modes are paused while she eats (he waits where he stands). She starts at once from the dock (the idle walk to the lawn waits), the lawn between rounds (`rest`, `spin`, `drop`, her nap phases: she leaves her bed and the game restarts with a `rest`) and the stones (`idle`, `react`); mid-round, mid-throw or on the walk the treat waits (`feedWant`, the bowl already shows kibble) and she goes as soon as it is calm; a fetch round in progress is played to its end and the game ends there. Never from the car, never asleep at night (dock sleep or curled in the bed), not during bedtime (the start of bedtime clears a waiting treat); bedtime and the sleep fade wait for a meal in progress (`calmForBed`). A cast mid-meal lets her finish, then `companionPress` is replayed; a pebble tap mid-meal is refused. Tests: `core/feeding.test.ts`, `scenes/companions/feed.test.ts`, `art/bowlArt.test.ts`.
 31. **Bestia's bed on the dock (2026-11-26, built on `slice/31-dock-bed`, not merged)**: the rules of "Bestia's bed on the dock" above. **Place:** `Spots.camp.bed` / `BED_POS` is now (164, 421) on the planks, so the bed's hollow (+14, +9) is exactly her dock lying spot `companions.dog` (178, 430) and River bend inherits it; the grass bed is gone. The art is unchanged (28 x 12 fits the deck, right of his chair, left of the crate). Depth `Z.dock + 0.5` (above the planks, under her); the front rim is drawn over her (`inDockBed`) when she lies or curls in it. **Behaviour (`behaviour.ts`):** `Companions.bedOwned` (from the context each tick), `nap: DockNap | null` (`circle` 1.4 s, `curl` for `napMs`, `wake`) and `napWant`. By day she lies in the bed; at night she curls in it (`curl` shape, breathing, the rising z). Any return to the dock with the bed owned (fetch, pebble outing, the feed's walk back) ends with her circling once and settling; when the play session's spin rolled a nap (`napDue`: by day 50%) she curls for 20-34 s, then wakes and lies. At night the session also ends after the spin and she just sleeps. The old play-mode nap phases (`napGo` ...) and `NAP_TUNING.trotSpeed` are gone; a bite, hook, trophy cheer, leaving, the stones and bedtime clear the nap; a pet wakes her (head up, wagging); a meal from the dock brings her back to the bed and curls her again if she was napping. Taps: on her pets; on the bed when she is away opens the Stick Museum (a hold still casts, the tap never moves the rod); the bed's tap box stops short of the crate's. Tests: `nap.test.ts` rewritten, `campArt.test.ts`, `spots.test.ts`, `feed.test.ts`. Dev: `?debug=bedrest` starts her curled in the dock bed.
+32. **Spinning rod (designed 2026-11-27, not built)**: the rules of "Spinning rod" above. Waits for 25c (current) to be played on the phone and 25g (trotting float + heavy lead).
