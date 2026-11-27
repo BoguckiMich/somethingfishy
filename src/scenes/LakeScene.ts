@@ -784,7 +784,7 @@ export class LakeScene extends Phaser.Scene {
     if (params.get('cl') === 'done') this.setPlayer(allButPetrol(this.player, false, flagPlace));
     if (params.get('cl') === 'all') this.setPlayer(allButPetrol(flagPlace === QUIET_LAKE.id ? { ...this.player, checklist: undefined } : this.player, true, flagPlace));
     // Dev-only: ?bundles=N finishes the first N checklist bundles (shop gear gates, slice 23a; applied after ?cl=).
-    if (params.has('bundles')) this.setPlayer(withBundlesDone(this.player, Math.max(0, Math.floor(Number(params.get('bundles')) || 0)), this.loc.checklistId ?? undefined));
+    if (params.has('bundles')) this.setPlayer(withBundlesDone(this.player, Math.max(0, Math.floor(Number(params.get('bundles')) || 0)), flagPlace));
     // Dev-only: ?story=Q1..Q7 makes that chapter today's and starts it in ~3 s; ?story=pale shows the Pale One card.
     const storyParam = params.get('story');
     if (storyParam === 'pale') this.paleCardPending = true;
