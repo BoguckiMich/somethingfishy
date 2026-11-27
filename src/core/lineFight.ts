@@ -232,11 +232,11 @@ function startSurge(s: LineFightState, fish: FishProfile, cfg: LinePattern, gear
   s.surgeCount++;
   if (s.signature && rng() < 1 / SIGNATURE_TUNING.oneIn) {
     if (s.signature === 'flash') {
-      strength = Math.max(strength, 0.75);
+      strength = Math.min(Math.max(strength, 0.75), SIGNATURE_TUNING.feintMaxStrength);
       s.chain = 1;
     } else if (s.signature === 'feint') {
       s.feint = true;
-      strength = Math.max(strength * 1.5, 1);
+      strength = Math.min(Math.max(strength * 1.25, 0.7), SIGNATURE_TUNING.feintMaxStrength);
     } else {
       strength = SIGNATURE_TUNING.diveStrength;
       warn = SIGNATURE_TUNING.diveWarnS;
@@ -327,7 +327,7 @@ export function tickLineFight(
         s.cutTimer = lerp(cfg.cutEvery, d) * randRange(rng, 0.7, 1.3);
       }
     }
-    if (s.phase === 'run') s.lateralTarget = clamp(s.runDir * (0.5 + 0.5 * s.strength), -1, 1);
+    if (s.phase === 'run') s.lateralTarget = clamp(s.runDir * (0.5 + (s.feint ? 0.35 : 0.5) * s.strength), -1, 1);
     const swim = cfg.cutSpeed * (s.phase === 'run' ? 1.5 : 1) * h;
     s.lateral = clamp(s.lateral + clamp(s.lateralTarget - s.lateral, -swim, swim), -1, 1);
 

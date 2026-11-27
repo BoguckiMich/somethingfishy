@@ -543,14 +543,13 @@ export const FISH_ART: Record<string, FishArt> = {
       fff...MMMMMMMMMMMMMMMMMMMMMMMMEMM...
       .ffffLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
       fff...LLLLLLLLLLLLLLLLLLLLLLLLLLLLLD
-      ff.....BBBBBBBBBBBBBBBBBBBBBBBBBWWW.
-      f........rrBBBBBBBBBBrrrr....WWW.W..
-      ..........rr......rr........WW..WW..
-      ............................W.W.WW.W
-      .............................W...W..
+      ff.....BBBBBBBBBBBBBBBBBBBBBBBBWWWWW
+      f........rrBBBBBBBBBBrrrr.....WWWWWW
+      ..........rr......rr..........WWWWWW
+      .............................WWWWW..
+      ..............................WWW...
 `,
     colors: { K: 0x5a4a22, M: 0xa08840, L: 0xc8a85a, B: 0xe8d8a0, D: 0x3a2c14, f: 0x8a6a30, r: 0xc8703a, W: 0xf8f8f0, E: 0x120e18 },
-    thin: 'W',
     eye: 'E',
   },
   // The Ferry pike (river trophy): the pike's shape, long and almost black, with a bright amber eye

@@ -46,7 +46,7 @@ export const FERRY_WINDOW = {
   /** The current's speed factor at the deepest point of a creak (1 = normal). */
   slowTo: 0.12,
   /** The rope's extra sideways sway in px at the middle of a creak, and how many swings it makes in one. */
-  swayPx: 5,
+  swayPx: 9,
   swings: 2.5,
   /** The creak sound plays this far into a creak (ms), so the sway has started first. */
   soundAtMs: 250,

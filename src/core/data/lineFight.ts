@@ -182,7 +182,9 @@ export const SIGNATURE_TUNING = {
   /** The signature move replaces a normal surge one time in this many. */
   oneIn: 3,
   /** The second surge of a flash comes after this short warning. */
-  flashWarnS: 0.22,
+  flashWarnS: 0.35,
+  /** A signature surge is never stronger than this (a normal surge's top strength is 1, but a trophy's feint pushed the tension to 0.98 and snapped the decent thumb). */
+  feintMaxStrength: 0.85,
   /** How long a feint goes limp before the pull. */
   feintHushS: 1.2,
   /** A dive: strength, run time and warning. */

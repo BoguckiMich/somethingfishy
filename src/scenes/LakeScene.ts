@@ -72,7 +72,7 @@ import { LOCATIONS, QUIET_LAKE, RIVER_BEND } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
-import { cottageWindow, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_POST_POS } from '../art/riverArt';
+import { cottageWindow, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_FAR, ROPE_POST_POS } from '../art/riverArt';
 import { glintAlpha, makeGlints, makeStreaks, ropePixels, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
@@ -528,6 +528,9 @@ export class LakeScene extends Phaser.Scene {
   private showOffFish!: Phaser.GameObjects.Image;
   private showOffHands!: Phaser.GameObjects.Image;
   private caughtText!: Phaser.GameObjects.Text;
+  /** The big picture and gold glints of a trophy or legendary catch card (slice 25f fix). */
+  private trophyArt!: Phaser.GameObjects.Image;
+  private trophyGlint!: Phaser.GameObjects.Graphics;
   private caughtSub!: Phaser.GameObjects.Text;
   /** Eased rod bend while fighting: more while the thumb is down, less when released. */
   private fightBend = 8;
@@ -564,6 +567,7 @@ export class LakeScene extends Phaser.Scene {
   private ferryMs = 0;
   private ferryNow: FerryCreak = ferryCreak(-1);
   private ferryHeard = -1;
+  private ferryToasted = false;
   private ferryDev = false;
   private ferrymanCardPending = false;
   /** Drift clock of the water dashes: runs slower while the lake is still. */
@@ -1725,6 +1729,11 @@ export class LakeScene extends Phaser.Scene {
     else if (this.ferryNow.soundDue && this.ferryNow.index !== this.ferryHeard) {
       this.ferryHeard = this.ferryNow.index;
       sound.play('creak');
+      // The first time the window opens: a quiet hint that something is going on (once per session).
+      if (!this.ferryToasted) {
+        this.ferryToasted = true;
+        this.showToast('The ferry rope creaks... with no wind.');
+      }
     }
   }
 
@@ -2883,6 +2892,8 @@ export class LakeScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(Z.alert)
       .setVisible(false);
+    this.trophyArt = this.add.image(W / 2, 140, fishKey('perch', 2)).setDepth(Z.uiText).setVisible(false);
+    this.trophyGlint = this.add.graphics().setDepth(Z.uiText + 0.1);
     this.caughtText = this.add
       .text(W / 2, CATCH_TITLE_Y, 'Caught!', { fontFamily: FONT, fontSize: `${FS.heading}px`, color: ALERT, stroke: '#241a2e', strokeThickness: 5 })
       .setOrigin(0.5)
@@ -3105,6 +3116,7 @@ export class LakeScene extends Phaser.Scene {
       }
     }
     this.caughtStars.setVisible(s.kind === 'caught' && this.catchStar !== 'none');
+    this.drawTrophyCardArt(s.kind === 'caught' ? s.hooked.speciesId : null, popScale);
     this.caughtFotd.setVisible(s.kind === 'caught' && this.catchFotd).setScale(popScale);
     // "Perfect catch! +1 star" sits above the fish-of-the-day line when both show (slice 23f).
     this.caughtPerfect
@@ -3242,6 +3254,38 @@ export class LakeScene extends Phaser.Scene {
   /** The notice-board sign's look now: a note per open quest (pinned when done), the seal while a chapter waits. */
   private signLook(): SignLook {
     return { slots: signSlots(questsOf(this.player)), seal: this.storyBadge(), flutter: (Math.floor(this.elapsed / 700) % 2) as 0 | 1 };
+  }
+
+  /**
+   * A trophy or a legendary catch card gets a big crisp pixel picture of the fish (2-3x) centred above the title, with a few gold glints
+   * twinkling round it (slice 25f fix). Other catches show nothing here.
+   */
+  private drawTrophyCardArt(speciesId: string | null, popScale: number): void {
+    const sp = speciesId ? speciesById(speciesId) : undefined;
+    const on = !!sp && (sp.rarity === 'trophy' || sp.rarity === 'legendary');
+    this.trophyArt.setVisible(on);
+    const g = this.trophyGlint;
+    g.clear();
+    if (!on || !speciesId) return;
+    const key = fishKey(speciesId, 2);
+    if (this.trophyArt.texture.key !== key) this.trophyArt.setTexture(key);
+    const w = this.trophyArt.width;
+    const h = this.trophyArt.height;
+    const k = Math.max(2, Math.min(3, Math.floor(150 / w)));
+    const cy = Math.round(this.caughtText.y - 26 - (h * k) / 2);
+    this.trophyArt.setPosition(W / 2, cy).setScale(k * Math.min(1, popScale));
+    // Gold glints: small four-point stars that blink in turn round the picture.
+    const spots = [[-0.55, -0.5], [0.5, -0.6], [0.62, 0.35], [-0.62, 0.45], [0.05, -0.75], [-0.2, 0.7]];
+    spots.forEach(([fx, fy], i) => {
+      const t = ((this.elapsed / 900 + i * 0.37) % 1 + 1) % 1;
+      const a = Math.sin(Math.PI * Math.min(1, t * 1.6));
+      if (t > 0.625 || a <= 0.05) return;
+      const x = Math.round(W / 2 + fx * w * k);
+      const y = Math.round(cy + fy * h * k);
+      const r = 1 + Math.round(a * 2);
+      g.fillStyle(0xffe27a, a).fillRect(x - r, y, 2 * r + 1, 1).fillRect(x, y - r, 1, 2 * r + 1);
+      g.fillStyle(0xffffff, a).fillRect(x, y, 1, 1);
+    });
   }
 
   /** The trophy board shows once a rare fish is mounted (slice 23d); its texture changes with the set of mounted fish. */
@@ -3753,6 +3797,15 @@ export class LakeScene extends Phaser.Scene {
     // White water behind the boulders in the water.
     for (const rock of RIVER_ROCKS) {
       for (const f of rockFoam(rock, t)) g.fillStyle(foam, f.alpha * lightLevel * still).fillRect(f.x, f.y, f.w, 1);
+    }
+    // The Ferryman's creak: a soft ripple ring spreads round the far post while the rope creaks by itself.
+    if (this.ferryNow.progress > 0) {
+      const p = this.ferryNow.progress;
+      for (const k of [0, 0.3]) {
+        const q = p - k;
+        if (q <= 0) continue;
+        g.lineStyle(1, foam, Math.max(0, 0.7 * (1 - q)) * lightLevel).strokeEllipse(ROPE_FAR.x, ROPE_FAR.y + 4, 6 + q * 26, 2 + q * 8);
+      }
     }
     // The ferry rope: pixel-stepped, tinted by the day, swaying more when it is windy.
     const pts = ropePoints(ropeSway(t, this.weatherVis('windy')) + this.ferryNow.sway);
