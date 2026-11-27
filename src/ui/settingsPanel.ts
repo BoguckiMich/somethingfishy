@@ -228,7 +228,7 @@ export function openSettingsPanel(store: SettingsStore, onClose: () => void): Pa
     body.append(
       row(
         woodButton(`Catch style: ${line ? 'Line' : 'Classic'}`, () => {
-          store.setSoundSettings({ ...store.soundSettings(), catchStyle: line ? 'classic' : 'line' });
+          store.setSoundSettings({ ...store.soundSettings(), catchStyle: line ? 'classic' : 'line', catchStylePicked: true });
           panel.refresh();
         }),
       ),

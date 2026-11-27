@@ -11,8 +11,14 @@ export interface SoundSettings {
   ambience: number;
   /** Phone vibration (nibble, bite, catch...). On by default (A3). */
   haptics: boolean;
-  /** Which fight a hooked fish gives (slice 28): the vertical catch bar or the feel-the-line fight. Classic by default until the testers have compared. */
+  /** Which fight a hooked fish gives (slice 28): the vertical catch bar or the feel-the-line fight. Line by default since 2026-11-27. */
   catchStyle: CatchStyle;
+  /**
+   * True once the player tapped the Catch style button. Until then the default style applies: every
+   * settings save before 2026-11-27 wrote catchStyle 'classic' whether or not anyone chose it, so a
+   * stored 'classic' without this flag is not a choice and becomes Line.
+   */
+  catchStylePicked?: boolean;
 }
 
 export const DEFAULT_SOUND_SETTINGS: SoundSettings = { sfx: 100, ambience: 100, haptics: true, catchStyle: DEFAULT_CATCH_STYLE };
@@ -31,8 +37,15 @@ export function normalizeSoundSettings(raw: Partial<Record<keyof SoundSettings, 
     sfx: volume(raw?.sfx, DEFAULT_SOUND_SETTINGS.sfx),
     ambience: volume(raw?.ambience, DEFAULT_SOUND_SETTINGS.ambience),
     haptics: typeof raw?.haptics === 'boolean' ? raw.haptics : DEFAULT_SOUND_SETTINGS.haptics,
-    catchStyle: CATCH_STYLES.find((s) => s === raw?.catchStyle) ?? DEFAULT_SOUND_SETTINGS.catchStyle,
+    ...catchStyleOf(raw),
   };
+}
+
+function catchStyleOf(raw: Partial<Record<keyof SoundSettings, unknown>> | null | undefined): Pick<SoundSettings, 'catchStyle' | 'catchStylePicked'> {
+  const stored = CATCH_STYLES.find((s) => s === raw?.catchStyle);
+  if (raw?.catchStylePicked === true && stored) return { catchStyle: stored, catchStylePicked: true };
+  // A stored 'line' was always a real choice (the old default was classic); keep it.
+  return { catchStyle: stored === 'line' ? 'line' : DEFAULT_CATCH_STYLE };
 }
 
 /** Slider percent → bus gain, squared so the slider feels even to the ear. */
