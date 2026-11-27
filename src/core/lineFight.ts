@@ -77,6 +77,8 @@ export interface LineFightState {
   signature?: SignatureMove;
   /** This species' own tuning on top of its pattern (data/lineFight.ts SPECIES_LINE_TUNING). */
   tune?: SpeciesLineTune;
+  /** Scale on the calm gaps between surges (slice 25c: the river's current, below 1 = more often). Absent = 1. */
+  calmMul?: number;
   surgeCount: number;
   /** The wobble phase of the steady pull. */
   wobble: number;
@@ -118,7 +120,7 @@ export function goldBandOf(fish: Pick<FishProfile, 'difficulty' | 'slipAfterMs'>
 /** The gold share a perfect catch needs: 80 % for most fish, down to `perfectGoldHard` for the hardest (from difficulty `perfectEaseFrom` over `perfectEaseOver`). */
 export const perfectNeedOf = (difficulty: number): number => T.perfectGold - (T.perfectGold - T.perfectGoldHard) * clamp((difficulty - T.perfectEaseFrom) / T.perfectEaseOver, 0, 1);
 
-export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?: FishProfile, gear?: BarGear): LineFightState {
+export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?: FishProfile, gear?: BarGear, calmMul?: number): LineFightState {
   const start = Math.max(1, startM);
   const [goldLo, goldHi] = goldBandOf(fish ?? { difficulty: 0 }, gear);
   return {
@@ -141,6 +143,7 @@ export function newLineFight(rng: Rng, startM: number, speciesId?: string, fish?
     feint: false,
     signature: speciesId ? SIGNATURE_MOVES[speciesId] : undefined,
     tune: speciesId ? SPECIES_LINE_TUNING[speciesId] : undefined,
+    ...(calmMul !== undefined && calmMul !== 1 ? { calmMul } : {}),
     surgeCount: 0,
     wobble: rng() * Math.PI * 2,
     slackS: 0,
@@ -219,8 +222,8 @@ export const warnLevel = (s: LineFightState): number => (s.phase === 'warn' && s
 const calmFactor = (gear: LineGear) => 1 - T.calmGap * gear.calm;
 
 /** The next calm gap, in seconds. */
-function calmGap(cfg: LinePattern, d: number, gear: LineGear, rng: Rng, wide: boolean): number {
-  return (lerp(cfg.every, d) * (wide ? randRange(rng, 0.5, 1.5) : randRange(rng, 0.7, 1.3))) / calmFactor(gear);
+function calmGap(cfg: LinePattern, d: number, gear: LineGear, rng: Rng, wide: boolean, mul = 1): number {
+  return (lerp(cfg.every, d) * (wide ? randRange(rng, 0.5, 1.5) : randRange(rng, 0.7, 1.3)) * mul) / calmFactor(gear);
 }
 
 /** The fish gets ready to surge: the telegraph starts. */
@@ -308,7 +311,7 @@ export function tickLineFight(
         s.runT = Math.max(0.5, s.runT * 0.7);
       } else {
         s.phase = 'calm';
-        s.phaseT = s.phaseTotal = calmGap(cfg, d, gear, rng, fish.pattern === 'erratic');
+        s.phaseT = s.phaseTotal = calmGap(cfg, d, gear, rng, fish.pattern === 'erratic', s.calmMul);
       }
     }
     const surge = surgeLevel(s);

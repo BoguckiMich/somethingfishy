@@ -1,4 +1,5 @@
 import type { TimeOfDay } from './clock';
+import type { RiverCurrent } from './current';
 import type { ShopStock } from './data/shopStock';
 
 /** The depth class of a zone that species and rare-fish rules are written against: a lake's shallow/deep, a river's riffle/seam count as shallow, its pool as deep. */
@@ -137,6 +138,8 @@ export interface Location {
   storyPlaceId: string | null;
   /** What the shop sells here (slice 29). */
   shop: ShopStock;
+  /** Moving water (slice 25c): the bobber drifts to the eddy and the fights surge more. Absent = still water (Quiet Lake). */
+  current?: RiverCurrent;
 }
 
 /** Returns the zone a bobber at `distanceM` lands in. Distances past the end clamp to the last zone. */

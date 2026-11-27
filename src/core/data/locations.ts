@@ -1,4 +1,5 @@
 import type { CompanionSpots, Location } from '../location';
+import { RIVER_CURRENT } from '../current';
 import { POOL_SPECIES } from './fish';
 import { QUIET_LAKE_STOCK, RIVER_BEND_STOCK } from './shopStock';
 
@@ -90,6 +91,7 @@ export const RIVER_BEND: Location = {
   checklistId: 'river-bend',
   storyPlaceId: 'river-bend',
   shop: RIVER_BEND_STOCK,
+  current: RIVER_CURRENT,
 };
 
 export const LOCATIONS: readonly Location[] = [QUIET_LAKE, RIVER_BEND];

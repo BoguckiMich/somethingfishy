@@ -43,6 +43,8 @@ still mean something, and the deep pool waits for the carbon rod as before.
 
 ## 4. The new mechanic: current
 
+_**BUILT 2026-11-27 (slice 25c, `slice/25c-river-current`, not merged).** Refinement decided with the user: the cast's **band is fixed at landing** (species, band, rare checks and the R3 `seam` milestone use the landing distance as ever); the drift is horizontal motion plus a bite-rate timer, nothing re-rolls mid-wait, and the **bobber follows its band's curve** (its y rides `riverBend(x) * 0.5` like the water shading) so it stays inside its band. Numbers: run 30 s at flow 1 (faster in rain), eddy at x 104, seam bites x1.35 while drifting, x0.4 once settled; river fights surge x0.85 as often (x0.85 more in rain), ordinary fish only. See GAME_DESIGN 25c and ECONOMY_SIM "River current (25c)"._
+
 ❓1. **How does the current change fishing?**
 ➡️ **The bobber drifts downstream while waiting**, slowly, from where it landed toward the left edge
 (a few px per second, faster on rain/high-water hours). **(decided 2026-11-26)** There is **no forced
@@ -157,7 +159,7 @@ everywhere (it is the real hour), which also keeps the code simple.
 1. **Location as data + travel**: scene takes a `Location` (background, zones, fish pool, moments, spots for
    car/camp/companions), map "Drive there", the fade. River scene with placeholder art.
 2. **River art**: bend, current animation, ferry landing and rope, W.'s hut, far bank willows, the camp spots.
-3. **Current mechanic**: bobber drift, seam bonus, the settle-in-the-eddy end of the run (no forced reel-in, decided 2026-11-26), river fight surges (decided 2026-11-26); tests and a sim.
+3. **Current mechanic** (BUILT, slice 25c): bobber drift, seam bonus, the settle-in-the-eddy end of the run (no forced reel-in, decided 2026-11-26), river fight surges (decided 2026-11-26); tests and a sim.
 4. **River fish** (BUILT, slice 25d): trout, grayling, nase, chub, barbel, vimba (+ shared asp, perch, pike) with art and facts.
 5. **River checklist + story R1-R6 + river moments** (BUILT, slice 25e): kingfisher, otter, upstream lantern, paper boat, heron.
 6. **Rare river fish + river trophy board, the Ferryman** (BUILT, slice 25f): the three trophies by their exact conditions, the river board, and the Ferryman with its creak window.

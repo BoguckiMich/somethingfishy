@@ -15,6 +15,10 @@ import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
 import { fightProfile, rollLength } from '../core/fish';
 import type { BarGear } from '../core/gear';
+import { RIVER_CURRENT } from '../core/current';
+import { QUIET_LAKE, RIVER_BEND } from '../core/data/locations';
+import { step, type FishingState, type SessionContext } from '../core/fishingSession';
+import { zoneAt, type Location } from '../core/location';
 import { isPerfectLine, newLineFight, tickLineFight, type LineFightState } from '../core/lineFight';
 import { seededRng } from '../core/random';
 
@@ -69,10 +73,10 @@ export function playClassic(fish: FishProfile, bot: Bot, seed: number, gear: Bar
  * whether a surge or a cut is showing; she holds while the needle (where it will be when her thumb lands) is below the target in the gold, lets go above it
  * or at a telegraph. Every press and release lands `delayMs` late with +-`jitterMs` of timing noise.
  */
-export function playLine(fish: FishProfile, bot: Bot, seed: number, gear: BarGear, startM: number, speciesId?: string, trace?: string[]): Played {
+export function playLine(fish: FishProfile, bot: Bot, seed: number, gear: BarGear, startM: number, speciesId?: string, trace?: string[], calmMul?: number): Played {
   const rng = seededRng(seed);
   const reactRng = seededRng(seed + 104729);
-  let s: LineFightState = newLineFight(rng, startM, speciesId, fish, gear);
+  let s: LineFightState = newLineFight(rng, startM, speciesId, fish, gear, calmMul);
   let holding = true;
   let switchAt = -1;
   let prevT = s.tension;
@@ -133,10 +137,10 @@ interface Cell {
   redMs: number;
   slackMs: number;
 }
-function cell(id: string, style: 'classic' | 'line', bot: Bot, gear: BarGear, n = N): Cell {
+function cell(id: string, style: 'classic' | 'line', bot: Bot, gear: BarGear, n = N, calmMul?: number): Cell {
   const rs = seeds(n).map((seed) => {
     const { fish, startM } = profileOf(id, seed);
-    return style === 'classic' ? playClassic(fish, bot, seed, gear) : playLine(fish, bot, seed, gear, startM, id);
+    return style === 'classic' ? playClassic(fish, bot, seed, gear) : playLine(fish, bot, seed, gear, startM, id, undefined, calmMul);
   });
   const how: Record<string, number> = {};
   for (const r of rs) how[r.how] = (how[r.how] ?? 0) + 1;
@@ -194,6 +198,76 @@ describe.skipIf(!ON)('line fight sim (SIM=1)', () => {
       rows.push(`${id.padEnd(8)} hold forever: caught ${pct(hold.filter((r) => r.caught).length / 60)}   never hold: caught ${pct(never.filter((r) => r.caught).length / 60)}`);
     }
     console.log(rows.join('\n'));
+  });
+});
+
+/** The river's species and the rod each is fished with (a shallow fish with bamboo and fiberglass, the pool's barbel and the trophies with fiberglass and carbon). */
+const RIVER_SIM: [string, [string, BarGear][]][] = [
+  ['trout', [['bamboo', BAMBOO], ['fiberglass', FIBER]]],
+  ['grayling', [['bamboo', BAMBOO], ['fiberglass', FIBER]]],
+  ['nase', [['bamboo', BAMBOO], ['fiberglass', FIBER]]],
+  ['chub', [['bamboo', BAMBOO], ['fiberglass', FIBER]]],
+  ['barbel', [['fiberglass', FIBER], ['carbon', CARBON]]],
+  ['vimba', [['bamboo', BAMBOO], ['fiberglass', FIBER]]],
+  ['asp', [['bamboo', BAMBOO], ['fiberglass', FIBER]]],
+  ['ferryPike', [['bamboo', BAMBOO], ['fiberglass', FIBER], ['top gear', TOP]]],
+  ['lantern', [['bamboo', BAMBOO], ['fiberglass', FIBER], ['top gear', TOP]]],
+  ['barbelKing', [['fiberglass', FIBER], ['carbon', CARBON], ['top gear', TOP]]],
+  ['ferryman', [['carbon', CARBON], ['top gear', TOP]]],
+];
+
+describe.skipIf(!ON)('river current sim (slice 25c, SIM=1)', () => {
+  it('decent bot: catch rate at the river, without and with the current surges (dry, rain)', { timeout: 900_000 }, () => {
+    // SIM_MUL=0.9 SIM_RAINMUL=0.9 tries other numbers; SIM_ONLY limits the species.
+    const dry = Number(process.env.SIM_MUL ?? RIVER_CURRENT.fightEveryMul);
+    const rain = dry * Number(process.env.SIM_RAINMUL ?? RIVER_CURRENT.rainFightEveryMul);
+    const rows: string[] = [`species     rod         without    dry (x${dry})     rain (x${rain.toFixed(3)})    drop dry / rain (points)`];
+    let worst = 0;
+    for (const [id, sets] of RIVER_SIM) {
+      if (ONLY && !ONLY.includes(id)) continue;
+      for (const [label, gear] of sets) {
+        const a = cell(id, 'line', DECENT, gear);
+        const trophy = speciesById(id)!.rarity === 'trophy' || speciesById(id)!.rarity === 'legendary';
+        // The game passes no multiplier for a trophy (core/current.ts fightEveryMul); SIM_TROPHIES=1 forces it on to show why.
+        const forced = process.env.SIM_TROPHIES === '1';
+        const b = cell(id, 'line', DECENT, gear, N, trophy && !forced ? undefined : dry);
+        const c = cell(id, 'line', DECENT, gear, N, trophy && !forced ? undefined : rain);
+        const dd = (a.catchShare - b.catchShare) * 100;
+        const dr = (a.catchShare - c.catchShare) * 100;
+        worst = Math.max(worst, dd, dr);
+        rows.push(`${id.padEnd(11)} ${label.padEnd(11)} ${pct(a.catchShare).padStart(4)}       ${pct(b.catchShare).padStart(4)}          ${pct(c.catchShare).padStart(4)}            ${dd.toFixed(0)} / ${dr.toFixed(0)}`);
+      }
+    }
+    console.log([...rows, `WORST DROP: ${worst.toFixed(1)} points`].join(String.fromCharCode(10)));
+  });
+});
+
+describe.skipIf(!ON)('river bite timing (slice 25c, SIM=1)', () => {
+  it('mean seconds to the first bite per band: still water, a drifting bobber that never settles, a settled one, and the real run (flow 1, rain 1.6)', { timeout: 300_000 }, () => {
+    const n = 400;
+    const meanS = (loc: Location, distanceM: number, flow: number, startDrift: number): number => {
+      let total = 0;
+      for (let seed = 1; seed <= n; seed++) {
+        const ctx: SessionContext = { location: loc, rod: RODS[2], barGear: CARBON, rng: seededRng(seed), timeOfDay: () => 'day', flow: () => flow };
+        let state: FishingState = step({ kind: 'casting', power: 1, distanceM, zone: zoneAt(loc, distanceM).fishZone }, { type: 'landed' }, ctx).state;
+        if (loc.current) state = { ...state, drift: startDrift } as FishingState;
+        let ms = 0;
+        while (state.kind === 'waiting' && ms < 900_000) {
+          state = step(state, { type: 'tick', dtMs: 25 }, ctx).state;
+          ms += 25;
+        }
+        total += ms;
+      }
+      return total / n / 1000;
+    };
+    const quick: Location = { ...RIVER_BEND, current: { ...RIVER_CURRENT, runS: 12 } };
+    const rows = ['band (cast)        Quiet Lake   river, stays at landing   river, settled   river, real run (runS 30)   river, runS 12 (flow 1 / rain 1.6)'];
+    for (const [name, m, lakeM] of [['riffle 6 m', 6, 6], ['seam 20 m', 20, 20], ['pool 32 m', 32, 32]] as const) {
+      rows.push(
+        `${name.padEnd(18)} ${meanS(QUIET_LAKE, lakeM, 1, 0).toFixed(1).padStart(8)}s   ${meanS(RIVER_BEND, m, 0, 0).toFixed(1).padStart(12)}s            ${meanS(RIVER_BEND, m, 0, 1).toFixed(1).padStart(8)}s       ${meanS(RIVER_BEND, m, 1, 0).toFixed(1).padStart(8)}s            ${meanS(quick, m, 1, 0).toFixed(1).padStart(6)}s / ${meanS(quick, m, 1.6, 0).toFixed(1).padStart(5)}s`,
+      );
+    }
+    console.log(rows.join(String.fromCharCode(10)));
   });
 });
 

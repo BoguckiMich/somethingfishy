@@ -8,6 +8,8 @@ import type { ZoneId } from './location';
 export type GameEvent =
   | { type: 'cast'; distanceM: number; zone: ZoneId; locationId: string }
   | { type: 'nibble' }
+  /** The bobber reached the eddy at the end of its drift (moving water, slice 25c). */
+  | { type: 'driftSettled' }
   | { type: 'bite' }
   | { type: 'hooked'; zone: ZoneId }
   | { type: 'fishEscaped'; reason: 'tooEarly' | 'tooLate' }

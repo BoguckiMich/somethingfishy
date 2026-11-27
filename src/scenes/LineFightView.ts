@@ -20,15 +20,21 @@ export const LINE_DIAL = { cx: 106, cy: 312, r: 46 };
 const GOLD_DARK = 0xb98a2c;
 const STEEL = 0x6f86a0;
 
+/** Where the fight is centred: `BOBBER_X` at a lake; at the river the fish starts where the drifted bobber was (slice 25c) and the scene eases it back. `dy` is the band's bend offset. */
+export interface FightAnchor {
+  x: number;
+  dy: number;
+}
+
 /** Where the fish is on screen: sideways by the lateral offset (wider farther out), up the water with the distance. */
-export function fishScreenPos(line: LineFightState, elapsedMs: number): { x: number; y: number; scale: number } {
+export function fishScreenPos(line: LineFightState, elapsedMs: number, anchor: FightAnchor = { x: BOBBER_X, dy: 0 }): { x: number; y: number; scale: number } {
   const far = Math.min(1, line.distanceM / 24);
   const spread = 26 + 48 * far;
   const surge = surgeLevel(line);
   const tremble = surge > 0 ? Math.sin(elapsedMs / 38) * 1.5 * surge : 0;
   return {
-    x: BOBBER_X + line.lateral * spread + tremble,
-    y: distanceToY(line.distanceM) + (surge > 0 ? Math.cos(elapsedMs / 45) * 0.8 : 0),
+    x: anchor.x + line.lateral * spread + tremble,
+    y: distanceToY(line.distanceM) + anchor.dy + (surge > 0 ? Math.cos(elapsedMs / 45) * 0.8 : 0),
     scale: 1 + 0.9 * (1 - far),
   };
 }
@@ -55,11 +61,11 @@ export class LineFightView {
   }
 
   /** `tint` dims everything a little at night. `foam` is the splash colour already tinted by the scene. */
-  update(line: LineFightState, gear: BarGear, tint: number, elapsedMs: number, slipAfterMs?: number): void {
+  update(line: LineFightState, gear: BarGear, tint: number, elapsedMs: number, slipAfterMs?: number, anchor?: FightAnchor): void {
     const g = this.g;
     g.clear();
     const t = (c: number) => multiplyColor(c, tint);
-    const pos = fishScreenPos(line, elapsedMs);
+    const pos = fishScreenPos(line, elapsedMs, anchor);
     if (Math.abs(line.lateral - this.lastLateral) > 0.002) this.facing = line.lateral > this.lastLateral ? 1 : -1;
     this.lastLateral = line.lateral;
     this.drawFish(g, line, pos, t, elapsedMs);

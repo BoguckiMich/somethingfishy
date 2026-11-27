@@ -53,6 +53,8 @@ export const EN = {
   feedNoTreats: 'Out of treats. The shop has some.',
   feedFull: "She's full. Look at that belly.",
   feedBonus: 'Spoiled. Good.',
+  /** Pajkel, the first time a bobber settles in the river's slack water (slice 25c). */
+  eddyLine: "Slack water. Fish don't love it there.",
   feedAsleep: '{dog} is asleep.',
   feedBedtime: 'Bedtime first.',
   feedAfter: '{dog} can eat after this one.',

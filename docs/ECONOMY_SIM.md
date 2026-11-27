@@ -128,3 +128,33 @@ rudd 14 %**; line decent: darting 30 %, trophies 7 %. Before the control rounds:
 
 Tuning levers (`src/core/data/lineFight.ts`): `patterns.*.rise` (the main difficulty lever, blended with difficulty^`riseCurve`), `goldWidth`, `perfectGold`, `reelEasy`; rod flex (`flexBase`, `flexPerZone`) and `redRecovery` / `redRecoveryGold`; `patterns.*.warn` (telegraph, floor 0.35 s), `rise`, `cutKick`; `trophyFlex`; `reelBase` (a faster reel makes it much easier);
 `releasedSlipS`, `slackS`; `tireM` for the last metres.
+
+
+## River current (25c, `SIM=1 npx vitest run src/sim/lineFight -t "river"`)
+
+Slice 25c (`core/current.ts`, RIVER_BEND.md section 4). Two things are simulated.
+
+**1. Fight surges at the river** (Line style, decent bot, 300 fights per cell, `SIM_FIGHTS=300`; calm gaps x0.85, x0.7225 in rain). Catch rate without the modifier / dry / rain, for the two rods listed:
+
+| species | rods | without | dry | rain |
+|---|---|---|---|---|
+| trout | bamboo / fiberglass | 99 / 100 | 99 / 100 | 98 / 99 |
+| grayling | bamboo / fiberglass | 99 / 99 | 99 / 99 | 99 / 99 |
+| nase | bamboo / fiberglass | 100 / 100 | 100 / 100 | 99 / 99 |
+| chub | bamboo / fiberglass | 100 / 100 | 100 / 100 | 99 / 99 |
+| barbel | fiberglass / carbon | 100 / 100 | 100 / 100 | 100 / 100 |
+| vimba | bamboo / fiberglass | 100 / 100 | 100 / 100 | 100 / 100 |
+| asp | bamboo / fiberglass | 98 / 100 | 98 / 100 | 98 / 100 |
+
+Every ordinary river fish drops at most 1 point (they are near 100 % with a decent bot, so the surges show as rhythm, not as lost fish). **The trophies are excluded in the game** (`fightEveryMul(cur, raining, trophy)`): with the modifier forced on (`SIM_TROPHIES=1`), bamboo / fiberglass / top gear lose
+Ferry pike 10 -> 8 / 24 -> 12 / 93 -> 77 dry (rain 2 / 3 / 48), Lantern 24 -> 19 / 47 -> 35 / 99 -> 95 (rain 11 / 20 / 85), Barbel King fiberglass / carbon 54 -> 46 / 79 -> 69 (rain 40 / 62), Ferryman carbon 83 -> 76 (rain 70): up to 46 points, far outside the +-10 balance of the trophy pass. A milder x0.95 still cost the Ferry pike 6-8 points.
+
+**2. Mean seconds to the first bite** (carbon rod, day, 400 seeded casts per cell, 25 ms ticks; `-t "river bite timing"`):
+
+| band (cast) | Quiet Lake | river, bobber stays at the landing | river, settled in the eddy | river, real run (runS 30) | river, runS 12 (flow 1 / rain 1.6) |
+|---|---|---|---|---|---|
+| riffle 6 m | 6.7 | 6.7 | 16.6 | 6.7 | 6.7 / 7.2 |
+| seam 20 m | 8.1 | 4.9 | 16.5 | 4.9 | 4.9 / 4.9 |
+| pool 32 m | 8.1 | 7.1 | 17.6 | 7.1 | 7.1 / 8.0 |
+
+The seam bites about 40 % sooner than the lake while the bobber drifts (x1.35); a settled bobber waits about 2.5x longer (x0.4). A normal wait is over before the eddy is reached (the first wait is 2.5-8 s plus nibbles), so the eddy is a fallback for long waits (fog, a slow fish of the day), as designed: "bites there are rarer, so it nudges her to reel in and cast again".

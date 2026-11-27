@@ -1,5 +1,5 @@
 import { lerpColor } from './dayCycle';
-import { distanceToY, DOCK, FAR_SHORE_TOP, FAR_SHORE_Y, NEAR_SHORE_TOP, SHORE_Y, W, WATER_BOTTOM } from './layout';
+import { BOBBER_X, distanceToY, DOCK, FAR_SHORE_TOP, FAR_SHORE_Y, NEAR_SHORE_TOP, SHORE_Y, W, WATER_BOTTOM } from './layout';
 import { PAL } from './palette';
 import { bayer, mulberry32, Raster, rampDither } from './raster';
 import { BUSH, TUFT_A, TUFT_B } from './sprites';
@@ -51,6 +51,15 @@ export function riverWaterline(x: number): number {
 export function riverBend(x: number): number {
   return 20 - 70 * Math.pow(Math.min(1, Math.max(0, x / W)), 1.2);
 }
+
+/** Where the bobber settles in the slack water by the left bank (slice 25c); the drift runs from `BOBBER_X` to here. */
+export const EDDY_X = 104;
+
+/**
+ * How far lower (screen y) a band lies at column x than at the bobber column: the water's ramp shading follows `riverBend(x) * 0.5`
+ * (riverRampPos), so a drifting bobber that adds this to its y stays inside its band's curve.
+ */
+export const bandBendY = (x: number): number => (riverBend(x) - riverBend(BOBBER_X)) * 0.5;
 
 /** The ferry rope: from the post on the landing's left edge up-left to the post on the far bank. */
 export const ROPE_POST_POS = { x: 54, baseY: 438 };
