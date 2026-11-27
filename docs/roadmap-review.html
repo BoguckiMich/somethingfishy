@@ -169,29 +169,29 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
     <h1>Rybki Roadmap Review</h1>
     <p class="lede">What is built, what is broken or weak, and what could come next. It draws on the external review in <code>docs/review/</code>, HANDOFF.md, ROADMAP.md and the Ideas list in GAME_DESIGN.md. Tap <b>Pick</b> on the options and answer the open decisions; your choices collect at the bottom of “Tomorrow” and stay in this browser.</p>
     <div class="facts">
-      <span><b>main</b> at <code>1833af3</code>, pushed</span>
-      <span><b>936</b> tests passing in <b>67</b> files</span>
-      <span><b>~45</b> slices and fixes merged</span>
-      <span><b>19</b> fish in the log: 15 species, 3 trophies, the Pale One</span>
+      <span><b>main</b> at <code>6b5c77e</code>, pushed (updated 2026-11-27)</span>
+      <span><b>1343</b> tests passing in <b>92</b> files</span>
+      <span><b>~85</b> slices and fixes merged</span>
+      <span>Lake + river fish, 6 trophies (3 lake, 3 river), the Pale One</span>
       <span>Everything pushed has been <b>played on a phone</b></span>
     </div>
   </header>
 
   <section id="where">
     <h2>Where we are</h2>
-    <p class="intro">M1 (Quiet Lake) is functionally complete and has been played on a phone; only today's A1 fixes are new. M2 (River Bend) has its first two slices: travel and art.</p>
+    <p class="intro">M1 (Quiet Lake) is done and played. M2 (River Bend) is playable end to end: current, river fish, trophies and the Ferryman, story R1–R6, river gear. Line is now the default catch style. Next: the spinning rod (slice 32).</p>
     <div class="track">
       <div class="ms now">
-        <span class="chip c-wip">Nearly done</span>
+        <span class="chip c-done">Done</span>
         <h3>M1 · Quiet Lake</h3>
-        <div class="bar"><i style="width:90%"></i></div>
-        <p>Everything built and played. Left: the A2 balance pass and the pacing sim.</p>
+        <div class="bar"><i style="width:100%"></i></div>
+        <p>Built and played, including the A2 balance pass, camp life, shore fiddles, Bestia's feeding and dock bed. Open: Classic catch-bar bugs B1/B2 (CATCH_MATH_AUDIT.md).</p>
       </div>
       <div class="ms">
-        <span class="chip c-wip">Started</span>
+        <span class="chip c-wip">Nearly done</span>
         <h3>M2 · River Bend</h3>
-        <div class="bar"><i style="width:28%"></i></div>
-        <p>25a travel + 25b art merged. Next: the current mechanic, river fish, checklist and chapters R1–R6.</p>
+        <div class="bar"><i style="width:85%"></i></div>
+        <p>Merged: 25a travel, 25b art, 25c current, 25d–25f river fish, story and trophies (the Ferryman), 25g river gear, shop per place, Line fight. Next: slice 32 spinning rod. Then revisit Line difficulty after Alex plays (Ferryman took 3–5 s).</p>
       </div>
       <div class="ms">
         <span class="chip c-grey">Not started</span>
@@ -420,10 +420,10 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
 
   <section id="next">
     <h2>Tomorrow: where to continue</h2>
-    <p class="intro">Tomorrow starts with the shore fiddles and Bestia's Stick Museum (your choice), then the shop-pacing grilling. The rest is open: pick as many as you like.</p>
+    <p class="intro"><b>Update 2026-11-27:</b> everything in this list up to the River Bend content is merged. Next: <b>slice 32, the spinning rod</b> (spec in GAME_DESIGN → “Spinning rod”). Then the <b>Line difficulty revisit</b> once Alex has played (knobs in <code>src/core/data/lineFight.ts</code>), and the Classic catch-bar fixes B1/B2. The cards below are kept as a record.</p>
     <div class="options" id="options">
       <article class="opt picked-first" data-id="fiddles" style="border:2px solid var(--gold)">
-        <div class="meta"><span class="chip c-wip">First tomorrow</span><span class="chip c-open">S–M</span></div>
+        <div class="meta"><span class="chip c-done">Done</span><span class="chip c-open">S–M</span></div>
         <h3>Shore fiddles + Stick Museum</h3>
         <p>Pebble skipping, fetch on demand, and Bestia's museum of named sticks with deadpan reviews. Grill the details, then build.</p>
         <ul><li>Pitch #1 in doc 11</li><li>Pure core rules + reuse of today's fetch animations</li></ul>
