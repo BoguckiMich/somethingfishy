@@ -819,6 +819,7 @@ things (Quiet Lake as today; River bend the spinning rod and river gear, slice 2
   the dock and settles into the bed. Night and the car rules stay as they are.
 - A tap on her pets her (as now); a tap on the bed when she is not in it opens the Stick Museum (as now).
 - Works at every place where she rests on the dock or landing (the same companion spot data).
+- Night polish (tester): at night she gets her own warmer, lighter tint (never white), a 1 px warm rim on her back, and a 2x cream rising "z"; a pet pops two small hearts; her name tag appears below her so it no longer covers Alex and Pajkel.
 
 ### Ideas (not scheduled)
 - **Our own catch mechanic:** decided, see "Catch mechanic v2" above (slice 28).

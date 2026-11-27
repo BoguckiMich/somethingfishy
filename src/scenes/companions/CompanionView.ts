@@ -30,6 +30,16 @@ import {
 } from './behaviour';
 
 const DEPTH = 14;
+/**
+ * Bestia's own tint: at night the world tint is cooled down to a dark blue that swallows ginger fur, so she gets a warmer, lighter
+ * version of it (never white: she must still look like night, not glow). By day (tint near white) it changes nothing.
+ */
+function dogNightTint(tint: number): number {
+  const night = 1 - (tint & 255) / 255; // the blue channel is what dims most at night
+  return lerpColor(tint, 0xffead0, Math.min(0.8, night * 2.3));
+}
+/** The sleeping "z": cream, drawn at 2x. */
+const Z_COLOR = 0xfff1c9;
 /** The wisp over the cup: one every STEAM_EVERY_MS, rising STEAM_RISE px and fading over STEAM_MS. */
 const STEAM_EVERY_MS = 700;
 const STEAM_MS = 1500;
@@ -172,14 +182,18 @@ export class CompanionView {
     }
   }
 
-  /** Pets the dog and floats a heart. */
+  /** Pets the dog and floats two small hearts over her head (about 1 s), in her bed or on the grass. */
   pet(): void {
     const waking = isNapping(this.state);
     petDog(this.state);
     const d = this.state.dog;
-    // Waking her from her nap: a longer heart, clearly above her.
-    const img = this.scene.add.image(Math.round(d.x), Math.round(d.y - (waking ? 36 : 28)), TEX.heart).setDepth(DEPTH + 4);
-    this.hearts.push({ img, age: 0, life: waking ? 1200 : 1000 });
+    const rise = waking ? 36 : 28;
+    const life = waking ? 1200 : 1000;
+    // Two hearts side by side, the second a little later and higher, so a pet reads at a glance.
+    for (const [dx, lift, delay] of [[-4, 0, 0], [5, 5, 160]] as const) {
+      const img = this.scene.add.image(Math.round(d.x) + dx, Math.round(d.y - rise - lift), TEX.heart).setDepth(DEPTH + 4).setScale(2);
+      this.hearts.push({ img, age: -delay, life });
+    }
   }
 
   /** A heart floats up over her head (a treat eaten, slice 30). */
@@ -268,7 +282,7 @@ export class CompanionView {
       .setOrigin(0.5, 23 / DOG_SIZE.h)
       .setFlipX(d.face < 0)
       .setPosition(Math.round(d.x) + wiggle, Math.round(d.y - d.hop))
-      .setTint(curled ? lerpColor(tint, 0xffffff, 0.3) : tint)
+      .setTint(dogNightTint(tint))
       .setDepth(this.dogBehind ? DEPTH - 0.1 : DEPTH + 0.1) // behind him while she is further up the screen
       .setVisible(dogVisible(s))
       .setAlpha(s.bed?.dogA ?? 1);
@@ -284,7 +298,7 @@ export class CompanionView {
         z.setVisible(false);
         return;
       }
-      z.setPosition(Math.round(d.x + (curled ? 6 : 8) + i * 6 + t * 5), Math.round(d.y - (curled ? 14 : 22) - t * 14)).setAlpha(1 - t);
+      z.setScale(2).setTint(Z_COLOR).setPosition(Math.round(d.x + (curled ? 7 : 9) + i * 8 + t * 6), Math.round(d.y - (curled ? 16 : 24) - t * 18)).setAlpha(Math.min(1, 2.2 * (1 - t)));
     });
 
     // Stick: in the air it turns (four baked angles); carried it is a bigger, angled stick gripped at the
@@ -330,7 +344,8 @@ export class CompanionView {
     // Hearts float up and fade.
     for (const h of this.hearts) {
       h.age += dtMs;
-      h.img.setY(h.img.y - dtMs * 0.03).setAlpha(Math.max(0, 1 - h.age / h.life));
+      if (h.age < 0) h.img.setAlpha(0);
+      else h.img.setY(h.img.y - dtMs * 0.025).setAlpha(Math.min(1, Math.max(0, 2 * (1 - h.age / h.life))));
     }
     this.hearts = this.hearts.filter((h) => {
       if (h.age > h.life) h.img.destroy();
