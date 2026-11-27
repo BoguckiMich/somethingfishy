@@ -28,10 +28,13 @@ export type FightOutcome =
   /** `slipped`: the hook came off (a trophy that got away, or the line hung slack too long). `snapped`: the line broke (line style only). */
   | { kind: 'lost'; slipped: boolean; snapped: boolean };
 
-/** Starts a fight. `distanceM` is where the fish was hooked; `speciesId` picks a trophy's signature move (line style). */
-export function beginFight(style: CatchStyle, fish: FishProfile, gear: BarGear, rng: Rng, distanceM: number, speciesId?: string): FightState {
+/**
+ * Starts a fight. `distanceM` is where the fish was hooked; `speciesId` picks a trophy's signature move (line style). `calmMul` (slice 25c, line style only)
+ * scales the calm gaps between surges: the river's current surges a bit more often. Classic ignores it.
+ */
+export function beginFight(style: CatchStyle, fish: FishProfile, gear: BarGear, rng: Rng, distanceM: number, speciesId?: string, calmMul?: number): FightState {
   if (style === 'line') {
-    const line = newLineFight(rng, distanceM, speciesId, fish, gear);
+    const line = newLineFight(rng, distanceM, speciesId, fish, gear, calmMul);
     return { bar: { ...newCatchBar(fish, gear, seededRng(1)), holding: true }, line };
   }
   return { bar: { ...newCatchBar(fish, gear, rng), holding: true } }; // the hooking press is still down

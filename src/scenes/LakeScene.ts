@@ -72,7 +72,7 @@ import { LOCATIONS, QUIET_LAKE, RIVER_BEND } from '../core/data/locations';
 import { zoneAt, type Location, type Spots } from '../core/location';
 import { TRAVEL_MINUTES, canTravel, locationOf, withPlace } from '../core/place';
 import { showRoadCard, type RoadCardHandle } from '../ui/roadCard';
-import { cottageWindow, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_FAR, ROPE_POST_POS } from '../art/riverArt';
+import { bandBendY, cottageWindow, EDDY_X, onOpenWater, FERRY, FERRY_SIGN_FEET, HUT_FEET, JETTY, jettyBox, HUT_SIZE, RIGHT_BANK, RIVER_ROCKS, ROPE_FAR, ROPE_POST_POS } from '../art/riverArt';
 import { glintAlpha, makeGlints, makeStreaks, ropePixels, ropePoints, ropeSway, rockFoam, spitFoam, STREAK_RAIN_BOOST, streakAt, streakSegments, type RiffleGlint, type Streak } from '../art/riverFx';
 import { setHandoff, takeHandoff } from './travelHandoff';
 import { RODS } from '../core/data/rods';
@@ -118,7 +118,8 @@ import type { PanelHandle } from '../ui/panel';
 import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
-import { fishScreenPos, LineFightView } from './LineFightView';
+import { fishScreenPos, LineFightView, type FightAnchor } from './LineFightView';
+import { driftPos, fightEveryMul } from '../core/current';
 import { inDockBed, bowlHasFood, feedBusy, feedRequest, carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipText, throwFor, type FlickSample } from '../core/skipping';
@@ -356,6 +357,7 @@ export class LakeScene extends Phaser.Scene {
     baitId: () => chosenBait(this.player),
     fotdId: () => this.fotdId(),
     weatherFx: () => this.weatherNow(),
+    flow: () => this.riverFlowRate() * this.devFlow,
     catchStyle: () => this.catchStyleNow(),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
@@ -589,6 +591,10 @@ export class LakeScene extends Phaser.Scene {
   private riverGlints: RiffleGlint[] = [];
   /** The river's flow clock: real time scaled by the weather, so a rain shower speeds the streaks up without a jump. */
   private riverFlowT = 0;
+  /** Dev flag ?flow=N: the river's drift runs N times faster (slice 25c). */
+  private devFlow = 1;
+  /** Where the fight is centred while it eases from the drifted bobber back to the middle (slice 25c); null at a lake. */
+  private fightFrom: FightAnchor | null = null;
   private riverLastT = 0;
   private postFx!: Phaser.GameObjects.Graphics;
   private action!: Phaser.GameObjects.Graphics;
@@ -743,6 +749,9 @@ export class LakeScene extends Phaser.Scene {
     if (rareParam && isTrophy(speciesById(rareParam))) this.rareDev = rareParam;
     // Dev-only (slice 25f): ?ferry=1 holds the Ferryman's window open (the rope creaks by itself every few seconds, the current slows) whatever the clock says.
     this.ferryDev = params.get('ferry') === '1';
+    // Dev-only (slice 25c): ?flow=N runs the river's drift N times faster (?debug=waiting&place=river-bend&flow=5; &dist=N casts the dev line N metres out).
+    const flowParam = Number(params.get('flow'));
+    if (flowParam > 0) this.devFlow = flowParam;
     if (params.get('trophies') === 'all') {
       const board = fullBoard(this.today);
       const log = { ...this.player.log };
@@ -813,6 +822,11 @@ export class LakeScene extends Phaser.Scene {
     if (placeParam && !handoff && LOCATIONS.some((l) => l.id === placeParam)) this.player = withPlace(this.player, placeParam);
     this.travelAny = params.get('travel') === '1';
     this.applyPlace(locationOf(this.player));
+    // ?debug=waiting at moving water: the dev line drifts like a real cast (and ?dist=N moves it out).
+    if (this.state.kind === 'waiting' && this.loc.current) {
+      const distanceM = Number(params.get('dist')) > 0 ? Number(params.get('dist')) : this.state.distanceM;
+      this.state = { ...this.state, distanceM, zone: zoneAt(this.loc, distanceM).fishZone, drift: 0 };
+    }
     this.syncRod();
     this.syncQuestsNow();
     // Dev-only: ?qdone=1 finishes the first quest (see the Claim button).
@@ -840,7 +854,7 @@ export class LakeScene extends Phaser.Scene {
       const fish: FishProfile = this.ctx.fishOverride ?? fightProfile(species, hooked.lengthCm);
       const distanceM = species.zone === 'deep' ? 25 : 10;
       if (dbg === 'fight') {
-        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, ...holdFight(beginFight(this.catchStyleNow(), fish, this.ctx.barGear, this.ctx.rng, distanceM, hooked.speciesId), false) };
+        this.state = { kind: 'fighting', distanceM, zone: species.zone, hooked, fish, ...holdFight(beginFight(this.catchStyleNow(), fish, this.ctx.barGear, this.ctx.rng, distanceM, hooked.speciesId, fightEveryMul(this.loc.current, this.ctx.weatherFx?.()?.id === 'rain', fish.slipAfterMs !== undefined)), false) };
       } else {
         this.state = { kind: 'caught', distanceM, zone: species.zone, hooked, fish, shownMs: 0 };
         this.freezeCaught = true;
@@ -1774,6 +1788,13 @@ export class LakeScene extends Phaser.Scene {
       this.anim = 0;
       this.stateAge = 0;
     }
+    // A fish hooked at the river fights from where the drifted bobber was (slice 25c).
+    if (next.kind === 'fighting' && prev.kind === 'bite') {
+      const spot = this.driftSpot(prev.drift);
+      this.fightFrom = spot.x === BOBBER_X && spot.dy === 0 ? null : { x: spot.x, dy: spot.dy };
+    } else if (next.kind !== 'fighting') {
+      this.fightFrom = null;
+    }
     this.state = next;
     // The show-off is over: the fish goes into the bag (or the bag-full card asks).
     if (prev.kind === 'caught' && next.kind === 'idle') this.stowCatch(prev.hooked);
@@ -2057,6 +2078,10 @@ export class LakeScene extends Phaser.Scene {
 
   /** Feedback for things the core reports: ripples, haptics, messages. */
   private onEvent(e: GameEvent): void {
+    if (e.type === 'driftSettled') {
+      this.onDriftSettled();
+      return;
+    }
     this.applyToPlayer(e);
     companionEvent(this.companions.state, e.type, false);
     lookEvent(this.look, e.type, Math.random);
@@ -2101,8 +2126,16 @@ export class LakeScene extends Phaser.Scene {
     }
   }
 
+  /** The first time a bobber settles in the river's slack water, Pajkel says so (saved like the hints; once). */
+  private onDriftSettled(): void {
+    if (isSeen(this.player.seen, 'eddy')) return;
+    this.setPlayer({ ...this.player, seen: markHintSeen(this.player.seen, 'eddy') });
+    if (this.pajCanSpeak() && this.companions.state.bubble === null) this.companions.say(EN.eddyLine);
+  }
+
   private addRipple(distanceM: number, big: boolean): void {
-    this.ripples.push({ x: BOBBER_X, y: distanceToY(distanceM), age: 0, big });
+    const spot = this.driftSpot('drift' in this.state ? this.state.drift : undefined);
+    this.ripples.push({ x: spot.x, y: distanceToY(distanceM) + spot.dy, age: 0, big });
   }
 
   /** Shows who someone is for a moment. */
@@ -3054,7 +3087,7 @@ export class LakeScene extends Phaser.Scene {
     const barTint = lerpColor(0xffffff, look.worldTint, 0.35);
     if (s.kind === 'fighting' && s.line) {
       this.catchBar.hide();
-      this.lineView.update(s.line, this.ctx.barGear, barTint, this.elapsed, s.fish.slipAfterMs);
+      this.lineView.update(s.line, this.ctx.barGear, barTint, this.elapsed, s.fish.slipAfterMs, this.fightAnchor());
     } else if (s.kind === 'fighting') {
       this.lineView.hide();
       this.catchBar.update(s.bar, this.ctx.barGear, barTint, s.hooked.speciesId, s.fish.slipAfterMs);
@@ -3758,6 +3791,11 @@ export class LakeScene extends Phaser.Scene {
     }
   }
 
+  /** How fast the river runs now, 1 in normal weather: faster in rain, slower in the eerie calm and while the ferry rope creaks. The foam streaks and the bobber's drift (slice 25c) both follow it. */
+  private riverFlowRate(): number {
+    return (1 + STREAK_RAIN_BOOST * this.weatherVis('rain')) * (1 - 0.9 * this.eerieCalm) * this.ferryNow.current;
+  }
+
   /** The river's moving water (slice 25b): foam streaks along the bend, riffle glints, white water behind the rocks, and the ferry rope. A few dozen rects a frame. */
   private drawRiverFx(look: DayLook): void {
     const g = this.riverFx!;
@@ -3772,7 +3810,7 @@ export class LakeScene extends Phaser.Scene {
     // Streaks drift along the bend, ~1.6x faster in rain; the flow clock keeps its phase when the weather changes.
     const dt = Math.max(0, this.elapsed - this.riverLastT) / 1000;
     this.riverLastT = this.elapsed;
-    this.riverFlowT += dt * (1 + STREAK_RAIN_BOOST * this.weatherVis('rain')) * (1 - 0.9 * calm) * this.ferryNow.current;
+    this.riverFlowT += dt * this.riverFlowRate();
     for (const s of this.riverStreaks) {
       const d = streakAt(s, this.riverFlowT, 1);
       if (!d) continue;
@@ -3924,6 +3962,22 @@ export class LakeScene extends Phaser.Scene {
     }
   }
 
+  /** Where a drifting bobber sits (slice 25c): `x` along its run from the landing to the eddy, `dy` the band's bend offset there so it stays in its band. Still water: the landing column. */
+  private driftSpot(drift: number | undefined): { x: number; dy: number } {
+    if (drift === undefined || !this.loc.current) return { x: BOBBER_X, dy: 0 };
+    const x = Phaser.Math.Linear(BOBBER_X, EDDY_X, driftPos(drift));
+    return { x, dy: bandBendY(x) };
+  }
+
+  /** The line fight's centre: where the drifted bobber was at the hook, easing back to the middle over ~1.2 s. */
+  private fightAnchor(): FightAnchor | undefined {
+    const from = this.fightFrom;
+    if (!from) return undefined;
+    const t = Math.min(1, this.stateAge / 1200);
+    const k = t * t * (3 - 2 * t);
+    return { x: Phaser.Math.Linear(from.x, BOBBER_X, k), dy: from.dy * (1 - k) };
+  }
+
   private bobberPosition(): { x: number; y: number } | null {
     const s = this.state;
     if (s.kind === 'casting') {
@@ -3935,20 +3989,25 @@ export class LakeScene extends Phaser.Scene {
       return { x: Phaser.Math.Linear(tip.x, BOBBER_X, t), y };
     }
     if (s.kind === 'waiting') {
-      const bob = Math.round(Math.sin(this.elapsed / 400) * 1.2);
+      // Settled in the eddy (slice 25c): calmer, with a slow circular sway.
+      const settled = s.drift !== undefined && s.drift >= 1;
+      const spot = this.driftSpot(s.drift);
+      const bob = Math.round(Math.sin(this.elapsed / 400) * (settled ? 0.6 : 1.2) + (settled ? Math.sin(this.elapsed / 1300) * 0.9 : 0));
+      const sway = settled ? Math.round(Math.cos(this.elapsed / 1300) * 1.5) : 0;
       // A nibble tugs the bobber down briefly.
       const dip = this.nibbleAge < NIBBLE_ANIM_MS ? Math.round(Math.sin((this.nibbleAge / NIBBLE_ANIM_MS) * Math.PI) * 3) : 0;
       // A windy day pushes the bobber a few px sideways (purely visual; the line follows it).
       const drift = Math.round(this.weatherVis('windy') * (Math.sin(this.elapsed / 1700) * 2.2 + Math.sin(this.elapsed / 610) * 0.8));
-      return { x: BOBBER_X + drift, y: distanceToY(s.distanceM) + bob + dip };
+      return { x: spot.x + sway + drift, y: distanceToY(s.distanceM) + spot.dy + bob + dip };
     }
     if (s.kind === 'bite') {
       const shake = Math.round(Math.sin(this.elapsed / 30));
-      return { x: BOBBER_X + shake, y: distanceToY(s.distanceM) + 3 };
+      const spot = this.driftSpot(s.drift);
+      return { x: spot.x + shake, y: distanceToY(s.distanceM) + spot.dy + 3 };
     }
     if (s.kind === 'fighting') {
       // A line fight: the bobber rides under the splash at the end of the line.
-      if (s.line) return fishScreenPos(s.line, this.elapsed);
+      if (s.line) return fishScreenPos(s.line, this.elapsed, this.fightAnchor());
       // The bobber jerks with the fish: it follows the fish height on the bar and its speed.
       const { fish, fishVel } = s.bar;
       const kick = Phaser.Math.Clamp(fishVel * 9, -10, 10);
@@ -3960,11 +4019,13 @@ export class LakeScene extends Phaser.Scene {
     }
     if (s.kind === 'lost') {
       // Nothing pulls on it any more: it just floats and bobs.
-      return { x: BOBBER_X, y: distanceToY(s.distanceM) + Math.round(Math.sin(this.elapsed / 400) * 1.2) };
+      const spot = this.driftSpot(s.drift);
+      return { x: spot.x, y: distanceToY(s.distanceM) + spot.dy + Math.round(Math.sin(this.elapsed / 400) * 1.2) };
     }
     if (s.kind === 'retrieving') {
       const t = this.anim * this.anim; // ease-in: starts slow, speeds up
-      return { x: BOBBER_X, y: Phaser.Math.Linear(distanceToY(s.distanceM), this.rodTip().y, t) };
+      const spot = this.driftSpot(s.drift);
+      return { x: Phaser.Math.Linear(spot.x, BOBBER_X, t), y: Phaser.Math.Linear(distanceToY(s.distanceM) + spot.dy, this.rodTip().y, t) };
     }
     return null;
   }

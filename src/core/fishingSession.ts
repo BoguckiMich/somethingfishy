@@ -4,6 +4,7 @@ import type { TimeOfDay } from './clock';
 import { speciesById } from './data/fish';
 import type { GameEvent } from './events';
 import { beginFight, holdFight, tickFight, type CatchStyle } from './fight';
+import { advanceDrift, biteRate, fightEveryMul } from './current';
 import type { LineFightState } from './lineFight';
 import { baitById } from './data/baits';
 import type { WeatherEffects } from './daily/weather';
@@ -22,17 +23,17 @@ export type FishingState =
   | { kind: 'idle' }
   | { kind: 'charging'; heldMs: number }
   | { kind: 'casting'; power: number; distanceM: number; zone: ZoneId }
-  /** Bobber in the water. `untilMs` counts down to the next nibble or the real bite. */
-  | { kind: 'waiting'; distanceM: number; zone: ZoneId; hooked: HookedFish; untilMs: number; nibblesLeft: number; hadNibble: boolean }
+  /** Bobber in the water. `untilMs` counts down to the next nibble or the real bite. `drift` (slice 25c, moving water only: 0 landed .. 1 settled in the eddy) is carried through every state after, so the bobber stays where it is. */
+  | { kind: 'waiting'; distanceM: number; zone: ZoneId; hooked: HookedFish; untilMs: number; nibblesLeft: number; hadNibble: boolean; drift?: number }
   /** The real bite: the bobber is under and the player must tap within `windowLeftMs`. */
-  | { kind: 'bite'; distanceM: number; zone: ZoneId; hooked: HookedFish; windowLeftMs: number }
+  | { kind: 'bite'; distanceM: number; zone: ZoneId; hooked: HookedFish; windowLeftMs: number; drift?: number }
   /** The fight. Classic: holding raises the catch-bar zone; `bar.holding` mirrors the player's thumb. Line style (slice 28): `line` carries the fight and `bar` is an inert placeholder (core/fight.ts). */
-  | { kind: 'fighting'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; bar: CatchBarState; line?: LineFightState }
+  | { kind: 'fighting'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; bar: CatchBarState; line?: LineFightState; drift?: number }
   /** The show-off: the fish is held up. A press (after a short guard) or the timer ends it. */
   | { kind: 'caught'; distanceM: number; zone: ZoneId; hooked: HookedFish; fish: FishProfile; shownMs: number }
   /** The fish got away: the line hangs slack for a moment, then the normal reel-in follows. */
-  | { kind: 'lost'; distanceM: number; ageMs: number }
-  | { kind: 'retrieving'; distanceM: number };
+  | { kind: 'lost'; distanceM: number; ageMs: number; drift?: number }
+  | { kind: 'retrieving'; distanceM: number; drift?: number };
 
 export type FishingInput =
   | { type: 'press' }
@@ -55,6 +56,8 @@ export interface SessionContext {
   baitId?: () => string | undefined;
   /** Today's fish (slice 19): bites more. Absent means none. */
   fotdId?: () => string | undefined;
+  /** How fast the river runs right now, 1 = normal weather (the scene's foam-streak speed: faster in rain, slower while the ferry rope creaks). Absent = 1. Only a place with a `current` reads it. */
+  flow?: () => number;
   /** Today's weather and what it does to the bites right now (slice 23b). Absent means none. */
   weatherFx?: () => WeatherEffects | undefined;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
@@ -108,6 +111,9 @@ export function fightGear(gear: BarGear, baitId: string | undefined): BarGear {
   return calm > gear.baitCalm ? { ...gear, baitCalm: calm } : gear;
 }
 
+/** The drift of a state, as a spread for the next state (nothing at still water, so Quiet Lake's states are what they always were). */
+const driftOf = (state: { drift?: number }): { drift?: number } => (state.drift !== undefined ? { drift: state.drift } : {});
+
 export const INITIAL_STATE: FishingState = { kind: 'idle' };
 
 const same = (state: FishingState): StepResult => ({ state, events: [] });
@@ -158,19 +164,26 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
         untilMs: randRange(ctx.rng, ...BITE_TUNING.firstWaitMs) * firstWaitFactor(bait, state.zone) * (fx?.waitFactor ?? 1) * (fx?.zoneWaitFactor[state.zone] ?? 1),
         nibblesLeft: randInt(ctx.rng, ...speciesById(hooked.speciesId)!.nibbles),
         hadNibble: false,
+        ...(ctx.location.current ? { drift: 0 } : {}),
       });
 
     case 'waiting': {
       if (input.type === 'press') {
         // Reeling in before the bite. If a fish was already nibbling, it gets scared off.
         return {
-          state: { kind: 'retrieving', distanceM: state.distanceM },
+          state: { kind: 'retrieving', distanceM: state.distanceM, ...driftOf(state) },
           events: state.hadNibble ? [{ type: 'fishEscaped', reason: 'tooEarly' }] : [],
         };
       }
       if (input.type !== 'tick') return same(state);
-      const untilMs = state.untilMs - input.dtMs;
-      if (untilMs > 0) return same({ ...state, untilMs });
+      // Moving water (slice 25c): the bobber drifts and the countdown runs at the river's rate; nothing is re-rolled.
+      const cur = ctx.location.current;
+      const drift = cur && state.drift !== undefined ? advanceDrift(state.drift, input.dtMs, ctx.flow?.() ?? 1, cur) : state.drift;
+      const rate = cur ? biteRate(cur, zoneAt(ctx.location, state.distanceM).id, state.drift) : 1;
+      const untilMs = state.untilMs - input.dtMs * rate;
+      const settled = drift === 1 && state.drift !== undefined && state.drift < 1;
+      const drifted = drift !== undefined ? { drift } : {};
+      if (untilMs > 0) return { state: { ...state, untilMs, ...drifted }, events: settled ? [{ type: 'driftSettled' }] : [] };
       if (state.nibblesLeft > 0) {
         return {
           state: {
@@ -178,22 +191,23 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
             untilMs: randRange(ctx.rng, ...BITE_TUNING.nibbleGapMs),
             nibblesLeft: state.nibblesLeft - 1,
             hadNibble: true,
+            ...drifted,
           },
-          events: [{ type: 'nibble' }],
+          events: settled ? [{ type: 'nibble' }, { type: 'driftSettled' }] : [{ type: 'nibble' }],
         };
       }
       return {
-        state: { kind: 'bite', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, windowLeftMs: BITE_TUNING.hookWindowMs },
-        events: [{ type: 'bite' }],
+        state: { kind: 'bite', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, windowLeftMs: BITE_TUNING.hookWindowMs, ...drifted },
+        events: settled ? [{ type: 'bite' }, { type: 'driftSettled' }] : [{ type: 'bite' }],
       };
     }
 
     case 'bite': {
       if (input.type === 'press') {
         const fish = ctx.fishOverride ?? fightProfile(speciesById(state.hooked.speciesId)!, state.hooked.lengthCm, ctx.weatherFx?.()?.difficultyAdd);
-        const fight = beginFight(ctx.catchStyle?.() ?? 'classic', fish, fightGear(ctx.barGear, ctx.baitId?.()), ctx.rng, state.distanceM, state.hooked.speciesId);
+        const fight = beginFight(ctx.catchStyle?.() ?? 'classic', fish, fightGear(ctx.barGear, ctx.baitId?.()), ctx.rng, state.distanceM, state.hooked.speciesId, fightEveryMul(ctx.location.current, ctx.weatherFx?.()?.id === 'rain', fish.slipAfterMs !== undefined));
         return {
-          state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, fish, ...fight },
+          state: { kind: 'fighting', distanceM: state.distanceM, zone: state.zone, hooked: state.hooked, fish, ...fight, ...driftOf(state) },
           events: [{ type: 'hooked', zone: state.zone }],
         };
       }
@@ -201,7 +215,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       const windowLeftMs = state.windowLeftMs - input.dtMs;
       if (windowLeftMs > 0) return same({ ...state, windowLeftMs });
       return {
-        state: { kind: 'retrieving', distanceM: state.distanceM },
+        state: { kind: 'retrieving', distanceM: state.distanceM, ...driftOf(state) },
         events: [{ type: 'fishEscaped', reason: 'tooLate' }],
       };
     }
@@ -233,7 +247,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       }
       if (outcome.kind === 'lost') {
         return {
-          state: { kind: 'lost', distanceM, ageMs: 0 },
+          state: { kind: 'lost', distanceM, ageMs: 0, ...driftOf(state) },
           events: [
             {
               type: 'fishLost',
@@ -260,7 +274,7 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
     case 'lost': {
       if (input.type !== 'tick') return same(state); // presses are ignored while the line hangs slack
       const ageMs = state.ageMs + input.dtMs;
-      return same(ageMs >= FIGHT_TUNING.slackMs ? { kind: 'retrieving', distanceM: state.distanceM } : { ...state, ageMs });
+      return same(ageMs >= FIGHT_TUNING.slackMs ? { kind: 'retrieving', distanceM: state.distanceM, ...driftOf(state) } : { ...state, ageMs });
     }
 
     case 'retrieving':
