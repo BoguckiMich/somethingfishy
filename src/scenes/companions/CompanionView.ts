@@ -79,6 +79,8 @@ export class CompanionView {
   private lastStickState: string = 'hidden';
   /** Sticks lying on the grass (old ones and the spare), one image each, reused. */
   private ground: Phaser.GameObjects.Image[] = [];
+  /** The shape of her frame shown last update (the hearts anchor to her head). */
+  private dogShape: string = 'lie';
   private zs: Phaser.GameObjects.Image[] = [];
   private hearts: { img: Phaser.GameObjects.Image; age: number; life: number }[] = [];
   private bubbleGfx: Phaser.GameObjects.Graphics;
@@ -187,11 +189,13 @@ export class CompanionView {
     const waking = isNapping(this.state);
     petDog(this.state);
     const d = this.state.dog;
-    const rise = waking ? 36 : 28;
     const life = waking ? 1200 : 1000;
+    // Anchored to her head in the frame she shows now (rows of her 24 px sprite, her feet at the bottom), 6 px above it.
+    const headTop = { curl: 5, sleep: 12, lie: 13, sit: 21, stand: 21, bow: 12, eat: 12, run: 18 }[this.dogShape] ?? 18;
+    const headX = (this.dogShape === 'curl' ? 5 : 6) * (d.face < 0 ? -1 : 1);
     // Two hearts side by side, the second a little later and higher, so a pet reads at a glance.
-    for (const [dx, lift, delay] of [[-4, 0, 0], [5, 5, 160]] as const) {
-      const img = this.scene.add.image(Math.round(d.x) + dx, Math.round(d.y - rise - lift), TEX.heart).setDepth(DEPTH + 4).setScale(2);
+    for (const [dx, lift, delay] of [[-5, 0, 0], [6, 3, 160]] as const) {
+      const img = this.scene.add.image(Math.round(d.x + headX) + dx, Math.round(d.y - headTop - 6 - lift), TEX.heart).setDepth(DEPTH + 4).setScale(2);
       this.hearts.push({ img, age: -delay, life });
     }
   }
@@ -274,6 +278,7 @@ export class CompanionView {
       carry: v.shape === 'run' && v.carry,
     };
     const d = s.dog;
+    this.dogShape = v.shape;
     const wiggle = d.petMs > 0 ? Math.round(Math.sin(elapsed / 45)) : 0;
     if (d.y < p.y - 3) this.dogBehind = true;
     else if (d.y > p.y + 3) this.dogBehind = false;
