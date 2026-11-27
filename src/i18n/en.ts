@@ -55,6 +55,9 @@ export const EN = {
   feedBonus: 'Spoiled. Good.',
   /** Pajkel, the first time a bobber settles in the river's slack water (slice 25c). */
   eddyLine: "Slack water. Fish don't love it there.",
+  /** Pajkel, the first cast at the river with the trotting float / the heavy lead (slice 25g). */
+  floatLine: 'That float rides it nicely. Longer in the seam.',
+  leadLine: 'The lead holds it down there. Patient fish like that.',
   feedAsleep: '{dog} is asleep.',
   feedBedtime: 'Bedtime first.',
   feedAfter: '{dog} can eat after this one.',

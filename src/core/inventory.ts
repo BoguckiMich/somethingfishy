@@ -4,6 +4,8 @@ import { BAITS, WORM_ID, baitById, type Bait } from './data/baits';
 import { RODS } from './data/rods';
 import { NIGHT_KIT } from './data/nightKit';
 import { LINES, REELS } from './data/tackle';
+import { RIVER_GEAR_ITEMS, riverGearItem } from './data/riverGear';
+import type { RiverGearOwned } from './current';
 import { DEEP_NIGHT_PRICE_MULT, RARITY_PRICE_MULT, SHOP } from './data/shop';
 import { inSleepWindow } from './bedtime';
 import { timeOfDay } from './clock';
@@ -70,6 +72,9 @@ export interface PlayerState {
   quests?: QuestsState;
   /** Which bottle notes were read this round (slice 14); missing in older saves, read with notesOf(). */
   notes?: NotesState;
+  /** Owns the river gear (slice 25g): the trotting float and the heavy lead; missing = no. Read with riverGearOf(). */
+  riverFloat?: boolean;
+  riverLead?: boolean;
   /** Owns the night kit "Lantern & blanket" (slice 16); missing = no. */
   nightKit?: boolean;
   /** Filled slots per checklist bundle (slice 20); missing = nothing filled. Read with checklistOf(). */
@@ -327,6 +332,29 @@ export function buyReel(state: PlayerState, stock: ShopStock = QUIET_LAKE_STOCK)
   if (state.coins < reel.price) return fail(state, 'needCoins', reel.price - state.coins);
   return { ok: true, state: { ...state, coins: state.coins - reel.price, reelId: reel.id } };
 }
+
+// ---- River gear (slice 25g) ------------------------------------------------------------------
+
+/** Which river gear she owns (both passive and always on; they act only where the place has a current). */
+export const riverGearOf = (p: PlayerState): RiverGearOwned => ({ float: p.riverFloat === true, lead: p.riverLead === true });
+
+export const hasRiverGear = (p: PlayerState, id: string): boolean => {
+  const item = riverGearItem(id);
+  return item !== undefined && p[item.flag] === true;
+};
+
+/** Buys the trotting float or the heavy lead (once each): sold at the river only, behind river checklist bundles. */
+export function buyRiverGear(state: PlayerState, id: string, stock: ShopStock = QUIET_LAKE_STOCK): Outcome {
+  const item = riverGearItem(id);
+  if (!item || !sold(stock, item.id)) return fail(state, 'notSoldHere');
+  if (hasRiverGear(state, id)) return fail(state, 'owned');
+  if (!gearUnlocked(item.id, state)) return fail(state, 'locked');
+  if (state.coins < item.price) return fail(state, 'needCoins', item.price - state.coins);
+  return { ok: true, state: { ...state, coins: state.coins - item.price, [item.flag]: true } };
+}
+
+/** The river gear she owns, as the items (for "Your tackle"). */
+export const ownedRiverGear = (p: PlayerState) => RIVER_GEAR_ITEMS.filter((g) => p[g.flag] === true);
 
 // ---- The night kit (slice 16) ----------------------------------------------------------------
 

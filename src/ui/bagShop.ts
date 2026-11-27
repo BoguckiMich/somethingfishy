@@ -15,6 +15,7 @@ import { bagTier } from '../core/data/stars';
 import { RODS } from '../core/data/rods';
 import { NIGHT_KIT } from '../core/data/nightKit';
 import { CAMP_ITEMS } from '../core/data/camp';
+import { RIVER_GEAR_ITEMS, riverGearItem } from '../core/data/riverGear';
 import { EN, tr } from '../i18n/en';
 import { buyCampItem, hasCamp } from '../core/camp';
 import type { Line, Reel, Rod } from '../core/gear';
@@ -28,12 +29,15 @@ import {
   hasNightKit,
   nightKitForSale,
   buyReel,
+  buyRiverGear,
   buyRod,
   buyTreats,
   buyWorms,
   equippedLine,
   equippedReel,
   freeWormsIfStuck,
+  hasRiverGear,
+  ownedRiverGear,
   nextLine,
   nextReel,
   nextRod,
@@ -405,13 +409,16 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
         tackleEntry(equippedLine(p), 'No line yet'),
         tackleEntry(equippedReel(p), 'No reel yet'),
         ...(hasNightKit(p) ? [tackleEntry(NIGHT_KIT, '')] : []),
+        ...ownedRiverGear(p).map((g) => tackleEntry(g, '')),
       );
 
-      body.append(sectionTitle(stock.gear.length > 0 ? 'Upgrades' : 'River gear'));
+      // Rods, lines and reels are the lake's section ("Upgrades"); the river sells its own items under `stock.gearTitle` ("River tackle", slice 25g).
+      const lakeGear = stock.gear.some((id) => !riverGearItem(id));
+      body.append(sectionTitle(lakeGear ? 'Upgrades' : stock.gearTitle ?? 'River gear'));
       if (stock.gear.length === 0) body.append(emptyNote(stock.gearEmpty ?? 'Nothing for sale here yet.'));
       const rod = nextRod(p);
       const gateOf = (id: string) => (gearUnlocked(id, p) ? undefined : gateText(id, p));
-      if (stock.gear.length > 0) body.append(
+      if (lakeGear) body.append(
         rod
           ? itemCard({
               gate: gateOf(rod.id),
@@ -435,16 +442,36 @@ export function openShopPanel(store: PlayerStore, onClose: () => void, startTab?
       );
       const line = nextLine(p);
       const reel = nextReel(p);
-      const lineCard = !line || sold(stock, line.id) ? tackleCard(equippedLine(p), line, p.coins, () => {
+      const lineCard = lakeGear && (!line || sold(stock, line.id)) ? tackleCard(equippedLine(p), line, p.coins, () => {
         apply(buyLine(store.get(), stock), line?.id);
         panel.refresh();
       }, line ? gateOf(line.id) : undefined) : undefined;
-      const reelCard = !reel || sold(stock, reel.id) ? tackleCard(equippedReel(p), reel, p.coins, () => {
+      const reelCard = lakeGear && (!reel || sold(stock, reel.id)) ? tackleCard(equippedReel(p), reel, p.coins, () => {
         apply(buyReel(store.get(), stock), reel?.id);
         panel.refresh();
       }, reel ? gateOf(reel.id) : undefined) : undefined;
       if (lineCard) body.append(lineCard);
       if (reelCard) body.append(reelCard);
+
+      // River tackle (slice 25g): the trotting float and the heavy lead, bought once each, behind river checklist bundles.
+      for (const item of RIVER_GEAR_ITEMS.filter((g) => sold(stock, g.id))) {
+        body.append(
+          hasRiverGear(p, item.id)
+            ? itemCard({ id: item.id, name: item.name, note: 'Owned', effect: item.effect, coins: p.coins })
+            : itemCard({
+                gate: gateOf(item.id),
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                effect: item.effect,
+                coins: p.coins,
+                buy: () => {
+                  apply(buyRiverGear(store.get(), item.id, stock), item.id);
+                  panel.refresh();
+                },
+              }),
+        );
+      }
 
       // The night kit (slice 16): always shown; locked until the fiberglass rod (or better) is owned.
       if (sold(stock, NIGHT_KIT.id)) body.append(

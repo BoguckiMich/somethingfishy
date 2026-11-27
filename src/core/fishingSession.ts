@@ -4,7 +4,7 @@ import type { TimeOfDay } from './clock';
 import { speciesById } from './data/fish';
 import type { GameEvent } from './events';
 import { beginFight, holdFight, tickFight, type CatchStyle } from './fight';
-import { advanceDrift, biteRate, fightEveryMul } from './current';
+import { advanceDrift, biteRate, driftGearMul, fightEveryMul, type RiverGearOwned } from './current';
 import type { LineFightState } from './lineFight';
 import { baitById } from './data/baits';
 import type { WeatherEffects } from './daily/weather';
@@ -58,6 +58,8 @@ export interface SessionContext {
   fotdId?: () => string | undefined;
   /** How fast the river runs right now, 1 = normal weather (the scene's foam-streak speed: faster in rain, slower while the ferry rope creaks). Absent = 1. Only a place with a `current` reads it. */
   flow?: () => number;
+  /** The river gear she owns (slice 25g: trotting float, heavy lead). Absent = none. Only a place with a `current` reads it. */
+  riverGear?: () => RiverGearOwned;
   /** Today's weather and what it does to the bites right now (slice 23b). Absent means none. */
   weatherFx?: () => WeatherEffects | undefined;
   /** The current time of day, from the scene's clock (core stays free of the clock itself). */
@@ -178,8 +180,10 @@ export function step(state: FishingState, input: FishingInput, ctx: SessionConte
       if (input.type !== 'tick') return same(state);
       // Moving water (slice 25c): the bobber drifts and the countdown runs at the river's rate; nothing is re-rolled.
       const cur = ctx.location.current;
-      const drift = cur && state.drift !== undefined ? advanceDrift(state.drift, input.dtMs, ctx.flow?.() ?? 1, cur) : state.drift;
-      const rate = cur ? biteRate(cur, zoneAt(ctx.location, state.distanceM).id, state.drift) : 1;
+      const bandId = cur ? zoneAt(ctx.location, state.distanceM).id : '';
+      const gear = cur ? ctx.riverGear?.() : undefined;
+      const drift = cur && state.drift !== undefined ? advanceDrift(state.drift, input.dtMs, ctx.flow?.() ?? 1, cur, driftGearMul(gear, bandId)) : state.drift;
+      const rate = cur ? biteRate(cur, bandId, state.drift, gear) : 1;
       const untilMs = state.untilMs - input.dtMs * rate;
       const settled = drift === 1 && state.drift !== undefined && state.drift < 1;
       const drifted = drift !== undefined ? { drift } : {};

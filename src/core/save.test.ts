@@ -321,3 +321,17 @@ describe('the last nap stamp (balance A2)', () => {
     expect(normalizeSave({ version: 1, player: {}, clock: {} }).player).not.toHaveProperty('napAt');
   });
 });
+
+describe('normalizeSave: river gear (slice 25g)', () => {
+  const gear = (player: unknown) => normalizeSave({ version: 1, player }).player;
+  it('is kept only when true; an old save has no keys', () => {
+    const p = gear({ riverFloat: true, riverLead: true });
+    expect(p.riverFloat).toBe(true);
+    expect(p.riverLead).toBe(true);
+    const half = gear({ riverFloat: true, riverLead: 'yes' });
+    expect(half.riverFloat).toBe(true);
+    expect('riverLead' in half).toBe(false);
+    for (const key of ['riverFloat', 'riverLead']) expect(key in gear({})).toBe(false);
+    expect('riverFloat' in newPlayer()).toBe(false);
+  });
+});

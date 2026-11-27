@@ -158,3 +158,16 @@ Ferry pike 10 -> 8 / 24 -> 12 / 93 -> 77 dry (rain 2 / 3 / 48), Lantern 24 -> 19
 | pool 32 m | 8.1 | 7.1 | 17.6 | 7.1 | 7.1 / 8.0 |
 
 The seam bites about 40 % sooner than the lake while the bobber drifts (x1.35); a settled bobber waits about 2.5x longer (x0.4). A normal wait is over before the eddy is reached (the first wait is 2.5-8 s plus nibbles), so the eddy is a fallback for long waits (fog, a slow fish of the day), as designed: "bites there are rarer, so it nudges her to reel in and cast again".
+
+
+## River gear (25g, `SIM=1 npx vitest run src/sim/lineFight -t "river gear"`)
+
+Slice 25g (`RIVER_GEAR` in `core/current.ts`): trotting float (drift x0.6, seam bites x1.5 instead of x1.35) and heavy lead (pool drift x0.3, pool bites x1.3; both together: pool drift x0.18). Mean seconds to the first bite / share of waits that reached the eddy before biting (carbon rod, day, 400 seeded casts per cell, 25 ms ticks, real run: `runS` 15, flow 1):
+
+| band (cast) | none | float | lead | both |
+|---|---|---|---|---|
+| riffle 6 m | 6.7 s / 0 % | 6.7 s / 0 % | 6.7 s / 0 % | 6.7 s / 0 % |
+| seam 20 m | 4.9 s / 0 % | 4.4 s / 0 % | 4.9 s / 0 % | 4.4 s / 0 % |
+| pool 32 m | 7.1 s / 0 % | 7.1 s / 0 % | 5.4 s / 0 % | 5.4 s / 0 % |
+
+The float is worth about 10 % in the seam in bite time (the bigger gain is the 25 s the bobber spends crossing it, which is what the item is for); the lead about 24 % in the pool. Neither changes the riffle. No wait reaches the eddy before the bite with or without gear (the bite comes in 4-7 s on average, the run is 15-83 s), so the eddy rule is untouched. Fights are not changed by the gear, so no catch-rate sim is needed.

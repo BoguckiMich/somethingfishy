@@ -96,6 +96,7 @@ import {
   totalBait,
   newPlayer,
   releasePending,
+  riverGearOf,
   swapForCheapest,
   toBagFish,
   type BagFish,
@@ -358,6 +359,7 @@ export class LakeScene extends Phaser.Scene {
     fotdId: () => this.fotdId(),
     weatherFx: () => this.weatherNow(),
     flow: () => this.riverFlowRate() * this.devFlow,
+    riverGear: () => riverGearOf(this.player),
     catchStyle: () => this.catchStyleNow(),
   };
   /** A DOM panel (bag, shop) or the bag-full card is open: the lake waits. */
@@ -693,6 +695,10 @@ export class LakeScene extends Phaser.Scene {
     // midnight), ?debug=warn at 00:59:50 (the 01:00 warning), ?debug=sleep at 01:59:30 (Alex's 02:00),
     // ?debug=incar starts with Pajkel and Bestia asleep in the car (at 03:00, with the kit).
     if (params.get('kit') === '1') this.setPlayer({ ...this.player, nightKit: true });
+    // Dev-only (slice 25g): ?gear=float,lead owns the river gear (the trotting float, the heavy lead); sandboxed, like the other flags.
+    const gearParam = (params.get('gear') ?? '').split(',');
+    if (gearParam.includes('float')) this.setPlayer({ ...this.player, riverFloat: true });
+    if (gearParam.includes('lead')) this.setPlayer({ ...this.player, riverLead: true });
     if (params.get('debug') === 'bedtime') this.clock = { ...this.clock, minute: 23 * 60 + 59.5 };
     if (params.get('debug') === 'warn') this.clock = { ...this.clock, minute: 59 + 50 / 60 };
     if (params.get('debug') === 'sleep') this.clock = { ...this.clock, minute: 119.5 };
@@ -1326,7 +1332,7 @@ export class LakeScene extends Phaser.Scene {
           const text = r.reward ? checklistRewardText(r.reward) : '';
           this.showToast(text ? `${bundle.name} done! ${text}` : `${bundle.name} done!`);
           // This bundle opened some gear in the shop (A3): a dot on the Shop button until she opens it, and a second toast.
-          if (this.loc.id === QUIET_LAKE.id && gearOpenedBy(bundle.id, this.player).length > 0) {
+          if (gearOpenedBy(bundle.id, this.player).length > 0) {
             this.shopDot = true;
             this.gearToastTimer?.remove();
             this.gearToastTimer = this.time.delayedCall(2600, () => this.showToast(EN.newGearInShop));
@@ -2120,6 +2126,7 @@ export class LakeScene extends Phaser.Scene {
         break;
       case 'cast':
         this.setPlayer({ ...this.player, seen: markCast(this.player.seen) });
+        this.onRiverGearCast();
         // The state is still the charging one: a fuller charge makes a higher, louder whoosh.
         sound.play('cast', { charge: s.kind === 'charging' ? chargePower(s.heldMs) : 0.5 });
         break;
@@ -2131,6 +2138,16 @@ export class LakeScene extends Phaser.Scene {
     if (isSeen(this.player.seen, 'eddy')) return;
     this.setPlayer({ ...this.player, seen: markHintSeen(this.player.seen, 'eddy') });
     if (this.pajCanSpeak() && this.companions.state.bubble === null) this.companions.say(EN.eddyLine);
+  }
+
+  /** The first cast at the river with the trotting float / the heavy lead, Pajkel says how it rides (saved like the hints; once each). */
+  private onRiverGearCast(): void {
+    if (!this.loc.current || !this.pajCanSpeak() || this.companions.state.bubble !== null) return;
+    const gear = riverGearOf(this.player);
+    const next = gear.float && !isSeen(this.player.seen, 'riverFloat') ? 'riverFloat' : gear.lead && !isSeen(this.player.seen, 'riverLead') ? 'riverLead' : undefined;
+    if (!next) return;
+    this.setPlayer({ ...this.player, seen: markHintSeen(this.player.seen, next) });
+    this.companions.say(next === 'riverFloat' ? EN.floatLine : EN.leadLine);
   }
 
   private addRipple(distanceM: number, big: boolean): void {
@@ -4179,10 +4196,12 @@ export class LakeScene extends Phaser.Scene {
     const px = Math.round(x);
     const py = Math.round(y);
     this.bobberImg.setVisible(true).setTint(lerpColor(0xffffff, look.worldTint, 0.55));
+    // The trotting float (slice 25g) is a slim stick float at the river; the lake keeps the round bobber.
+    const stick = this.loc.current !== undefined && this.player.riverFloat === true;
     if (under) {
-      this.bobberImg.setTexture(TEX.bobberUnder).setOrigin(0.5, 1).setPosition(px, py - 1);
+      this.bobberImg.setTexture(stick ? TEX.stickFloatUnder : TEX.bobberUnder).setOrigin(0.5, 1).setPosition(px, py - 1);
     } else {
-      this.bobberImg.setTexture(TEX.bobber).setOrigin(0.5, 5 / 9).setPosition(px, py);
+      this.bobberImg.setTexture(stick ? TEX.stickFloat : TEX.bobber).setOrigin(0.5, stick ? 0.7 : 5 / 9).setPosition(px, py);
     }
   }
 

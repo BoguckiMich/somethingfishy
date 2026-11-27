@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buyCampItem } from './camp';
 import { QUIET_LAKE, RIVER_BEND } from './data/locations';
 import { BASIC_BAIT, sold } from './data/shopStock';
-import { buyBait, buyLine, buyNightKit, buyReel, buyRod, buyWorms, newPlayer } from './inventory';
+import { buyBait, buyLine, buyNightKit, buyReel, buyRiverGear, buyRod, buyWorms, newPlayer, riverGearOf } from './inventory';
+import { withBundlesDone } from './checklist/checklist';
 
 /** Everything the Buy tab offered at Quiet Lake before slice 29 (worms, baits, rods, lines, reels, night kit, camp), pinned by hand. */
 const BEFORE_SLICE_29 = [
@@ -29,10 +30,14 @@ describe('shop stock per place', () => {
     }
   });
 
-  it('River bend has no gear and no camp yet, and says so kindly', () => {
-    expect(river.gear).toEqual([]);
+  it('River bend sells the two river items under "River tackle" and no camp; the lake sells neither', () => {
+    expect(river.gear).toEqual(['float', 'lead']);
+    expect(river.gearTitle).toBe('River tackle');
     expect(river.camp).toEqual([]);
-    expect(river.gearEmpty).toContain('river tackle');
+    expect(sold(lake, 'float')).toBe(false);
+    expect(sold(lake, 'lead')).toBe(false);
+    expect(sold(river, 'float')).toBe(true);
+    expect(sold(river, 'lead')).toBe(true);
   });
 });
 
@@ -68,5 +73,46 @@ describe('buying is place-aware', () => {
     expect(r.state.rodId).toBe('fiberglass');
     expect(r.state.lineId).toBe('braided');
     expect(r.state.reelId).toBe('smooth');
+  });
+});
+
+describe('river gear purchases (slice 25g)', () => {
+  const open2 = () => withBundlesDone(rich(), 2, 'river-bend');
+  it('the prices are 700 and 900', () => {
+    const f = buyRiverGear(withBundlesDone(rich(), 1, 'river-bend'), 'float', river);
+    const l = buyRiverGear(open2(), 'lead', river);
+    expect(f.ok && f.state.coins).toBe(100_000 - 700);
+    expect(l.ok && l.state.coins).toBe(100_000 - 900);
+  });
+  it('is refused while the river bundles are not done, even with the coins', () => {
+    expect(buyRiverGear(rich(), 'float', river)).toMatchObject({ ok: false, error: 'locked' });
+    expect(buyRiverGear(withBundlesDone(rich(), 1, 'river-bend'), 'lead', river)).toMatchObject({ ok: false, error: 'locked' });
+    // The lake's bundles do not count.
+    expect(buyRiverGear(withBundlesDone(rich(), 4, 'quiet-lake'), 'float', river)).toMatchObject({ ok: false, error: 'locked' });
+  });
+  it('is refused at Quiet Lake with notSoldHere, state untouched', () => {
+    const p = open2();
+    for (const id of ['float', 'lead']) {
+      const r = buyRiverGear(p, id, lake);
+      expect(r).toMatchObject({ ok: false, error: 'notSoldHere' });
+      expect(r.state).toBe(p);
+    }
+    expect(buyRiverGear(p, 'nope', river)).toMatchObject({ ok: false, error: 'notSoldHere' });
+  });
+  it('needs the coins, and says how many are missing', () => {
+    const p = { ...open2(), coins: 650 };
+    expect(buyRiverGear(p, 'float', river)).toMatchObject({ ok: false, error: 'needCoins', missing: 50 });
+  });
+  it('deducts the coins, sets the ownership, and cannot be bought twice', () => {
+    const p = open2();
+    expect(riverGearOf(p)).toEqual({ float: false, lead: false });
+    const a = buyRiverGear(p, 'float', river);
+    expect(a.ok).toBe(true);
+    expect(a.state.coins).toBe(p.coins - 700);
+    expect(riverGearOf(a.state)).toEqual({ float: true, lead: false });
+    expect(buyRiverGear(a.state, 'float', river)).toMatchObject({ ok: false, error: 'owned' });
+    const b = buyRiverGear(a.state, 'lead', river);
+    expect(riverGearOf(b.state)).toEqual({ float: true, lead: true });
+    expect(b.state.coins).toBe(p.coins - 1600);
   });
 });

@@ -28,6 +28,37 @@ export const BOBBER_UNDER = sprite(
   { A: PAL.redLight, f: PAL.foam },
 );
 
+/**
+ * The trotting float (slice 25g), the river's stick float: slim and tall with a bright tip, riding low (the waterline is between rows 6 and 7).
+ * It replaces the round bobber at the river once owned.
+ */
+export const STICK_FLOAT = sprite(
+  `
+  .A.
+  .A.
+  .R.
+  .R.
+  .w.
+  wwW
+  wWd
+  .Wd
+  .d.
+  .d.
+`,
+  { A: PAL.redLight, R: PAL.red, w: PAL.white, W: PAL.whiteShade, d: PAL.stone },
+);
+
+/** The stick float pulled under: its tip and a foam ring. */
+export const STICK_FLOAT_UNDER = sprite(
+  `
+  ..A..
+  ..A..
+  ..A..
+  .fff.
+`,
+  { A: PAL.redLight, f: PAL.foam },
+);
+
 // ---- Trees (far shore) ---------------------------------------------------------------------
 
 const PINE_COLORS = { h: PAL.pineLight, l: PAL.pineLight, m: PAL.pine, d: PAL.pineDark, D: PAL.pineDeep, t: PAL.woodDark, T: PAL.woodDeep };

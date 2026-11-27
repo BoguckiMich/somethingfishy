@@ -12,8 +12,8 @@ export type Glint = (typeof GLINTS)[number];
 export const HINT_CASTS = 3;
 const CAST_IDS = ['cast1', 'cast2', 'cast3'] as const;
 
-/** Every id `seen` may hold: a glint tapped once, the n-th cast made, or the river's eddy line (slice 25c) said. */
-export const SEEN_IDS: readonly string[] = [...GLINTS, ...CAST_IDS, 'eddy'];
+/** Every id `seen` may hold: a glint tapped once, the n-th cast made, the river's eddy line (slice 25c) said, or the river gear's first-cast lines (slice 25g). */
+export const SEEN_IDS: readonly string[] = [...GLINTS, ...CAST_IDS, 'eddy', 'riverFloat', 'riverLead'];
 
 /** How long the one-off lines (3 and later) stay up, and how often a glint twinkles. */
 export const TIP_TUNING = { onceMs: 6000, glintEveryMs: 4000, glintMs: 900 } as const;

@@ -120,7 +120,7 @@ on fixed river spots (it is "their" camp, not the lake's). **The trophy board st
 first; maybe a hammock between two willows later (coin sink for the river).
 
 ❓5. **Gear gates at the river?**
-➡️ New gear is a good river goal: **a float set ("trotting float")** that slows the drift (longer run
+➡️ **BUILT (slice 25g, 2026-11-27: float 700 coins after 1 river bundle, lead 900 after 2; numbers in GAME_DESIGN 25g).** New gear is a good river goal: **a float set ("trotting float")** that slows the drift (longer run
 through the seam) and **a heavier lead** that keeps the bait down in the pool. Both gated by river
 checklist bundles, same pattern as 23a. Rods/lines/reels stay as they are. **(2026-11-27)** The spinning rod is
 not river gear in this sense but a second way of fishing, slice 32 (GAME_DESIGN -> "Spinning rod"); it is sold in
@@ -163,7 +163,7 @@ everywhere (it is the real hour), which also keeps the code simple.
 4. **River fish** (BUILT, slice 25d): trout, grayling, nase, chub, barbel, vimba (+ shared asp, perch, pike) with art and facts.
 5. **River checklist + story R1-R6 + river moments** (BUILT, slice 25e): kingfisher, otter, upstream lantern, paper boat, heron.
 6. **Rare river fish + river trophy board, the Ferryman** (BUILT, slice 25f): the three trophies by their exact conditions, the river board, and the Ferryman with its creak window.
-7. **River gear** (trotting float, heavy lead) behind river bundles.
+7. **River gear** (BUILT, slice 25g): the trotting float and the heavy lead behind river bundles, in the river shop's "River tackle" section.
 8. **Spinning rod** (slice 32, GAME_DESIGN -> "Spinning rod", grilled 2026-11-27): lures, retrieve rhythm, the lure drifts in the current while paused.
 
 **Done when (M2):** she can drive to the river and back; the river has ~4 days of its own goals; the river

@@ -15,7 +15,7 @@ import { RODS } from '../core/data/rods';
 import { LINES, REELS } from '../core/data/tackle';
 import { fightProfile, rollLength } from '../core/fish';
 import type { BarGear } from '../core/gear';
-import { RIVER_CURRENT } from '../core/current';
+import { RIVER_CURRENT, type RiverGearOwned } from '../core/current';
 import { QUIET_LAKE, RIVER_BEND } from '../core/data/locations';
 import { step, type FishingState, type SessionContext } from '../core/fishingSession';
 import { zoneAt, type Location } from '../core/location';
@@ -266,6 +266,41 @@ describe.skipIf(!ON)('river bite timing (slice 25c, SIM=1)', () => {
       rows.push(
         `${name.padEnd(18)} ${meanS(QUIET_LAKE, lakeM, 1, 0).toFixed(1).padStart(8)}s   ${meanS(RIVER_BEND, m, 0, 0).toFixed(1).padStart(12)}s            ${meanS(RIVER_BEND, m, 0, 1).toFixed(1).padStart(8)}s       ${meanS(RIVER_BEND, m, 1, 0).toFixed(1).padStart(8)}s            ${meanS(quick, m, 1, 0).toFixed(1).padStart(6)}s / ${meanS(quick, m, 1.6, 0).toFixed(1).padStart(5)}s`,
       );
+    }
+    console.log(rows.join(String.fromCharCode(10)));
+  });
+});
+
+describe.skipIf(!ON)('river gear (slice 25g, SIM=1)', () => {
+  it('mean seconds to the first bite and the share of waits that reach the eddy before it, per band, with no gear / float / lead / both (real run, flow 1)', { timeout: 300_000 }, () => {
+    const n = 400;
+    const combos: [string, RiverGearOwned][] = [
+      ['none', { float: false, lead: false }],
+      ['float', { float: true, lead: false }],
+      ['lead', { float: false, lead: true }],
+      ['both', { float: true, lead: true }],
+    ];
+    const cell = (distanceM: number, gear: RiverGearOwned): { meanS: number; settledPct: number } => {
+      let total = 0;
+      let settled = 0;
+      for (let seed = 1; seed <= n; seed++) {
+        const ctx: SessionContext = { location: RIVER_BEND, rod: RODS[2], barGear: CARBON, rng: seededRng(seed), timeOfDay: () => 'day', flow: () => 1, riverGear: () => gear };
+        let state: FishingState = step({ kind: 'casting', power: 1, distanceM, zone: zoneAt(RIVER_BEND, distanceM).fishZone }, { type: 'landed' }, ctx).state;
+        let ms = 0;
+        let reachedEddy = false;
+        while (state.kind === 'waiting' && ms < 900_000) {
+          state = step(state, { type: 'tick', dtMs: 25 }, ctx).state;
+          if ((state as { drift?: number }).drift === 1) reachedEddy = true;
+          ms += 25;
+        }
+        total += ms;
+        if (reachedEddy) settled++;
+      }
+      return { meanS: total / n / 1000, settledPct: (settled / n) * 100 };
+    };
+    const rows = ['band (cast)        ' + combos.map(([name]) => name.padStart(14)).join('')];
+    for (const [name, m] of [['riffle 6 m', 6], ['seam 20 m', 20], ['pool 32 m', 32]] as const) {
+      rows.push(name.padEnd(18) + combos.map(([, g]) => { const c = cell(m, g); return `${c.meanS.toFixed(1)}s/${c.settledPct.toFixed(0)}%`.padStart(14); }).join(''));
     }
     console.log(rows.join(String.fromCharCode(10)));
   });
