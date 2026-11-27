@@ -63,7 +63,8 @@ describe('Quiet Lake companion spots (M2 groundwork B)', () => {
     expect(PLAY_AREA).toEqual(QUIET_LAKE.spots.playArea);
     expect(FIRE_SPOT).toEqual(QUIET_LAKE.spots.camp.fire);
     expect(FIRE_KEEP_OFF).toEqual(c.fireKeepOff);
-    expect(DOG_BED_SPOT).toEqual({ x: 94, y: 564 });
+    expect(DOG_BED_SPOT).toEqual({ x: 178, y: 430 }); // the dock bed: her dock lying spot (slice 31)
+    expect(DOG_BED_SPOT).toEqual(c.dog);
     expect(SHORE_TUNING.stand).toEqual(c.shore?.stand);
     expect(SHORE_TUNING.dogSit).toEqual(c.shore?.dogSit);
   });
@@ -110,7 +111,7 @@ describe('River bend companion spots', () => {
       for (const a of [s.paj, s.dog]) {
         if (s.mode === 'bed' && s.bed?.phase === 'asleep') continue;
         expect(dry(a), `${s.mode} ${a.x.toFixed(0)},${a.y.toFixed(0)} on dry ground`).toBe(true);
-        if (onGrassOnly && s.mode === 'play' && s.play.phase !== 'napGo') {
+        if (onGrassOnly && s.mode === 'play') {
           expect(a.y).toBeGreaterThanOrEqual(sp.playArea.y0 - 30);
         }
       }
@@ -144,4 +145,18 @@ describe('River bend companion spots', () => {
     expect(s.paj).toMatchObject(c.paj);
     expect(s.dog).toMatchObject(c.dog);
   });
+});
+
+describe("Bestia's bed on the dock (slice 31)", () => {
+  for (const loc of [QUIET_LAKE, RIVER_BEND]) {
+    it(`${loc.name}: the bed's hollow is exactly her dock lying spot, on the landing`, () => {
+      const bed = loc.spots.camp.bed;
+      expect({ x: bed.x + 14, y: bed.y + 9 }).toEqual(loc.spots.companions.dog);
+      // On the planks, not on the grass lawn.
+      expect(bed.y + 12).toBeLessThan(loc.spots.playArea.y0);
+      const s = createCompanions(seededRng(1), loc.spots);
+      for (let t = 0; t < 3000; t += 50) tickCompanions(s, 50, ctx, seededRng(1));
+      expect(s.dog).toMatchObject({ ...loc.spots.companions.dog, shape: 'lie' });
+    });
+  }
 });

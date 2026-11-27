@@ -59,6 +59,8 @@ import { HINT_GAP_MS, PAJKEL_HINT_LINES, RARE_TUNING, TROPHY_TEXT } from '../cor
 import { addTrophy, boardIds, fullBoard } from '../core/rare';
 import { showTrophyCard } from '../ui/trophyCard';
 import { campfireKey, ensureTrophyBoardTexture, windsockKey } from '../art/textures';
+import { BOWL_SIZE } from '../art/bowlArt';
+import { checkFeed, feedDog } from '../core/feeding';
 import { TENT_APEX, TENT_DOOR, tentDoorHalf, BED_FRONT_FROM, BED_SIZE, CAMPFIRE_FLAME, CAMPFIRE_FRAMES, CAMPFIRE_SIZE, POLE_ANCHOR, POLE_SIZE, TENT_ANCHOR, TENT_SIZE } from '../art/campArt';
 import { SOCK_ORIGIN_X } from '../art/campLayout';
 import { catchJingle } from '../core/catchSound';
@@ -117,7 +119,7 @@ import { BAR_TOP, BottomBar, baitChipRect } from './BottomBar';
 import { BAITS, WORM_ID, baitById } from '../core/data/baits';
 import { CatchBarView } from './CatchBarView';
 import { fishScreenPos, LineFightView } from './LineFightView';
-import { carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
+import { inDockBed, bowlHasFood, feedBusy, feedRequest, carVariant, chairEmpty, companionEvent, companionPress, fetchStickNow, pebbleLanded, pebblesAllowed, pebbleRequest, stickAt, takePebbleRelease, trophyCheer, dogVisible, isInCar, pajVisible, pickLine, startBedtime, startInCar, startNap, startNapNow, startPlayNow, steamShows, tickCompanions, wakeUp } from './companions/behaviour';
 import { BEDTIME_LINES, GOLD_LINES, MEDAL_LINES, RECORD_LINES, SKIP_RECORD_LINES, weatherLinesFor } from '../core/data/pajkelLines';
 import { noteSkips, skipText, throwFor, type FlickSample } from '../core/skipping';
 import { pebbleRoute } from './pebbleRoute';
@@ -289,11 +291,13 @@ function rollStoryDelay(): number {
 }
 
 /** The tap areas of a place's shore things: finger-sized boxes around the spots. */
-function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle; stones: Phaser.Geom.Rectangle | null; bed: Phaser.Geom.Rectangle } {
+function hitRects(sp: Spots): { car: Phaser.Geom.Rectangle; sign: Phaser.Geom.Rectangle; crate: Phaser.Geom.Rectangle; trophy: Phaser.Geom.Rectangle; stones: Phaser.Geom.Rectangle | null; bed: Phaser.Geom.Rectangle; bowl: Phaser.Geom.Rectangle } {
   return {
-    // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed: its picture, a little bigger.
+    // The stones: the picture plus a thumb of room (not past the dock's left edge, x 116). The bed (on the dock, slice 31): its picture and a thumb of room to the left, front and back; its right edge stops short of the bait crate's box.
     stones: sp.stones ? new Phaser.Geom.Rectangle(sp.stones.x - 12, sp.stones.y - 12, Math.min(STONES_SIZE.w + 24, 118 - (sp.stones.x - 12)), STONES_SIZE.h + 26) : null,
-    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 8, BED_SIZE.h + 9),
+    bed: new Phaser.Geom.Rectangle(sp.camp.bed.x - 4, sp.camp.bed.y - 5, BED_SIZE.w + 4, BED_SIZE.h + 9),
+    // The food bowl (slice 30): its picture and a generous thumb of room all round (clear of the car's box above and the bottom bar below).
+    bowl: new Phaser.Geom.Rectangle(sp.bowl.x - 16, sp.bowl.y - 2, BOWL_SIZE.w + 32, BOWL_SIZE.h + 22),
     car: new Phaser.Geom.Rectangle(sp.carHit.x, sp.carHit.y, sp.carHit.w, sp.carHit.h),
     sign: new Phaser.Geom.Rectangle(sp.sign.x - 28, sp.sign.y - 60, 60, 62), // the dock's end (x 244) stays clear
     crate: new Phaser.Geom.Rectangle(sp.crate.x - 22, sp.crate.y - 34, 44, 44),
@@ -477,6 +481,8 @@ export class LakeScene extends Phaser.Scene {
   /** The lights' second pole, standing where the tent's ridge pole would be while the tent is not owned. */
   private campPole2!: Phaser.GameObjects.Image;
   private campBed!: Phaser.GameObjects.Image;
+  /** Bestia's food bowl by the car (slice 30): empty, or with kibble from the moment a treat goes in until she has eaten it. */
+  private bowlImg!: Phaser.GameObjects.Image;
   /** The bed's front rim again, drawn over Bestia when she lies in it (slice 27). */
   private campBedFront!: Phaser.GameObjects.Image;
   private campSock!: Phaser.GameObjects.Image;
@@ -630,6 +636,10 @@ export class LakeScene extends Phaser.Scene {
   private stonesImg: Phaser.GameObjects.Image | null = null;
   /** Fetch rounds already counted for the Stick Museum. */
   private roundsSeen = 0;
+  /** Meals finished that the scene has counted (slice 30). */
+  private fedSeen = 0;
+  /** The bowl was tapped with the line out: she eats as soon as it is back (slice 30). */
+  private feedLater = false;
   /** The fetch phase last frame, to bark when it changes. */
   private lastPlayPhase: string | null = null;
   private elapsed = 0;
@@ -1080,6 +1090,7 @@ export class LakeScene extends Phaser.Scene {
     if (rel) this.throwPebble(rel.skips, rel.side, rel.from);
     if (!this.pebbleFrozen) this.advancePebble(deltaMs);
     this.updateFetchRounds();
+    this.updateFeeding();
     if (this.debugToastInMs !== null && (this.debugToastInMs -= deltaMs) <= 0) {
       this.debugToastInMs = null;
       this.showToast('Quest done! +40 coins, +5 worms');
@@ -1102,7 +1113,7 @@ export class LakeScene extends Phaser.Scene {
 
   /** Calm enough for bedtime to start: nothing but an idle or waiting line, no panel or card, no fade. */
   private calmForBed(): boolean {
-    return (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel && !this.sleepFade;
+    return (this.state.kind === 'idle' || this.state.kind === 'waiting') && !this.panel && !this.sleepFade && this.companions.state.feed === null;
   }
 
   /**
@@ -2375,6 +2386,8 @@ export class LakeScene extends Phaser.Scene {
     if (this.holdHit('chair', x, y)) return this.objectTouched('chair');
     // Bestia's bed (if it is owned): a tap opens the Stick Museum, a hold still casts.
     if (this.holdHit('bed', x, y)) return this.objectTouched('bed');
+    // Her food bowl by the car (slice 30): a tap puts a treat in, a hold still casts. Petting her wins where she stands at it.
+    if (this.holdHit('bowl', x, y)) return this.objectTouched('bowl');
     return false;
   }
 
@@ -2396,6 +2409,8 @@ export class LakeScene extends Phaser.Scene {
         return on && this.trophyKey !== '' && this.hits.trophy.contains(x, y);
       case 'bed':
         return (k === 'idle' || k === 'charging') && hasCamp(this.player, 'dogbed') && this.hits.bed.contains(x, y);
+      case 'bowl':
+        return (on || k === 'casting') && this.hits.bowl.contains(x, y);
     }
   }
 
@@ -2430,11 +2445,54 @@ export class LakeScene extends Phaser.Scene {
       case 'bed':
         this.openPlayerPanel('log', undefined, 'sticks');
         break;
+      case 'bowl':
+        this.tapBowl();
+        break;
       case 'chair': {
         const r = this.companions.chairRect();
         this.showTag(1, `${this.profile.companion}'s chair`, r.centerX, r.y - 2);
         break;
       }
+    }
+  }
+
+  /**
+   * Her food bowl (slice 30): with treats a tap puts one in and Bestia comes to eat (the treat leaves the bag when she has eaten it, see
+   * updateFeeding); without any, or when she is full for today, a kind line; while she is asleep or it is bedtime, not now.
+   */
+  private tapBowl(): void {
+    const k = this.state.kind;
+    if ((k !== 'idle' && k !== 'waiting' && k !== 'casting') || this.panel || this.sleepFade) return;
+    this.markHint('bowl');
+    const c = this.companions.state;
+    if (feedBusy(c) || this.feedLater) return; // a treat is already in the bowl
+    const check = checkFeed(this.player, this.today);
+    if (check === 'noTreats') return this.showToast(EN.feedNoTreats);
+    if (check === 'full') return this.showToast(EN.feedFull);
+    // The line is out: the rod stays as it is, she eats once it is reeled in.
+    if (k !== 'idle') {
+      this.feedLater = true;
+      return this.showToast(EN.feedAfter);
+    }
+    const r = feedRequest(c, { night: timeOfDay(this.clock.minute) === 'night' });
+    if (r === 'no') this.showToast(c.mode === 'bed' && !isInCar(c) ? EN.feedBedtime : EN.feedAsleep);
+  }
+
+  /** A meal finished (slice 30): the treat leaves the bag, today's count goes up, a heart pops; the first of the day switches the cozy bonus on and Pajkel says so. */
+  private updateFeeding(): void {
+    if (this.feedLater && this.state.kind === 'idle' && !this.panel && !this.sleepFade) {
+      this.feedLater = false;
+      this.tapBowl();
+    }
+    const done = this.companions.state.fedCount;
+    while (this.fedSeen < done) {
+      this.fedSeen++;
+      const r = feedDog(this.player, this.today);
+      this.companions.heart();
+      sound.play('boof');
+      if (!r) continue;
+      this.setPlayer(r.player);
+      if (r.bonus && this.pajCanSpeak()) this.companions.say(EN.feedBonus);
     }
   }
 
@@ -2658,10 +2716,12 @@ export class LakeScene extends Phaser.Scene {
     this.campTent = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2, this.spots.camp.tent.y - TENT_SIZE.h, TEX.campTent).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y)).setVisible(false);
     this.campPole = this.add.image(this.spots.camp.pole.x, this.spots.camp.pole.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.pole.y + POLE_SIZE.h)).setVisible(false);
     this.campPole2 = this.add.image(this.spots.camp.tent.x - TENT_SIZE.w / 2 + TENT_ANCHOR.x - POLE_ANCHOR.x, this.spots.camp.tent.y - TENT_SIZE.h + TENT_ANCHOR.y - POLE_ANCHOR.y, TEX.campPole).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.tent.y - TENT_SIZE.h + POLE_SIZE.h)).setVisible(false);
-    this.campBed = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(campDepth(this.spots.camp.bed.y + BED_SIZE.h)).setVisible(false);
+    this.campBed = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(Z.dock + 0.5).setVisible(false); // on the dock slice 31: above the planks, under Bestia
     this.campSock = this.add.image(this.spots.camp.sock.x, this.spots.camp.sock.y, windsockKey(0, 0)).setOrigin(SOCK_ORIGIN_X, 1).setFlipX(true).setDepth(campDepth(this.spots.camp.sock.y)).setVisible(false);
     this.campBedFront = this.add.image(this.spots.camp.bed.x, this.spots.camp.bed.y, TEX.campBed).setOrigin(0, 0).setDepth(Z.angler + 0.3).setCrop(0, BED_FRONT_FROM, BED_SIZE.w, BED_SIZE.h - BED_FRONT_FROM).setVisible(false);
-    this.worldImgs.push(this.campTent, this.campPole, this.campPole2, this.campBed, this.campBedFront, this.campSock);
+    // Her food bowl (slice 30): free and always there, on the grass by the car; sorted by its feet like the camp things.
+    this.bowlImg = this.add.image(this.spots.bowl.x, this.spots.bowl.y, TEX.bowl).setOrigin(0, 0).setDepth(campDepth(this.spots.bowl.y + BOWL_SIZE.h));
+    this.worldImgs.push(this.campTent, this.campPole, this.campPole2, this.campBed, this.campBedFront, this.campSock, this.bowlImg);
     this.campFire = this.add.image(this.spots.camp.fire.x, this.spots.camp.fire.y, campfireKey(0)).setOrigin(0.5, 1).setDepth(campDepth(this.spots.camp.fire.y)).setVisible(false);
     this.campFx = this.add.graphics().setDepth(Z.angler - 0.15);
 
@@ -3169,8 +3229,9 @@ export class LakeScene extends Phaser.Scene {
       dog: { x: dog.x + 6, y: dog.y - DOG_SIZE.h - 2 },
       crate: null, // the crate has its own, constant twinkle (drawCrate)
       stones: this.spots.stones ? { x: this.spots.stones.x + STONES_SIZE.w - 6, y: this.spots.stones.y + 2 } : null,
+      bowl: { x: this.spots.bowl.x + BOWL_SIZE.w - 4, y: this.spots.bowl.y - 2 },
     };
-    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed', stones: this.spots.stones !== undefined });
+    const live = activeGlints(this.player.seen, { car: true, sign: true, dog: dogVisible(c) && c.mode !== 'bed', stones: this.spots.stones !== undefined, bowl: true });
     if (live.includes('car')) this.drawCarCue(g);
     for (const id of live) {
       const k = glintPhase(this.elapsed, GLINTS.indexOf(id));
@@ -3281,7 +3342,8 @@ export class LakeScene extends Phaser.Scene {
     this.companions.setDeckChair(hasCamp(p, 'deckchair'));
     this.campTent.setVisible(hasCamp(p, 'tent'));
     this.campBed.setVisible(hasCamp(p, 'dogbed'));
-    this.campBedFront.setVisible(hasCamp(p, 'dogbed') && this.companions.state.dog.shape === 'curl');
+    this.bowlImg.setTexture(bowlHasFood(this.companions.state) ? TEX.bowlFull : TEX.bowl);
+    this.campBedFront.setVisible(hasCamp(p, 'dogbed') && inDockBed(this.companions.state));
     const lights = hasCamp(p, 'lights');
     this.campPole.setVisible(lights);
     this.campPole2.setVisible(lights && !hasCamp(p, 'tent'));

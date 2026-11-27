@@ -49,4 +49,12 @@ export const EN = {
   newGearInShop: 'New gear in the shop!',
   reelInForBait: 'Reel in to change bait',
   reelInFirstStory: 'Reel in first to read the story',
+  // Feeding Bestia (slice 30)
+  feedNoTreats: 'Out of treats. The shop has some.',
+  feedFull: "She's full. Look at that belly.",
+  feedBonus: 'Spoiled. Good.',
+  feedAsleep: '{dog} is asleep.',
+  feedBedtime: 'Bedtime first.',
+  feedAfter: '{dog} can eat after this one.',
+  feedHeading: 'For {dog}',
 } as const;

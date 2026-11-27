@@ -106,15 +106,15 @@ describe('seen flags', () => {
 });
 
 describe('activeGlints', () => {
-  const present = { car: true, sign: true, dog: true, crate: true, stones: true };
+  const present = { car: true, sign: true, dog: true, crate: true, stones: true, bowl: true };
   it('everything twinkles on a fresh game', () => {
-    expect(activeGlints([], present)).toEqual(['car', 'sign', 'dog', 'crate', 'stones']);
+    expect(activeGlints([], present)).toEqual(['car', 'sign', 'dog', 'crate', 'stones', 'bowl']);
   });
   it('a tapped thing stops', () => {
-    expect(activeGlints(['sign', 'dog'], present)).toEqual(['car', 'crate', 'stones']);
+    expect(activeGlints(['sign', 'dog'], present)).toEqual(['car', 'crate', 'stones', 'bowl']);
   });
   it('a thing that is not there does not twinkle', () => {
-    expect(activeGlints([], { ...present, crate: false, dog: false })).toEqual(['car', 'sign', 'stones']);
+    expect(activeGlints([], { ...present, crate: false, dog: false })).toEqual(['car', 'sign', 'stones', 'bowl']);
     expect(activeGlints([], {})).toEqual([]);
   });
 });

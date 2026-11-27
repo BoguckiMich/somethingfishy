@@ -24,7 +24,7 @@ const GROUPS: Record<string, string[]> = {
 
 describe('shop icons', () => {
   it('cover the worm pack and every rod, line, reel and bait, and nothing else', () => {
-    const wanted = ['worms', ...Object.values(GROUPS).flat()];
+    const wanted = ['worms', 'treats', ...Object.values(GROUPS).flat()];
     expect([...SHOP_ICON_IDS].sort()).toEqual([...wanted].sort());
     expect(shopIconSprite('nope')).toBeUndefined();
   });

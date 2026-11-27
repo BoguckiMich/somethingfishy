@@ -5,7 +5,7 @@
  */
 
 /** Things on the shore that twinkle until they have been tapped once. */
-export const GLINTS = ['car', 'sign', 'dog', 'crate', 'stones'] as const;
+export const GLINTS = ['car', 'sign', 'dog', 'crate', 'stones', 'bowl'] as const;
 export type Glint = (typeof GLINTS)[number];
 
 /** The idle hint says "Hold to charge" until this many casts were made. */
