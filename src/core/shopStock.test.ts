@@ -31,7 +31,7 @@ describe('shop stock per place', () => {
   });
 
   it('River bend sells the two river items under "River tackle" and no camp; the lake sells neither', () => {
-    expect(river.gear).toEqual(['float', 'lead']);
+    expect(river.gear).toEqual(['float', 'lead', 'spinrod', 'spinner', 'wobbler', 'jig']); // the spinning rod and lures joined in slice 32
     expect(river.gearTitle).toBe('River tackle');
     expect(river.camp).toEqual([]);
     expect(sold(lake, 'float')).toBe(false);

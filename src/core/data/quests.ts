@@ -35,6 +35,8 @@ export const QUEST_TUNING = {
   catchAny: [8, 15],
   catchAtTime: { dawn: [1, 2], dusk: [1, 2], night: [2, 3] },
   catchDeep: [2, 4],
+  /** Slice 32: a predator on a lure, once the spinning rod is owned (a strike a cast or two, so 1-3 is a few minutes). */
+  catchOnLure: [1, 3],
   sellCoins: { shallowRod: [80, 160], deepRod: [200, 400] },
   /** Rewards: coins and worms, interpolated by where the target sits in its range (0 = easiest). */
   /** Slice 15c: about 1 quest in 4 also pays bait: 3-5 of a shop bait, or (a share of those) 1 glow bait. */
@@ -48,5 +50,6 @@ export const QUEST_TUNING = {
     catchDeep: { coins: [30, 50], worms: [4, 5] },
     sellCoins: { coins: [20, 40], worms: [3, 4] },
     beatRecord: { coins: [40, 40], worms: [5, 5] },
+    catchOnLure: { coins: [35, 60], worms: [3, 5] },
   },
 } as const;

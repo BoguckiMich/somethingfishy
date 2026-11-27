@@ -16,8 +16,9 @@ import { article } from '../../i18n/en';
  * seeded from the date, so the same day (and gear) always gives the same quests. The list is
  * stored in the save, so buying a rod mid-day never changes today's quests.
  */
-export type QuestKind = 'catchSpecies' | 'catchAny' | 'catchAtTime' | 'catchDeep' | 'sellCoins' | 'beatRecord';
-export const QUEST_KINDS: readonly QuestKind[] = ['catchSpecies', 'catchAny', 'catchAtTime', 'catchDeep', 'sellCoins', 'beatRecord'];
+/** `catchOnLure` (slice 32): a predator on a lure, any place; only rolled once she owns the spinning rod. */
+export type QuestKind = 'catchSpecies' | 'catchAny' | 'catchAtTime' | 'catchDeep' | 'sellCoins' | 'beatRecord' | 'catchOnLure';
+export const QUEST_KINDS: readonly QuestKind[] = ['catchSpecies', 'catchAny', 'catchAtTime', 'catchDeep', 'sellCoins', 'beatRecord', 'catchOnLure'];
 export type QuestTime = Exclude<TimeOfDay, 'day'>;
 export const QUEST_TIMES: readonly QuestTime[] = ['dawn', 'dusk', 'night'];
 
@@ -88,6 +89,7 @@ export function availableKinds(p: PlayerState): QuestKind[] {
   return QUEST_KINDS.filter((k) => {
     if (k === 'catchDeep') return reachesDeep(p);
     if (k === 'beatRecord') return speciesCaught(p.log) >= T.beatRecordMinSpecies;
+    if (k === 'catchOnLure') return p.spinRod === true;
     return true;
   });
 }
@@ -152,6 +154,10 @@ export function rollQuest(kind: QuestKind, p: PlayerState, rng: Rng): Quest {
     }
     case 'beatRecord':
       return make(kind, { target: 1 }, rewardFor('beatRecord', 0.5));
+    case 'catchOnLure': {
+      const target = pickInRange(rng, T.catchOnLure);
+      return make(kind, { target }, rewardFor('catchOnLure', share(target, T.catchOnLure)));
+    }
   }
 }
 
@@ -247,6 +253,8 @@ export interface CatchInfo {
   timeOfDay: TimeOfDay;
   /** A strictly longer fish of a species that was already in the log (a first catch is not one). */
   isRecord: boolean;
+  /** Caught on a lure (slice 32, the event's `lure`): only the spinning rig brings predators, so this counts "a predator on a lure". */
+  lure?: boolean;
 }
 
 export interface ProgressResult {
@@ -279,6 +287,7 @@ export function questsOnCatch(q: QuestsState, c: CatchInfo): ProgressResult {
       case 'catchAtTime': return quest.params.timeOfDay === c.timeOfDay ? 1 : 0;
       case 'catchDeep': return c.zone === 'deep' ? 1 : 0;
       case 'beatRecord': return c.isRecord && !legendary ? 1 : 0;
+      case 'catchOnLure': return c.lure ? 1 : 0;
       case 'sellCoins': return 0;
     }
   });
@@ -357,6 +366,7 @@ export function questText(quest: Quest): string {
     case 'catchDeep': return `Catch ${n} fish in deep water`;
     case 'sellCoins': return `Sell fish for ${n} coins`;
     case 'beatRecord': return 'Beat a personal best';
+    case 'catchOnLure': return n === 1 ? 'Catch a predator on a lure' : `Catch ${n} predators on a lure`;
   }
 }
 

@@ -7,9 +7,11 @@ import { GIVE_BACK_LINE, GIVE_UP_LINES, NEXT_ONE_LINE, ONE_SEC_LINE, SKIP_FIVE_L
 import type { Rng } from '../../core/random';
 import { QUIET_LAKE } from '../../core/data/locations';
 import type { CompanionSpots, Spots } from '../../core/location';
+import type { GameEvent } from '../../core/events';
 import { BOWL_SIZE } from '../../art/bowlArt';
 
-export type GameEventKind = 'cast' | 'nibble' | 'bite' | 'hooked' | 'fishEscaped' | 'fishCaught' | 'fishLost';
+/** Every core event type; the companions react to the float rig's (the spinning events of slice 32 do nothing here until part B decides). */
+export type GameEventKind = GameEvent['type'];
 
 export interface Point {
   x: number;
